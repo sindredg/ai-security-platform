@@ -30,6 +30,8 @@ Store state in Azure Blob Storage with the `azurerm` backend, one storage accoun
 
 A small bootstrap configuration creates the two state accounts. Its own state is local and not committed. It manages only those two accounts, and they can be imported again if that file is lost.
 
+[0008](0008-deployment-identities-and-bootstrap-scope.md) later widened the bootstrap root to the resource groups, deployment identities, and role assignments as well.
+
 ## Trade-offs
 
 - **There is a bootstrap step outside the two roots.** A root cannot create the storage its own state lives in.
