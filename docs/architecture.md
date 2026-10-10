@@ -92,7 +92,6 @@ Proposed. No existing networks conflict with it.
 | `10.40.0.0/20` | Sweden Central | Platform virtual network |
 | `10.40.0.0/27` | Sweden Central | Orchestrator subnet |
 | `10.40.0.32/27` | Sweden Central | AI worker subnet |
-| `10.40.1.0/26` | Sweden Central | Reserved: administrative access |
 | `10.50.0.0/20` | Denmark East | Target virtual network |
 | `10.50.0.0/27` | Denmark East | NetBox subnet |
 | `10.50.0.32/27` | Denmark East | Authorized consumer viewpoint |
@@ -113,11 +112,16 @@ Global virtual network peering connects the two networks. Peering provides routi
 | AI worker subnet | Target network | None | Denied |
 | AI worker subnet | Internet | None after model and image provisioning | Denied |
 | Target network | Platform network | None | Denied for new connections |
+| Operator device | Orchestrator, then other VMs | Administration over the mesh VPN | Allowed for signed-in operator devices |
 | Internet | Any | None | Denied inbound |
 
 Application authentication and TLS are required on allowed flows. A permitted route is not authorization.
 
-Open items: the administrative access method, the egress design for package and image downloads, and private DNS. See [Open decisions](#open-decisions).
+### Administrative access
+
+The operator reaches the VMs over a mesh VPN. The orchestrator runs the agent and routes to both networks, so no VM has a public address and no rule names an operator address. See [ADR 0007](decisions/0007-mesh-vpn-for-administrative-access.md).
+
+Open items: the egress design for package and image downloads, and private DNS. See [Open decisions](#open-decisions).
 
 ## Platform
 
@@ -262,7 +266,6 @@ Each is resolved in a decision record before the milestone that depends on it.
 
 | Decision | Needed before |
 | --- | --- |
-| Administrative access to private VMs | Platform compute |
 | Egress design for image and package downloads | Platform compute |
 | Dispatch from Argo to the worker VM | Toolchain integration |
 | Cloud identity for K3s workloads | Toolchain integration |

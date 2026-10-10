@@ -10,6 +10,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0004](0004-netbox-as-first-target.md) | NetBox as the first target, three ordered exercises | Accepted |
 | [0005](0005-ai-workers-on-a-separate-vm.md) | AI workers on a separate VM outside the cluster | Accepted |
 | [0006](0006-terraform-state-in-azure-storage.md) | Terraform state in Azure Storage, one account per root | Accepted |
+| [0007](0007-mesh-vpn-for-administrative-access.md) | Mesh VPN for administrative access | Accepted |
 
 ## Format
 

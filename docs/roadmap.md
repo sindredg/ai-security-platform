@@ -35,13 +35,13 @@ Create the state storage and both Terraform roots. Provision resource groups, vi
 
 ## 2. Platform compute
 
-Provision the orchestrator and AI worker VMs. Install K3s. Establish administrative access and the egress path.
+Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN for administrative access and the egress path.
 
-**Depends on:** the administrative access and egress decisions.
+**Depends on:** the egress decision.
 
 **Exit gate:**
 
-- Both VMs are reachable only through the chosen administrative path.
+- Both VMs are reachable over the mesh VPN and have no public address.
 - K3s is healthy after a VM restart.
 - The worker cannot open a connection to the target network or the internet.
 - Idle CPU and memory use on both VMs is measured and recorded.
