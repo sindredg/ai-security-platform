@@ -5,33 +5,35 @@ Date: 2026-10-10
 
 ## Context
 
-AI workers process untrusted input: advisories, target evidence, and tool results. The design assumes a worker can be compromised through that input. A compromised worker must not reach delivery credentials, workflow definitions, other jobs' evidence, or the target network.
+AI workers read advisories, target evidence, and tool results. All of it is untrusted, and any of it can carry instructions. The safe assumption is that a worker will eventually be turned by something it reads.
 
-The orchestrator holds exactly those things. Namespaces, pod security settings, and network policies reduce exposure inside one cluster, but they share a kernel and a node, and the project does not treat them as a boundary against malicious code.
+When that happens, it must not find delivery credentials, workflow definitions, other jobs' evidence, or a route to the target. The orchestrator holds exactly those things.
 
-Model inference is also the largest CPU and memory consumer. On a shared 2-vCPU node it would compete with the Kubernetes control plane.
+Namespaces, pod security settings, and network policies help inside one cluster. But they share a kernel and a node with everything else, and this project does not treat them as a wall against malicious code.
+
+There is a practical reason too. Inference is the biggest CPU and memory consumer in the system. On a shared 2-vCPU node it would fight the Kubernetes control plane for both.
 
 ## Options
 
 | Option | Boundary | Cost |
 | --- | --- | --- |
 | Worker pods on the K3s server node | Shared kernel and node with trusted services | No extra VM. Inference competes with the control plane |
-| Worker VM joined as a K3s agent node | Separate kernel, but the node holds kubelet credentials and receives cluster networking | Simple dispatch. A compromised node has a foothold in the cluster |
-| Sandboxed container runtime on the server node | Stronger than plain pods | Extra runtime to operate. Still shares the node's capacity |
-| Separate VM, not a cluster member | Separate kernel, network interface, and credentials. No cluster identity | Argo cannot schedule onto it directly. A dispatch mechanism is needed |
+| Worker VM joined as a K3s agent node | Separate kernel, but the node holds kubelet credentials and sits on the cluster network | Simple dispatch. A compromised node has a foothold in the cluster |
+| Sandboxed container runtime on the server node | Stronger than plain pods | Another runtime to operate. Still shares the node's capacity |
+| Separate VM, not a cluster member | Separate kernel, network interface, and credentials. No cluster identity | Argo cannot schedule onto it. Dispatch has to be built or found |
 
 ## Decision
 
 Run the agent runtime and the model server on a separate VM that is not a Kubernetes node.
 
 - The worker VM has no cluster credentials and no privileged cloud identity.
-- Network rules allow it to reach tool services on the orchestrator and nothing else.
+- Network rules let it reach the tool services on the orchestrator and nothing else.
 - Jobs arrive through a narrow, authenticated dispatch interface that carries a job scope and returns a schema-checked result.
-- One job runs at a time, with one loaded model.
+- One job at a time, one loaded model.
 
 ## Trade-offs
 
-- **Dispatch is custom integration risk.** Argo runs pods, not remote processes. The mechanism must be a maintained integration or a small bounded adapter with defined authentication, cancellation, and cleanup. This is the first thing the toolchain milestone proves.
-- **Separation between jobs is weaker than between worker and platform.** Consecutive jobs share the VM. Session, cache, and workspace cleanup between jobs must be tested, not assumed.
-- **It uses half the region's compute.** The orchestrator and the worker each get 2 vCPUs, with no room for a second worker.
-- **A VM boundary is not confidential computing.** The provider and the platform administrator remain trusted.
+- **Dispatch is the price.** Argo runs pods, not remote processes. The mechanism has to be a maintained integration or a small adapter with defined authentication, cancellation, and cleanup. It is the first thing the toolchain milestone has to prove.
+- **Jobs are separated less well than worker and platform are.** Consecutive jobs share the VM. Session, cache, and workspace cleanup between them has to be tested, not assumed.
+- **It takes half the region's compute.** Orchestrator and worker get 2 vCPUs each. There is no room for a second worker.
+- **A VM boundary is not confidential computing.** The provider and the platform administrator are still trusted.

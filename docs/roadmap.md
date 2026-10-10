@@ -1,6 +1,6 @@
 # Roadmap
 
-A milestone is complete when its exit gate is met and the evidence is recorded in a [worklog](worklogs/README.md). The design behind these milestones is in the [architecture](architecture.md).
+Each milestone has an exit gate: things that must be shown to work, not things that must be built. A milestone is done when its gate is met and the evidence is in a [worklog](worklogs/README.md). The design behind all of this is in the [architecture](architecture.md).
 
 ## Status
 
@@ -18,13 +18,15 @@ A milestone is complete when its exit gate is met and the evidence is recorded i
 
 ## 0. Documentation baseline and preflight
 
-Establish the architecture, the first decision records, and account-specific evidence for regions and sizes.
+Write down the design and the first decisions, and get account-specific evidence for regions and sizes before anything depends on them.
 
-**Exit gate:** the architecture, roadmap, and first decision records are published. The preflight worklog records quota and SKU evidence for both regions.
+**Exit gate:** the architecture, roadmap, and first decision records are published. The preflight worklog records quota and VM size evidence for both regions.
 
 ## 1. Network foundation
 
-Create the state storage and both Terraform roots. Provision resource groups, virtual networks, subnets, network security groups, and peering. No compute.
+Create the state storage and both Terraform roots. Provision resource groups, virtual networks, subnets, network security groups, and peering. No compute yet.
+
+The point of doing this first is to prove the separation before there is anything to separate.
 
 **Exit gate:**
 
@@ -35,32 +37,34 @@ Create the state storage and both Terraform roots. Provision resource groups, vi
 
 ## 2. Platform compute
 
-Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN for administrative access and the egress path.
+Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN and the egress path.
 
 **Depends on:** the egress decision.
 
 **Exit gate:**
 
 - Both VMs are reachable over the mesh VPN and have no public address.
-- K3s is healthy after a VM restart.
+- K3s comes back healthy after a VM restart.
 - The worker cannot open a connection to the target network or the internet.
-- Idle CPU and memory use on both VMs is measured and recorded.
+- Idle CPU and memory use on both VMs is measured.
 
 ## 3. Toolchain integration
 
-Deploy Argo Workflows, the agent runtime, and the model server. Prove the path from a workflow to the worker and back, with synthetic evidence only.
+Deploy Argo Workflows, the agent runtime, and the model server. Prove the round trip from a workflow to the worker and back, on synthetic evidence only.
+
+This is where the design is most likely to be wrong, so it comes before any target exists.
 
 **Depends on:** the dispatch and workload identity decisions.
 
 **Exit gate:**
 
-- A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result returns.
-- A tool call for another job or target is denied by the tool service.
+- A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back.
+- A tool call for another job or target is refused by the tool service.
 - Cancelling a workflow stops the worker job and cleans up its session.
 - Model memory use, latency per turn, and tokens per second are measured on the chosen size.
-- Component footprint on the orchestrator is measured. Deferred components are added or dropped based on it.
+- Component footprint on the orchestrator is measured. Deferred components go in or get dropped based on it.
 
-If a candidate needs a substantial custom service to pass this gate, replace or simplify it before continuing.
+If a candidate needs a substantial custom service to pass this gate, replace it or simplify the design. Don't build the service.
 
 ## 4. NetBox target and exercise 1 investigation
 
@@ -72,28 +76,28 @@ Define the consumer contract. Deploy NetBox, synthetic inventory, and the consum
 
 - The consumer contract lists endpoints, fields, permitted records, and expected denials.
 - Deterministic checks confirm the finding and a known unaffected case.
-- The AI investigation cites tool evidence for each conclusion and records uncertainty where evidence disagrees.
+- The AI investigation cites tool evidence for each conclusion, and says so when evidence disagrees.
 - A baseline without AI, using the same tools, is recorded for comparison.
 
 ## 5. Remediation, pull requests, and delivery
 
 Rehearse a proposed fix on the rehearsal copy, publish it as a pull request, and deliver it after approval.
 
-**Depends on:** the repository, credential, and approval enforcement decisions.
+**Depends on:** the credential and approval enforcement decisions.
 
 **Exit gate:**
 
-- A proposal becomes a pull request with evidence, without the worker holding repository credentials.
-- A deliberately unsafe patch is rejected even though functional tests pass.
-- Delivery applies only the approved commit to the approved target. A changed commit invalidates the approval.
-- After delivery, the consumer returns its required records, forbidden records are not disclosed, and writes stay denied.
-- One supported rollback is demonstrated, and what it cannot repair is recorded.
+- A proposal becomes a pull request with evidence, and the worker never holds repository credentials.
+- A deliberately unsafe patch is rejected even though its functional tests pass.
+- Delivery applies only the approved commit to the approved target. A changed commit voids the approval.
+- After delivery, the consumer gets its required records, forbidden records stay hidden, and writes stay denied.
+- One supported rollback is demonstrated, along with what it cannot repair.
 
 ## 6. Operational and containment drills
 
-Exercise failure and attack cases against the completed workflow.
+Break the finished workflow on purpose.
 
-**Exit gate:** recorded results, including failures, for:
+**Exit gate:** recorded results, failures included, for:
 
 - Worker and orchestrator interruption without duplicate changes.
 - Duplicate findings without duplicate pull requests.
@@ -104,30 +108,30 @@ Exercise failure and attack cases against the completed workflow.
 
 ## 7. Exercise 2: excess network access
 
-Reuse the workflow. Seed a target network rule that admits the unintended viewpoint.
+Same workflow, different change surface. Seed a target network rule that lets the unintended viewpoint in.
 
 **Exit gate:**
 
-- Probes from both viewpoints before and after the change.
+- Probes from both viewpoints, before and after.
 - The change touches only allowlisted target network fields.
 - The consumer contract and the exercise 1 denials still hold.
 - Outer containment is unchanged.
 
 ## 8. Exercise 3: vulnerable image or dependency
 
-Select a real advisory, an affected pinned artifact, and a reviewed fix before seeding.
+Pick a real advisory, an affected pinned artifact, and a reviewed fix before seeding anything.
 
 **Exit gate:**
 
-- An applicability record for the specific artifact, not a version-string match.
+- An applicability record for the specific artifact. A version-string match is not enough.
 - The update is rehearsed with database migration and a tested recovery procedure.
-- The specific finding is reassessed after delivery. A clean generic scan is not sufficient.
+- The specific finding is reassessed after delivery. A clean generic scan is not enough.
 - Results from exercises 1 and 2 still hold.
 
-If no suitable affected and fixed artifact pair is found, this exercise is recorded as not done.
+If no suitable affected and fixed artifact pair turns up, this exercise is recorded as not done. It does not get faked.
 
 ## Later options
 
 - A Container Apps target and a Windows client target.
-- Additional models where measurement justifies them.
-- A managed Kubernetes deployment profile with more capacity.
+- More models, where measurement justifies them.
+- A managed Kubernetes profile with more capacity.
