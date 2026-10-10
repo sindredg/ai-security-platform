@@ -1,6 +1,6 @@
 # Worklogs
 
-One worklog per milestone: what was done, the commands that were run, and the evidence behind each result. Results are recorded only after the command has run. Account identifiers are replaced with placeholders.
+One worklog per milestone: what was done, the commands that were run, and the evidence behind each result.
 
 | Worklog | Milestone |
 | --- | --- |

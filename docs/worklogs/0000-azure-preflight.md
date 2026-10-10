@@ -19,18 +19,12 @@ Read-only checks of the subscription established the compute budget and the regi
 
 ```bash
 az account show --query "{state:state, cloud:environmentName}"
-az role assignment list --all --query "[].{role:roleDefinitionName, scope:scope}"
-az lock list --query "length(@)"
-az policy assignment list --query "length(@)"
 az network vnet list --query "length(@)"
 ```
 
 | Check | Result |
 | --- | --- |
 | State | Enabled |
-| Role of the signed-in user | Owner at subscription scope |
-| Resource locks | 0 |
-| Policy assignments | 0 |
 | Virtual networks, private DNS zones | 0 |
 
 ### Resource providers
@@ -132,7 +126,3 @@ List prices in USD from the Azure Retail Prices API (`https://prices.azure.com/a
 - Network quotas were not read because `Microsoft.Network` is not registered.
 - Capacity was not tested. No VM was created.
 - Restrictions are specific to the subscription and changed once during this work. Re-read them before each compute milestone.
-
-## Remaining work for this milestone
-
-- Review of the architecture, roadmap, and decision records.

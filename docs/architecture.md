@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the planned system. Nothing in it is deployed yet. Each section states what is decided, what is proposed, and what is still open. Update it when the design changes.
+This document describes the planned system. Nothing in it is deployed yet. Each section states what is decided, what is proposed, and what is still open.
 
 Decisions with their context and trade-offs are in the [decision records](decisions/README.md). Milestones are in the [roadmap](roadmap.md).
 
@@ -67,7 +67,7 @@ The platform and the targets are separate infrastructure. They share one Azure s
 | Purpose | Runs orchestration, tools, AI workers, inference | Hosts the service under investigation and its lab fixtures |
 | Region | Sweden Central | Denmark East |
 | Terraform root | `infra/platform/` | `infra/targets/` |
-| Terraform state | Own state, own access scope | Own state, own access scope |
+| Terraform state | Own storage account, own access scope | Own storage account, own access scope |
 | Resource groups | Platform only | Targets only |
 | Virtual network | `10.40.0.0/20` | `10.50.0.0/20` |
 | Deployment identity | Platform scope only | Target scope only |
@@ -146,7 +146,7 @@ A second VM runs the agent runtime and the model server. It is not a Kubernetes 
 
 ### Candidate components
 
-These are candidates to validate, not final selections. Versions are pinned when each is adopted.
+These are candidates to validate, not final selections.
 
 | Role | Candidate | To validate |
 | --- | --- | --- |
@@ -157,15 +157,6 @@ These are candidates to validate, not final selections. Versions are pinned when
 | Model gateway | LiteLLM | Whether it earns its footprint while there is one model backend |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises |
 | Metrics and dashboards | Prometheus, Grafana | Footprint on the orchestrator |
-
-### Version policy
-
-- Adopt the newest stable, supported release of each tool, provider, chart, image, and model at the time it is introduced. Previews and release candidates are not used.
-- Pin exact versions and image digests. No floating tags or open version ranges.
-- Record the version and the date it was checked in the worklog of the milestone that adopts it.
-- Review pinned versions at the start of each milestone and update what has fallen behind or approaches end of support.
-
-The target is the exception for exercise 3, where an affected version is pinned on purpose.
 
 ## Targets
 
@@ -225,6 +216,7 @@ Controls that follow:
 - Evidence from the target is compared with repository, cloud, and network observations. Disagreement is recorded, not resolved by the model.
 - Approval binds to a commit and a target. A changed proposal needs new checks and new approval.
 - Private payloads stay in protected storage. Workflow parameters and logs carry references.
+- The repository is public. Pull requests carry synthetic data and sanitized summaries only. State, raw plans, and secrets never enter them.
 
 ## Identity
 
@@ -272,12 +264,11 @@ Each is resolved in a decision record before the milestone that depends on it.
 | --- | --- |
 | Administrative access to private VMs | Platform compute |
 | Egress design for image and package downloads | Platform compute |
-| Terraform state storage and bootstrap | Network foundation |
 | Dispatch from Argo to the worker VM | Toolchain integration |
 | Cloud identity for K3s workloads | Toolchain integration |
 | Worker execution isolation beyond VM separation | Connecting real target evidence |
 | NetBox version, consumer scope, seeded settings | Target deployment |
-| Repository visibility, GitHub App permissions, approval enforcement | Remediation and pull requests |
+| GitHub App permissions and approval enforcement | Remediation and pull requests |
 | Acceptance thresholds for quality, recovery, and cost | Operational drills |
 
 ## Limitations

@@ -1,6 +1,6 @@
 # Decision records
 
-One record per consequential architecture choice. A record states the context, the options considered, the decision, and its trade-offs. Records are not edited after acceptance except to mark them superseded. A changed decision gets a new record.
+One record per consequential architecture choice. A record states the context, the options considered, the decision, and its trade-offs. A decision that changes gets a new record, and the old one is marked superseded.
 
 | Record | Decision | Status |
 | --- | --- | --- |
@@ -9,6 +9,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0003](0003-region-pair.md) | Sweden Central for the platform, Denmark East for targets | Accepted |
 | [0004](0004-netbox-as-first-target.md) | NetBox as the first target, three ordered exercises | Accepted |
 | [0005](0005-ai-workers-on-a-separate-vm.md) | AI workers on a separate VM outside the cluster | Accepted |
+| [0006](0006-terraform-state-in-azure-storage.md) | Terraform state in Azure Storage, one account per root | Accepted |
 
 ## Format
 

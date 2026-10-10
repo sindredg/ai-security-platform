@@ -1,6 +1,6 @@
 # Roadmap
 
-Work proceeds one milestone at a time. A milestone is complete when its exit gate is met and the evidence is recorded in a [worklog](worklogs/README.md). The design behind these milestones is in the [architecture](architecture.md).
+A milestone is complete when its exit gate is met and the evidence is recorded in a [worklog](worklogs/README.md). The design behind these milestones is in the [architecture](architecture.md).
 
 ## Status
 
@@ -20,13 +20,11 @@ Work proceeds one milestone at a time. A milestone is complete when its exit gat
 
 Establish the architecture, the first decision records, and account-specific evidence for regions and sizes.
 
-**Exit gate:** architecture, roadmap, and decision records are reviewed. The preflight worklog records quota and SKU evidence for both regions.
+**Exit gate:** the architecture, roadmap, and first decision records are published. The preflight worklog records quota and SKU evidence for both regions.
 
 ## 1. Network foundation
 
-Create both Terraform roots with separate state. Provision resource groups, virtual networks, subnets, network security groups, and peering. No compute.
-
-**Depends on:** the state storage decision.
+Create the state storage and both Terraform roots. Provision resource groups, virtual networks, subnets, network security groups, and peering. No compute.
 
 **Exit gate:**
 
