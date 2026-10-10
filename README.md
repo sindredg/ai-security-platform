@@ -4,6 +4,16 @@ Self-hosted AI workers investigate security findings on a service they don't run
 
 The split of work is strict. Ordinary tools collect evidence and establish facts. AI interprets the evidence and proposes a bounded change. Neither gets to approve anything.
 
+## Why
+
+Organizations that run sensitive infrastructure want AI to take over the slow parts of security work: investigating a finding and working out a safe fix. What stops them is control. The evidence is exactly the data they cannot hand to an outside model, and an unreviewed change to production is not something anyone signs off on.
+
+This project is a design for getting the first without giving up the second: less investigation and remediation effort, with the data and every change still under the organization's control.
+
+The engineering problem is making that hold when things go wrong. Self-hosted models, constrained tools, independent validation, and auditable approval have to work together so that a change is only delivered if it keeps the service working. That must stay true when the AI's proposal is wrong, when the evidence has been tampered with, and when a worker fails halfway through.
+
+Whether the AI is worth its cost is an open question, not an assumption. Every result is measured against the same workflow run with ordinary automation alone.
+
 ## Status
 
 Planning. Nothing is deployed yet. The documents below are the design and the evidence behind the first decisions.

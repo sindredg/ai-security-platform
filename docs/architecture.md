@@ -266,7 +266,7 @@ targets/netbox/     NetBox deployment definition, fixtures, consumer contract
 policies/           Target, tool, and change rules
 collectors/         Collection and adaptation scripts
 validation/         Contract tests and security and recovery drills
-docs/               Architecture, decisions, troubleshooting, worklogs
+docs/               Architecture, decisions, runbooks, troubleshooting, worklogs
 ```
 
 ## Open decisions

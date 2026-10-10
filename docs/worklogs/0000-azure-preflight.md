@@ -46,7 +46,7 @@ Providers the design needs are registered by the milestone that first uses them.
 
 ## Compute quota
 
-Quota was unreadable until `Microsoft.Compute` was registered. See [troubleshooting 0001](../troubleshooting/0001-compute-quota-unreadable-before-provider-registration.md).
+Quota is unreadable until `Microsoft.Compute` is registered. Before that, `az vm list-usage` returns an empty list with a success exit code, which looks like "no limits" and means "no data".
 
 ```bash
 az provider register -n Microsoft.Compute --wait
