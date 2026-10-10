@@ -21,3 +21,6 @@ override.tf.json
 *.key
 kubeconfig
 *.kubeconfig
+
+# Backend settings that name real resources
+backend.hcl

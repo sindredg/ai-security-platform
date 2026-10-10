@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars and replace the placeholders. The copy is ignored by Git.
+platform_certificate_path = "REPLACE_WITH_CREDENTIAL_DIR/platform.crt"
+targets_certificate_path  = "REPLACE_WITH_CREDENTIAL_DIR/targets.crt"
+
+# Rotation deadline for both certificates. Keep it inside their validity.
+certificate_end_date = "REPLACE_WITH_RFC3339_TIMESTAMP"
