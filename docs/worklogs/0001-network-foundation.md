@@ -164,6 +164,17 @@ az network nic list --query "length(@)"
 
 Both return `0`.
 
+## Rule validation
+
+The network module rejects rule sets that Azure would only reject at apply. Checked with `terraform validate` on a scratch root that calls the module with two rules.
+
+| Rule set | Result |
+| --- | --- |
+| Priority 100 inbound and priority 100 outbound | `Success! The configuration is valid.` |
+| Two names that differ only in case | `Rule names must be unique within a subnet.` |
+| Two inbound rules at priority 100 | `Two rules in one subnet cannot share a direction and a priority.` |
+| Direction `inbound` in lower case | `Use direction Inbound or Outbound, access Allow or Deny, and protocol Tcp, Udp, Icmp, Esp, Ah, or *.` |
+
 ## Identity separation
 
 Each identity signed in with its certificate in a throwaway CLI profile and ran the same set of commands. The commands are in step 12 of the runbook, except the rule addition, which was `az network nsg rule create` with an allow-all inbound rule against one security group on the other side.

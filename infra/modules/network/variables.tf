@@ -43,6 +43,36 @@ variable "subnets" {
     ]))
     error_message = "Rule priorities must be from 100 to 3999. 4096 is reserved for the deny-all baseline."
   }
+
+  # Azure rejects these at apply, after other resources in the plan have already
+  # changed. Catch them at plan instead.
+  validation {
+    condition = alltrue([
+      for subnet in values(var.subnets) :
+      length(distinct([for rule in subnet.rules : lower(rule.name)])) == length(subnet.rules)
+    ])
+    error_message = "Rule names must be unique within a subnet."
+  }
+
+  validation {
+    condition = alltrue([
+      for subnet in values(var.subnets) :
+      length(distinct([for rule in subnet.rules : "${rule.direction}/${rule.priority}"])) == length(subnet.rules)
+    ])
+    error_message = "Two rules in one subnet cannot share a direction and a priority."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for subnet in values(var.subnets) : [
+        for rule in subnet.rules :
+        contains(["Inbound", "Outbound"], rule.direction) &&
+        contains(["Allow", "Deny"], rule.access) &&
+        contains(["Tcp", "Udp", "Icmp", "Esp", "Ah", "*"], rule.protocol)
+      ]
+    ]))
+    error_message = "Use direction Inbound or Outbound, access Allow or Deny, and protocol Tcp, Udp, Icmp, Esp, Ah, or *."
+  }
 }
 
 variable "peering" {
