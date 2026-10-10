@@ -5,7 +5,7 @@ Date: 2026-10-10
 
 ## Context
 
-The usual lab target is a VM with an old package and an open port. It is easy to seed and nearly impossible to fix wrongly, which makes it a poor test. If nothing depends on the service, then closing the port, removing the package, or turning the machine off all count as success.
+The usual lab target is a VM with an old package and an open port. It is simple to seed, and almost any fix counts as correct, which makes it a poor test. If nothing depends on the service, then closing the port, removing the package, or turning the machine off all count as success.
 
 A useful target has someone relying on it. Then a fix can be wrong in the way real fixes are wrong: the finding goes away and so does the service.
 
@@ -15,7 +15,7 @@ The target also has to run in 2 vCPUs, hold no real data, and offer more than on
 
 | Option | Strength | Weakness |
 | --- | --- | --- |
-| A VM with an outdated package and an open port | Simple to seed | No dependent consumer. Fixes are hard to get wrong |
+| A VM with an outdated package and an open port | Simple to seed | No dependent consumer. Almost any fix counts as correct |
 | A Git hosting service | Realistic, has an API | Too close to a service already used in earlier work |
 | NetBox with a dependent API consumer | Inventory that automation relies on, object-level permissions, a REST API, a containerized deployment with a database | Heavier than one package. Upgrades involve database migrations |
 | Three different targets (Linux VM, Container Apps, Windows client) | Broad coverage | Three adapters before one workflow is proven |

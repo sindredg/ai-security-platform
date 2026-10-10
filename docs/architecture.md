@@ -6,7 +6,7 @@ The reasoning behind each choice is in the [decision records](decisions/README.m
 
 ## Purpose
 
-Finding a misconfiguration is the easy part. The hard part is proposing a fix that removes the problem without breaking the people who depend on the service, and proving that before anyone approves it.
+Finding a misconfiguration is only the start. The real work is proposing a fix that removes the problem without breaking the people who depend on the service, and proving that before anyone approves it.
 
 That is what this platform does, for a service it does not host:
 
@@ -233,7 +233,7 @@ What follows from that:
 
 - **Operator:** Microsoft Entra ID sign-in through supported OIDC integrations, with no premium identity features assumed. One person investigates and approves. That is not separation of duties, and the project does not claim it is.
 - **Workloads:** collector, tool service, broker, delivery runner, and worker each have their own permissions. Delivery and repository credentials exist only in the `change` namespace.
-- **Cloud access from K3s:** open, and awkward. Workload identity federation on a self-managed cluster needs its OIDC issuer document to be publicly reachable. A VM managed identity is simpler but is available to every process on that VM. No workload gets cloud access until this is decided.
+- **Cloud access from K3s:** open. Workload identity federation on a self-managed cluster needs its OIDC issuer document to be publicly reachable. A VM managed identity is simpler but is available to every process on that VM. No workload gets cloud access until this is decided.
 
 ## Capacity
 

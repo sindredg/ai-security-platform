@@ -4,9 +4,9 @@ Self-hosted AI workers investigate security findings on a service they don't run
 
 The split of work is strict. Ordinary tools collect evidence and establish facts. AI interprets the evidence and proposes a bounded change. Neither gets to approve anything.
 
-## The hard part
+## What can go wrong
 
-Getting a model to suggest a fix is easy. Trusting the suggestion is not. Three things go wrong:
+A suggested fix and a fix that can be trusted are different things. Three failures separate them:
 
 - **The model is wrong.** It proposes a fix that clears the finding and breaks the service.
 - **The evidence lies.** A compromised target reports whatever it likes, and an advisory can carry instructions.
