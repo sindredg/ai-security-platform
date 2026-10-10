@@ -57,6 +57,8 @@ terraform plan -detailed-exitcode
 | Apply | `Apply complete! Resources: 23 added, 0 changed, 0 destroyed.` |
 | Plan after apply | `No changes.` Exit `0` |
 
+The certificate end date was one variable for both sides at apply time. It is now one variable per side, so a rotation touches one credential. With both set to the applied value, `terraform plan -detailed-exitcode` reports `No changes.` and exits `0`.
+
 State accounts, read back:
 
 ```bash
@@ -99,9 +101,9 @@ terraform plan -detailed-exitcode
 | --- | --- | --- |
 | `infra/platform` | 9 | `No changes.` Exit `0` |
 | `infra/targets` | 15 | `No changes.` Exit `0` |
-| `infra/bootstrap` | 23 | `No changes.` Exit `0` |
+| `infra/bootstrap` | 25 | `No changes.` Exit `0` |
 
-The resource counts for the two network roots include one resource group data source each.
+The counts are `terraform state list` entries, data sources included: one resource group in each network root, and the subscription and client configuration in the bootstrap root. That is why the bootstrap apply reports 23 resources and its state lists 25.
 
 ## Peering
 

@@ -1,5 +1,7 @@
 # One deployment identity per side. Each authenticates with a certificate whose
 # private key is generated on the operator machine and never enters Terraform.
+# Each certificate has its own end date, so rotating one side leaves the other
+# side's credential alone.
 resource "azuread_application" "deploy" {
   for_each = local.sides
 
@@ -21,7 +23,7 @@ resource "azuread_application_certificate" "deploy" {
   type           = "AsymmetricX509Cert"
   encoding       = "pem"
   value          = file(each.value.certificate_path)
-  end_date       = var.certificate_end_date
+  end_date       = each.value.certificate_end
 }
 
 # Contributor on the side's own workload group and nothing wider. It cannot

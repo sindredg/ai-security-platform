@@ -7,11 +7,13 @@ locals {
     platform = {
       location         = var.platform_location
       certificate_path = var.platform_certificate_path
+      certificate_end  = var.platform_certificate_end_date
       peer             = "targets"
     }
     targets = {
       location         = var.targets_location
       certificate_path = var.targets_certificate_path
+      certificate_end  = var.targets_certificate_end_date
       peer             = "platform"
     }
   }

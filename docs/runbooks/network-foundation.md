@@ -74,17 +74,17 @@ Three identities appear below. Keep track of which one a shell is using.
 
 ## Apply the bootstrap root
 
-4. Fill in the bootstrap variables. The end date is when Microsoft Entra ID stops accepting the certificates. It has to fall inside their 91 days.
+4. Fill in the bootstrap variables. Each side has its own end date: when Microsoft Entra ID stops accepting that side's certificate. It has to fall inside the certificate's 91 days, so run this step on the same day as step 3.
 
    ```bash
    cd infra/bootstrap
    cp terraform.tfvars.example terraform.tfvars
    chmod 600 terraform.tfvars
    date -u -d '+90 days' +%Y-%m-%dT00:00:00Z
-   # Edit terraform.tfvars: set both certificate paths and paste the timestamp.
+   # Edit terraform.tfvars: set both certificate paths and paste the timestamp into both end dates.
    ```
 
-   Expected: `terraform.tfvars` names the two `.crt` files and one timestamp. Git ignores it.
+   Expected: `terraform.tfvars` names the two `.crt` files and two end dates. Git ignores it.
 
 5. Plan and apply as the operator. This root keeps its state in a local file.
 
@@ -122,6 +122,8 @@ Three identities appear below. Keep track of which one a shell is using.
 The link takes three applies. Each side owns its own half of the peering, and a half cannot be created before the network it points at exists.
 
 Use a fresh shell for each root, or source the right file again before every command. A shell that still has the other side's variables set fails with an authorization error, which is the boundary working.
+
+A fresh shell has no `CRED_DIR`. Export it again, as in step 3, before sourcing anything.
 
 7. Apply the platform root without the peering.
 
@@ -247,7 +249,47 @@ Use a fresh shell for each root, or source the right file again before every com
 
 ## Rotate a certificate
 
-Before the end date from step 4, repeat step 3 for the affected side, set a new `certificate_end_date`, and apply the bootstrap root. Terraform replaces the certificate on the app registration. Until that apply finishes, the old key still works.
+Rotate one side at a time, before that side's end date from step 4. Do not rerun the step 3 loop: it regenerates both sides and overwrites the keys that Microsoft Entra ID still trusts.
+
+1. Keep the current files, then generate a new key pair for the one side.
+
+   ```bash
+   umask 077
+   side='REPLACE_WITH_SIDE'   # platform or targets
+   mkdir -p -m 700 "$CRED_DIR/previous"
+   cp -p "$CRED_DIR/$side.key" "$CRED_DIR/$side.crt" "$CRED_DIR/$side.pfx" "$CRED_DIR/$side.pem" "$CRED_DIR/previous/"
+   openssl req -x509 -newkey rsa:4096 -sha256 -days 91 -nodes \
+     -subj "/CN=aisec-$side-deploy" \
+     -keyout "$CRED_DIR/$side.key" -out "$CRED_DIR/$side.crt"
+   openssl pkcs12 -export -passout pass: \
+     -inkey "$CRED_DIR/$side.key" -in "$CRED_DIR/$side.crt" -out "$CRED_DIR/$side.pfx"
+   cat "$CRED_DIR/$side.key" "$CRED_DIR/$side.crt" > "$CRED_DIR/$side.pem"
+   ```
+
+   Expected: four new files for that side, and the old four in `$CRED_DIR/previous`.
+
+2. In `infra/bootstrap/terraform.tfvars`, set that side's `<side>_certificate_end_date` to a new timestamp from the `date` command in step 4. Leave the other side's date alone.
+
+3. Plan and apply the bootstrap root as the operator.
+
+   ```bash
+   cd infra/bootstrap
+   terraform plan -out=bootstrap.tfplan
+   terraform apply bootstrap.tfplan
+   ```
+
+   Expected: the plan replaces one `azuread_application_certificate`, the rotated side's, and touches nothing else. If the other side's certificate is in the plan, stop: its end date was changed too.
+
+   The old key works until this apply removes its certificate. If the plan fails, copy the files back from `previous` and nothing has changed. If the apply fails partway, run it again. The operator does not depend on either certificate.
+
+4. Confirm the new key works, then delete the old one.
+
+   ```bash
+   (cd ../$side && source "$CRED_DIR/$side.env" && terraform plan -detailed-exitcode)
+   rm -r "$CRED_DIR/previous"
+   ```
+
+   Expected: `No changes` and exit `0`.
 
 This procedure has not been run yet.
 

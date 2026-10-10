@@ -2,5 +2,6 @@
 platform_certificate_path = "REPLACE_WITH_CREDENTIAL_DIR/platform.crt"
 targets_certificate_path  = "REPLACE_WITH_CREDENTIAL_DIR/targets.crt"
 
-# Rotation deadline for both certificates. Keep it inside their validity.
-certificate_end_date = "REPLACE_WITH_RFC3339_TIMESTAMP"
+# Rotation deadline per certificate. Keep each inside its certificate's validity.
+platform_certificate_end_date = "REPLACE_WITH_RFC3339_TIMESTAMP"
+targets_certificate_end_date  = "REPLACE_WITH_RFC3339_TIMESTAMP"

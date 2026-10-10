@@ -31,12 +31,22 @@ variable "targets_certificate_path" {
   type        = string
 }
 
-variable "certificate_end_date" {
-  description = "When Microsoft Entra ID stops accepting both certificates, as an RFC 3339 timestamp. Must not be later than either certificate's own expiry."
+variable "platform_certificate_end_date" {
+  description = "When Microsoft Entra ID stops accepting the platform certificate, as an RFC 3339 timestamp. Must not be later than the certificate's own expiry."
   type        = string
 
   validation {
-    condition     = can(formatdate("YYYY", var.certificate_end_date))
+    condition     = can(formatdate("YYYY", var.platform_certificate_end_date))
+    error_message = "Use an RFC 3339 timestamp such as 2027-01-08T00:00:00Z."
+  }
+}
+
+variable "targets_certificate_end_date" {
+  description = "When Microsoft Entra ID stops accepting the target certificate, as an RFC 3339 timestamp. Must not be later than the certificate's own expiry."
+  type        = string
+
+  validation {
+    condition     = can(formatdate("YYYY", var.targets_certificate_end_date))
     error_message = "Use an RFC 3339 timestamp such as 2027-01-08T00:00:00Z."
   }
 }
