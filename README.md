@@ -18,13 +18,14 @@ The AI also has to earn its place. Each result is compared with the same workflo
 
 ## Status
 
-Planning. Nothing is deployed yet. The documents below are the design and the evidence behind the first decisions.
+The network foundation is deployed: two peered virtual networks, deny-by-default rules, separate state, and a separate deployment identity per side. There is no compute yet.
 
 | Area | State |
 | --- | --- |
 | Architecture and decision records | Drafted |
 | Azure preflight (quota, VM size availability) | Done, see the worklog |
-| Terraform, platform, targets, workflows | Not started |
+| Network foundation: state, identities, networks, peering | Done, see the [worklog](docs/worklogs/0001-network-foundation.md) |
+| Compute, platform components, targets, workflows | Not started |
 
 ## Design in brief
 
@@ -41,6 +42,7 @@ Planning. Nothing is deployed yet. The documents below are the design and the ev
 | [Architecture](docs/architecture.md) | Components, boundaries, networks, capacity |
 | [Roadmap](docs/roadmap.md) | Milestones and what each has to prove |
 | [Decision records](docs/decisions/README.md) | Why each major choice was made, and what it costs |
+| [Runbooks](docs/runbooks/README.md) | Operator procedures, one per milestone |
 | [Troubleshooting](docs/troubleshooting/README.md) | Failures worth remembering |
 | [Worklogs](docs/worklogs/README.md) | What was done, with commands and evidence |
 

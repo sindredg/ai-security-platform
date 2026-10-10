@@ -6,8 +6,8 @@ Each milestone has an exit gate: things that must be shown to work, not things t
 
 | Milestone | State |
 | --- | --- |
-| 0. Documentation baseline and preflight | In progress |
-| 1. Network foundation | Planned |
+| 0. Documentation baseline and preflight | Done. [Worklog](worklogs/0000-azure-preflight.md) |
+| 1. Network foundation | Done, with one check carried to milestone 2. [Worklog](worklogs/0001-network-foundation.md) |
 | 2. Platform compute | Planned |
 | 3. Toolchain integration | Planned |
 | 4. NetBox target and exercise 1 investigation | Planned |
@@ -35,6 +35,8 @@ The point of doing this first is to prove the separation before there is anythin
 - Effective rules show default deny between the networks, with only the documented flows allowed.
 - The target root's identity cannot modify platform resources, and the reverse.
 
+**Result:** met, except that effective rules cannot be read without a network interface. The configured rules are verified. The effective-rule check moves to milestone 2.
+
 ## 2. Platform compute
 
 Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN and the egress path.
@@ -44,6 +46,7 @@ Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN a
 **Exit gate:**
 
 - Both VMs are reachable over the mesh VPN and have no public address.
+- Effective rules on each network interface match the configured rules, and the denied paths are tested with traffic. Carried over from milestone 1.
 - K3s comes back healthy after a VM restart.
 - The worker cannot open a connection to the target network or the internet.
 - Idle CPU and memory use on both VMs is measured.
