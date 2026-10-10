@@ -4,15 +4,17 @@ Self-hosted AI workers investigate security findings on a service they don't run
 
 The split of work is strict. Ordinary tools collect evidence and establish facts. AI interprets the evidence and proposes a bounded change. Neither gets to approve anything.
 
-## Why
+## The hard part
 
-Organizations that run sensitive infrastructure want AI to take over the slow parts of security work: investigating a finding and working out a safe fix. What stops them is control. The evidence is exactly the data they cannot hand to an outside model, and an unreviewed change to production is not something anyone signs off on.
+Getting a model to suggest a fix is easy. Trusting the suggestion is not. Three things go wrong:
 
-This project is a design for getting the first without giving up the second: less investigation and remediation effort, with the data and every change still under the organization's control.
+- **The model is wrong.** It proposes a fix that clears the finding and breaks the service.
+- **The evidence lies.** A compromised target reports whatever it likes, and an advisory can carry instructions.
+- **A worker dies halfway.** The change ends up half applied, or applied twice.
 
-The engineering problem is making that hold when things go wrong. Self-hosted models, constrained tools, independent validation, and auditable approval have to work together so that a change is only delivered if it keeps the service working. That must stay true when the AI's proposal is wrong, when the evidence has been tampered with, and when a worker fails halfway through.
+The design is built around those failures. Models run inside the platform, so evidence never leaves it. Workers get narrow tools and no credentials. Every proposal is rehearsed against the service's real consumer before a person sees it, and nothing is delivered without approval of the exact change.
 
-Whether the AI is worth its cost is an open question, not an assumption. Every result is measured against the same workflow run with ordinary automation alone.
+The AI also has to earn its place. Each result is compared with the same workflow run without it.
 
 ## Status
 
