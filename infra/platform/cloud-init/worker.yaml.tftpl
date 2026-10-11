@@ -61,5 +61,10 @@ write_files:
       install tipc /bin/false
       install usb-storage /bin/false
 
+# Tighter modes on files an audit flagged, and no assembler or linker. Removing
+# a package needs no repository.
 runcmd:
   - [sysctl, --system]
+  - [chmod, "600", /etc/crontab, /etc/ssh/sshd_config]
+  - [chmod, "700", /etc/cron.d, /etc/cron.daily, /etc/cron.hourly, /etc/cron.weekly, /etc/cron.monthly]
+  - [apt-get, remove, -y, -q, -o, "DPkg::Lock::Timeout=120", binutils]

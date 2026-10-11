@@ -112,6 +112,31 @@ write_files:
       access_log daemon:/var/log/squid/access.log squid
       shutdown_lifetime 1 seconds
 
+  # Squid is the one service the untrusted side can reach, so it gets a sandbox.
+  - path: /etc/systemd/system/squid.service.d/10-aisec.conf
+    permissions: "0644"
+    content: |
+      [Service]
+      NoNewPrivileges=yes
+      CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+      ProtectSystem=full
+      ProtectHome=yes
+      PrivateTmp=yes
+      PrivateDevices=yes
+      ProtectKernelTunables=yes
+      ProtectKernelModules=yes
+      ProtectKernelLogs=yes
+      ProtectControlGroups=yes
+      ProtectClock=yes
+      ProtectHostname=yes
+      RestrictNamespaces=yes
+      RestrictRealtime=yes
+      RestrictSUIDSGID=yes
+      LockPersonality=yes
+      MemoryDenyWriteExecute=yes
+      SystemCallArchitectures=native
+      RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+
   # Kernel settings the kubelet expects when protect-kernel-defaults is on.
   - path: /etc/sysctl.d/90-aisec-kubelet.conf
     permissions: "0644"
@@ -163,6 +188,11 @@ write_files:
       sysctl --system >/dev/null
       systemctl daemon-reload
       systemctl enable --now aisec-mss-clamp.service
+
+      # Tighter modes on files an audit flagged, and no assembler or linker.
+      chmod 600 /etc/crontab /etc/ssh/sshd_config
+      chmod 700 /etc/cron.d /etc/cron.daily /etc/cron.hourly /etc/cron.weekly /etc/cron.monthly
+      DEBIAN_FRONTEND=noninteractive apt-get remove -y -q -o DPkg::Lock::Timeout=120 binutils
 
       # Mesh VPN, from the vendor's signed package repository, at a pinned version.
       . /etc/os-release
