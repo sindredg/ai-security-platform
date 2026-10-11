@@ -273,9 +273,9 @@ Plan, read the plan, then apply the saved plan. Do not apply a plan nobody read.
       cd /; sudo rm -rf $d'
     ```
 
-    Expected: the checksum line ends in `OK`, then the test count, the hardening index, and any warnings. On this build the orchestrator scored 60 with two warnings, both about packages.
+    Expected: the checksum line ends in `OK`, then the test count, the hardening index, and any warnings. On this build the orchestrator scored 60 with two warnings, both about packages, before the hardening that cloud-init now applies, and 76 after it.
 
-    Run the same on the worker from the copied archive. Expected: the run stalls for about six minutes at the package update test, because the worker cannot reach a repository, and then finishes. On this build it scored 66 with no warnings.
+    Run the same on the worker from the copied archive. Expected: the run stalls for about six minutes at the package update test, because the worker cannot reach a repository, and then finishes. On this build it scored 66 with no warnings before the hardening and 77 after. To skip the stall, put `skip-test=PKGS-7392` in a `custom.prf` file next to the `lynis` script.
 
 20. Install pending security updates on the orchestrator.
 
@@ -353,10 +353,24 @@ Expected: each hostname with the new key, then `Permission denied (publickey)` f
 
 If the new key is lost before the old one is removed, nothing is lost. If both are lost, the way back in is the serial console or a rebuild.
 
+### Mesh VPN node key
+
+Needs a new single-use, tagged auth key from the admin console. The session drops while the orchestrator rejoins, so the command runs detached.
+
+```bash
+printf '%s' 'REPLACE_WITH_AUTH_KEY' | ssh $SSH_OPTS aisec@10.40.0.4 '
+  sudo install -d -m 0700 /run/aisec
+  sudo sh -c "umask 077; cat > /run/aisec/tailscale-auth-key"
+  sudo sh -c "nohup sh -c \"sleep 2; tailscale up --force-reauth --auth-key=file:/run/aisec/tailscale-auth-key --hostname=aisec-orchestrator --advertise-routes=10.40.0.0/20,10.50.0.0/20 --accept-dns=false; rm -f /run/aisec/tailscale-auth-key\" >/dev/null 2>&1 &"'
+ssh $SSH_OPTS aisec@10.40.0.4 'sudo tailscale status --json | grep -m1 PublicKey; sudo ls /run/aisec'
+ssh $SSH_OPTS aisec@10.40.0.36 hostname
+```
+
+Expected: a different `nodekey:` value from before, an empty `/run/aisec`, and `aisec-worker`. On this build the node kept its address, its tag, and its approved routes. If the worker is unreachable, approve the routes again in the admin console.
+
 ## Not covered yet
 
 - A CIS benchmark run for the operating system. No open tool has a profile for this release yet.
-- Security updates for the worker. It cannot fetch them, and nothing pushes them.
-- Rotation of the mesh VPN node key. It means enrolling the orchestrator again with a new auth key.
+- Security updates for the worker. [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) decides the path, a SOCKS forward opened from the orchestrator. The procedure has not been run.
 - Node signing on the mesh VPN.
 - Removal. Destroying the VMs and the NAT gateway has not been run.

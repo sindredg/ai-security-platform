@@ -181,7 +181,7 @@ Every secret the project has or has planned. A credential not in this table shou
 | Platform and target state | One storage account per root | That root's identity, and a subscription administrator | Not rotated. Access is by role | In use |
 | Operator's GitHub account | GitHub | Operator | Account sign-in settings | In use |
 | Mesh VPN auth key | Supplied at provisioning. A spent copy stays in the VM's custom data and in platform state | The orchestrator, once | Single use. A new key per rebuild | Spent |
-| Mesh node key | Orchestrator | Root on the orchestrator | Re-enroll. Not yet run | In use |
+| Mesh node key | Orchestrator | Root on the orchestrator | Re-enroll with a new auth key. [Procedure](runbooks/platform-compute.md#mesh-vpn-node-key) run once | In use |
 | Operator SSH key | Workstation, outside the repository, used for this project only | Operator | New key, swapped on the running VMs. [Procedure](runbooks/platform-compute.md#operator-ssh-key) run once | In use |
 | Feed SSH key, orchestrator to worker and targets | Orchestrator, generated there at first boot | The administrator account and root on the orchestrator | New key, pushed from the orchestrator. [Procedure](runbooks/platform-compute.md#feed-key) run once | In use, trusted by the worker |
 | Cluster token and administrator kubeconfig | Orchestrator | Root on the orchestrator | Cluster token rotation. [Procedure](runbooks/platform-compute.md#cluster-token) run once | In use |

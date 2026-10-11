@@ -15,8 +15,8 @@ The public address policy, the NAT gateway, both VMs, the mesh VPN, and K3s exis
 | The worker cannot reach the target network or the internet, and cannot resolve a public name | Met |
 | A public address on a network interface is refused by policy in both workload resource groups | Met |
 | Idle CPU and memory use is measured | Met |
-| Every credential is in the inventory, and each long-lived one has a rotation that has been run once | Met for the SSH keys and the cluster token. The mesh VPN node key has not been rotated |
-| Hardening benchmark results are recorded, and each failed check is fixed or accepted | Partly met. Kubernetes benchmark run: 3 fails, 2 fixed, 1 accepted. The operating system got a Lynis audit, not a CIS run, and its suggestions are not reviewed |
+| Every credential is in the inventory, and each long-lived one has a rotation that has been run once | Met. The SSH keys, the cluster token, and the mesh VPN node key were each rotated once |
+| Hardening benchmark results are recorded, and each failed check is fixed or accepted | Partly met. Kubernetes benchmark run: 3 fails, 2 fixed, 1 accepted. The operating system got a Lynis audit, not a CIS run. Its findings are fixed, accepted with a reason, or listed as open |
 | `main` takes changes only through a pull request with passing checks, and a pushed secret is refused | Met in an earlier change. Not re-tested here |
 | Pull requests run static checks and a secret scan, with no cloud credentials | Met in an earlier change |
 | Version pins get automated update pull requests | Configured, not yet seen. `.github/dependabot.yml` covers the providers and the pipeline actions weekly. `gh pr list --state all --author app/dependabot` returns nothing, and every pin is current |
@@ -303,9 +303,58 @@ sudo ./lynis audit system --quiet --no-colors --logfile <dir>/lynis.log --report
 | `PKGS-7388`, no security repository found | Accepted as a false positive. `/etc/apt/sources.list.d/ubuntu.sources` lists the `resolute-security` suite. The tool does not find it in that file format |
 | `PKGS-7392`, vulnerable packages found | Fixed. Three packages had security updates pending: `libpng16-16t64`, `libxml2-16`, `sudo`. `sudo unattended-upgrade` installed them. `unattended-upgrades` is enabled, so they would have gone in within a day. No restart was required, and K3s and the mesh VPN agent stayed `active` |
 
-The suggestions have not been reviewed one by one. Most are the same on both VMs: SSH daemon options, password policy defaults, no `auditd`, no file integrity tool, no remote logging, no separate `/home` or `/var`.
+### Triage
 
-The worker's clean result on packages means nothing. The audit runs `apt-get update` first, and on the worker that hung for about six minutes and then failed, as designed: the worker has no path to a package repository. So its package lists are the ones from the image, and it does not know what is outdated. Nothing pushes updates to it yet.
+The suggestions were sorted into fixed, accepted, and open. The fixes are in both cloud-init templates and were applied by hand on the running VMs, then the audit was run again.
+
+| VM | Hardening index before | After | Warnings after | Suggestions before | After |
+| --- | --- | --- | --- | --- | --- |
+| Orchestrator | 60 | 76 | 1, the false positive above | 42 | 27 |
+| Worker | 66 | 77 | 0 | 40 | 30 |
+
+Fixed:
+
+| Finding | Fix |
+| --- | --- |
+| `SSH-7408`, SSH daemon options | `/etc/ssh/sshd_config.d/10-aisec.conf`: no root login, no agent or X11 forwarding, 3 authentication tries, 2 sessions, client alive checks, verbose logging. TCP forwarding is off on the orchestrator and `remote` on the worker |
+| `KRNL-6000`, kernel settings | `/etc/sysctl.d/90-aisec-hardening.conf`: SysRq off, kernel pointers hidden, no core dumps from setuid programs, protected FIFOs and regular files, hardened BPF JIT, no source routing, no ICMP redirects in or out, martian packets logged |
+| `NETW-3200`, `USB-1000`, unused protocols and USB storage | `/etc/modprobe.d/aisec-unused.conf` stops `dccp`, `sctp`, `rds`, `tipc`, and `usb-storage` from loading |
+| `PKGS-7392`, pending updates | Installed on the orchestrator, above |
+
+Checked after the change: `sshd -t` passed on both VMs, new logins worked, the feed path and the routed path to the worker worked, K3s reported the node `Ready` with three pods running.
+
+Accepted:
+
+| Finding | Reason |
+| --- | --- |
+| `KRNL-6000`, what is left: IP forwarding on, loose reverse path filter, module loading allowed | The orchestrator is the subnet router. Strict reverse path filtering breaks the tunnel and the pod network. K3s and the mesh VPN agent load modules after boot |
+| `SSH-7408`, port 22 | Moving the port hides nothing from anyone who can reach these machines |
+| `SSH-7408` on the worker, remote forwarding allowed | Package updates arrive through a forward the orchestrator opens, by [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) |
+| `AUTH-9230`, `AUTH-9262`, `AUTH-9286`, `AUTH-9328`, password policy | No account has a password. Login is by key only |
+| `AUTH-9284`, locked account | The administrator account has no password on purpose |
+| `BOOT-5122`, boot loader password | The only console is the cloud serial console, behind the subscription's access control |
+| `FILE-6310`, separate `/home` and `/var` | The disk layout comes from the image |
+| `NAME-4404`, `NAME-4028`, name resolution | The fed machines have no DNS by design. They use a hosts file |
+| `FIRE-4513`, unused firewall rules | K3s and the mesh VPN agent own those rules |
+| `PKGS-7370`, `PKGS-7394`, `PKGS-7398`, `HRDN-7230`, package audit tools and a malware scanner | More installed software on machines kept small on purpose. Image and dependency scanning belongs to the pipeline |
+| `BANN-7126`, `BANN-7130`, legal banners | One operator |
+| `TOOL-5002`, no automation tool found | Terraform and cloud-init do that job, and the audit does not recognize them |
+| `PKGS-7388`, no security repository | False positive, above |
+
+Open:
+
+| Finding | Why it is open |
+| --- | --- |
+| `ACCT-9628`, `ACCT-9622`, `LOGG-2154`, `FINT-4350`: no `auditd`, no process accounting, no remote logging, no file integrity tool | Real gaps. They belong with the audit log decision in milestone 3, where logs get a place out of the worker's reach |
+| `BOOT-5264`, `BOOT-5180`, service hardening | Not reviewed |
+| `FILE-7524`, file permissions | Not reviewed |
+| `HRDN-7222`, compilers present | Not reviewed |
+
+### Updates on the worker
+
+The worker's clean result on packages in the first run means nothing. The audit runs `apt-get update` first, and on the worker that hung for about six minutes and then failed, as designed: the worker has no path to a package repository. Its package lists are the ones from the image, so it does not know what is outdated. The second run skipped that test.
+
+[ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) already says how the worker gets packages: through a SOCKS forward carried by an SSH session that the orchestrator opens. That procedure has not been run. Until it has, the worker runs the packages its image shipped with.
 
 ## Rotations
 
@@ -324,7 +373,7 @@ Two things the rotations showed:
 
 After the rotations, the certificate files were still `600` and the feed path still worked.
 
-The mesh VPN node key was not rotated. Rotating it means enrolling the orchestrator again with a new auth key.
+The mesh VPN node key was rotated too, by enrolling the orchestrator again with a new single-use auth key and `tailscale up --force-reauth`. The node key changed. The node kept its address, its tag, and its approved routes, and the worker stayed reachable through it.
 
 ## Limitations
 
@@ -332,8 +381,10 @@ The mesh VPN node key was not rotated. Rotating it means enrolling the orchestra
 - **The benchmark profile is older than the cluster.** `k3s-cis-1.9` was written for K3s 1.27 to 1.29. The cluster runs 1.36. A newer profile does not ship with the tool.
 - **The running orchestrator differs from its template in how it got one fix.** The segment size clamp was installed by hand with the same content as the cloud-init template. A VM built from the template has not been booted with it.
 - **The worker cannot open any connection to the orchestrator.** That is containment today. It decides how dispatch and results travel in milestone 3: the orchestrator has to initiate.
-- **The worker has no way to get security updates.** It cannot reach a package repository, and nothing pushes packages to it yet. The same will be true of every target.
-- **No CIS result for the operating system.** No open tool ships a CIS profile for Ubuntu 26.04 yet. The Lynis suggestions are a to-do list nobody has triaged.
+- **The worker has had no security updates since its image.** The update path from ADR 0009 is decided and has not been run.
+- **No CIS result for the operating system.** No open tool ships a CIS profile for Ubuntu 26.04 yet. The audit that ran is not a CIS benchmark.
+- **No audit daemon, remote logging, or file integrity monitoring on either VM.** Open until the audit log decision in milestone 3.
+- **The hardening on the running VMs was applied by hand.** Same content as the templates, but no VM has been built from them.
 - **Mesh VPN connections are relayed.** Fine for administration, slow for bulk transfer.
 - **Node signing is off.** The mesh VPN's coordination service could add a node to the network without the operator. Turning signing on needs a second signing device.
 - **No encryption at host.** The feature is not registered on the subscription.

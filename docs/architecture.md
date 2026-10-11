@@ -239,8 +239,8 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Planned |
 | Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Planned |
 | Dependency updates | Automated pull requests that move the version pins | Platform compute | Planned |
-| Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Kubernetes benchmark run, one check accepted. The operating system has a Lynis audit. No open tool has a CIS profile for Ubuntu 26.04 yet |
-| Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current through platform compute. SSH keys and the cluster token rotated once |
+| Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Kubernetes benchmark run, one check accepted. The operating system has a Lynis audit with its findings triaged. No open tool has a CIS profile for Ubuntu 26.04 yet |
+| Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current through platform compute. Each long-lived credential on the VMs rotated once |
 | Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Planned |
 | Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Planned |
 | Incident response runbook | A turned worker, a compromised target, a leaked credential | Operational drills | Planned |
