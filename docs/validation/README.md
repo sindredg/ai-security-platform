@@ -39,10 +39,11 @@ The script changes nothing. It opens connections that should fail, reads setting
 | --- | --- | --- |
 | 2026-10-11 | 92 of 94 passed | After a restart of both VMs. `M.3` and `M.4` failed: the mesh access policy still allowed every port. See [Access](access.md) |
 | 2026-10-11 | 94 of 94 passed | After the mesh access policy was replaced |
+| 2026-10-11 | 94 of 94 passed | After the worker was rebuilt from the current template |
 
 ## What the checks do not cover
 
-- **A rebuild.** They test the running VMs, which were changed by hand to match the templates. Whether the templates build the same machines is a different test.
+- **A rebuild of the orchestrator.** It was changed by hand to match its template, and whether the template builds the same machine is a different test. The worker has had that test: it was rebuilt from its template and passed every check.
 - **The target side.** No target exists yet.
 - **Anything a benchmark tool finds.** kube-bench and Lynis results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). The checks here hold the fixes in place.
 - **Clean Terraform plans.** `terraform plan -detailed-exitcode` needs each root's own identity. The [runbook](../runbooks/platform-compute.md) has that step.

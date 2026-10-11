@@ -431,6 +431,37 @@ After the rotations, the certificate files were still `600` and the feed path st
 
 The mesh VPN node key was rotated too, by enrolling the orchestrator again with a new single-use auth key and `tailscale up --force-reauth`. The node key changed. The node kept its address, its tag, and its approved routes, and the worker stayed reachable through it.
 
+## Worker rebuild
+
+Run on 2026-10-11, after the milestone closed. The worker was still empty, so a rebuild cost nothing, and it answers whether the current template builds the machine the checks describe. The procedure is in the [runbook](../runbooks/platform-compute.md#rebuild-the-worker).
+
+```bash
+terraform plan -replace='azurerm_linux_virtual_machine.vm["worker"]' -out=platform.tfplan
+terraform apply platform.tfplan
+```
+
+```text
+Apply complete! Resources: 1 added, 0 changed, 1 destroyed.
+```
+
+The destroy took 57 seconds and the create 54. The network interface, the address, and the security group were not touched.
+
+| Check | Result |
+| --- | --- |
+| Serial log | Cloud-init finished at 20:14:08 UTC, 80.2 seconds after boot |
+| Host key | New. The fingerprint in the serial log equals the one the worker presents |
+| `cloud-init status` | `status: done` |
+| Proxy setting, SSH daemon settings, file modes, `binutils` removed | All as the template writes them, read on the VM |
+| Feed login from the orchestrator, after its public key was added again | `aisec-worker` |
+| Package index refresh through the proxy | 32.0 MB fetched from the two Ubuntu hosts |
+| `sudo unattended-upgrade` | Installed `libpng16-16t64`, `libxml2-16`, `sudo`. Nothing left from the security suite. Two packages left from `resolute-updates` |
+| `validation/platform-checks.sh` | 94 passed, 0 failed, at 20:18 UTC |
+| Idle use | 533 MiB of 7905 used, 2.2 GB of disk |
+
+The rebuild found one gap in the procedure. Step 14 adds the worker's host key on the orchestrator only if no entry exists. After a rebuild an entry exists and is wrong, so the feed login fails on a changed host key. The rebuild steps remove the old entry first.
+
+What this does not show: the orchestrator's template. That rebuild needs a new mesh VPN key, a signed node, and K3s from nothing, and has not been run.
+
 ## Bootstrap state copy
 
 Run on 2026-10-11. The bootstrap root keeps local state, because it creates the accounts a backend would need. That file was the only record of what the root owns.
@@ -459,9 +490,9 @@ Not done: a restore. Nobody has downloaded the copy and planned against it.
 - **The targets have no update path.** The proxy is for the worker only. Milestone 4 decides how the targets are kept current.
 - **No CIS result for the operating system.** No tool ships a CIS profile for Ubuntu 26.04 yet. The audit that ran is not a CIS benchmark. Carried as an accepted risk in the [threat model](../security/accepted-risks.md#accepted-risks) until one does.
 - **No audit daemon, remote logging, or file integrity monitoring on either VM.** Open until the audit log decision in milestone 3.
-- **The hardening on the running VMs was applied by hand.** Same content as the templates, but no VM has been built from them.
+- **The hardening on the running orchestrator was applied by hand.** Same content as its template, but the orchestrator has not been built from it. The worker has. See [Worker rebuild](#worker-rebuild).
 - **Mesh VPN connections are relayed.** Fine for administration, slow for bulk transfer.
 - **Node signing was turned on after the orchestrator joined.** Enabling it signed the existing nodes. `tailscale lock status` on the orchestrator reports `Tailnet Lock is ENABLED` and a signature by the workstation's key, with two trusted signing keys. A rebuild is different: the new node has to be signed, and that path has not been run.
 - **No encryption at host.** The feature is not registered on the subscription.
 - **The regional core quota is full.**
-- **Built once.** The runbook was written from this build. A rebuild from scratch and a removal have not been run.
+- **Built once.** The runbook was written from this build. The worker has been rebuilt once. A rebuild of everything from scratch and a removal have not been run.

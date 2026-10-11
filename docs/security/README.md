@@ -44,4 +44,4 @@ The short list, for a reader who opens only this page. Detail is in the topic pa
 2. **One operator.** One Azure account owns both sides and one GitHub account approves every change. Accepted.
 3. **The tool services are the wall, and they are not designed yet.** Every limit on the AI worker will end at one service that reads hostile input.
 4. **Nothing watches the machines.** No audit daemon, no remote logs, no alerting.
-5. **No rebuild has been run.** The templates and the running machines agree only because the same text was applied by hand. Accepted.
+5. **The orchestrator has not been rebuilt.** Its template and the running machine agree only because the same text was applied by hand. The worker was rebuilt from its template and passed every check. Accepted.

@@ -1,6 +1,6 @@
 # Platform compute: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. A rebuild from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md).
+Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11. A rebuild from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md).
 
 Run these steps to build milestone 2: the public address policy, the NAT gateway, the orchestrator and AI worker VMs, the mesh VPN, and K3s. Never commit local values, plans, state, keys, or raw output.
 
@@ -305,6 +305,58 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
     ```
 
     Expected: `200`, then `403` three times, `no connection`, a package list refresh that fetches from the two Ubuntu hosts, and `0` packages left from the security suite. The design is [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md).
+
+## Rebuild the worker
+
+Run once, on 2026-10-11, while the worker was empty. The commands are that run, condensed. A rebuild destroys everything on the worker: after milestone 3 that includes the model.
+
+22. Replace the VM. Run in `infra/platform` as the platform identity. Read the plan before applying it.
+
+    ```bash
+    source "$CRED_DIR/platform.env"
+    terraform plan -replace='azurerm_linux_virtual_machine.vm["worker"]' -out=platform.tfplan
+    terraform apply platform.tfplan
+    rm -f platform.tfplan
+    ```
+
+    Expected: `1 to add, 0 to change, 1 to destroy`, and the only resource is the worker VM. About two minutes. If the plan names anything else, stop.
+
+23. Take the new host key from the serial log and replace the old one. Run as the operator. First boot takes about 80 seconds, and the fingerprint is not in the log before that.
+
+    ```bash
+    az vm boot-diagnostics get-boot-log -g rg-aisec-platform -n vm-aisec-worker -o tsv \
+      | grep -a -o 'SHA256:[A-Za-z0-9+/]* root@aisec-[a-z]* (ED25519)' | sort -u
+    grep -v '^10.40.0.36 ' "$KNOWN_HOSTS" > "$KNOWN_HOSTS.new"
+    ssh-keyscan -T 10 -t ed25519 10.40.0.36 >> "$KNOWN_HOSTS.new"
+    mv "$KNOWN_HOSTS.new" "$KNOWN_HOSTS"
+    ssh-keygen -lf "$KNOWN_HOSTS"
+    ssh $SSH_OPTS aisec@10.40.0.36 'cloud-init status'
+    ```
+
+    Expected: the worker's fingerprint from the scan equals the one from the serial log, and `status: done`.
+
+24. Let the orchestrator feed the new worker. The orchestrator still holds the old host key, so remove it first.
+
+    ```bash
+    FEED_KEY="$(ssh $SSH_OPTS aisec@10.40.0.4 'cat ~/.ssh/aisec-feed.pub')"
+    ssh $SSH_OPTS aisec@10.40.0.36 \
+      "grep -qxF '$FEED_KEY' ~/.ssh/authorized_keys || echo '$FEED_KEY' >> ~/.ssh/authorized_keys"
+    WORKER_KEY="$(grep '^10.40.0.36 ' "$KNOWN_HOSTS" | sed 's/^10.40.0.36/aisec-worker,10.40.0.36/')"
+    ssh $SSH_OPTS aisec@10.40.0.4 \
+      "ssh-keygen -q -R aisec-worker; ssh-keygen -q -R 10.40.0.36; rm -f ~/.ssh/known_hosts.old
+       echo '$WORKER_KEY' >> ~/.ssh/known_hosts
+       ssh -i ~/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes aisec@aisec-worker hostname"
+    ```
+
+    Expected: `aisec-worker`.
+
+25. Run step 21 for the first update, then every check.
+
+    ```bash
+    validation/platform-checks.sh
+    ```
+
+    Expected: `0` packages left from the security suite, and every check passes. The environment the script needs is in [validation](../validation/README.md).
 
 ## Rotate a credential
 
