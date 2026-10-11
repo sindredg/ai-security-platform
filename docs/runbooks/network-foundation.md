@@ -2,6 +2,8 @@
 
 Status: Implemented and validated on 2026-10-10. Built once, from an empty subscription. A second build from scratch has not been run. Results are in the [milestone 1 worklog](../worklogs/0001-network-foundation.md).
 
+Key handling in steps 3 and 12 and in the rotation changed on 2026-10-11, to keep one key file per side. Checked that day: key generation with throwaway keys, and the sign-in from a temporary PEM for both identities. The rest of step 12 was not repeated.
+
 Run these steps to build or revalidate milestone 1: state storage, deployment identities, both virtual networks, their security groups, and the peering. Never commit local values, plans, state, keys, or raw output.
 
 ## Inputs and access
@@ -12,7 +14,7 @@ Run these steps to build or revalidate milestone 1: state storage, deployment id
 | A Microsoft Entra tenant | The operator must be allowed to create app registrations |
 | `terraform` 1.16.5 | The roots refuse any other version |
 | `az` 2.88 or later, `openssl` 3, `jq` | Sign-in, checks, key generation, and reading Terraform outputs |
-| A private directory outside the repository | Holds two private keys. Called `$CRED_DIR` below |
+| A private directory outside the repository, on an encrypted disk | Holds two private keys. Called `$CRED_DIR` below |
 
 The design is in the [architecture](../architecture.md). The reasons for the identity setup are in [ADR 0008](../decisions/0008-deployment-identities-and-bootstrap-scope.md).
 
@@ -58,19 +60,19 @@ Three identities appear below. Keep track of which one a shell is using.
    export CRED_DIR='REPLACE_WITH_PRIVATE_DIRECTORY'
    mkdir -p -m 700 "$CRED_DIR"
    for side in platform targets; do
-     openssl req -x509 -newkey rsa:4096 -sha256 -days 91 -nodes \
+     openssl req -x509 -newkey rsa:4096 -sha256 -days 91 -noenc \
        -subj "/CN=aisec-$side-deploy" \
        -keyout "$CRED_DIR/$side.key" -out "$CRED_DIR/$side.crt"
      openssl pkcs12 -export -passout pass: \
        -inkey "$CRED_DIR/$side.key" -in "$CRED_DIR/$side.crt" -out "$CRED_DIR/$side.pfx"
-     cat "$CRED_DIR/$side.key" "$CRED_DIR/$side.crt" > "$CRED_DIR/$side.pem"
+     rm "${CRED_DIR:?}/${side:?}.key"
    done
    ls -l "$CRED_DIR"
    ```
 
-   Expected: eight files, all mode `-rw-------`. Terraform reads the `.pfx`. The Azure CLI reads the `.pem` in step 12.
+   Expected: four files, all mode `-rw-------`: a `.crt` and a `.pfx` per side. Terraform reads the `.pfx`, and it is the only copy of the private key.
 
-   The keys have no passphrase. File permissions are the only protection, so pick a directory on an encrypted disk.
+   The `.pfx` has no password. File permissions are the only protection, so pick a directory on an encrypted disk.
 
 ## Apply the bootstrap root
 
@@ -213,8 +215,10 @@ A fresh shell has no `CRED_DIR`. Export it again, as in step 3, before sourcing 
     check() {
       side="$1"; other="$2"
       export AZURE_CONFIG_DIR="$(mktemp -d)"
+      pem="$(mktemp -p /dev/shm)"
       ( source "$CRED_DIR/$side.env"
-        az login --service-principal -u "$ARM_CLIENT_ID" --certificate "$CRED_DIR/$side.pem" --tenant "$TENANT_ID" -o none
+        openssl pkcs12 -in "$CRED_DIR/$side.pfx" -passin pass: -noenc -out "$pem"
+        az login --service-principal -u "$ARM_CLIENT_ID" --certificate "$pem" --tenant "$TENANT_ID" -o none
         own_state="$(cut -d'"' -f2 "../$side/backend.hcl")"; other_state="$(cut -d'"' -f2 "../$other/backend.hcl")"
         az network vnet show -g "rg-aisec-$side" -n "vnet-aisec-$side" -o none                                  # allowed
         az storage blob list --account-name "$own_state" -c tfstate --auth-mode login -o none                 # allowed
@@ -227,11 +231,13 @@ A fresh shell has no `CRED_DIR`. Export it again, as in step 3, before sourcing 
         az role assignment create --assignee "$ARM_CLIENT_ID" --role Reader \
           --scope "/subscriptions/$ARM_SUBSCRIPTION_ID/resourceGroups/rg-aisec-$side" -o none                  # denied
         az logout )
-      rm -rf "$AZURE_CONFIG_DIR"; unset AZURE_CONFIG_DIR
+      rm -f "${pem:?}"; rm -rf "${AZURE_CONFIG_DIR:?}"; unset AZURE_CONFIG_DIR
     }
     check platform targets
     check targets platform
     ```
+
+    The Azure CLI wants the key as a PEM file, so each block writes one to memory-backed storage and removes it after signing out. It has to exist until then: the CLI reads the file again on every command, not only at sign-in.
 
     Expected, for each identity: the two `allowed` commands print nothing and succeed. The management commands marked `denied` fail with `AuthorizationFailed`. The blob listing on the other side's state fails with "You do not have the required permissions needed to perform this operation."
 
@@ -257,16 +263,16 @@ Rotate one side at a time, before that side's end date from step 4. Do not rerun
    umask 077
    side='REPLACE_WITH_SIDE'   # platform or targets
    mkdir -p -m 700 "$CRED_DIR/previous"
-   cp -p "$CRED_DIR/$side.key" "$CRED_DIR/$side.crt" "$CRED_DIR/$side.pfx" "$CRED_DIR/$side.pem" "$CRED_DIR/previous/"
-   openssl req -x509 -newkey rsa:4096 -sha256 -days 91 -nodes \
+   cp -p "$CRED_DIR/$side.crt" "$CRED_DIR/$side.pfx" "$CRED_DIR/previous/"
+   openssl req -x509 -newkey rsa:4096 -sha256 -days 91 -noenc \
      -subj "/CN=aisec-$side-deploy" \
      -keyout "$CRED_DIR/$side.key" -out "$CRED_DIR/$side.crt"
    openssl pkcs12 -export -passout pass: \
      -inkey "$CRED_DIR/$side.key" -in "$CRED_DIR/$side.crt" -out "$CRED_DIR/$side.pfx"
-   cat "$CRED_DIR/$side.key" "$CRED_DIR/$side.crt" > "$CRED_DIR/$side.pem"
+   rm "${CRED_DIR:?}/${side:?}.key"
    ```
 
-   Expected: four new files for that side, and the old four in `$CRED_DIR/previous`.
+   Expected: a new `.crt` and `.pfx` for that side, and the old two in `$CRED_DIR/previous`.
 
 2. In `infra/bootstrap/terraform.tfvars`, set that side's `<side>_certificate_end_date` to a new timestamp from the `date` command in step 4. Leave the other side's date alone.
 
