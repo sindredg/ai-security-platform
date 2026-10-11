@@ -199,7 +199,7 @@ What follows from that:
 
 Decided, not built. See [ADR 0010](decisions/0010-threat-model-and-security-checks-per-milestone.md).
 
-The table above says who is trusted. The [threat model](threat-model.md) says what can go wrong at each boundary, what stops it, and where that gets tested. Its first pass was written before any VM existed.
+The table above says who is trusted. The [threat model](security/threat-model.md) says what can go wrong at each boundary, what stops it, and where that gets tested. Its first pass was written before any VM existed.
 
 Everything else is attached to the milestone that builds the thing it checks. A practice with no gate behind it is a good intention.
 
@@ -257,7 +257,7 @@ targets/netbox/     NetBox deployment definition, fixtures, consumer contract
 policies/           Target, tool, and change rules
 collectors/         Collection and adaptation scripts
 validation/         Checks against the running system. Contract tests and drills come later
-docs/               Architecture, components, decisions, diagrams, runbooks, troubleshooting, validation, worklogs
+docs/               Architecture, components, decisions, diagrams, runbooks, security, troubleshooting, validation, worklogs
 ```
 
 ## Open decisions
@@ -282,4 +282,4 @@ Each gets a decision record before the milestone that depends on it.
 - Both roots use the same network module. A change to it reaches both sides, so the separation is in state, identity, and network rules, not in the code.
 - Nothing outside the roots stops a deployment identity from creating a public IP address in its own resource group yet. The policy that does is decided in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) and not assigned.
 - The orchestrator's egress is not filtered by hostname. It can reach any host on port 443.
-- The [threat model](threat-model.md) is a first pass against a design, written by the designer. Most of its controls are decided or planned, not verified, and its [open items](threat-model.md#open-items) have no answer yet.
+- The [threat model](security/threat-model.md) is a first pass against a design, written by the designer. Most of its controls are decided or planned, not verified, and its [open items](security/accepted-risks.md#open-items) have no answer yet.

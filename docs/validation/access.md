@@ -1,6 +1,6 @@
 # Access
 
-No VM has a public address. The only way in is the mesh VPN, then SSH with one key. The design is [ADR 0007](../decisions/0007-mesh-vpn-for-administrative-access.md). The threat is T01 in the [threat model](../threat-model.md): a device that is not the operator's joins the mesh.
+No VM has a public address. The only way in is the mesh VPN, then SSH with one key. The design is [ADR 0007](../decisions/0007-mesh-vpn-for-administrative-access.md). The threat is T01 in the [threat model](../security/threat-model.md): a device that is not the operator's joins the mesh.
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |

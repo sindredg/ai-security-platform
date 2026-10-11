@@ -1,0 +1,16 @@
+# AI-specific threats
+
+Threats that exist because a model reads untrusted text and can act on it. They sit on top of the boundary threats in the [threat model](threat-model.md), and most of their controls arrive in milestone 3 with the tool services.
+
+The design's answer to most of these is the same: assume the attack works, and make sure a turned worker holds nothing and reaches nothing.
+
+| ID | Threat | Reference | Rating | Control | State | Gate | Residual |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| A1 | Instructions hidden in an advisory, a tool result, or target evidence take over the agent | OWASP LLM: Prompt Injection. ASI01. ATLAS AML.T0051.001 | High | Not prevented. Contained by T16 to T18, by allowlisted change fields, by rehearsal, and by approval | Planned | 6 | The agent's output is untrusted every time, injected or not |
+| A2 | The agent uses a legitimate tool for something its job does not need | OWASP LLM: Excessive Agency. ASI02, ASI03. ATLAS AML.T0053, AML.T0101 | High | Narrow tools with no destructive operations. Delivery belongs to a separate trusted runner | Planned | 3, 6 | A tool that reads too much is still a tool that reads |
+| A3 | The model is wrong and convincing, and the operator approves it | OWASP LLM: Misinformation. ASI09 | High | Tools establish facts. Rehearsal tests the fix. The pull request states what is uncertain. An unsafe patch is rejected even when its tests pass | Planned | 4, 5 | One tired approver |
+| A4 | The model file, the agent runtime, or a tool server is poisoned upstream | OWASP LLM: Supply Chain. ASI04. ATLAS AML.T0010, AML.T0058 | High | Digest pins, a known publisher, and worker containment for whatever gets through | Decided | 3 | A backdoored model behaves until it does not |
+| A5 | Evidence leaves the platform inside proposal text published to the repository | OWASP LLM: Sensitive Information Disclosure. ATLAS AML.T0057, AML.T0086 | High | The broker publishes checked fields, not free text from the worker | Open | 5 | Depends on the broker design. Harmless here only because the data is synthetic |
+| A6 | Context poisoned in one job steers a later one | ASI06. ATLAS AML.T0080 | Medium | One scoped session per job, with cleanup. Same control as T19 | Planned | 3, 6 | Shared VM |
+| A7 | A job is driven into unbounded inference | OWASP LLM: Unbounded Consumption. ATLAS AML.T0034.002 | Medium | Time and output limits. Same control as T20 | Planned | 3 | None beyond a lost job |
+| A8 | The agent runtime executes commands the model wrote | ASI05 | Medium | A restricted tool set, which the runtime has to prove it supports. The worker is assumed compromised either way | Planned | 3 | Code execution on the worker is the starting assumption, not the breach |
