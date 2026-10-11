@@ -18,6 +18,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0012](0012-dispatch-over-ssh-with-a-forced-command.md) | Dispatch to the worker over SSH, with a forced command | Accepted |
 | [0013](0013-a-token-per-job-and-no-cloud-identity-yet.md) | A token per job for tool calls, and no cloud identity for workloads yet | Accepted |
 | [0014](0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) | A small custom tool service, and an audit log on the orchestrator | Accepted |
+| [0015](0015-build-the-model-file-on-the-worker.md) | Build the model file on the worker, from the publisher's weights | Accepted |
 
 ## Format
 

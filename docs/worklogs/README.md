@@ -7,3 +7,4 @@ One worklog per milestone: what was done, the commands that were run, and the ev
 | [0000](0000-azure-preflight.md) | Documentation baseline and preflight |
 | [0001](0001-network-foundation.md) | Network foundation |
 | [0002](0002-platform-compute.md) | Platform compute |
+| [0003](0003-toolchain-integration.md) | Toolchain integration, in progress |

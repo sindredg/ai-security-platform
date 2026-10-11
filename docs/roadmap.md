@@ -11,7 +11,7 @@ Security work has no milestone of its own. Each practice sits in the gate of the
 | 0. Documentation baseline and preflight | Done. [Worklog](worklogs/0000-azure-preflight.md) |
 | 1. Network foundation | Done, with one check carried to milestone 2. [Worklog](worklogs/0001-network-foundation.md) |
 | 2. Platform compute | Done, with one accepted gap: no CIS result for the operating system, because no tool supports the release yet. [Worklog](worklogs/0002-platform-compute.md) |
-| 3. Toolchain integration | Planned |
+| 3. Toolchain integration | In progress. The model server runs on the worker. [Worklog](worklogs/0003-toolchain-integration.md) |
 | 4. NetBox target and exercise 1 investigation | Planned |
 | 5. Remediation, pull requests, and delivery | Planned |
 | 6. Operational and containment drills | Planned |
@@ -75,7 +75,7 @@ This is where the design is most likely to be wrong, so it comes before any targ
 - Model memory use, latency per turn, and tokens per second are measured on the chosen size.
 - Component footprint on the orchestrator is measured. Deferred components go in or get dropped based on it.
 - The threat model covers dispatch, workload identity, and the AI-specific threats. Each threat rated high has a control or a stated acceptance.
-- Every image and the model file is pinned by digest and verified on the orchestrator before it runs or is pushed.
+- Every image and every input to the model file is pinned by digest and verified on the orchestrator before it runs or is pushed. The model file itself is built on the worker ([ADR 0015](decisions/0015-build-the-model-file-on-the-worker.md)).
 - Every tool call, allowed or refused, is logged with caller, job, and decision. The worker cannot write to or delete that log.
 - A revoked or expired job token is refused.
 - A pod in a workload namespace cannot open a connection to the internet.
