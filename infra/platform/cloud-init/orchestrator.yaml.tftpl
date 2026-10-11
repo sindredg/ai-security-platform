@@ -1,0 +1,186 @@
+#cloud-config
+# First boot of the orchestrator: mesh VPN, then K3s. Everything fetched here is
+# either a signed package or checked against a pinned checksum before it runs.
+write_files:
+  - path: /etc/hosts
+    append: true
+    content: |
+      ${worker_ip} aisec-worker
+
+  # The orchestrator routes for the mesh VPN.
+  - path: /etc/sysctl.d/90-aisec-router.conf
+    permissions: "0644"
+    content: |
+      net.ipv4.ip_forward = 1
+
+  # Routed TCP has to fit the mesh VPN's 1280-byte MTU. The fed machines never
+  # see the "fragmentation needed" replies, because their network security
+  # groups drop ICMP, so the orchestrator rewrites the segment size instead.
+  - path: /etc/aisec/mss-clamp.nft
+    permissions: "0644"
+    content: |
+      table inet aisec_mss
+      delete table inet aisec_mss
+      table inet aisec_mss {
+        chain forward {
+          type filter hook forward priority mangle; policy accept;
+          iifname "tailscale0" tcp flags syn tcp option maxseg size set 1240
+          oifname "tailscale0" tcp flags syn tcp option maxseg size set 1240
+        }
+      }
+
+  - path: /etc/systemd/system/aisec-mss-clamp.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Clamp TCP segment size on routes through the mesh VPN
+      Before=tailscaled.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/sbin/nft -f /etc/aisec/mss-clamp.nft
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # Hardening that an audit asked for and nothing here needs otherwise. What was
+  # left alone, and why, is in the milestone 2 worklog.
+  - path: /etc/sysctl.d/90-aisec-hardening.conf
+    permissions: "0644"
+    content: |
+      kernel.sysrq = 0
+      kernel.kptr_restrict = 2
+      kernel.core_uses_pid = 1
+      fs.suid_dumpable = 0
+      fs.protected_fifos = 2
+      fs.protected_regular = 2
+      net.core.bpf_jit_harden = 2
+      net.ipv4.conf.all.accept_source_route = 0
+      net.ipv4.conf.default.accept_source_route = 0
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv4.conf.all.send_redirects = 0
+      net.ipv4.conf.default.send_redirects = 0
+      net.ipv4.conf.all.log_martians = 1
+      net.ipv4.conf.default.log_martians = 1
+      net.ipv6.conf.all.accept_redirects = 0
+      net.ipv6.conf.default.accept_redirects = 0
+
+  # Read before the image's own files, and the first value wins.
+  - path: /etc/ssh/sshd_config.d/10-aisec.conf
+    permissions: "0600"
+    content: |
+      PermitRootLogin no
+      AllowAgentForwarding no
+      AllowTcpForwarding no
+      X11Forwarding no
+      MaxAuthTries 3
+      MaxSessions 2
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+      TCPKeepAlive no
+      LogLevel VERBOSE
+
+  - path: /etc/modprobe.d/aisec-unused.conf
+    permissions: "0644"
+    content: |
+      install dccp /bin/false
+      install sctp /bin/false
+      install rds /bin/false
+      install tipc /bin/false
+      install usb-storage /bin/false
+
+  # Kernel settings the kubelet expects when protect-kernel-defaults is on.
+  - path: /etc/sysctl.d/90-aisec-kubelet.conf
+    permissions: "0644"
+    content: |
+      vm.panic_on_oom = 0
+      vm.overcommit_memory = 1
+      kernel.panic = 10
+      kernel.panic_on_oops = 1
+
+  - path: /etc/rancher/k3s/config.yaml
+    permissions: "0600"
+    content: |
+      node-ip: ${orchestrator_ip}
+      tls-san:
+        - ${orchestrator_ip}
+      write-kubeconfig-mode: "0600"
+      secrets-encryption: true
+      protect-kernel-defaults: true
+      disable:
+        - traefik
+        - servicelb
+      kube-apiserver-arg:
+        - audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log
+        - audit-policy-file=/var/lib/rancher/k3s/server/audit.yaml
+        - audit-log-maxage=30
+        - audit-log-maxbackup=10
+        - audit-log-maxsize=100
+
+  - path: /var/lib/rancher/k3s/server/audit.yaml
+    permissions: "0600"
+    content: |
+      apiVersion: audit.k8s.io/v1
+      kind: Policy
+      rules:
+        - level: Metadata
+
+  # Single use. It is spent by the time anything else can read it, and the
+  # script removes the file.
+  - path: /run/aisec/tailscale-auth-key
+    permissions: "0600"
+    content: "${tailscale_auth_key}"
+
+  - path: /usr/local/sbin/aisec-first-boot
+    permissions: "0700"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      sysctl --system >/dev/null
+      systemctl daemon-reload
+      systemctl enable --now aisec-mss-clamp.service
+
+      # Mesh VPN, from the vendor's signed package repository, at a pinned version.
+      . /etc/os-release
+      install -d -m 0755 /usr/share/keyrings
+      curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/$VERSION_CODENAME.noarmor.gpg" \
+        -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+      curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/$VERSION_CODENAME.tailscale-keyring.list" \
+        -o /etc/apt/sources.list.d/tailscale.list
+      apt-get update -q
+      DEBIAN_FRONTEND=noninteractive apt-get install -y -q "tailscale=${tailscale_version}"
+      apt-mark hold tailscale
+
+      tailscale up \
+        --auth-key=file:/run/aisec/tailscale-auth-key \
+        --hostname=aisec-orchestrator \
+        --advertise-routes=${advertised_routes} \
+        --accept-dns=false
+      rm -f /run/aisec/tailscale-auth-key
+
+      # K3s. The binary and the install script are both checked before either runs.
+      work="$(mktemp -d)"
+      release="https://github.com/k3s-io/k3s/releases/download/${urlencode(k3s_version)}"
+      curl -fsSL "$release/k3s" -o "$work/k3s"
+      echo "${k3s_sha256}  $work/k3s" | sha256sum -c -
+      curl -fsSL "https://raw.githubusercontent.com/k3s-io/k3s/${urlencode(k3s_version)}/install.sh" -o "$work/install.sh"
+      echo "${k3s_install_sha256}  $work/install.sh" | sha256sum -c -
+
+      install -d -m 0700 /var/lib/rancher/k3s/server/logs
+      install -m 0755 "$work/k3s" /usr/local/bin/k3s
+      INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_VERSION='${k3s_version}' sh "$work/install.sh"
+      rm -rf "$work"
+
+      # The key the orchestrator uses to feed the other machines. It is made
+      # here so the private half never passes through Terraform or its state.
+      install -d -m 0700 -o ${admin_username} -g ${admin_username} /home/${admin_username}/.ssh
+      sudo -u ${admin_username} ssh-keygen -q -t ed25519 -N "" -C aisec-feed \
+        -f /home/${admin_username}/.ssh/aisec-feed
+
+      touch /var/lib/aisec-first-boot.done
+
+runcmd:
+  - [/usr/local/sbin/aisec-first-boot]

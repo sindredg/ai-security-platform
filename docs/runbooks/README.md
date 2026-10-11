@@ -5,3 +5,4 @@ One operator procedure per milestone. Each lists the inputs and access it needs,
 | Runbook | Milestone | Status |
 | --- | --- | --- |
 | [Network foundation](network-foundation.md) | 1 | Validated on 2026-10-10 |
+| [Platform compute](platform-compute.md) | 2 | Implemented on 2026-10-11. Built once |

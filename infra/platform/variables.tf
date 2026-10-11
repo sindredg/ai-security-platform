@@ -33,3 +33,69 @@ variable "targets_virtual_network_id" {
   type        = string
   default     = null
 }
+
+variable "zone" {
+  description = "Availability zone for both VMs."
+  type        = string
+  default     = "1"
+}
+
+variable "orchestrator_size" {
+  description = "VM size for the orchestrator. x64."
+  type        = string
+  default     = "Standard_B2as_v2"
+}
+
+variable "worker_size" {
+  description = "VM size for the AI worker. Arm64, for two physical cores inside a 2 vCPU quota."
+  type        = string
+  default     = "Standard_D2ps_v6"
+}
+
+variable "image_version" {
+  description = "Ubuntu 26.04 LTS image version, the same for both architectures."
+  type        = string
+  default     = "26.04.202610070"
+}
+
+variable "admin_username" {
+  description = "Administrator account on both VMs. Key authentication only."
+  type        = string
+  default     = "aisec"
+}
+
+variable "operator_ssh_public_key" {
+  description = "The operator's SSH public key, in OpenSSH format. The only key the VMs trust at first boot. A change does not reach running VMs: rotate on the VMs, then update this for the next rebuild."
+  type        = string
+}
+
+variable "tailscale_auth_key" {
+  description = "Mesh VPN auth key for the orchestrator. Single use, short expiry, tagged. Needed only for the apply that creates the orchestrator, and ignored after that. Pass it as TF_VAR_tailscale_auth_key and never write it to a file in the repository. It ends up in the VM's custom data and in state, which is why it has to be single use."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "tailscale_version" {
+  description = "Mesh VPN agent version, as the package repository names it."
+  type        = string
+  default     = "1.104.1"
+}
+
+variable "k3s_version" {
+  description = "K3s release. The stable channel version at the time of writing."
+  type        = string
+  default     = "v1.36.5+k3s1"
+}
+
+variable "k3s_sha256" {
+  description = "SHA-256 of the amd64 k3s binary for k3s_version, from the release's sha256sum-amd64.txt."
+  type        = string
+  default     = "d73847bcd3c5fccef0115b372e2f9a91f3032dc84bbf71518a4617565294d313"
+}
+
+variable "k3s_install_sha256" {
+  description = "SHA-256 of install.sh at the k3s_version tag."
+  type        = string
+  default     = "46177d4c99440b4c0311b67233823a8e8a2fc09693f6c89af1a7161e152fbfad"
+}

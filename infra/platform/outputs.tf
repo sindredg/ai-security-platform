@@ -22,3 +22,8 @@ output "peering_name" {
   description = "Name of the platform side of the peering, or null before it exists."
   value       = module.network.peering_name
 }
+
+output "vm_private_ips" {
+  description = "Private address of each VM, by role."
+  value       = { for name, nic in azurerm_network_interface.vm : name => nic.private_ip_address }
+}
