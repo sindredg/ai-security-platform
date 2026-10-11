@@ -275,9 +275,10 @@ Sizes are candidates until measured. Where it will hurt:
 
 ## Repository layout
 
-`infra/` and `docs/` exist. Every other directory appears with the milestone that needs it.
+`.github/`, `infra/`, and `docs/` exist. Every other directory appears with the milestone that needs it.
 
 ```text
+.github/            Static checks on pull requests, dependency update configuration
 infra/bootstrap/    Operator-run root: resource groups, state accounts, deployment identities
 infra/modules/      Shared Terraform modules
 infra/platform/     Platform Terraform root
