@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 528" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="separation-title separation-desc" id="separation-root">
+        <title id="separation-title">Two sides, two identities</title>
+        <desc id="separation-desc">Architecture diagram showing an operator-run bootstrap root creating a platform side and a target side, each with its own deployment identity, workload resource group, and state account, linked only by a single peering permission on the other side's group.</desc>
+        <defs>
+      <style>#separation-root { --color-paper:   #2d3142;   
+      --color-ink:     #f5f5f5;   
+      --color-muted:   #bfc0c0;
+      --color-accent:  #f08a59;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace; }
+      #separation-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #separation-root .diagram-container { width: 100%; overflow-x: auto; }
+      #separation-root .diagram-container { overflow-x: visible; }</style>
+          <marker id="separation-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
+          <marker id="separation-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
+          <marker id="separation-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#739fdf"/></marker>
+
+          <!-- OPTIONAL: dot-pattern background. Uncomment and add <rect fill="url(#separation-dots)"/> after the paper rect to enable. -->
+          <!--
+          <pattern id="separation-dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="#f5f5f5" fill-opacity="0.08"/>
+          </pattern>
+          -->
+        </defs>
+
+        <rect width="100%" height="100%" fill="#2d3142"/>
+
+        <!-- Zones -->
+        <rect x="40" y="168" width="424" height="264" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="170" y="172" width="164" height="12" rx="2" fill="#2d3142"/>
+        <text x="252" y="181" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">PLATFORM SIDE · SWEDEN CENTRAL</text>
+        <rect x="496" y="168" width="424" height="264" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="634" y="172" width="148" height="12" rx="2" fill="#2d3142"/>
+        <text x="708" y="181" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">TARGET SIDE · DENMARK EAST</text>
+        <!-- Bootstrap creates each side -->
+        <path d="M 380,96 H 112 Q 104,96 104,104 V 168" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#separation-arrow)"/>
+        <path d="M 580,96 H 848 Q 856,96 856,104 V 168" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#separation-arrow)"/>
+        <!-- Each identity on its own side -->
+        <line x1="200" y1="264" x2="200" y2="344" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#separation-arrow)"/>
+        <line x1="304" y1="264" x2="304" y2="344" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#separation-arrow)"/>
+        <line x1="656" y1="264" x2="656" y2="344" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#separation-arrow)"/>
+        <line x1="760" y1="264" x2="760" y2="344" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#separation-arrow)"/>
+        <!-- The one deliberate hole: name the other network as a peering partner -->
+        <path d="M 336,216 H 552 Q 560,216 560,224 V 344" fill="none" stroke="#f08a59" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#separation-arrow-accent)"/>
+        <path d="M 624,248 H 568 a 8,8 0 0,0 -16,0 H 408 Q 400,248 400,256 V 344" fill="none" stroke="#f08a59" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#separation-arrow-accent)"/>
+        <!-- Labels -->
+        <rect x="126" y="128" width="52" height="12" rx="2" fill="#2d3142"/>
+        <text x="152" y="137" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CREATES</text>
+        <rect x="782" y="128" width="52" height="12" rx="2" fill="#2d3142"/>
+        <text x="808" y="137" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CREATES</text>
+        <rect x="120" y="298" width="72" height="12" rx="2" fill="#2d3142"/>
+        <text x="156" y="307" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">READ · WRITE</text>
+        <rect x="224" y="298" width="72" height="12" rx="2" fill="#2d3142"/>
+        <text x="260" y="307" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CONTRIBUTOR</text>
+        <rect x="664" y="298" width="72" height="12" rx="2" fill="#2d3142"/>
+        <text x="700" y="307" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CONTRIBUTOR</text>
+        <rect x="768" y="298" width="72" height="12" rx="2" fill="#2d3142"/>
+        <text x="804" y="307" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">READ · WRITE</text>
+        <rect x="408" y="284" width="64" height="12" rx="2" fill="#2d3142"/>
+        <text x="440" y="293" fill="#f08a59" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">PEER ONLY</text>
+        <rect x="488" y="284" width="64" height="12" rx="2" fill="#2d3142"/>
+        <text x="520" y="293" fill="#f08a59" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">PEER ONLY</text>
+        <!-- Nodes -->
+        <rect x="380" y="64" width="200" height="64" rx="6" fill="#2d3142"/>
+        <rect x="380" y="64" width="200" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <rect x="388" y="72" width="40" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
+        <text x="408" y="81" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">OWNER</text>
+        <text x="480" y="100" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Bootstrap root</text>
+        <text x="480" y="116" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">run by the operator</text>
+        <rect x="168" y="200" width="168" height="64" rx="6" fill="#2d3142"/>
+        <rect x="168" y="200" width="168" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <rect x="176" y="208" width="32" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
+        <text x="192" y="217" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">CERT</text>
+        <text x="252" y="236" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Platform identity</text>
+        <text x="252" y="252" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">aisec-platform-deploy</text>
+        <rect x="64" y="344" width="168" height="64" rx="6" fill="#2d3142"/>
+        <rect x="64" y="344" width="168" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.05" stroke="#bfc0c0" stroke-width="1"/>
+        <rect x="72" y="352" width="36" height="12" rx="2" fill="none" stroke="#bfc0c0" stroke-opacity="0.50" stroke-width="0.8"/>
+        <text x="90" y="361" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">STATE</text>
+        <text x="148" y="380" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">State account</text>
+        <text x="148" y="396" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">platform.tfstate</text>
+        <rect x="272" y="344" width="168" height="64" rx="6" fill="#2d3142"/>
+        <rect x="272" y="344" width="168" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <rect x="280" y="352" width="24" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
+        <text x="292" y="361" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">RG</text>
+        <text x="356" y="380" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Workload group</text>
+        <text x="356" y="396" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">rg-aisec-platform</text>
+        <rect x="624" y="200" width="168" height="64" rx="6" fill="#2d3142"/>
+        <rect x="624" y="200" width="168" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <rect x="632" y="208" width="32" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
+        <text x="648" y="217" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">CERT</text>
+        <text x="708" y="236" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Target identity</text>
+        <text x="708" y="252" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">aisec-targets-deploy</text>
+        <rect x="520" y="344" width="168" height="64" rx="6" fill="#2d3142"/>
+        <rect x="520" y="344" width="168" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <rect x="528" y="352" width="24" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
+        <text x="540" y="361" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">RG</text>
+        <text x="604" y="380" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Workload group</text>
+        <text x="604" y="396" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">rg-aisec-targets</text>
+        <rect x="728" y="344" width="168" height="64" rx="6" fill="#2d3142"/>
+        <rect x="728" y="344" width="168" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.05" stroke="#bfc0c0" stroke-width="1"/>
+        <rect x="736" y="352" width="36" height="12" rx="2" fill="none" stroke="#bfc0c0" stroke-opacity="0.50" stroke-width="0.8"/>
+        <text x="754" y="361" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">STATE</text>
+        <text x="812" y="380" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">State account</text>
+        <text x="812" y="396" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">targets.tfstate</text>
+        <line x1="40" y1="464" x2="920" y2="464" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <text x="40" y="480" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="40" y="496" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="60" y="504" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Operator, subscription Owner</text>
+        <rect x="208" y="496" width="14" height="10" rx="2" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="228" y="504" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Identity or resource group</text>
+        <rect x="368" y="496" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.05" stroke="#bfc0c0" stroke-width="1"/>
+        <text x="388" y="504" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Terraform state</text>
+        <line x1="480" y1="502" x2="508" y2="502" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#separation-arrow)"/>
+        <text x="516" y="504" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Role assignment</text>
+        <line x1="620" y1="502" x2="648" y2="502" stroke="#f08a59" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#separation-arrow-accent)"/>
+        <text x="656" y="504" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">One action, no read or write</text>
+
+      </svg>

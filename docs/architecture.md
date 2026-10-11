@@ -20,45 +20,11 @@ This is an infrastructure project. The work is Terraform, Kubernetes operations,
 
 ## System overview
 
-```mermaid
-flowchart LR
-    Operator["Operator"]
-    Feeds["Public security feeds"]
-    GitHub["GitHub: pull requests"]
+![Target architecture: a trusted orchestrator VM is the only link between the AI worker, the targets, and the outside world](diagrams/target-architecture.svg)
 
-    subgraph Platform["Platform: Sweden Central"]
-        subgraph K3s["K3s orchestrator VM"]
-            Argo["Argo Workflows"]
-            Collectors["Collectors and deterministic checks"]
-            Tools["MCP tool services and policy"]
-            Delivery["PR broker and delivery runner"]
-        end
-        subgraph Worker["AI worker VM"]
-            Agent["Agent runtime"]
-            Model["Model server"]
-        end
-    end
+Note the dotted line from the AI worker: it ends at a stop bar. The worker cannot reach the target region at all. Everything it knows about the target, it was handed by a tool service on the orchestrator.
 
-    subgraph Targets["Targets: Denmark East"]
-        NetBox["NetBox VM"]
-        Lab["Lab VM: consumer, probes, rehearsal copy"]
-    end
-
-    Operator --> Argo
-    Operator -->|"approves exact change"| GitHub
-    Feeds --> Collectors
-    Collectors -->|"approved collection paths"| NetBox
-    Argo --> Agent
-    Agent --> Model
-    Agent -->|"scoped tool calls"| Tools
-    Tools -->|"named procedures"| Lab
-    Delivery --> GitHub
-    GitHub -->|"approved change"| Delivery
-    Delivery -->|"permitted change"| NetBox
-    Lab -->|"inventory API"| NetBox
-```
-
-Note what is missing from the diagram: any line from the AI worker to the targets. The worker cannot reach the target region at all. Everything it knows about the target, it was handed by a tool service on the orchestrator.
+The orchestrator box hides four groups of components. They are listed under [Orchestrator](#orchestrator), and the order they act in is under [Workflow](#workflow).
 
 ## Platform and target separation
 
@@ -77,6 +43,8 @@ So they share one Azure subscription and nothing else. See [ADR 0002](decisions/
 | Deployment identity | `aisec-platform-deploy`, platform scope only | `aisec-targets-deploy`, target scope only |
 | Lifecycle | Long-lived | Rebuilt and reseeded per exercise |
 | Intentional weaknesses | None | Seeded per exercise, inside outer containment |
+
+![Two sides, two identities: the bootstrap root creates each side, each identity holds roles on its own resource group and state, and the only cross-side permission is the peering action](diagrams/separation.svg)
 
 Separate folders prove nothing. The boundary is real only where state permissions, role assignments, network rules, and separate credentials enforce it.
 
@@ -223,6 +191,8 @@ Three exercises, in this order, on the same service and the same consumer contra
 The easy way to pass a security check is to break the service. So a fix that locks out the legitimate consumer fails, and validation checks the inventory the consumer actually gets back, not a health endpoint.
 
 ## Workflow
+
+![Investigation to delivery: trusted orchestrator steps, one untrusted AI worker step, and one operator approval](diagrams/workflow.svg)
 
 1. Collection runs on a schedule or on request and produces validated evidence snapshots.
 2. Deterministic checks establish configured access, observed reachability, and candidate findings.
