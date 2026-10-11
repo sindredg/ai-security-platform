@@ -6,60 +6,11 @@ The split of work is strict. Ordinary tools collect evidence and establish facts
 
 ## Target architecture
 
-This is what gets built. The networks, their rules, and the peering exist today. Everything on a VM is planned. Component detail and the reasoning are in the [architecture](docs/architecture.md).
+This is what gets built. The networks, their rules, and the peering exist today. Everything on a VM is planned. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
 
-```mermaid
-flowchart LR
-    Operator["Operator device"]
-    Internet["Internet: registries, package mirrors, security feeds, mesh VPN service"]
-    GitHub["GitHub: pull requests and approval"]
+![Target architecture: a trusted orchestrator VM is the only link between the AI worker, the targets, and the outside world](docs/diagrams/target-architecture.svg)
 
-    subgraph Azure["One Azure subscription"]
-        subgraph Platform["Platform: Sweden Central, 10.40.0.0/20"]
-            NAT["NAT gateway: the only way out"]
-
-            subgraph Orch["Orchestrator VM, trusted: subnet 10.40.0.0/27"]
-                Mesh["Mesh VPN agent and subnet router"]
-                Feed["Artifact fetch, verify, push"]
-                subgraph K3s["K3s"]
-                    Argo["Argo Workflows"]
-                    Collect["Collectors and deterministic checks"]
-                    Tools["MCP tool services and policy"]
-                    Change["PR broker and delivery runner"]
-                end
-            end
-
-            subgraph Worker["AI worker VM, untrusted: subnet 10.40.0.32/27"]
-                Agent["Agent runtime"]
-                Model["Model server, CPU inference"]
-            end
-        end
-
-        subgraph Targets["Targets: Denmark East, 10.50.0.0/20"]
-            NetBox["NetBox VM: the service under investigation"]
-            Lab["Lab VM: consumer, unintended viewpoint, rehearsal copy"]
-        end
-    end
-
-    Operator -->|"mesh VPN: SSH and Argo UI"| Mesh
-    Orch -->|"outbound only"| NAT
-    NAT --> Internet
-    NAT --> GitHub
-
-    Argo -->|"dispatch job"| Agent
-    Agent --> Model
-    Agent -->|"scoped tool calls"| Tools
-
-    Collect -->|"evidence collection"| NetBox
-    Tools -->|"named probes and rehearsals"| Lab
-    Change -->|"approved change"| NetBox
-    Lab -->|"inventory API"| NetBox
-
-    Feed -.->|"verified artifacts over SSH"| Worker
-    Feed -.->|"verified artifacts over SSH"| Targets
-```
-
-The lines that are missing matter as much as the ones drawn:
+The blocked paths matter as much as the open ones:
 
 - **The AI worker reaches the tool services and nothing else.** No target, no internet, no public DNS.
 - **The targets reach nothing outside their own network.** They cannot open a connection into the platform, and they have no internet path.
