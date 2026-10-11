@@ -10,7 +10,7 @@ This page holds the boundaries and their threats. The rest of the security work 
 
 Five things stand out. None is fixed by this document.
 
-1. **The tool services are the wall.** Every limit on the AI worker ends at one service on the trusted machine that reads hostile input. That service is not designed yet, and neither is the way it tells one job from another. See T16, T18, T22.
+1. **The tool services are the wall.** Every limit on the AI worker ends at one service on the trusted machine that reads hostile input. The service and the way it tells one job from another are decided in ADRs [0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md) and [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md). Neither is built or tested. See T16, T18, T22.
 2. **The repository is the approval channel and was unprotected.** `main` accepted a force push when this was written. It no longer does: a ruleset requires a pull request with four passing checks, and secret scanning with push protection is on. What a pipeline may do with a credential is still open. See T10.
 3. **The operator is a single point of total compromise.** One Azure account owns both sides. One GitHub account approves every change. The design constrains automation, not that person. See T15, T30.
 4. **A proposal is a data path to a public page.** The worker reads evidence and writes text that ends up in a pull request. Nothing decided so far checks what that text carries. See A5.
@@ -123,13 +123,13 @@ The diagram source is [`diagrams/trust-boundaries.html`](../diagrams/trust-bound
 
 | ID | Threat | STRIDE | Rating | Control | State | Gate | Residual |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T16 | A turned worker calls a tool outside its job: another target, another operation | E | High | Every call authorized on the server by caller, job, target, operation, and arguments | Planned | 3, 6 | The policy check is custom code |
+| T16 | A turned worker calls a tool outside its job: another target, another operation | E | High | Every call authorized on the server by caller, job, target, operation, and arguments | Decided ([0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) | 3, 6 | The policy check is custom code |
 | T17 | The worker reaches a target or the internet directly | E, I | High | Deny rules on the platform side, plus no outbound path. The one exception is a proxy on the orchestrator that forwards package downloads to two hosts ([ADR 0011](../decisions/0011-package-proxy-for-the-worker.md)) | Verified with traffic | 2 | The proxy is a service the worker can attack, and requests to the two package hosts carry a few bytes out |
-| T18 | The worker presents itself as another job or caller | S | High | A credential scoped to one job, issued at dispatch | Open | 3 | Depends on the dispatch decision |
+| T18 | The worker presents itself as another job or caller | S | High | A random token per job, issued at dispatch, scoped to one target and a list of tools, revoked when the job ends ([0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)) | Decided | 3 | Whoever holds the token is the job until it ends. Jobs share a machine |
 | T19 | Files, cache, or session state from one job reach the next | I | Medium | One session per job. Cleanup tested, not assumed | Planned | 3, 6 | Jobs share a VM and a kernel |
 | T20 | The worker never finishes, or floods the tool services | D | Medium | Time and output limits per job. One job at a time | Planned | 3, 6 | A stuck job blocks the only worker |
-| T21 | The worker edits or deletes the record of its own calls | R | High | The log is written on the orchestrator, where the worker has no access | Planned | 3 | None known |
-| T22 | The worker exploits a bug in a tool service and lands on the orchestrator | E | High | Only tool service ports are open from the worker subnet. SSH runs the other way only. Hardening baseline on the cluster | Open | 3 | A parsing bug in a tool service is a direct path to the trusted side |
+| T21 | The worker edits or deletes the record of its own calls | R | High | The service prints each line and the orchestrator host stores it in an append-only file that no pod mounts ([0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) | Decided | 3 | Root on the orchestrator can edit the file |
+| T22 | The worker exploits a bug in a tool service and lands on the orchestrator | E | High | One port open from the worker subnet. The pod runs without root, capabilities, a writable filesystem, or a service account token, and with egress denied ([0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) | Decided | 3 | A parsing bug in the service is still a path to the trusted side. A container is not a strong wall |
 
 ### B5. Targets
 
@@ -153,4 +153,4 @@ The diagram source is [`diagrams/trust-boundaries.html`](../diagrams/trust-bound
 | T33 | One side's identity changes the other side | E | High | Role assignments scoped to one side | [Verified](../worklogs/0001-network-foundation.md#identity-separation) | 1 | The peering action, which carries no traffic alone |
 | T34 | A change to the shared network module reaches both sides unnoticed | T | Medium | Each root's plan is read before its apply. Static checks on pull requests | Planned | 2 | One reader |
 | T35 | A secret in VM custom data is read from instance metadata | I | Medium | No secret in custom data on a fed machine | Decided | 2 | The orchestrator's enrollment key. See T02 |
-| T36 | A workload on the cluster reaches the `change` namespace credentials | E | High | Per-workload permissions and a hardening baseline. Namespaces are not treated as a wall | Open | 3 | Depends on the workload identity decision |
+| T36 | A workload on the cluster reaches the `change` namespace credentials | E | High | Per-workload permissions and a hardening baseline. Namespaces are not treated as a wall | Partly decided. No workload holds a cloud credential in milestone 3, and the tool service pod has no service account token ([0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) | 3, 5 | The `change` namespace does not exist yet. Its permissions are a milestone 5 decision |

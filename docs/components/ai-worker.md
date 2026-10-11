@@ -40,7 +40,7 @@ About 20 minutes after boot: 0.5 of 7.9 GiB memory used, CPU 99 to 100 % idle, 2
 | Model server | llama.cpp | Tool-call format, memory, throughput on this size |
 | Starting model | Qwen3-4B-Instruct-2507, quantized | Structured output and tool calling on held-out fixtures |
 
-How a workflow hands a job to this machine is open. Today the worker cannot start a connection to anything on the orchestrator except the proxy, so dispatch starts from the orchestrator or gets its own rule.
+A workflow hands a job to this machine over SSH, with a key that can only run the job runner ([ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md)). Decided, not built. Today the worker cannot start a connection to anything on the orchestrator except the proxy. The tool service gets the second rule ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)).
 
 ## Validation
 
