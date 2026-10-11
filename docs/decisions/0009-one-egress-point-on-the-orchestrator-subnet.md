@@ -56,7 +56,7 @@ One way out for the whole system: a NAT gateway on the orchestrator subnet. Ever
 
 - No outbound method, and explicit deny rules for the `Internet` and `AzurePlatformDNS` tags. On the worker subnet these are platform-side containment rules, next to the existing denies.
 - The orchestrator downloads each artifact, checks it against a pinned digest or checksum, and copies it over SSH. That flow is already allowed. Container images travel as archives.
-- Operating system packages go through a SOCKS forward carried by an SSH session from the orchestrator. The path exists only while that session is open, and only the trusted side can open it.
+- Operating system packages go through a SOCKS forward carried by an SSH session from the orchestrator. The path exists only while that session is open, and only the trusted side can open it. For the worker, [0011](0011-package-proxy-for-the-worker.md) replaced this on 2026-10-11 with a package proxy on the orchestrator.
 - These machines know each other by address and a hosts file. There is no private DNS zone.
 
 **Policy**
