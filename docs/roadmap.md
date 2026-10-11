@@ -39,16 +39,17 @@ The point of doing this first is to prove the separation before there is anythin
 
 ## 2. Platform compute
 
-Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN and the egress path.
+Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN, the egress path, and the public address policy.
 
-**Depends on:** the egress decision.
+**Depends on:** the egress decision, made in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md).
 
 **Exit gate:**
 
 - Both VMs are reachable over the mesh VPN and have no public address.
 - Effective rules on each network interface match the configured rules, and the denied paths are tested with traffic. Carried over from milestone 1.
 - K3s comes back healthy after a VM restart.
-- The worker cannot open a connection to the target network or the internet.
+- The worker cannot open a connection to the target network or the internet, and cannot resolve a public name.
+- A public address on a network interface is refused by policy in both workload resource groups.
 - Idle CPU and memory use on both VMs is measured.
 
 ## 3. Toolchain integration

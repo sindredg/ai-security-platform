@@ -12,6 +12,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0006](0006-terraform-state-in-azure-storage.md) | Terraform state in Azure Storage, one account per root | Accepted |
 | [0007](0007-mesh-vpn-for-administrative-access.md) | Mesh VPN for administrative access | Accepted |
 | [0008](0008-deployment-identities-and-bootstrap-scope.md) | Certificate-based deployment identities, created by the bootstrap root | Accepted |
+| [0009](0009-one-egress-point-on-the-orchestrator-subnet.md) | One egress point, on the orchestrator subnet | Accepted |
 
 ## Format
 

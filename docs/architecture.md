@@ -124,7 +124,9 @@ The table is the design. So far only the SSH part of the administration flow has
 | Orchestrator subnet | AI worker subnet | Dispatch jobs | Allowed |
 | AI worker subnet | Orchestrator subnet | Tool services only | Allowed, fixed ports |
 | AI worker subnet | Target network | None | Denied, by an explicit rule on the platform side |
-| AI worker subnet | Internet | None once models and images are in place | Denied, by an explicit rule on the platform side |
+| AI worker subnet | Internet | None. The orchestrator pushes what the worker needs | Denied, by an explicit rule on the platform side |
+| Orchestrator subnet | Internet | Mesh VPN, downloads, security feeds, GitHub | Decided, not built: through the NAT gateway |
+| Target network | Internet | None. The orchestrator pushes what the targets need | Denied by the baseline rule. Policy and explicit rules are decided, not built |
 | Target network | Platform network | None | Denied for new connections, by an explicit rule on the platform side |
 | Operator device | Orchestrator, then other VMs | Administration over the mesh VPN | Allowed for signed-in operator devices |
 | Internet | Any | None | Denied inbound |
@@ -135,7 +137,21 @@ An allowed route is not authorization. Every allowed flow still needs applicatio
 
 No VM has a public address. The operator gets in over a mesh VPN: the orchestrator runs the agent and routes to both networks. No firewall rule names an operator address, because none is needed. See [ADR 0007](decisions/0007-mesh-vpn-for-administrative-access.md).
 
-Still open: how images and packages get downloaded, and private DNS. See [Open decisions](#open-decisions).
+### Egress
+
+Decided, not built. See [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md).
+
+The system has one way out: a NAT gateway on the orchestrator subnet. The orchestrator is the only machine that downloads anything.
+
+The worker and the target VMs are fed. The orchestrator fetches each artifact, checks it against a pinned digest, and copies it over SSH. Operating system packages reach those machines through a forward that exists only while an SSH session from the orchestrator holds it open.
+
+Three things keep the fed machines closed, because any one alone leaks:
+
+- No outbound method on their subnets.
+- Explicit deny rules for the internet and for Azure DNS. A deny-all rule does not cover Azure DNS, and a private subnet still reaches storage accounts in its own region.
+- Azure Policy, assigned outside both roots: no public address on any network interface, and no public IP resources at all in the target resource group.
+
+The fed machines use addresses and a hosts file. There is no private DNS zone.
 
 ## Platform
 
@@ -287,7 +303,6 @@ Each gets a decision record before the milestone that depends on it.
 
 | Decision | Needed before |
 | --- | --- |
-| Egress design for image and package downloads | Platform compute |
 | Dispatch from Argo to the worker VM | Toolchain integration |
 | Cloud identity for K3s workloads | Toolchain integration |
 | Worker isolation beyond VM separation | Connecting real target evidence |
@@ -302,4 +317,5 @@ Each gets a decision record before the milestone that depends on it.
 - One operator. There is no multi-user access model.
 - A separate VM limits what a compromised worker can reach. It does nothing against a compromised host or provider.
 - Both roots use the same network module. A change to it reaches both sides, so the separation is in state, identity, and network rules, not in the code.
-- Nothing outside the roots stops a deployment identity from creating a public IP address in its own resource group.
+- Nothing outside the roots stops a deployment identity from creating a public IP address in its own resource group yet. The policy that does is decided in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) and not assigned.
+- The orchestrator's egress is not filtered by hostname. It can reach any host on port 443.
