@@ -229,13 +229,13 @@ What follows from that:
 
 Decided, not built. See [ADR 0010](decisions/0010-threat-model-and-security-checks-per-milestone.md).
 
-The table above says who is trusted. It does not say what can go wrong at each boundary, or where each control gets tested. A threat model does, and it is written before any VM exists.
+The table above says who is trusted. The [threat model](threat-model.md) says what can go wrong at each boundary, what stops it, and where that gets tested. Its first pass was written before any VM existed.
 
 Everything else is attached to the milestone that builds the thing it checks. A practice with no gate behind it is a good intention.
 
 | Practice | What it covers | Lands with | State |
 | --- | --- | --- | --- |
-| Threat model | Threats per trust boundary, AI-specific threats, the control for each, residual risk, and the gap between this lab and production | Before platform compute, then updated with each decision | Planned |
+| Threat model | Threats per trust boundary, AI-specific threats, the control for each, residual risk, and the gap between this lab and production | Before platform compute, then updated with each decision | First pass written |
 | Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Planned |
 | Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Planned |
 | Dependency updates | Automated pull requests that move the version pins | Platform compute | Planned |
@@ -312,4 +312,4 @@ Each gets a decision record before the milestone that depends on it.
 - Both roots use the same network module. A change to it reaches both sides, so the separation is in state, identity, and network rules, not in the code.
 - Nothing outside the roots stops a deployment identity from creating a public IP address in its own resource group yet. The policy that does is decided in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) and not assigned.
 - The orchestrator's egress is not filtered by hostname. It can reach any host on port 443.
-- No threat model exists yet. The trust boundaries are stated, but the threats at each one are not listed, so what the design misses is unknown. See [security practices](#security-practices).
+- The [threat model](threat-model.md) is a first pass against a design, written by the designer. Most of its controls are decided or planned, not verified, and its [open items](threat-model.md#open-items) have no answer yet.

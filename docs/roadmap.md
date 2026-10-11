@@ -43,7 +43,7 @@ The point of doing this first is to prove the separation before there is anythin
 
 Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN, the egress path, and the public address policy.
 
-**Depends on:** the egress decision, made in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), and the first pass of the threat model, which is written before any VM exists.
+**Depends on:** the egress decision, made in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), and the first pass of the [threat model](threat-model.md).
 
 **Exit gate:**
 

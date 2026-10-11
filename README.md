@@ -54,6 +54,7 @@ The network foundation is deployed: two peered virtual networks, deny-by-default
 | --- | --- |
 | [Architecture](docs/architecture.md) | Components, boundaries, networks, capacity |
 | [Roadmap](docs/roadmap.md) | Milestones and what each has to prove |
+| [Threat model](docs/threat-model.md) | What can go wrong at each trust boundary, the control, and what is left over |
 | [Decision records](docs/decisions/README.md) | Why each major choice was made, and what it costs |
 | [Runbooks](docs/runbooks/README.md) | Operator procedures, one per milestone |
 | [Troubleshooting](docs/troubleshooting/README.md) | Failures worth remembering |
