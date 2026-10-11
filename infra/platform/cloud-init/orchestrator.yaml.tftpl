@@ -1,0 +1,106 @@
+#cloud-config
+# First boot of the orchestrator: mesh VPN, then K3s. Everything fetched here is
+# either a signed package or checked against a pinned checksum before it runs.
+write_files:
+  - path: /etc/hosts
+    append: true
+    content: |
+      ${worker_ip} aisec-worker
+
+  # The orchestrator routes for the mesh VPN.
+  - path: /etc/sysctl.d/90-aisec-router.conf
+    permissions: "0644"
+    content: |
+      net.ipv4.ip_forward = 1
+
+  # Kernel settings the kubelet expects when protect-kernel-defaults is on.
+  - path: /etc/sysctl.d/90-aisec-kubelet.conf
+    permissions: "0644"
+    content: |
+      vm.panic_on_oom = 0
+      vm.overcommit_memory = 1
+      kernel.panic = 10
+      kernel.panic_on_oops = 1
+
+  - path: /etc/rancher/k3s/config.yaml
+    permissions: "0600"
+    content: |
+      node-ip: ${orchestrator_ip}
+      tls-san:
+        - ${orchestrator_ip}
+      write-kubeconfig-mode: "0600"
+      secrets-encryption: true
+      protect-kernel-defaults: true
+      disable:
+        - traefik
+        - servicelb
+      kube-apiserver-arg:
+        - audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log
+        - audit-policy-file=/var/lib/rancher/k3s/server/audit.yaml
+        - audit-log-maxage=30
+        - audit-log-maxbackup=10
+        - audit-log-maxsize=100
+
+  - path: /var/lib/rancher/k3s/server/audit.yaml
+    permissions: "0600"
+    content: |
+      apiVersion: audit.k8s.io/v1
+      kind: Policy
+      rules:
+        - level: Metadata
+
+  # Single use. It is spent by the time anything else can read it, and the
+  # script removes the file.
+  - path: /run/aisec/tailscale-auth-key
+    permissions: "0600"
+    content: "${tailscale_auth_key}"
+
+  - path: /usr/local/sbin/aisec-first-boot
+    permissions: "0700"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      sysctl --system >/dev/null
+
+      # Mesh VPN, from the vendor's signed package repository, at a pinned version.
+      . /etc/os-release
+      install -d -m 0755 /usr/share/keyrings
+      curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/$VERSION_CODENAME.noarmor.gpg" \
+        -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+      curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/$VERSION_CODENAME.tailscale-keyring.list" \
+        -o /etc/apt/sources.list.d/tailscale.list
+      apt-get update -q
+      DEBIAN_FRONTEND=noninteractive apt-get install -y -q "tailscale=${tailscale_version}"
+      apt-mark hold tailscale
+
+      tailscale up \
+        --auth-key=file:/run/aisec/tailscale-auth-key \
+        --hostname=aisec-orchestrator \
+        --advertise-routes=${advertised_routes} \
+        --accept-dns=false
+      rm -f /run/aisec/tailscale-auth-key
+
+      # K3s. The binary and the install script are both checked before either runs.
+      work="$(mktemp -d)"
+      release="https://github.com/k3s-io/k3s/releases/download/${urlencode(k3s_version)}"
+      curl -fsSL "$release/k3s" -o "$work/k3s"
+      echo "${k3s_sha256}  $work/k3s" | sha256sum -c -
+      curl -fsSL "https://raw.githubusercontent.com/k3s-io/k3s/${urlencode(k3s_version)}/install.sh" -o "$work/install.sh"
+      echo "${k3s_install_sha256}  $work/install.sh" | sha256sum -c -
+
+      install -d -m 0700 /var/lib/rancher/k3s/server/logs
+      install -m 0755 "$work/k3s" /usr/local/bin/k3s
+      INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_VERSION='${k3s_version}' sh "$work/install.sh"
+      rm -rf "$work"
+
+      # The key the orchestrator uses to feed the other machines. It is made
+      # here so the private half never passes through Terraform or its state.
+      install -d -m 0700 -o ${admin_username} -g ${admin_username} /home/${admin_username}/.ssh
+      sudo -u ${admin_username} ssh-keygen -q -t ed25519 -N "" -C aisec-feed \
+        -f /home/${admin_username}/.ssh/aisec-feed
+
+      touch /var/lib/aisec-first-boot.done
+
+runcmd:
+  - [/usr/local/sbin/aisec-first-boot]

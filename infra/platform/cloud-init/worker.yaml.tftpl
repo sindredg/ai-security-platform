@@ -1,0 +1,8 @@
+#cloud-config
+# The AI worker is fed. It has no internet path and no DNS, so nothing here
+# installs or downloads anything. The orchestrator pushes what it needs.
+write_files:
+  - path: /etc/hosts
+    append: true
+    content: |
+      ${orchestrator_ip} aisec-orchestrator
