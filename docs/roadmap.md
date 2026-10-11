@@ -2,6 +2,8 @@
 
 Each milestone has an exit gate: things that must be shown to work, not things that must be built. A milestone is done when its gate is met and the evidence is in a [worklog](worklogs/README.md). The design behind all of this is in the [architecture](architecture.md).
 
+Security work has no milestone of its own. Each practice sits in the gate of the milestone that builds what it checks, as decided in [ADR 0010](decisions/0010-threat-model-and-security-checks-per-milestone.md).
+
 ## Status
 
 | Milestone | State |
@@ -41,7 +43,7 @@ The point of doing this first is to prove the separation before there is anythin
 
 Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN, the egress path, and the public address policy.
 
-**Depends on:** the egress decision, made in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md).
+**Depends on:** the egress decision, made in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), and the first pass of the threat model, which is written before any VM exists.
 
 **Exit gate:**
 
@@ -51,6 +53,12 @@ Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN, 
 - The worker cannot open a connection to the target network or the internet, and cannot resolve a public name.
 - A public address on a network interface is refused by policy in both workload resource groups.
 - Idle CPU and memory use on both VMs is measured.
+- Every credential this milestone creates is in the credential inventory. Each long-lived one has a rotation procedure that has been run once.
+- The deployment keys are encrypted at rest, and the bootstrap state has a copy off the workstation.
+- Hardening benchmark results for the operating system and K3s are recorded. Each failed check is fixed or accepted with a reason.
+- `main` takes changes only through a pull request with passing checks, and a pushed secret is refused.
+- Pull requests run static checks on the Terraform and a secret scan. The pipeline holds no cloud credentials.
+- Version pins for providers and pipeline actions get automated update pull requests.
 
 ## 3. Toolchain integration
 
@@ -67,6 +75,9 @@ This is where the design is most likely to be wrong, so it comes before any targ
 - Cancelling a workflow stops the worker job and cleans up its session.
 - Model memory use, latency per turn, and tokens per second are measured on the chosen size.
 - Component footprint on the orchestrator is measured. Deferred components go in or get dropped based on it.
+- The threat model covers dispatch, workload identity, and the AI-specific threats. Each threat rated high has a control or a stated acceptance.
+- Every image and the model file is pinned by digest and verified on the orchestrator before it runs or is pushed.
+- Every tool call, allowed or refused, is logged with caller, job, and decision. The worker cannot write to or delete that log.
 
 If a candidate needs a substantial custom service to pass this gate, replace it or simplify the design. Don't build the service.
 
@@ -82,6 +93,7 @@ Define the consumer contract. Deploy NetBox, synthetic inventory, and the consum
 - Deterministic checks confirm the finding and a known unaffected case.
 - The AI investigation cites tool evidence for each conclusion, and says so when evidence disagrees.
 - A baseline without AI, using the same tools, is recorded for comparison.
+- Every image on the target side is pinned by digest. Signatures are verified where upstream signs.
 
 ## 5. Remediation, pull requests, and delivery
 
@@ -96,6 +108,7 @@ Rehearse a proposed fix on the rehearsal copy, publish it as a pull request, and
 - Delivery applies only the approved commit to the approved target. A changed commit voids the approval.
 - After delivery, the consumer gets its required records, forbidden records stay hidden, and writes stay denied.
 - One supported rollback is demonstrated, along with what it cannot repair.
+- The threat model covers the pull request and delivery path, including the repository credentials.
 
 ## 6. Operational and containment drills
 
@@ -109,6 +122,9 @@ Break the finished workflow on purpose.
 - Instructions embedded in advisories and tool results.
 - Forged and stale target evidence.
 - Cleanup verification and measured resource use per investigation.
+- The incident response runbook, run for a turned worker, a compromised target, and a leaked credential.
+
+Every threat rated high in the threat model maps to one of these drills or to a stated accepted risk. A high threat with neither is a gap, and the milestone stays open.
 
 ## 7. Exercise 2: excess network access
 
@@ -120,6 +136,7 @@ Same workflow, different change surface. Seed a target network rule that lets th
 - The change touches only allowlisted target network fields.
 - The consumer contract and the exercise 1 denials still hold.
 - Outer containment is unchanged.
+- The threat model is rechecked for the new change surface.
 
 ## 8. Exercise 3: vulnerable image or dependency
 
@@ -127,10 +144,11 @@ Pick a real advisory, an affected pinned artifact, and a reviewed fix before see
 
 **Exit gate:**
 
-- An applicability record for the specific artifact. A version-string match is not enough.
+- An applicability record for the specific artifact, backed by its SBOM. A version-string match is not enough.
 - The update is rehearsed with database migration and a tested recovery procedure.
 - The specific finding is reassessed after delivery. A clean generic scan is not enough.
 - Results from exercises 1 and 2 still hold.
+- The threat model is rechecked for the new change surface.
 
 If no suitable affected and fixed artifact pair turns up, this exercise is recorded as not done. It does not get faked.
 
