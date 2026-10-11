@@ -42,6 +42,7 @@ The orchestrator has no inbound allow for administration. That arrives inside th
 
 - **The gateway bills by the hour whether or not a VM runs.**
 - **The orchestrator's egress is not filtered by hostname.** That takes a firewall that costs more than the VMs.
+- **Port 80 is open as well as 443.** Only the package mirrors need it. Closing it was tried and failed. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
 - **Platform endpoints are not the internet and stay reachable.**
 
 ## Official documentation

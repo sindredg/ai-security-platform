@@ -4,7 +4,7 @@
 
 These have no control and no gate. They are carried on purpose.
 
-- **T05:** a compromised orchestrator can send anything anywhere on port 443.
+- **T05:** a compromised orchestrator can send anything anywhere on port 443, and in cleartext on port 80. Closing port 80 was tried and costs more than it removes. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
 - **T15, T30:** a takeover of the operator's GitHub or Azure account defeats the design.
 - **Provider compromise:** Azure, GitHub, and the mesh VPN provider are trusted.
 - **Single approver:** nobody checks the operator.

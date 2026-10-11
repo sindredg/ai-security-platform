@@ -102,7 +102,7 @@ The diagram source is [`diagrams/trust-boundaries.html`](../diagrams/trust-bound
 
 | ID | Threat | STRIDE | Rating | Control | State | Gate | Residual |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T05 | A compromised orchestrator sends anything to any host on port 443 | I | High | None at the network. Nothing untrusted runs on the orchestrator | Accepted | None | Total. Filtering by hostname costs a firewall |
+| T05 | A compromised orchestrator sends anything to any host on port 443 or 80 | I | High | None at the network. Nothing untrusted runs on the orchestrator | Accepted | None | Total. Filtering by hostname costs a firewall |
 | T06 | A fetched image, package, binary, or install script is malicious | T, E | High | Pinned by digest and verified on the orchestrator before it runs or is pushed. Signatures checked where upstream signs | Decided | 3, 4 | A digest proves identity, not innocence. The first pin is trusted on sight |
 | T07 | A fed machine leaks data through DNS lookups | I | High | Explicit deny for the Azure DNS service tag on the worker and target subnets | Decided | 2 | None known |
 | T08 | A fed machine reaches a storage account in its own region without any gateway | I | High | Explicit deny for the internet tag, next to the missing outbound path | Decided | 2 | On the target side the deny is a target setting. See T25 |

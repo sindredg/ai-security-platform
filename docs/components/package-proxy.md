@@ -44,6 +44,7 @@ Squid is the one service the untrusted side can reach. Its unit runs with no new
 - **Two hostnames.** If the repositories move, updates stop quietly.
 - **The image phones home and is refused.** The login message and subscription hooks try `motd.ubuntu.com` and an HTTPS host. Harmless, and visible in the proxy log.
 - **The targets do not get this path.**
+- **Outbound port 80 stays open on the orchestrator because of this path.** Fetching from the mirrors over TLS was tried and does not work with this Squid build. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
 
 ## Official documentation
 
