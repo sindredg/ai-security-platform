@@ -55,7 +55,7 @@ variable "worker_size" {
 variable "image_version" {
   description = "Ubuntu 26.04 LTS image version, the same for both architectures."
   type        = string
-  default     = "26.04.202610100"
+  default     = "26.04.202610070"
 }
 
 variable "admin_username" {
