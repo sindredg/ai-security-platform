@@ -14,6 +14,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0008](0008-deployment-identities-and-bootstrap-scope.md) | Certificate-based deployment identities, created by the bootstrap root | Accepted |
 | [0009](0009-one-egress-point-on-the-orchestrator-subnet.md) | One egress point, on the orchestrator subnet | Accepted |
 | [0010](0010-threat-model-and-security-checks-per-milestone.md) | A threat model, with security checks tied to milestone gates | Accepted |
+| [0011](0011-package-proxy-for-the-worker.md) | A package proxy for the worker, on the orchestrator | Accepted |
 
 ## Format
 

@@ -69,6 +69,8 @@ The addresses below are the ones the configuration assigns: `10.40.0.4` for the 
 
    Expected: one key, shown once. Generate it right before step 8. It ends up in the VM's custom data and in state, which is why it has to be single use.
 
+   Node signing is on in this tailnet. A node that joins with a plain key is on the network and can talk to nothing until it is signed. Sign the key on a signing device with `tailscale lock sign <auth-key>` and use the longer key it prints, or sign the node after it joins. Neither has been run: this build turned signing on after the orchestrator had joined, which signed it.
+
 5. Store the key outside the repository until the apply.
 
    ```bash
@@ -116,7 +118,7 @@ Plan, read the plan, then apply the saved plan. Do not apply a plan nobody read.
    unset TF_VAR_tailscale_auth_key
    ```
 
-   Expected: 8 to add, 2 to change. The additions are the NAT gateway, its address, two associations, two network interfaces, and two VMs. The changes are the orchestrator and worker security groups. The saved plan holds the auth key, so it is deleted.
+   Expected: 8 to add, 2 to change. The additions are the NAT gateway, its address, two associations, two network interfaces, and two VMs. The changes are the orchestrator and worker security groups, including the two rules for the package proxy. The saved plan holds the auth key, so it is deleted.
 
    If the VMs fail and the rest succeeds, fix the cause and plan again. The next plan shows only the VMs.
 
@@ -180,14 +182,14 @@ Plan, read the plan, then apply the saved plan. Do not apply a plan nobody read.
     ```bash
     ssh $SSH_OPTS aisec@10.40.0.4 '
       ls /var/lib/aisec-first-boot.done; cloud-init status; ls /run/aisec
-      systemctl is-active k3s tailscaled aisec-mss-clamp
+      systemctl is-active k3s tailscaled aisec-mss-clamp squid
       sudo tailscale status
       sudo k3s kubectl get nodes
       sudo k3s kubectl get pods -A
       sudo k3s secrets-encrypt status'
     ```
 
-    Expected: the marker file exists, `status: done`, and `/run/aisec` is empty, so the auth key file is gone. Three services `active`. The node is `Ready`, three `kube-system` pods are `Running`, and encryption status is `Enabled`.
+    Expected: the marker file exists, `status: done`, and `/run/aisec` is empty, so the auth key file is gone. Four services `active`. The node is `Ready`, three `kube-system` pods are `Running`, and encryption status is `Enabled`.
 
 14. Let the orchestrator feed the worker. Its key pair was generated at first boot, so the private half never passed through Terraform.
 
@@ -214,7 +216,7 @@ Plan, read the plan, then apply the saved plan. Do not apply a plan nobody read.
     | From the orchestrator: the address it leaves from | Equal to the NAT gateway's public address |
     | Effective rules on both network interfaces | The configured rules, plus one IPv6 deny that the platform adds |
     | A template with a public address, validated in both workload resource groups | `RequestDisallowedByPolicy` |
-    | `az vm restart` of the orchestrator | Node `Ready`, three services `active`, pods `Running`, the worker reachable again |
+    | `az vm restart` of the orchestrator | Node `Ready`, the services `active`, pods `Running`, the worker reachable again |
 
 16. Run the Kubernetes benchmark on the orchestrator. Check the release against its checksum file first, and remove the tool afterwards.
 
@@ -284,6 +286,23 @@ Plan, read the plan, then apply the saved plan. Do not apply a plan nobody read.
     ```
 
     Expected: nothing left from the `-security` suite, and no `reboot-required` file. If the file exists, restart the VM and repeat the restart check in step 15.
+
+21. Check the worker's package path. Run on the worker.
+
+    ```bash
+    ssh $SSH_OPTS aisec@10.40.0.36 '
+      P=http://10.40.0.4:3128
+      c() { curl -s -o /dev/null -w "%{http_code}\n" --max-time 8 "$@"; }
+      c -x $P http://archive.ubuntu.com/ubuntu/dists/resolute/InRelease
+      c -x $P http://example.com/
+      c -x $P -X POST -d x http://archive.ubuntu.com/ubuntu/
+      curl -s -o /dev/null -w "%{http_connect}\n" --max-time 8 -x $P https://example.com/
+      timeout 5 bash -c "</dev/tcp/10.40.0.4/6443" && echo OPEN || echo "no connection"
+      sudo apt-get update && sudo unattended-upgrade
+      apt list --upgradable 2>/dev/null | grep -c -- -security'
+    ```
+
+    Expected: `200`, then `403` three times, `no connection`, a package list refresh that fetches from the two Ubuntu hosts, and `0` packages left from the security suite. The design is [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md).
 
 ## Rotate a credential
 
@@ -371,6 +390,6 @@ Expected: a different `nodekey:` value from before, an empty `/run/aisec`, and `
 ## Not covered yet
 
 - A CIS benchmark run for the operating system. No open tool has a profile for this release yet.
-- Security updates for the worker. [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) decides the path, a SOCKS forward opened from the orchestrator. The procedure has not been run.
-- Node signing on the mesh VPN.
+- Updates for the targets. The package proxy serves the worker only.
+- A build with node signing already on. See step 4.
 - Removal. Destroying the VMs and the NAT gateway has not been run.

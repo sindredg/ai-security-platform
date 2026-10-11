@@ -91,7 +91,7 @@ The diagram source is [`diagrams/trust-boundaries.html`](diagrams/trust-boundari
 
 | ID | Threat | STRIDE | Rating | Control | State | Gate | Residual |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T01 | A device that is not the operator's joins the mesh, through a stolen login or the provider adding a node | S, E | High | Access policy limited to the operator's devices. SSH key authentication on every VM regardless. Node signing, so the provider alone cannot add a device | Decided, node signing not yet | 2 | The mesh login is a second factor on top of SSH, not a replacement |
+| T01 | A device that is not the operator's joins the mesh, through a stolen login or the provider adding a node | S, E | High | Access policy limited to the operator's devices. SSH key authentication on every VM regardless. Node signing, so the provider alone cannot add a device | Node signing on since 2026-10-11, with two signing devices | 2 | The mesh login is a second factor on top of SSH, not a replacement. A stolen signing device can admit a node |
 | T02 | The mesh auth key leaks and enrolls a rogue router | S | High | Single-use, short-lived, tagged key. Dead once the orchestrator has enrolled | Planned | 2 | The key is readable in instance metadata until it expires |
 | T03 | The orchestrator is down and there is no way in | D | Medium | Serial console and run-command through the Azure APIs | Decided | 2 | Break-glass needs the Owner account |
 | T04 | An operator session to a target cannot be told from a collector by address | R | Low | Separate ports and credentials. Sessions recorded in the audit log | Planned | 3 | Attribution rests on the log |
@@ -122,7 +122,7 @@ The diagram source is [`diagrams/trust-boundaries.html`](diagrams/trust-boundari
 | ID | Threat | STRIDE | Rating | Control | State | Gate | Residual |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T16 | A turned worker calls a tool outside its job: another target, another operation | E | High | Every call authorized on the server by caller, job, target, operation, and arguments | Planned | 3, 6 | The policy check is custom code |
-| T17 | The worker reaches a target or the internet directly | E, I | High | Deny rules on the platform side, plus no outbound path | Verified as configured. Traffic test pending | 2 | None known once tested |
+| T17 | The worker reaches a target or the internet directly | E, I | High | Deny rules on the platform side, plus no outbound path. The one exception is a proxy on the orchestrator that forwards package downloads to two hosts ([ADR 0011](decisions/0011-package-proxy-for-the-worker.md)) | Verified with traffic | 2 | The proxy is a service the worker can attack, and requests to the two package hosts carry a few bytes out |
 | T18 | The worker presents itself as another job or caller | S | High | A credential scoped to one job, issued at dispatch | Open | 3 | Depends on the dispatch decision |
 | T19 | Files, cache, or session state from one job reach the next | I | Medium | One session per job. Cleanup tested, not assumed | Planned | 3, 6 | Jobs share a VM and a kernel |
 | T20 | The worker never finishes, or floods the tool services | D | Medium | Time and output limits per job. One job at a time | Planned | 3, 6 | A stuck job blocks the only worker |
@@ -181,6 +181,8 @@ Every secret the project has or has planned. A credential not in this table shou
 | Platform and target state | One storage account per root | That root's identity, and a subscription administrator | Not rotated. Access is by role | In use |
 | Operator's GitHub account | GitHub | Operator | Account sign-in settings | In use |
 | Mesh VPN auth key | Supplied at provisioning. A spent copy stays in the VM's custom data and in platform state | The orchestrator, once | Single use. A new key per rebuild | Spent |
+| Mesh node signing keys | The operator's two signing devices | The mesh VPN client on each device | Remove the device as a signer and add another | In use |
+| Mesh signing disablement secrets | With the operator, off the workstation | Operator | Turn signing off and on again, which issues new secrets | In use. One is enough to turn signing off |
 | Mesh node key | Orchestrator | Root on the orchestrator | Re-enroll with a new auth key. [Procedure](runbooks/platform-compute.md#mesh-vpn-node-key) run once | In use |
 | Operator SSH key | Workstation, outside the repository, used for this project only | Operator | New key, swapped on the running VMs. [Procedure](runbooks/platform-compute.md#operator-ssh-key) run once | In use |
 | Feed SSH key, orchestrator to worker and targets | Orchestrator, generated there at first boot | The administrator account and root on the orchestrator | New key, pushed from the orchestrator. [Procedure](runbooks/platform-compute.md#feed-key) run once | In use, trusted by the worker |
@@ -223,7 +225,6 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 
 | Item | Threats | Needed before |
 | --- | --- | --- |
-| Node signing on the mesh is not in any gate | T01 | Milestone 2 |
 | How a job proves which job it is | T18 | Milestone 3 |
 | What stands between a tool service bug and the rest of the orchestrator | T22, T36 | Milestone 3 |
 | Where the audit log is stored, and who can delete it | T04, T21 | Milestone 3 |

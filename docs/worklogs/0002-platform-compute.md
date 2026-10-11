@@ -316,7 +316,7 @@ Fixed:
 
 | Finding | Fix |
 | --- | --- |
-| `SSH-7408`, SSH daemon options | `/etc/ssh/sshd_config.d/10-aisec.conf`: no root login, no agent or X11 forwarding, 3 authentication tries, 2 sessions, client alive checks, verbose logging. TCP forwarding is off on the orchestrator and `remote` on the worker |
+| `SSH-7408`, SSH daemon options | `/etc/ssh/sshd_config.d/10-aisec.conf`: no root login, no agent or X11 forwarding, 3 authentication tries, 2 sessions, client alive checks, verbose logging. TCP forwarding is off |
 | `KRNL-6000`, kernel settings | `/etc/sysctl.d/90-aisec-hardening.conf`: SysRq off, kernel pointers hidden, no core dumps from setuid programs, protected FIFOs and regular files, hardened BPF JIT, no source routing, no ICMP redirects in or out, martian packets logged |
 | `NETW-3200`, `USB-1000`, unused protocols and USB storage | `/etc/modprobe.d/aisec-unused.conf` stops `dccp`, `sctp`, `rds`, `tipc`, and `usb-storage` from loading |
 | `PKGS-7392`, pending updates | Installed on the orchestrator, above |
@@ -329,7 +329,6 @@ Accepted:
 | --- | --- |
 | `KRNL-6000`, what is left: IP forwarding on, loose reverse path filter, module loading allowed | The orchestrator is the subnet router. Strict reverse path filtering breaks the tunnel and the pod network. K3s and the mesh VPN agent load modules after boot |
 | `SSH-7408`, port 22 | Moving the port hides nothing from anyone who can reach these machines |
-| `SSH-7408` on the worker, remote forwarding allowed | Package updates arrive through a forward the orchestrator opens, by [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) |
 | `AUTH-9230`, `AUTH-9262`, `AUTH-9286`, `AUTH-9328`, password policy | No account has a password. Login is by key only |
 | `AUTH-9284`, locked account | The administrator account has no password on purpose |
 | `BOOT-5122`, boot loader password | The only console is the cloud serial console, behind the subscription's access control |
@@ -354,7 +353,55 @@ Open:
 
 The worker's clean result on packages in the first run means nothing. The audit runs `apt-get update` first, and on the worker that hung for about six minutes and then failed, as designed: the worker has no path to a package repository. Its package lists are the ones from the image, so it does not know what is outdated. The second run skipped that test.
 
-[ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) already says how the worker gets packages: through a SOCKS forward carried by an SSH session that the orchestrator opens. That procedure has not been run. Until it has, the worker runs the packages its image shipped with.
+ADR 0009 gave the worker its packages through a SOCKS forward opened from the orchestrator. That was never run, and [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) replaced it with the proxy below.
+
+## Package proxy
+
+Squid 7.2 from the Ubuntu `main` repository runs on the orchestrator and listens on `10.40.0.4:3128` only. Its whole configuration is `/etc/squid/squid.conf` from cloud-init. On the running orchestrator it was installed by hand with the same content.
+
+Two rules were added and applied from a saved plan that showed nothing else: `0 to add, 2 to change, 0 to destroy`.
+
+| Security group | Priority | Direction | Access | Port | Rule |
+| --- | --- | --- | --- | --- | --- |
+| Orchestrator | 1000 | Inbound | Allow | TCP 3128 from the worker subnet | `allow-package-proxy-from-worker` |
+| Worker | 1000 | Outbound | Allow | TCP 3128 to the orchestrator subnet | `allow-package-proxy-to-orchestrator` |
+
+Afterwards `terraform plan -detailed-exitcode` exited `0`. The effective rules on both network interfaces equal the configured rules, now 10 and 8, plus the same platform IPv6 deny as before.
+
+Tested from the worker, with `curl -x http://10.40.0.4:3128` and the TCP test from above:
+
+| Request | Result |
+| --- | --- |
+| `GET` a release file on `archive.ubuntu.com` | 200 |
+| `GET` a release file on `security.ubuntu.com` | 200 |
+| `GET http://example.com/` | 403 |
+| `POST` to `archive.ubuntu.com` | 403 |
+| `GET` on `archive.ubuntu.com:8080` | 403 |
+| `CONNECT archive.ubuntu.com:443` | 403 |
+| `CONNECT example.com:443` | 403 |
+| Direct TCP to `1.1.1.1:443` and to a target address | No connection |
+| Direct TCP to the orchestrator on 22 and 6443 | No connection |
+| Direct TCP to the orchestrator on 3128 | Open |
+
+A request through the proxy from the orchestrator's own address returned 403: only the worker subnet is served. IP flow verify from the worker returns `Allow` by `allow-package-proxy-to-orchestrator` for port 3128 and `Deny` by `deny-all-outbound` for port 6443.
+
+Then the worker's first update:
+
+```bash
+sudo apt-get update
+sudo unattended-upgrade
+```
+
+| Step | Result |
+| --- | --- |
+| `apt-get update` | Fetched 32.0 MB in 3 seconds |
+| Pending before | 5 packages, 3 from the security suite: `libpng16-16t64`, `libxml2-16`, `sudo` |
+| `unattended-upgrade` | Exit `0` |
+| Pending after | 2 packages, none from the security suite. No restart required |
+
+The proxy log for the session shows 53 forwarded `GET` requests, to the two package hosts only, and the refusals from the tests. It also shows refused requests the worker makes by itself, to `motd.ubuntu.com` and to an HTTPS host. The image's login message and subscription hooks try to phone home. The proxy says no.
+
+With the proxy in place, the worker's SSH daemon refuses TCP forwarding again, like the orchestrator's.
 
 ## Rotations
 
@@ -380,13 +427,14 @@ The mesh VPN node key was rotated too, by enrolling the orchestrator again with 
 - **The milestone is not closed.** See the gate table for what is open.
 - **The benchmark profile is older than the cluster.** `k3s-cis-1.9` was written for K3s 1.27 to 1.29. The cluster runs 1.36. A newer profile does not ship with the tool.
 - **The running orchestrator differs from its template in how it got one fix.** The segment size clamp was installed by hand with the same content as the cloud-init template. A VM built from the template has not been booted with it.
-- **The worker cannot open any connection to the orchestrator.** That is containment today. It decides how dispatch and results travel in milestone 3: the orchestrator has to initiate.
-- **The worker has had no security updates since its image.** The update path from ADR 0009 is decided and has not been run.
+- **The worker can open one connection to the orchestrator, to the package proxy.** Everything else is refused. Dispatch and results in milestone 3 still have to be initiated from the orchestrator, or get their own rule.
+- **The worker's updates depend on the proxy and on two hostnames.** If either changes, updates stop quietly. Nothing alerts on that yet.
+- **The targets have no update path.** The proxy is for the worker only. Milestone 4 decides how the targets are kept current.
 - **No CIS result for the operating system.** No open tool ships a CIS profile for Ubuntu 26.04 yet. The audit that ran is not a CIS benchmark.
 - **No audit daemon, remote logging, or file integrity monitoring on either VM.** Open until the audit log decision in milestone 3.
 - **The hardening on the running VMs was applied by hand.** Same content as the templates, but no VM has been built from them.
 - **Mesh VPN connections are relayed.** Fine for administration, slow for bulk transfer.
-- **Node signing is off.** The mesh VPN's coordination service could add a node to the network without the operator. Turning signing on needs a second signing device.
+- **Node signing was turned on after the orchestrator joined.** Enabling it signed the existing nodes. `tailscale lock status` on the orchestrator reports `Tailnet Lock is ENABLED` and a signature by the workstation's key, with two trusted signing keys. A rebuild is different: the new node has to be signed, and that path has not been run.
 - **No encryption at host.** The feature is not registered on the subscription.
 - **The regional core quota is full.**
 - **Built once.** The runbook was written from this build. A rebuild from scratch and a removal have not been run.

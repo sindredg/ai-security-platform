@@ -21,6 +21,7 @@ locals {
         admin_username     = var.admin_username
         orchestrator_ip    = local.orchestrator_ip
         worker_ip          = local.worker_ip
+        worker_prefix      = local.worker_prefix
         advertised_routes  = "${var.address_space},${var.targets_address_space}"
         tailscale_version  = var.tailscale_version
         tailscale_auth_key = var.tailscale_auth_key

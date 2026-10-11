@@ -7,6 +7,13 @@ write_files:
     content: |
       ${orchestrator_ip} aisec-orchestrator
 
+  # Packages come through the proxy on the orchestrator. Unattended upgrades
+  # are on in the image and use it too.
+  - path: /etc/apt/apt.conf.d/90aisec-proxy
+    permissions: "0644"
+    content: |
+      Acquire::http::Proxy "http://${orchestrator_ip}:3128";
+
   # Hardening that an audit asked for and nothing here needs otherwise. What was
   # left alone, and why, is in the milestone 2 worklog.
   - path: /etc/sysctl.d/90-aisec-hardening.conf
@@ -30,15 +37,13 @@ write_files:
       net.ipv6.conf.all.accept_redirects = 0
       net.ipv6.conf.default.accept_redirects = 0
 
-  # Read before the image's own files, and the first value wins. Remote
-  # forwarding stays on: package updates arrive through a SOCKS forward that the
-  # orchestrator opens over SSH.
+  # Read before the image's own files, and the first value wins.
   - path: /etc/ssh/sshd_config.d/10-aisec.conf
     permissions: "0600"
     content: |
       PermitRootLogin no
       AllowAgentForwarding no
-      AllowTcpForwarding remote
+      AllowTcpForwarding no
       X11Forwarding no
       MaxAuthTries 3
       MaxSessions 2

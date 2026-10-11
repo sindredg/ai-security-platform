@@ -90,7 +90,7 @@ The table is the design. So far only the SSH part of the administration flow has
 | Orchestrator subnet | NetBox subnet | Evidence collection, approved delivery | Allowed, fixed ports |
 | Orchestrator subnet | Viewpoint and rehearsal subnets | Start named probes and rehearsals | Allowed, fixed ports |
 | Orchestrator subnet | AI worker subnet | Dispatch jobs | Allowed |
-| AI worker subnet | Orchestrator subnet | Tool services only | Allowed, fixed ports |
+| AI worker subnet | Orchestrator subnet | The package proxy, built. Tool services, planned | Allowed, fixed ports. Today that is TCP 3128 only |
 | AI worker subnet | Target network | None | Denied, by an explicit rule on the platform side |
 | AI worker subnet | Internet | None. The orchestrator pushes what the worker needs | Denied, by an explicit rule on the platform side |
 | Orchestrator subnet | Internet | Mesh VPN, downloads, security feeds, GitHub | Allowed, through the NAT gateway |
