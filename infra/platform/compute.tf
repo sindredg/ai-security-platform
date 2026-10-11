@@ -110,7 +110,11 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
   # Custom data only runs on first boot. A new image or a changed template means
   # a rebuild, and that is a decision, not a side effect of a plan.
+  #
+  # The operator key is the same. Azure replaces a VM whose key changes, so a
+  # rotation swaps the key on the running VMs and updates the variable for the
+  # next rebuild.
   lifecycle {
-    ignore_changes = [custom_data]
+    ignore_changes = [custom_data, admin_ssh_key]
   }
 }

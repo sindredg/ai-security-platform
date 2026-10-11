@@ -65,7 +65,7 @@ variable "admin_username" {
 }
 
 variable "operator_ssh_public_key" {
-  description = "The operator's SSH public key, in OpenSSH format. The only key the VMs trust at first boot."
+  description = "The operator's SSH public key, in OpenSSH format. The only key the VMs trust at first boot. A change does not reach running VMs: rotate on the VMs, then update this for the next rebuild."
   type        = string
 }
 
