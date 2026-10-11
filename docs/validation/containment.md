@@ -2,6 +2,10 @@
 
 The AI worker runs untrusted model output. It gets no path to the internet, to the targets, or to a name server, and one port on the orchestrator. The design is [ADR 0005](../decisions/0005-ai-workers-on-a-separate-vm.md) and [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md). The threat is T17: the worker reaches a target or the internet directly.
 
+![Network flows: the operator reaches the orchestrator on ports 22 and 6443, the orchestrator reaches the worker and the targets on port 22 and the internet through one NAT gateway, the worker reaches only port 3128 on the orchestrator, and everything else is denied](../diagrams/network-flows.svg)
+
+The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). It shows what is enforced today. The [target architecture](../architecture.md#system-overview) shows what is planned on top of it.
+
 ## From the worker
 
 | ID | Claim | Why it matters | How it is checked |

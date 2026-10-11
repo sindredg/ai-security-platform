@@ -4,6 +4,10 @@ The stack, one page per part. Each page says what the part does, where it is def
 
 The [architecture](../architecture.md) is the overview: trust, flows, and boundaries. This folder is the detail.
 
+![The stack on each VM: both share the private network, the machine type, Ubuntu 26.04, and host hardening, and only the orchestrator runs K3s, the mesh VPN, and the package proxy](../diagrams/stack.svg)
+
+The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
+
 ## Built
 
 | Component | What it is | Runs on |

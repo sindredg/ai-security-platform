@@ -11,6 +11,10 @@ How the worker gets security updates without getting the internet. Squid on the 
 | Configuration | `/etc/squid/squid.conf` and a systemd sandbox, both from cloud-init |
 | Decision | [0011](../decisions/0011-package-proxy-for-the-worker.md) |
 
+![How a package reaches the worker: from apt on the worker to Squid on the orchestrator over TCP 3128, through the NAT gateway to two Ubuntu package hosts, with every other request refused](../diagrams/update-path.svg)
+
+The diagram source is [`diagrams/update-path.html`](../diagrams/update-path.html).
+
 ## What it forwards
 
 | Request | Answer |

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 480" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="update-path-title update-path-desc" id="update-path-root">
+        <title id="update-path-title">How a package reaches the worker</title>
+        <desc id="update-path-desc">Data flow diagram showing a package download from the AI worker to a Squid proxy on the orchestrator over TCP 3128, then through the NAT gateway to two Ubuntu package hosts, with every other request refused by the proxy.</desc>
+        <defs>
+      <style>#update-path-root { --color-paper:   #2d3142;   
+      --color-ink:     #f5f5f5;   
+      --color-muted:   #bfc0c0;
+      --color-accent:  #f08a59;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace; }
+      #update-path-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #update-path-root .diagram-container { width: 100%; overflow-x: auto; }
+      #update-path-root .diagram-container { overflow-x: visible; }</style>
+          <marker id="update-path-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
+          <marker id="update-path-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
+          <marker id="update-path-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#739fdf"/></marker>
+
+          <!-- OPTIONAL: dot-pattern background. Uncomment and add <rect fill="url(#update-path-dots)"/> after the paper rect to enable. -->
+          <!--
+          <pattern id="update-path-dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="#f5f5f5" fill-opacity="0.08"/>
+          </pattern>
+          -->
+        </defs>
+
+        <rect width="100%" height="100%" fill="#2d3142"/>
+
+        <!-- Path of one package download -->
+        <line x1="192" y1="168" x2="280" y2="168" fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#update-path-arrow-accent)"/>
+        <line x1="456" y1="168" x2="544" y2="168" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#update-path-arrow)"/>
+        <line x1="680" y1="168" x2="768" y2="168" fill="none" stroke="#739fdf" stroke-width="1.2" marker-end="url(#update-path-arrow-link)"/>
+        <line x1="368" y1="208" x2="368" y2="272" fill="none" stroke="#bfc0c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#update-path-arrow)"/>
+        <!-- Labels -->
+        <rect x="210" y="148" width="52" height="12" rx="2" fill="#2d3142"/>
+        <text x="236" y="157" fill="#f08a59" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TCP 3128</text>
+        <rect x="462" y="148" width="76" height="12" rx="2" fill="#2d3142"/>
+        <text x="500" y="157" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">GET · PORT 80</text>
+        <rect x="710" y="148" width="28" height="12" rx="2" fill="#2d3142"/>
+        <text x="724" y="157" fill="#739fdf" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">HTTP</text>
+        <rect x="378" y="234" width="52" height="12" rx="2" fill="#2d3142"/>
+        <text x="404" y="243" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">ALL ELSE</text>
+        <!-- Nodes -->
+        <rect x="40" y="128" width="152" height="80" rx="6" fill="#2d3142"/>
+        <rect x="40" y="128" width="152" height="80" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="116" y="166" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">AI worker</text>
+        <text x="116" y="182" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">apt · daily upgrades</text>
+        <text x="116" y="196" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">checks signatures</text>
+        <rect x="280" y="128" width="176" height="80" rx="6" fill="#2d3142"/>
+        <rect x="280" y="128" width="176" height="80" rx="6" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
+        <text x="368" y="166" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Squid proxy</text>
+        <text x="368" y="182" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">on the orchestrator</text>
+        <text x="368" y="196" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.40.0.4:3128</text>
+        <rect x="544" y="128" width="136" height="80" rx="6" fill="#2d3142"/>
+        <rect x="544" y="128" width="136" height="80" rx="6" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="612" y="166" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">NAT gateway</text>
+        <text x="612" y="182" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">the only way out</text>
+        <rect x="768" y="128" width="152" height="80" rx="6" fill="#2d3142"/>
+        <rect x="768" y="128" width="152" height="80" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="844" y="166" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Ubuntu packages</text>
+        <text x="844" y="182" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">archive.ubuntu.com</text>
+        <text x="844" y="196" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">security.ubuntu.com</text>
+        <rect x="280" y="272" width="176" height="104" rx="6" fill="#2d3142"/>
+        <rect x="280" y="272" width="176" height="104" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="368" y="322" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Refused with 403</text>
+        <text x="368" y="338" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">any other host or port</text>
+        <text x="368" y="352" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">CONNECT · POST</text>
+        <text x="368" y="366" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">clients off the worker subnet</text>
+        <line x1="40" y1="412" x2="920" y2="412" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <text x="40" y="428" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="40" y="444" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
+        <text x="60" y="452" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">The one service the worker reaches</text>
+        <rect x="232" y="444" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="252" y="452" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Egress gate</text>
+        <rect x="320" y="444" width="14" height="10" rx="2" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="340" y="452" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">No internet of its own</text>
+        <rect x="452" y="444" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="472" y="452" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Outside, or an outcome</text>
+        <line x1="592" y1="450" x2="620" y2="450" stroke="#f08a59" stroke-width="1.4" marker-end="url(#update-path-arrow-accent)"/>
+        <text x="628" y="452" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Started by the worker</text>
+        <line x1="732" y1="450" x2="760" y2="450" stroke="#739fdf" stroke-width="1.2" marker-end="url(#update-path-arrow-link)"/>
+        <text x="768" y="452" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Leaves Azure</text>
+        <line x1="840" y1="450" x2="868" y2="450" stroke="#bfc0c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#update-path-arrow)"/>
+        <text x="876" y="452" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Refused</text>
+
+      </svg>

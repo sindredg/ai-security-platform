@@ -57,8 +57,8 @@
         <text x="358" y="203" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">EGRESS</text>
         <rect x="240" y="378" width="52" height="12" rx="2" fill="#2d3142"/>
         <text x="266" y="387" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">DISPATCH</text>
-        <rect x="364" y="378" width="60" height="12" rx="2" fill="#2d3142"/>
-        <text x="394" y="387" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TOOL CALLS</text>
+        <rect x="364" y="378" width="84" height="12" rx="2" fill="#2d3142"/>
+        <text x="406" y="387" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TOOLS+PACKAGES</text>
         <rect x="426" y="264" width="84" height="12" rx="2" fill="#2d3142"/>
         <text x="468" y="273" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">READ · DELIVER</text>
         <rect x="470" y="304" width="84" height="12" rx="2" fill="#2d3142"/>
@@ -97,8 +97,8 @@
         <rect x="248" y="256" width="76" height="12" rx="2" fill="none" stroke="#f08a59" stroke-opacity="0.50" stroke-width="0.8"/>
         <text x="286" y="265" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">K3S · TRUSTED</text>
         <text x="328" y="292" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Orchestrator VM</text>
-        <text x="328" y="308" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Argo · collectors</text>
-        <text x="328" y="322" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">tool services · delivery</text>
+        <text x="328" y="308" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Argo · collectors · delivery</text>
+        <text x="328" y="322" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">tool services · package proxy</text>
         <text x="328" y="336" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.40.0.0/27</text>
         <rect x="240" y="408" width="176" height="64" rx="6" fill="#2d3142"/>
         <rect x="240" y="408" width="176" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>

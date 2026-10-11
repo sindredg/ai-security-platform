@@ -10,6 +10,7 @@ These have no control and no gate. They are carried on purpose.
 - **Single approver:** nobody checks the operator.
 - **T31:** the bootstrap state has one copy. Losing it costs imports, not resources.
 - **No CIS benchmark result for the operating system.** No tool has a CIS profile for Ubuntu 26.04 yet: not ComplianceAsCode 0.1.82, and not the vendor's Ubuntu Security Guide. A Lynis audit stands in. Run the CIS profile when either ships one.
+- **No rebuild from the current templates.** The running VMs were changed by hand to match cloud-init, and no VM has booted from the templates as they are now. A rebuild test was considered at the end of milestone 2 and not run. The first real rebuild is the test, and the [validation checks](../validation/README.md) say within minutes whether it came out the same.
 - **The workstation:** out of scope. A deployment key taken from it is covered by T29.
 
 ## Open items

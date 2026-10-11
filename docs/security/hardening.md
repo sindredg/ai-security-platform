@@ -47,4 +47,3 @@ Lynis was not run again after the last three fixes, so its numbers are slightly 
 | The 50 kube-bench warnings are not reviewed one by one | Some are manual checks that could be real findings | Milestone 3, when the cluster has workloads |
 | Held and pinned software gets no security fix until someone moves the pin | The mesh VPN agent and K3s run all the time | Each milestone start, from the [version table](../components/README.md#versions) |
 | Nothing alerts when updates stop, a service dies, or a disk fills | Silent failure | Milestone 3, with observability |
-| No VM has been built from the current templates | The running machines were changed by hand to match | A rebuild test |
