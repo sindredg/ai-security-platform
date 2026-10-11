@@ -207,6 +207,8 @@ Plan, read the plan, then apply the saved plan. Do not apply a plan nobody read.
 
 ## Check the milestone 2 gate
 
+Most of what follows is also in `validation/platform-checks.sh`, which runs about ninety checks in two minutes. See [validation](../validation/README.md). Run it after every change to a VM, after a restart, and after a rebuild.
+
 15. Test the paths with traffic, read the effective rules, and test the policy. The commands and the results of the build are in the [worklog](../worklogs/0002-platform-compute.md#paths-tested-with-traffic).
 
     | Check | Expected |

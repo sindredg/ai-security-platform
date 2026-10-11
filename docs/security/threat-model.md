@@ -1,15 +1,17 @@
 # Threat model
 
-Status: first pass, written 2026-10-11 against the design. Only the network foundation is built, so most controls here are decided or planned, not verified. Each row says which.
+Status: first pass, written 2026-10-11 against the design and revised the same day after the platform VMs were built. The network, the two platform VMs, and their containment are built and tested. Everything that runs on them is not, so most controls here are still decided or planned. Each row says which.
 
-This document lists what can go wrong at each trust boundary, what stops it, where that gets proven, and what is left over. The method and the reason for doing it now are in [ADR 0010](decisions/0010-threat-model-and-security-checks-per-milestone.md). The system it describes is in the [architecture](architecture.md).
+This document lists what can go wrong at each trust boundary, what stops it, where that gets proven, and what is left over. The method and the reason for doing it now are in [ADR 0010](../decisions/0010-threat-model-and-security-checks-per-milestone.md). The system it describes is in the [architecture](../architecture.md).
+
+This page holds the boundaries and their threats. The rest of the security work is in the [security index](README.md): [AI-specific threats](ai-threats.md), the [credential inventory](credentials.md), [hardening](hardening.md), [accepted risks and open items](accepted-risks.md), and [lab against production](lab-vs-production.md).
 
 ## What the first pass found
 
 Five things stand out. None is fixed by this document.
 
 1. **The tool services are the wall.** Every limit on the AI worker ends at one service on the trusted machine that reads hostile input. That service is not designed yet, and neither is the way it tells one job from another. See T16, T18, T22.
-2. **The repository is the approval channel and is unprotected.** `main` accepts a force push today. Until that changes, "approval binds to a commit" has nothing to stand on. See T10.
+2. **The repository is the approval channel and was unprotected.** `main` accepted a force push when this was written. It no longer does: a ruleset requires a pull request with four passing checks, and secret scanning with push protection is on. What a pipeline may do with a credential is still open. See T10.
 3. **The operator is a single point of total compromise.** One Azure account owns both sides. One GitHub account approves every change. The design constrains automation, not that person. See T15, T30.
 4. **A proposal is a data path to a public page.** The worker reads evidence and writes text that ends up in a pull request. Nothing decided so far checks what that text carries. See A5.
 5. **A compromised orchestrator is the end.** It holds every credential that matters and can reach any host on port 443. This is accepted, not solved. See T05.
@@ -70,9 +72,9 @@ All target data is synthetic. Its confidentiality is not an asset in this lab. I
 
 ## Trust boundaries
 
-![Trust boundaries: six numbered crossings between the operator, the trusted orchestrator, the untrusted AI worker, the targets, GitHub, the internet, and the Azure APIs](diagrams/trust-boundaries.svg)
+![Trust boundaries: six numbered crossings between the operator, the trusted orchestrator, the untrusted AI worker, the targets, GitHub, the internet, and the Azure APIs](../diagrams/trust-boundaries.svg)
 
-The diagram source is [`diagrams/trust-boundaries.html`](diagrams/trust-boundaries.html).
+The diagram source is [`diagrams/trust-boundaries.html`](../diagrams/trust-boundaries.html).
 
 | Boundary | Crossing | What crosses |
 | --- | --- | --- |
@@ -85,13 +87,13 @@ The diagram source is [`diagrams/trust-boundaries.html`](diagrams/trust-boundari
 
 ## Threats
 
-"Gate" names the roadmap milestone whose exit gate proves the control. A threat with no gate is listed under [open items](#open-items).
+"Gate" names the roadmap milestone whose exit gate proves the control. A threat with no gate is listed under [open items](accepted-risks.md#open-items).
 
 ### B1. Operator access
 
 | ID | Threat | STRIDE | Rating | Control | State | Gate | Residual |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T01 | A device that is not the operator's joins the mesh, through a stolen login or the provider adding a node | S, E | High | Access policy limited to the operator's devices. SSH key authentication on every VM regardless. Node signing, so the provider alone cannot add a device | Node signing on since 2026-10-11, with two signing devices | 2 | The mesh login is a second factor on top of SSH, not a replacement. A stolen signing device can admit a node |
+| T01 | A device that is not the operator's joins the mesh, through a stolen login or the provider adding a node | S, E | High | Access policy limited to the operator's devices. SSH key authentication on every VM regardless. Node signing, so the provider alone cannot add a device | Node signing on since 2026-10-11, with two signing devices. Access policy limited to two ports since the same day, checked by `M.1` to `M.4` | 2 | The mesh login is a second factor on top of SSH, not a replacement. A stolen signing device can admit a node |
 | T02 | The mesh auth key leaks and enrolls a rogue router | S | High | Single-use, short-lived, tagged key. Dead once the orchestrator has enrolled | Planned | 2 | The key is readable in instance metadata until it expires |
 | T03 | The orchestrator is down and there is no way in | D | Medium | Serial console and run-command through the Azure APIs | Decided | 2 | Break-glass needs the Owner account |
 | T04 | An operator session to a target cannot be told from a collector by address | R | Low | Separate ports and credentials. Sessions recorded in the audit log | Planned | 3 | Attribution rests on the log |
@@ -122,7 +124,7 @@ The diagram source is [`diagrams/trust-boundaries.html`](diagrams/trust-boundari
 | ID | Threat | STRIDE | Rating | Control | State | Gate | Residual |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T16 | A turned worker calls a tool outside its job: another target, another operation | E | High | Every call authorized on the server by caller, job, target, operation, and arguments | Planned | 3, 6 | The policy check is custom code |
-| T17 | The worker reaches a target or the internet directly | E, I | High | Deny rules on the platform side, plus no outbound path. The one exception is a proxy on the orchestrator that forwards package downloads to two hosts ([ADR 0011](decisions/0011-package-proxy-for-the-worker.md)) | Verified with traffic | 2 | The proxy is a service the worker can attack, and requests to the two package hosts carry a few bytes out |
+| T17 | The worker reaches a target or the internet directly | E, I | High | Deny rules on the platform side, plus no outbound path. The one exception is a proxy on the orchestrator that forwards package downloads to two hosts ([ADR 0011](../decisions/0011-package-proxy-for-the-worker.md)) | Verified with traffic | 2 | The proxy is a service the worker can attack, and requests to the two package hosts carry a few bytes out |
 | T18 | The worker presents itself as another job or caller | S | High | A credential scoped to one job, issued at dispatch | Open | 3 | Depends on the dispatch decision |
 | T19 | Files, cache, or session state from one job reach the next | I | Medium | One session per job. Cleanup tested, not assumed | Planned | 3, 6 | Jobs share a VM and a kernel |
 | T20 | The worker never finishes, or floods the tool services | D | Medium | Time and output limits per job. One job at a time | Planned | 3, 6 | A stuck job blocks the only worker |
@@ -144,91 +146,11 @@ The diagram source is [`diagrams/trust-boundaries.html`](diagrams/trust-boundari
 
 | ID | Threat | STRIDE | Rating | Control | State | Gate | Residual |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T29 | A deployment key is used by someone other than the operator | S, E | High | Each key reaches one side only. A certificate is valid for at most 91 days | [Verified](worklogs/0001-network-foundation.md#identity-separation) | 1 | Full control of one side until the certificate is removed or expires. How the key is stored is out of scope |
+| T29 | A deployment key is used by someone other than the operator | S, E | High | Each key reaches one side only. A certificate is valid for at most 91 days | [Verified](../worklogs/0001-network-foundation.md#identity-separation) | 1 | Full control of one side until the certificate is removed or expires. How the key is stored is out of scope |
 | T30 | The Owner account is taken over | S, E | High | Strong sign-in on the account | Accepted | None | Total. The separation does not bind that role |
 | T31 | The bootstrap state is lost | D | Low | Everything in it can be imported again | Accepted | None | An afternoon of imports |
 | T32 | State is read and gives up sensitive values | I | Medium | Entra authentication, shared keys off, one identity per account. Secrets kept out of Terraform | Verified | 1 | The accounts accept connections from any network |
-| T33 | One side's identity changes the other side | E | High | Role assignments scoped to one side | [Verified](worklogs/0001-network-foundation.md#identity-separation) | 1 | The peering action, which carries no traffic alone |
+| T33 | One side's identity changes the other side | E | High | Role assignments scoped to one side | [Verified](../worklogs/0001-network-foundation.md#identity-separation) | 1 | The peering action, which carries no traffic alone |
 | T34 | A change to the shared network module reaches both sides unnoticed | T | Medium | Each root's plan is read before its apply. Static checks on pull requests | Planned | 2 | One reader |
 | T35 | A secret in VM custom data is read from instance metadata | I | Medium | No secret in custom data on a fed machine | Decided | 2 | The orchestrator's enrollment key. See T02 |
 | T36 | A workload on the cluster reaches the `change` namespace credentials | E | High | Per-workload permissions and a hardening baseline. Namespaces are not treated as a wall | Open | 3 | Depends on the workload identity decision |
-
-## AI-specific threats
-
-The design's answer to most of these is the same: assume the attack works, and make sure a turned worker holds nothing and reaches nothing.
-
-| ID | Threat | Reference | Rating | Control | State | Gate | Residual |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| A1 | Instructions hidden in an advisory, a tool result, or target evidence take over the agent | OWASP LLM: Prompt Injection. ASI01. ATLAS AML.T0051.001 | High | Not prevented. Contained by T16 to T18, by allowlisted change fields, by rehearsal, and by approval | Planned | 6 | The agent's output is untrusted every time, injected or not |
-| A2 | The agent uses a legitimate tool for something its job does not need | OWASP LLM: Excessive Agency. ASI02, ASI03. ATLAS AML.T0053, AML.T0101 | High | Narrow tools with no destructive operations. Delivery belongs to a separate trusted runner | Planned | 3, 6 | A tool that reads too much is still a tool that reads |
-| A3 | The model is wrong and convincing, and the operator approves it | OWASP LLM: Misinformation. ASI09 | High | Tools establish facts. Rehearsal tests the fix. The pull request states what is uncertain. An unsafe patch is rejected even when its tests pass | Planned | 4, 5 | One tired approver |
-| A4 | The model file, the agent runtime, or a tool server is poisoned upstream | OWASP LLM: Supply Chain. ASI04. ATLAS AML.T0010, AML.T0058 | High | Digest pins, a known publisher, and worker containment for whatever gets through | Decided | 3 | A backdoored model behaves until it does not |
-| A5 | Evidence leaves the platform inside proposal text published to the repository | OWASP LLM: Sensitive Information Disclosure. ATLAS AML.T0057, AML.T0086 | High | The broker publishes checked fields, not free text from the worker | Open | 5 | Depends on the broker design. Harmless here only because the data is synthetic |
-| A6 | Context poisoned in one job steers a later one | ASI06. ATLAS AML.T0080 | Medium | One scoped session per job, with cleanup. Same control as T19 | Planned | 3, 6 | Shared VM |
-| A7 | A job is driven into unbounded inference | OWASP LLM: Unbounded Consumption. ATLAS AML.T0034.002 | Medium | Time and output limits. Same control as T20 | Planned | 3 | None beyond a lost job |
-| A8 | The agent runtime executes commands the model wrote | ASI05 | Medium | A restricted tool set, which the runtime has to prove it supports. The worker is assumed compromised either way | Planned | 3 | Code execution on the worker is the starting assumption, not the breach |
-
-## Credential inventory
-
-Every secret the project has or has planned. A credential not in this table should not exist.
-
-| Credential | Lives | Read by | Rotation | State |
-| --- | --- | --- | --- | --- |
-| Owner sign-in to Azure | Workstation token cache | Operator | New sign-in | In use |
-| Platform deployment key and certificate | Workstation, outside the repository | Operator | New key pair and a bootstrap apply. [Procedure](runbooks/network-foundation.md#rotate-a-certificate) written, not yet run | In use |
-| Target deployment key and certificate | Same | Operator | Same | Same |
-| Bootstrap state | Workstation, local file | Operator | Not a secret to rotate | In use |
-| Platform and target state | One storage account per root | That root's identity, and a subscription administrator | Not rotated. Access is by role | In use |
-| Operator's GitHub account | GitHub | Operator | Account sign-in settings | In use |
-| Mesh VPN auth key | Supplied at provisioning. A spent copy stays in the VM's custom data and in platform state | The orchestrator, once | Single use. A new key per rebuild | Spent |
-| Mesh node signing keys | The operator's two signing devices | The mesh VPN client on each device | Remove the device as a signer and add another | In use |
-| Mesh signing disablement secrets | With the operator, off the workstation | Operator | Turn signing off and on again, which issues new secrets | In use. One is enough to turn signing off |
-| Mesh node key | Orchestrator | Root on the orchestrator | Re-enroll with a new auth key. [Procedure](runbooks/platform-compute.md#mesh-vpn-node-key) run once | In use |
-| Operator SSH key | Workstation, outside the repository, used for this project only | Operator | New key, swapped on the running VMs. [Procedure](runbooks/platform-compute.md#operator-ssh-key) run once | In use |
-| Feed SSH key, orchestrator to worker and targets | Orchestrator, generated there at first boot | The administrator account and root on the orchestrator | New key, pushed from the orchestrator. [Procedure](runbooks/platform-compute.md#feed-key) run once | In use, trusted by the worker |
-| Cluster token and administrator kubeconfig | Orchestrator | Root on the orchestrator | Cluster token rotation. [Procedure](runbooks/platform-compute.md#cluster-token) run once | In use |
-| Job credential for dispatch and tool calls | Issued per job | One worker session | Dies with the job | Open, milestone 3 |
-| NetBox administrator, database, and consumer token | Target VMs | The target, and the orchestrator for seeding | Reseeded with each rebuild | Milestone 4 |
-| Repository app key | `change` namespace | PR broker | App key rotation | Open, milestone 5 |
-
-## Lab against production
-
-The controls are meant to hold up in production. The lab around them is not production, and each gap below is a choice made for capacity or cost.
-
-| Lab choice | Why it is acceptable here | Production would use |
-| --- | --- | --- |
-| Mesh VPN with a third-party coordination service | No public address, no operator address in a rule, one agent | A self-hosted control plane, or a VPN gateway or private circuit with a bastion. Node signing at the least |
-| One person writes, approves, and operates | There is one person | A separate approver, required human review, and time-limited privileged roles |
-| One Azure account owns both sides | One subscription | A subscription per side, under separate administrators |
-| Deployment keys on a workstation | Terraform runs there | Workload identity federation from a controlled runner, with no long-lived key |
-| One K3s node, one VM per role | A quota of 4 vCPUs per region | A highly available control plane across zones |
-| Orchestrator egress open on port 443 | Hostname filtering costs as much as the four VMs | A firewall or proxy with a hostname allowlist |
-| Worker isolation is one VM shared by consecutive jobs | No capacity for more | A fresh sandbox per job |
-| The audit log sits on the orchestrator | No second trusted machine | An append-only store outside the platform |
-| Public repository, synthetic data | Nothing in it is real | A private repository, classified data, and strict control over what a pull request may contain. A5 becomes the main risk |
-| Locally redundant state, local bootstrap state | The lab can be rebuilt from the runbooks | Geo-redundant remote state, with tested recovery |
-
-## Accepted risks
-
-These have no control and no gate. They are carried on purpose.
-
-- **T05:** a compromised orchestrator can send anything anywhere on port 443.
-- **T15, T30:** a takeover of the operator's GitHub or Azure account defeats the design.
-- **Provider compromise:** Azure, GitHub, and the mesh VPN provider are trusted.
-- **Single approver:** nobody checks the operator.
-- **T31:** the bootstrap state has one copy. Losing it costs imports, not resources.
-- **No CIS benchmark result for the operating system.** No tool has a CIS profile for Ubuntu 26.04 yet: not ComplianceAsCode 0.1.82, and not the vendor's Ubuntu Security Guide. A Lynis audit stands in. Run the CIS profile when either ships one.
-- **The workstation:** out of scope. A deployment key taken from it is covered by T29.
-
-## Open items
-
-Threats that no decision or gate covers yet. Each needs an answer before the milestone named.
-
-| Item | Threats | Needed before |
-| --- | --- | --- |
-| How a job proves which job it is | T18 | Milestone 3 |
-| What stands between a tool service bug and the rest of the orchestrator | T22, T36 | Milestone 3 |
-| Where the audit log is stored, and who can delete it | T04, T21 | Milestone 3 |
-| What the broker allows into a pull request | A5 | Milestone 5 |
-| Repository app permissions | T12 | Milestone 5 |
-| Sign-in strength on the operator's accounts cannot be shown by a gate | T15, T30 | Not planned |

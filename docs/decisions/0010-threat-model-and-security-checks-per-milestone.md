@@ -28,7 +28,7 @@ Write the threat model before any VM exists. Keep it current. Attach each suppor
 
 **The threat model**
 
-It lives in `docs/threat-model.md`.
+It lives in `docs/security/threat-model.md`. The parts listed below that are not threats per boundary have their own pages in `docs/security/` since 2026-10-11.
 
 - **Method:** STRIDE, applied to each trust boundary on the existing diagrams.
 - **A second pass for the AI parts,** using the OWASP Top 10 for LLM Applications and MITRE ATLAS. STRIDE has no good place for instructions hidden in evidence, or for an agent with more reach than its job needs.

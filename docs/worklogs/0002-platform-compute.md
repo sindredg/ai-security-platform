@@ -438,7 +438,7 @@ The mesh VPN node key was rotated too, by enrolling the orchestrator again with 
 - **The worker can open one connection to the orchestrator, to the package proxy.** Everything else is refused. Dispatch and results in milestone 3 still have to be initiated from the orchestrator, or get their own rule.
 - **The worker's updates depend on the proxy and on two hostnames.** If either changes, updates stop quietly. Nothing alerts on that yet.
 - **The targets have no update path.** The proxy is for the worker only. Milestone 4 decides how the targets are kept current.
-- **No CIS result for the operating system.** No tool ships a CIS profile for Ubuntu 26.04 yet. The audit that ran is not a CIS benchmark. Carried as an accepted risk in the [threat model](../threat-model.md#accepted-risks) until one does.
+- **No CIS result for the operating system.** No tool ships a CIS profile for Ubuntu 26.04 yet. The audit that ran is not a CIS benchmark. Carried as an accepted risk in the [threat model](../security/accepted-risks.md#accepted-risks) until one does.
 - **No audit daemon, remote logging, or file integrity monitoring on either VM.** Open until the audit log decision in milestone 3.
 - **The hardening on the running VMs was applied by hand.** Same content as the templates, but no VM has been built from them.
 - **Mesh VPN connections are relayed.** Fine for administration, slow for bulk transfer.
