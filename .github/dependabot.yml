@@ -1,0 +1,25 @@
+# Version pins are exact, so something has to propose moving them.
+#
+# Not covered: the Terraform release itself and the scanner image digests in
+# the checks workflow. Dependabot cannot update either. Those move by hand.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # The provider pin is the same in every root and in the shared module. One
+  # grouped pull request keeps them in step.
+  - package-ecosystem: terraform
+    directories:
+      - /infra/bootstrap
+      - /infra/platform
+      - /infra/targets
+      - /infra/modules/network
+    schedule:
+      interval: weekly
+    groups:
+      terraform-providers:
+        patterns: ["*"]
