@@ -102,7 +102,7 @@ The diagram source is [`diagrams/trust-boundaries.html`](../diagrams/trust-bound
 
 | ID | Threat | STRIDE | Rating | Control | State | Gate | Residual |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T05 | A compromised orchestrator sends anything to any host on port 443 | I | High | None at the network. Nothing untrusted runs on the orchestrator | Accepted | None | Total. Filtering by hostname costs a firewall |
+| T05 | A compromised orchestrator sends anything to any host on port 443 or 80 | I | High | None at the network. Nothing untrusted runs on the orchestrator | Accepted | None | Total. Filtering by hostname costs a firewall |
 | T06 | A fetched image, package, binary, or install script is malicious | T, E | High | Pinned by digest and verified on the orchestrator before it runs or is pushed. Signatures checked where upstream signs | Decided | 3, 4 | A digest proves identity, not innocence. The first pin is trusted on sight |
 | T07 | A fed machine leaks data through DNS lookups | I | High | Explicit deny for the Azure DNS service tag on the worker and target subnets | Decided | 2 | None known |
 | T08 | A fed machine reaches a storage account in its own region without any gateway | I | High | Explicit deny for the internet tag, next to the missing outbound path | Decided | 2 | On the target side the deny is a target setting. See T25 |
@@ -148,7 +148,7 @@ The diagram source is [`diagrams/trust-boundaries.html`](../diagrams/trust-bound
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | T29 | A deployment key is used by someone other than the operator | S, E | High | Each key reaches one side only. A certificate is valid for at most 91 days | [Verified](../worklogs/0001-network-foundation.md#identity-separation) | 1 | Full control of one side until the certificate is removed or expires. How the key is stored is out of scope |
 | T30 | The Owner account is taken over | S, E | High | Strong sign-in on the account | Accepted | None | Total. The separation does not bind that role |
-| T31 | The bootstrap state is lost | D | Low | Everything in it can be imported again | Accepted | None | An afternoon of imports |
+| T31 | The bootstrap state is lost | D | Low | A copy in the platform state account, uploaded by hand after each apply. Everything in it can also be imported again | [Verified](../worklogs/0002-platform-compute.md#bootstrap-state-copy) | 2 | The copy is as fresh as the last upload. A restore from it has not been run |
 | T32 | State is read and gives up sensitive values | I | Medium | Entra authentication, shared keys off, one identity per account. Secrets kept out of Terraform | Verified | 1 | The accounts accept connections from any network |
 | T33 | One side's identity changes the other side | E | High | Role assignments scoped to one side | [Verified](../worklogs/0001-network-foundation.md#identity-separation) | 1 | The peering action, which carries no traffic alone |
 | T34 | A change to the shared network module reaches both sides unnoticed | T | Medium | Each root's plan is read before its apply. Static checks on pull requests | Planned | 2 | One reader |

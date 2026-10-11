@@ -13,4 +13,4 @@ The controls are meant to hold up in production. The lab around them is not prod
 | Worker isolation is one VM shared by consecutive jobs | No capacity for more | A fresh sandbox per job |
 | The audit log sits on the orchestrator | No second trusted machine | An append-only store outside the platform |
 | Public repository, synthetic data | Nothing in it is real | A private repository, classified data, and strict control over what a pull request may contain. A5 becomes the main risk |
-| Locally redundant state, local bootstrap state | The lab can be rebuilt from the runbooks | Geo-redundant remote state, with tested recovery |
+| Locally redundant state, local bootstrap state with a hand-made copy | The lab can be rebuilt from the runbooks | Geo-redundant remote state, with tested recovery |

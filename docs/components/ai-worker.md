@@ -50,7 +50,7 @@ How a workflow hands a job to this machine is open. Today the worker cannot star
 
 - **Everything on it has to be built for Arm64.**
 - **Platform endpoints stay reachable.** The instance metadata service returns a VM's custom data, so no secret goes into the worker's custom data.
-- **Not rebuilt from the current template.**
+- **A rebuild loses everything on it.** The worker was rebuilt from the current template on 2026-10-11, while it was still empty. Once it carries a model, a rebuild means pushing the model again.
 
 ## Official documentation
 

@@ -28,7 +28,7 @@ Tested by role in [milestone 1](../worklogs/0001-network-foundation.md#identity-
 ## Limits
 
 - **The deployment keys have no passphrase.** The operator's machine is out of scope.
-- **The bootstrap state is one local file.**
+- **The bootstrap state is a local file with a hand-made copy.** The copy sits in a `bootstrap` container in the platform state account and is uploaded after each apply. Nothing checks that it is current.
 - **State accounts accept connections from any network.** Access needs a token with a data role.
 
 ## Official documentation

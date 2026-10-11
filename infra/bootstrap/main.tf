@@ -121,3 +121,23 @@ resource "azurerm_storage_container" "state" {
   storage_account_id    = azurerm_storage_account.state[each.key].id
   container_access_type = "private"
 }
+
+# A copy of this root's own state, off the operator machine. The root keeps
+# local state, because it creates the accounts a backend would need. The copy
+# is uploaded by hand after each apply. It holds identifiers and no secret, so
+# sharing an account with the platform state costs nothing.
+resource "azurerm_storage_container" "bootstrap_copy" {
+  #checkov:skip=CKV2_AZURE_21:Blob read logging waits for the audit log decision. Nothing collects it yet
+  name                  = "bootstrap"
+  storage_account_id    = azurerm_storage_account.state["platform"].id
+  container_access_type = "private"
+}
+
+# Owner carries no data role, and shared keys are off. The operator gets write
+# access to this one container and to nothing else on the account.
+resource "azurerm_role_assignment" "bootstrap_copy" {
+  scope                = azurerm_storage_container.bootstrap_copy.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = data.azuread_client_config.current.object_id
+  principal_type       = "User"
+}
