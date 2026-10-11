@@ -38,7 +38,7 @@ The network foundation and the platform VMs are deployed: two peered virtual net
 | Architecture and decision records | Drafted |
 | Azure preflight (quota, VM size availability) | Done, see the worklog |
 | Network foundation: state, identities, networks, peering | Done, see the [worklog](docs/worklogs/0001-network-foundation.md) |
-| Platform compute: egress, VMs, mesh VPN, K3s | Built. Gate partly open, see the [worklog](docs/worklogs/0002-platform-compute.md) |
+| Platform compute: egress, VMs, mesh VPN, K3s | Done, see the [worklog](docs/worklogs/0002-platform-compute.md) |
 | Platform components, targets, workflows | Not started |
 
 ## Design in brief

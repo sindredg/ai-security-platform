@@ -389,7 +389,7 @@ Expected: a different `nodekey:` value from before, an empty `/run/aisec`, and `
 
 ## Not covered yet
 
-- A CIS benchmark run for the operating system. No open tool has a profile for this release yet.
+- A CIS benchmark run for the operating system. No tool has a profile for this release yet. `sudo pro enable usg` on an attached machine says so.
 - Updates for the targets. The package proxy serves the worker only.
 - A build with node signing already on. See step 4.
 - Removal. Destroying the VMs and the NAT gateway has not been run.

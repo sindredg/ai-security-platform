@@ -10,7 +10,7 @@ Security work has no milestone of its own. Each practice sits in the gate of the
 | --- | --- |
 | 0. Documentation baseline and preflight | Done. [Worklog](worklogs/0000-azure-preflight.md) |
 | 1. Network foundation | Done, with one check carried to milestone 2. [Worklog](worklogs/0001-network-foundation.md) |
-| 2. Platform compute | In progress. Built and tested. Open: a CIS run for the operating system. [Worklog](worklogs/0002-platform-compute.md) |
+| 2. Platform compute | Done, with one accepted gap: no CIS result for the operating system, because no tool supports the release yet. [Worklog](worklogs/0002-platform-compute.md) |
 | 3. Toolchain integration | Planned |
 | 4. NetBox target and exercise 1 investigation | Planned |
 | 5. Remediation, pull requests, and delivery | Planned |

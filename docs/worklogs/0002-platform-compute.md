@@ -5,7 +5,7 @@ Milestone: 2, platform compute
 
 ## Summary
 
-The public address policy, the NAT gateway, both VMs, the mesh VPN, and K3s exist and work. The milestone is not finished: the gate table shows what is open. The procedure is in the [platform compute runbook](../runbooks/platform-compute.md).
+The public address policy, the NAT gateway, both VMs, the mesh VPN, K3s, and the worker's package proxy exist and work. The gate is met, with one stated gap: the operating system has no CIS result. The procedure is in the [platform compute runbook](../runbooks/platform-compute.md).
 
 | Gate | Result |
 | --- | --- |
@@ -16,9 +16,9 @@ The public address policy, the NAT gateway, both VMs, the mesh VPN, and K3s exis
 | A public address on a network interface is refused by policy in both workload resource groups | Met |
 | Idle CPU and memory use is measured | Met |
 | Every credential is in the inventory, and each long-lived one has a rotation that has been run once | Met. The SSH keys, the cluster token, and the mesh VPN node key were each rotated once |
-| Hardening benchmark results are recorded, and each failed check is fixed or accepted | Partly met. Kubernetes benchmark run: 3 fails, 2 fixed, 1 accepted. The operating system got a Lynis audit, not a CIS run. Its findings are fixed, accepted with a reason, or listed as open |
-| `main` takes changes only through a pull request with passing checks, and a pushed secret is refused | Met in an earlier change. Not re-tested here |
-| Pull requests run static checks and a secret scan, with no cloud credentials | Met in an earlier change |
+| Hardening benchmark results are recorded, and each failed check is fixed or accepted | Met, with one stated gap. Kubernetes benchmark run: 3 fails, 2 fixed, 1 accepted. The operating system got a Lynis audit, not a CIS run, because no tool has a CIS profile for this release. Its findings are fixed, accepted with a reason, or carried to milestone 3 |
+| `main` takes changes only through a pull request with passing checks, and a pushed secret is refused | Met. Read on 2026-10-11 with `gh api`: ruleset `protect-main` is active with a pull request rule and four required checks, and secret scanning with push protection is enabled. No secret was pushed to prove the refusal |
+| Pull requests run static checks and a secret scan, with no cloud credentials | Met. `.github/workflows/checks.yml` runs the four checks on every pull request and holds no cloud credentials |
 | Version pins get automated update pull requests | Configured, not yet seen. `.github/dependabot.yml` covers the providers and the pipeline actions weekly. `gh pr list --state all --author app/dependabot` returns nothing, and every pin is current |
 
 Two things failed on the way and are written up: [an image pin that only existed in the daily offer](../troubleshooting/01-image-version-only-in-daily-offer.md), and [SSH through the subnet router stalling](../troubleshooting/02-ssh-through-subnet-router-stalls.md).
@@ -278,13 +278,13 @@ The 50 warnings are checks the tool cannot decide by itself. They have not been 
 
 ## Operating system audit
 
-The plan was a CIS benchmark run. No open tool can do one for this release yet.
+The plan was a CIS benchmark run. No tool can do one for this release yet, the vendor's own included.
 
 | Tool | Checked on 2026-10-11 | Result |
 | --- | --- | --- |
 | CIS Ubuntu Linux 26.04 LTS Benchmark | The CIS monthly update for October 2026 | Exists, v1.0.0, published the month before |
 | OpenSCAP with ComplianceAsCode content 0.1.82 | The `ubuntu2604` product in the release | Ships a `default` profile only. No CIS profile |
-| Ubuntu Security Guide | `apt-cache policy usg` on the orchestrator, and the vendor documentation | Not installable without an Ubuntu Pro subscription attached. The documentation does not say whether it covers 26.04 |
+| Ubuntu Security Guide | Attached the orchestrator to an Ubuntu Pro subscription and ran `pro enable usg` | `Ubuntu Security Guide is not available for Ubuntu 26.04 LTS (Resolute Raccoon).` The orchestrator was detached again |
 | Lynis 3.1.7 | The publisher's download page | Runs anywhere as a shell script. Not a CIS benchmark |
 
 Lynis was run on both VMs. It is a general hardening audit with its own score, so the numbers below are not CIS results. The archive's SHA-256 matched the value on the publisher's download page. The worker got the archive from the orchestrator over the feed path. The tool was removed from both VMs afterwards.
@@ -345,9 +345,18 @@ Open:
 | Finding | Why it is open |
 | --- | --- |
 | `ACCT-9628`, `ACCT-9622`, `LOGG-2154`, `FINT-4350`: no `auditd`, no process accounting, no remote logging, no file integrity tool | Real gaps. They belong with the audit log decision in milestone 3, where logs get a place out of the worker's reach |
-| `BOOT-5264`, `BOOT-5180`, service hardening | Not reviewed |
-| `FILE-7524`, file permissions | Not reviewed |
-| `HRDN-7222`, compilers present | Not reviewed |
+
+These three were open after the first triage and were reviewed afterwards:
+
+| Finding | Answer |
+| --- | --- |
+| `BOOT-5264`, service hardening | Fixed for the one service the untrusted side can reach. Squid got a systemd sandbox: no new privileges, five capabilities, read-only system directories, private `/tmp` and devices, restricted address families and namespaces. `systemd-analyze security squid` went from `9.8 UNSAFE` to `4.3 OK`. Accepted for `k3s`, `tailscaled`, and `ssh`, all at `9.6`: each needs root and broad access to do its job |
+| `FILE-7524`, file permissions | Fixed. `/etc/crontab` and `/etc/ssh/sshd_config` from `644` to `600`. The five cron directories from `755` to `700` |
+| `HRDN-7222`, compilers present | Fixed. No compiler was installed. The assembler and linker were, through `binutils`, and nothing depended on it. Removed on both VMs |
+
+After these changes Squid still returned 200 for a package host and 403 for another host and for a tunnel, `sshd -t` passed on both VMs, new logins worked, and K3s reported the node `Ready`.
+
+The audit was not run a third time, so the hardening index after these three fixes is not measured.
 
 ### Updates on the worker
 
@@ -424,13 +433,12 @@ The mesh VPN node key was rotated too, by enrolling the orchestrator again with 
 
 ## Limitations
 
-- **The milestone is not closed.** See the gate table for what is open.
 - **The benchmark profile is older than the cluster.** `k3s-cis-1.9` was written for K3s 1.27 to 1.29. The cluster runs 1.36. A newer profile does not ship with the tool.
 - **The running orchestrator differs from its template in how it got one fix.** The segment size clamp was installed by hand with the same content as the cloud-init template. A VM built from the template has not been booted with it.
 - **The worker can open one connection to the orchestrator, to the package proxy.** Everything else is refused. Dispatch and results in milestone 3 still have to be initiated from the orchestrator, or get their own rule.
 - **The worker's updates depend on the proxy and on two hostnames.** If either changes, updates stop quietly. Nothing alerts on that yet.
 - **The targets have no update path.** The proxy is for the worker only. Milestone 4 decides how the targets are kept current.
-- **No CIS result for the operating system.** No open tool ships a CIS profile for Ubuntu 26.04 yet. The audit that ran is not a CIS benchmark.
+- **No CIS result for the operating system.** No tool ships a CIS profile for Ubuntu 26.04 yet. The audit that ran is not a CIS benchmark. Carried as an accepted risk in the [threat model](../threat-model.md#accepted-risks) until one does.
 - **No audit daemon, remote logging, or file integrity monitoring on either VM.** Open until the audit log decision in milestone 3.
 - **The hardening on the running VMs was applied by hand.** Same content as the templates, but no VM has been built from them.
 - **Mesh VPN connections are relayed.** Fine for administration, slow for bulk transfer.
