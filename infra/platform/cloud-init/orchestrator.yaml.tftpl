@@ -91,6 +91,27 @@ write_files:
       install tipc /bin/false
       install usb-storage /bin/false
 
+  # The worker's only way to a package repository. Squid forwards plain package
+  # downloads to two hosts and refuses everything else, tunnels included.
+  - path: /etc/squid/squid.conf
+    permissions: "0644"
+    content: |
+      http_port ${orchestrator_ip}:3128
+      acl worker src ${worker_prefix}
+      acl repositories dstdomain archive.ubuntu.com security.ubuntu.com
+      acl plain_http port 80
+      acl downloads method GET HEAD
+      http_access deny !worker
+      http_access deny CONNECT
+      http_access deny !plain_http
+      http_access deny !downloads
+      http_access allow repositories
+      http_access deny all
+      cache deny all
+      forwarded_for delete
+      access_log daemon:/var/log/squid/access.log squid
+      shutdown_lifetime 1 seconds
+
   # Kernel settings the kubelet expects when protect-kernel-defaults is on.
   - path: /etc/sysctl.d/90-aisec-kubelet.conf
     permissions: "0644"
@@ -160,6 +181,10 @@ write_files:
         --advertise-routes=${advertised_routes} \
         --accept-dns=false
       rm -f /run/aisec/tailscale-auth-key
+
+      # The package proxy for the worker. It keeps the configuration written
+      # above. The archive drops old versions, so this one is not pinned.
+      DEBIAN_FRONTEND=noninteractive apt-get install -y -q -o Dpkg::Options::=--force-confold squid
 
       # K3s. The binary and the install script are both checked before either runs.
       work="$(mktemp -d)"

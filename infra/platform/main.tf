@@ -41,6 +41,17 @@ module "network" {
       rules = [
         local.deny_from_targets,
         {
+          name                       = "allow-package-proxy-from-worker"
+          priority                   = 1000
+          direction                  = "Inbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = local.worker_prefix
+          destination_address_prefix = local.orchestrator_prefix
+          destination_port_range     = "3128"
+          description                = "The worker's package manager. The proxy forwards to two package hosts and nothing else."
+        },
+        {
           name                       = "allow-ssh-to-worker"
           priority                   = 1000
           direction                  = "Outbound"
@@ -146,6 +157,17 @@ module "network" {
           destination_address_prefix = "AzurePlatformDNS"
           destination_port_range     = "*"
           description                = "Containment. Azure DNS ignores every rule that does not name this tag, and a resolver is a way out."
+        },
+        {
+          name                       = "allow-package-proxy-to-orchestrator"
+          priority                   = 1000
+          direction                  = "Outbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = local.worker_prefix
+          destination_address_prefix = local.orchestrator_prefix
+          destination_port_range     = "3128"
+          description                = "Package updates. The only connection the worker may start."
         },
         {
           name                       = "allow-ssh-from-orchestrator"
