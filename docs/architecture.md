@@ -1,6 +1,6 @@
 # Architecture
 
-This is the system as designed. The network foundation is deployed: state storage, deployment identities, both virtual networks, their security groups, and the peering. Everything that runs on a VM is still planned. Each section says what is built, what is decided, and what is still open.
+This is the system as designed. The network foundation and the platform VMs are deployed: state storage, deployment identities, both virtual networks, their security groups, the peering, the NAT gateway, the orchestrator with the mesh VPN and K3s, and the AI worker. Everything that runs on the cluster or the worker, and every target, is still planned. Each section says what is built, what is decided, and what is still open.
 
 The reasoning behind each choice is in the [decision records](decisions/README.md). The order of work is in the [roadmap](roadmap.md).
 
@@ -93,8 +93,8 @@ The table is the design. So far only the SSH part of the administration flow has
 | AI worker subnet | Orchestrator subnet | Tool services only | Allowed, fixed ports |
 | AI worker subnet | Target network | None | Denied, by an explicit rule on the platform side |
 | AI worker subnet | Internet | None. The orchestrator pushes what the worker needs | Denied, by an explicit rule on the platform side |
-| Orchestrator subnet | Internet | Mesh VPN, downloads, security feeds, GitHub | Decided, not built: through the NAT gateway |
-| Target network | Internet | None. The orchestrator pushes what the targets need | Denied by the baseline rule. Policy and explicit rules are decided, not built |
+| Orchestrator subnet | Internet | Mesh VPN, downloads, security feeds, GitHub | Allowed, through the NAT gateway |
+| Target network | Internet | None. The orchestrator pushes what the targets need | Denied, by explicit rules and by a policy that refuses public IP resources on the target side |
 | Target network | Platform network | None | Denied for new connections, by an explicit rule on the platform side |
 | Operator device | Orchestrator, then other VMs | Administration over the mesh VPN | Allowed for signed-in operator devices |
 | Internet | Any | None | Denied inbound |
@@ -107,7 +107,7 @@ No VM has a public address. The operator gets in over a mesh VPN: the orchestrat
 
 ### Egress
 
-Decided, not built. See [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md).
+Built and tested from both VMs. See [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md).
 
 The system has one way out: a NAT gateway on the orchestrator subnet. The orchestrator is the only machine that downloads anything.
 
@@ -239,8 +239,8 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Planned |
 | Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Planned |
 | Dependency updates | Automated pull requests that move the version pins | Platform compute | Planned |
-| Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Planned |
-| Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Planned |
+| Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Kubernetes benchmark run, one check accepted. The operating system has a Lynis audit. No open tool has a CIS profile for Ubuntu 26.04 yet |
+| Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current through platform compute. SSH keys and the cluster token rotated once |
 | Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Planned |
 | Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Planned |
 | Incident response runbook | A turned worker, a compromised target, a leaked credential | Operational drills | Planned |
