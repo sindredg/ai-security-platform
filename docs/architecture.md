@@ -240,7 +240,6 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Planned |
 | Dependency updates | Automated pull requests that move the version pins | Platform compute | Planned |
 | Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Planned |
-| Workstation | Deployment keys encrypted at rest, bootstrap state copied off the machine | Platform compute | Planned |
 | Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Planned |
 | Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Planned |
 | Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Planned |
