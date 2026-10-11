@@ -53,7 +53,8 @@ The network foundation and the platform VMs are deployed: two peered virtual net
 
 | Document | Contents |
 | --- | --- |
-| [Architecture](docs/architecture.md) | Components, boundaries, networks, capacity |
+| [Architecture](docs/architecture.md) | Boundaries, flows, networks, capacity |
+| [Components](docs/components/README.md) | The stack, one page per part, with every version pin and links to vendor documentation |
 | [Roadmap](docs/roadmap.md) | Milestones and what each has to prove |
 | [Threat model](docs/threat-model.md) | What can go wrong at each trust boundary, the control, and what is left over |
 | [Decision records](docs/decisions/README.md) | Why each major choice was made, and what it costs |

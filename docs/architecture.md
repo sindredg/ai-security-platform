@@ -103,65 +103,35 @@ An allowed route is not authorization. Every allowed flow still needs applicatio
 
 ### Administrative access
 
-No VM has a public address. The operator gets in over a mesh VPN: the orchestrator runs the agent and routes to both networks. No firewall rule names an operator address, because none is needed. See [ADR 0007](decisions/0007-mesh-vpn-for-administrative-access.md).
+No VM has a public address. The operator gets in over a mesh VPN: the orchestrator runs the agent and routes to both networks. No firewall rule names an operator address, because none is needed. Detail: [mesh VPN](components/mesh-vpn.md).
 
 ### Egress
 
-Built and tested from both VMs. See [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md).
+The system has one way out: a NAT gateway on the orchestrator subnet. The orchestrator is the only machine that downloads anything. The worker and the targets are fed, and three controls keep them closed, because any one alone leaks: no outbound method, explicit deny rules, and Azure Policy assigned outside both roots.
 
-The system has one way out: a NAT gateway on the orchestrator subnet. The orchestrator is the only machine that downloads anything.
+The worker has one exception: a proxy on the orchestrator that forwards package downloads to two hosts. The targets do not get it.
 
-The worker and the target VMs are fed. The orchestrator fetches each artifact, checks it against a pinned digest, and copies it over SSH. Operating system packages reach those machines through a forward that exists only while an SSH session from the orchestrator holds it open.
-
-Three things keep the fed machines closed, because any one alone leaks:
-
-- No outbound method on their subnets.
-- Explicit deny rules for the internet and for Azure DNS. A deny-all rule does not cover Azure DNS, and a private subnet still reaches storage accounts in its own region.
-- Azure Policy, assigned outside both roots: no public address on any network interface, and no public IP resources at all in the target resource group.
-
-The fed machines use addresses and a hosts file. There is no private DNS zone.
+Detail: [egress and policy](components/egress-and-policy.md), [package proxy](components/package-proxy.md).
 
 ## Platform
 
 ### Orchestrator
 
-One K3s server on one VM runs everything that is trusted. See [ADR 0001](decisions/0001-k3s-for-initial-orchestration.md).
-
-| Namespace | Workloads | Responsibility |
-| --- | --- | --- |
-| `orchestration` | Argo Workflows controller and server, fixed workflow templates | Scheduling, retries, concurrency limits, operator UI |
-| `collection` | Collectors and deterministic checks | Read approved sources, correlate advisories locally |
-| `tool-services` | Narrow MCP servers and the policy check | Check caller, job, target, operation, and arguments on every call |
-| `change` | PR broker and delivery runner | Publish permitted patches, apply approved changes |
-| `observability` | Metrics and logs, sized after measurement | Operational and audit visibility without private payloads |
-
-Namespaces keep things tidy. They are not a wall against malicious code, and nothing here relies on them as one.
+One K3s server on one VM runs everything that is trusted. It also routes for the mesh VPN and serves the worker's package proxy. Detail: [orchestrator](components/orchestrator.md), [K3s](components/k3s.md).
 
 ### AI worker
 
-The agent runtime and the model server run on a second VM that is not part of the cluster. See [ADR 0005](decisions/0005-ai-workers-on-a-separate-vm.md).
-
-The worker reads advisories, target evidence, and tool output. Any of those can carry instructions. So the design assumes the worker can be turned, and gives it nothing worth stealing:
+The agent runtime and the model server run on a second VM that is not part of the cluster. The worker reads advisories, target evidence, and tool output. Any of those can carry instructions. So the design assumes the worker can be turned, and gives it nothing worth stealing:
 
 - No delivery credentials, no repository credentials, no privileged cloud identity.
 - One scoped session per job: one target, one evidence set, bounded time and output.
-- One network destination: the tool services on the orchestrator.
+- One network destination for work: the tool services on the orchestrator.
 
-The cost is dispatch. Argo runs pods, not processes on another machine. How a workflow hands a job to the worker is the first real integration risk, and still open.
+The cost is dispatch. Argo runs pods, not processes on another machine. How a workflow hands a job to the worker is the first real integration risk, and still open. Detail: [AI worker](components/ai-worker.md).
 
-### Candidate components
+### Components
 
-Candidates, not selections. Each has something to prove first.
-
-| Role | Candidate | Has to prove |
-| --- | --- | --- |
-| Workflow engine and UI | Argo Workflows | Dispatch to the worker VM, restart recovery, footprint |
-| Agent runtime | Goose | Headless runs, a restricted tool set, a private model endpoint |
-| Model server | llama.cpp | Tool-call format, memory, throughput on the chosen VM size |
-| Starting model | Qwen3-4B-Instruct-2507, quantized | Structured output and tool calling on held-out fixtures |
-| Model gateway | LiteLLM | That it earns its footprint while there is only one model backend |
-| Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises |
-| Metrics and dashboards | Prometheus, Grafana | That they fit on the orchestrator |
+What is built, what is planned, and every version pin are in [components](components/README.md).
 
 ## Targets
 
@@ -259,14 +229,14 @@ The subscription allows 4 vCPUs per region and has no GPU quota. Both are treate
 
 That gives two VMs per region, with nothing to spare.
 
-| Region | VM | vCPUs | Candidate size |
-| --- | --- | --- | --- |
-| Sweden Central | Orchestrator | 2 | `Standard_B2as_v2` or `Standard_D2as_v5` (8 GB) |
-| Sweden Central | AI worker | 2 | `Standard_D2ps_v6` (Arm, 2 physical cores, 8 GB) or `Standard_D2as_v5` |
-| Denmark East | NetBox | 2 | `Standard_B2as_v2` (8 GB) |
-| Denmark East | Lab | 2 | `Standard_B2as_v2` (8 GB) |
+| Region | VM | vCPUs | Size | State |
+| --- | --- | --- | --- | --- |
+| Sweden Central | Orchestrator | 2 | `Standard_B2as_v2` (8 GB) | Built. The regional quota is full |
+| Sweden Central | AI worker | 2 | `Standard_D2ps_v6` (Arm, 2 physical cores, 8 GB) | Built |
+| Denmark East | NetBox | 2 | `Standard_B2as_v2` (8 GB), candidate | Planned |
+| Denmark East | Lab | 2 | `Standard_B2as_v2` (8 GB), candidate | Planned |
 
-Sizes are candidates until measured. Where it will hurt:
+Idle use of the two built VMs is on their [component pages](components/README.md). Where it will hurt:
 
 - **Inference.** Two x64 vCPUs are one physical core. Arm sizes give two real cores for the same quota, at the price of arm64 builds for everything on the worker.
 - **The orchestrator.** It carries K3s, Argo, collectors, tool services, and the change components. Observability and the model gateway go in only if measurement shows room.
@@ -287,7 +257,7 @@ targets/netbox/     NetBox deployment definition, fixtures, consumer contract
 policies/           Target, tool, and change rules
 collectors/         Collection and adaptation scripts
 validation/         Checks against the running system. Contract tests and drills come later
-docs/               Architecture, decisions, diagrams, runbooks, troubleshooting, validation, worklogs
+docs/               Architecture, components, decisions, diagrams, runbooks, troubleshooting, validation, worklogs
 ```
 
 ## Open decisions
