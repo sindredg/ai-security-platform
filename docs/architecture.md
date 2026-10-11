@@ -1,6 +1,6 @@
 # Architecture
 
-This is the planned system. None of it is deployed. Each section says what is decided, what is only proposed, and what is still open.
+This is the system as designed. The network foundation is deployed: state storage, deployment identities, both virtual networks, their security groups, and the peering. Everything that runs on a VM is still planned. Each section says what is built, what is decided, and what is still open.
 
 The reasoning behind each choice is in the [decision records](decisions/README.md). The order of work is in the [roadmap](roadmap.md).
 
@@ -72,13 +72,19 @@ So they share one Azure subscription and nothing else. See [ADR 0002](decisions/
 | Region | Sweden Central | Denmark East |
 | Terraform root | `infra/platform/` | `infra/targets/` |
 | Terraform state | Own storage account, own access scope | Own storage account, own access scope |
-| Resource groups | Platform only | Targets only |
+| Resource groups | `rg-aisec-platform`, `rg-aisec-platform-state` | `rg-aisec-targets`, `rg-aisec-targets-state` |
 | Virtual network | `10.40.0.0/20` | `10.50.0.0/20` |
-| Deployment identity | Platform scope only | Target scope only |
+| Deployment identity | `aisec-platform-deploy`, platform scope only | `aisec-targets-deploy`, target scope only |
 | Lifecycle | Long-lived | Rebuilt and reseeded per exercise |
 | Intentional weaknesses | None | Seeded per exercise, inside outer containment |
 
 Separate folders prove nothing. The boundary is real only where state permissions, role assignments, network rules, and separate credentials enforce it.
+
+That has been tested. Each deployment identity was denied every read and write it tried on the other side's network, resource group, and state. See the [network foundation worklog](worklogs/0001-network-foundation.md#identity-separation).
+
+A third root, `infra/bootstrap`, sits above both. The operator runs it, and it owns what a scoped identity cannot create for itself: the resource groups, the state accounts, the identities, and their role assignments. Each identity authenticates with a certificate whose private key never enters Terraform. See [ADR 0008](decisions/0008-deployment-identities-and-bootstrap-scope.md).
+
+The boundary has one deliberate hole. Each identity may name the other side's network as a peering partner, through a custom role with that single action. It cannot read or change that network.
 
 Two rules follow:
 
@@ -89,7 +95,7 @@ Two rules follow:
 
 ### Address plan
 
-Proposed. Nothing exists yet that could conflict with it.
+Deployed. Every subnet has its own network security group and no default outbound access.
 
 | Range | Region | Use |
 | --- | --- | --- |
@@ -107,15 +113,19 @@ Proposed. Nothing exists yet that could conflict with it.
 
 Global virtual network peering joins the two networks. Peering is plumbing, not a filter: once it exists, everything can route to everything. Network security groups on both sides deny by default and allow only what is listed here.
 
+Each security group ends in a deny-all rule in both directions at priority 4096. That rule is the point: Azure's built-in rules allow everything inside the `VirtualNetwork` tag, and peering puts the other network inside that tag.
+
+The table is the design. So far only the SSH part of the administration flow has rules, because it is the only flow with a known port. The other allowed flows get their rules with the service that listens on them. The denied flows are enforced now.
+
 | Source | Destination | Purpose | State |
 | --- | --- | --- | --- |
 | Orchestrator subnet | NetBox subnet | Evidence collection, approved delivery | Allowed, fixed ports |
 | Orchestrator subnet | Viewpoint and rehearsal subnets | Start named probes and rehearsals | Allowed, fixed ports |
 | Orchestrator subnet | AI worker subnet | Dispatch jobs | Allowed |
 | AI worker subnet | Orchestrator subnet | Tool services only | Allowed, fixed ports |
-| AI worker subnet | Target network | None | Denied |
-| AI worker subnet | Internet | None once models and images are in place | Denied |
-| Target network | Platform network | None | Denied for new connections |
+| AI worker subnet | Target network | None | Denied, by an explicit rule on the platform side |
+| AI worker subnet | Internet | None once models and images are in place | Denied, by an explicit rule on the platform side |
+| Target network | Platform network | None | Denied for new connections, by an explicit rule on the platform side |
 | Operator device | Orchestrator, then other VMs | Administration over the mesh VPN | Allowed for signed-in operator devices |
 | Internet | Any | None | Denied inbound |
 
@@ -256,9 +266,11 @@ Sizes are candidates until measured. Where it will hurt:
 
 ## Repository layout
 
-Planned. Each directory appears with the milestone that needs it.
+`infra/` and `docs/` exist. Every other directory appears with the milestone that needs it.
 
 ```text
+infra/bootstrap/    Operator-run root: resource groups, state accounts, deployment identities
+infra/modules/      Shared Terraform modules
 infra/platform/     Platform Terraform root
 infra/targets/      Target Terraform root
 platform/           K3s component configuration and workflow templates
@@ -289,3 +301,5 @@ Each gets a decision record before the milestone that depends on it.
 - A small model on CPU proves the integration works. It says little about investigation quality or speed.
 - One operator. There is no multi-user access model.
 - A separate VM limits what a compromised worker can reach. It does nothing against a compromised host or provider.
+- Both roots use the same network module. A change to it reaches both sides, so the separation is in state, identity, and network rules, not in the code.
+- Nothing outside the roots stops a deployment identity from creating a public IP address in its own resource group.

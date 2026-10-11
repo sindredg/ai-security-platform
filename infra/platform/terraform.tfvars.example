@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars. The copy is ignored by Git.
+# Leave this out for the first apply. Set it once the target root has created
+# its network: terraform -chdir=../targets output -raw virtual_network_id
+# targets_virtual_network_id = "REPLACE_WITH_TARGET_VIRTUAL_NETWORK_ID"
