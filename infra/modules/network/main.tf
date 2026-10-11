@@ -55,7 +55,7 @@ resource "azurerm_network_security_group" "this" {
       access                     = rule.access
       protocol                   = rule.protocol
       source_address_prefix      = rule.source_address_prefix
-      source_port_range          = "*"
+      source_port_range          = try(rule.source_port_range, "*")
       destination_address_prefix = rule.destination_address_prefix
       destination_port_range     = rule.destination_port_range
 

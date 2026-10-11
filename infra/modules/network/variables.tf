@@ -19,7 +19,7 @@ variable "address_space" {
 }
 
 variable "subnets" {
-  description = "Subnets by name. Each gets its own security group. Rules listed here sit above a deny-all in both directions."
+  description = "Subnets by name. Each gets its own security group. Rules listed here sit above a deny-all in both directions. A rule matches any source port unless it names one."
   type = map(object({
     address_prefix = string
     rules = optional(list(object({
@@ -29,6 +29,7 @@ variable "subnets" {
       access                     = string
       protocol                   = string
       source_address_prefix      = string
+      source_port_range          = optional(string, "*")
       destination_address_prefix = string
       destination_port_range     = string
       description                = string

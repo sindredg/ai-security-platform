@@ -21,6 +21,10 @@ module "network" {
 
   # Every subnet starts closed. The only way in is SSH from the orchestrator.
   # Service ports arrive with the service that listens on them.
+  #
+  # The two outbound denies look redundant next to the deny-all baseline. They
+  # are not. The baseline does not cover Azure DNS, and the internet deny has to
+  # outrank any allow rule a later service adds.
   subnets = {
     for name, prefix in local.subnet_prefixes : name => {
       address_prefix = prefix
@@ -35,6 +39,28 @@ module "network" {
           destination_address_prefix = prefix
           destination_port_range     = "22"
           description                = "Administration through the orchestrator."
+        },
+        {
+          name                       = "deny-to-internet"
+          priority                   = 110
+          direction                  = "Outbound"
+          access                     = "Deny"
+          protocol                   = "*"
+          source_address_prefix      = "*"
+          destination_address_prefix = "Internet"
+          destination_port_range     = "*"
+          description                = "Targets have no internet egress. The orchestrator pushes what they need."
+        },
+        {
+          name                       = "deny-to-azure-dns"
+          priority                   = 120
+          direction                  = "Outbound"
+          access                     = "Deny"
+          protocol                   = "*"
+          source_address_prefix      = "*"
+          destination_address_prefix = "AzurePlatformDNS"
+          destination_port_range     = "*"
+          description                = "Azure DNS ignores every rule that does not name this tag, and a resolver is a way out."
         },
       ]
     }
