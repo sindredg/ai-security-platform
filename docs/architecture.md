@@ -225,6 +225,29 @@ What follows from that:
 - Private payloads stay in protected storage. Workflow parameters and logs carry references.
 - The repository is public. Pull requests carry synthetic data and sanitized summaries. State, raw plans, and secrets never enter them.
 
+## Security practices
+
+Decided, not built. See [ADR 0010](decisions/0010-threat-model-and-security-checks-per-milestone.md).
+
+The table above says who is trusted. It does not say what can go wrong at each boundary, or where each control gets tested. A threat model does, and it is written before any VM exists.
+
+Everything else is attached to the milestone that builds the thing it checks. A practice with no gate behind it is a good intention.
+
+| Practice | What it covers | Lands with | State |
+| --- | --- | --- | --- |
+| Threat model | Threats per trust boundary, AI-specific threats, the control for each, residual risk, and the gap between this lab and production | Before platform compute, then updated with each decision | Planned |
+| Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Planned |
+| Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Planned |
+| Dependency updates | Automated pull requests that move the version pins | Platform compute | Planned |
+| Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Planned |
+| Workstation | Deployment keys encrypted at rest, bootstrap state copied off the machine | Platform compute | Planned |
+| Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Planned |
+| Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Planned |
+| Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Planned |
+| Incident response runbook | A turned worker, a compromised target, a leaked credential | Operational drills | Planned |
+
+There is no compliance framework here. ISO 27001 and SOC 2 describe an organisation, and this one has a single operator.
+
 ## Identity
 
 - **Operator:** Microsoft Entra ID sign-in through supported OIDC integrations, with no premium identity features assumed. One person investigates and approves. That is not separation of duties, and the project does not claim it is.
@@ -284,8 +307,9 @@ Each gets a decision record before the milestone that depends on it.
 
 - One K3s node and single VMs. A VM failure stops that part of the system.
 - A small model on CPU proves the integration works. It says little about investigation quality or speed.
-- One operator. There is no multi-user access model.
+- One operator. There is no multi-user access model, and nobody else reviews a change. Automated checks are the only second reader.
 - A separate VM limits what a compromised worker can reach. It does nothing against a compromised host or provider.
 - Both roots use the same network module. A change to it reaches both sides, so the separation is in state, identity, and network rules, not in the code.
 - Nothing outside the roots stops a deployment identity from creating a public IP address in its own resource group yet. The policy that does is decided in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) and not assigned.
 - The orchestrator's egress is not filtered by hostname. It can reach any host on port 443.
+- No threat model exists yet. The trust boundaries are stated, but the threats at each one are not listed, so what the design misses is unknown. See [security practices](#security-practices).
