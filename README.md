@@ -60,6 +60,7 @@ The network foundation and the platform VMs are deployed: two peered virtual net
 | [Runbooks](docs/runbooks/README.md) | Operator procedures, one per milestone |
 | [Troubleshooting](docs/troubleshooting/README.md) | Failures worth remembering |
 | [Worklogs](docs/worklogs/README.md) | What was done, with commands and evidence |
+| [Validation](docs/validation/README.md) | What the platform claims, and the check that proves each claim on the running system |
 
 ## What this is not
 

@@ -274,7 +274,7 @@ Sizes are candidates until measured. Where it will hurt:
 
 ## Repository layout
 
-`.github/`, `infra/`, and `docs/` exist. Every other directory appears with the milestone that needs it.
+`.github/`, `infra/`, `validation/`, and `docs/` exist. Every other directory appears with the milestone that needs it.
 
 ```text
 .github/            Static checks on pull requests, dependency update configuration
@@ -286,8 +286,8 @@ platform/           K3s component configuration and workflow templates
 targets/netbox/     NetBox deployment definition, fixtures, consumer contract
 policies/           Target, tool, and change rules
 collectors/         Collection and adaptation scripts
-validation/         Contract tests and security and recovery drills
-docs/               Architecture, decisions, diagrams, runbooks, troubleshooting, worklogs
+validation/         Checks against the running system. Contract tests and drills come later
+docs/               Architecture, decisions, diagrams, runbooks, troubleshooting, validation, worklogs
 ```
 
 ## Open decisions
