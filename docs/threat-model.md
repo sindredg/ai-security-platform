@@ -217,6 +217,7 @@ These have no control and no gate. They are carried on purpose.
 - **Provider compromise:** Azure, GitHub, and the mesh VPN provider are trusted.
 - **Single approver:** nobody checks the operator.
 - **T31:** the bootstrap state has one copy. Losing it costs imports, not resources.
+- **No CIS benchmark result for the operating system.** No tool has a CIS profile for Ubuntu 26.04 yet: not ComplianceAsCode 0.1.82, and not the vendor's Ubuntu Security Guide. A Lynis audit stands in. Run the CIS profile when either ships one.
 - **The workstation:** out of scope. A deployment key taken from it is covered by T29.
 
 ## Open items

@@ -236,10 +236,10 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Practice | What it covers | Lands with | State |
 | --- | --- | --- | --- |
 | Threat model | Threats per trust boundary, AI-specific threats, the control for each, residual risk, and the gap between this lab and production | Before platform compute, then updated with each decision | First pass written |
-| Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Planned |
-| Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Planned |
-| Dependency updates | Automated pull requests that move the version pins | Platform compute | Planned |
-| Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Kubernetes benchmark run, one check accepted. The operating system has a Lynis audit with its findings triaged. No open tool has a CIS profile for Ubuntu 26.04 yet |
+| Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Built. Secret scanning, push protection, and a ruleset on `main` with four required checks |
+| Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Built. Four checks on every pull request |
+| Dependency updates | Automated pull requests that move the version pins | Platform compute | Configured. No update has been proposed yet |
+| Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Kubernetes benchmark run, one check accepted. The operating system has a Lynis audit with its findings triaged. No tool has a CIS profile for Ubuntu 26.04 yet, which is an accepted risk |
 | Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current through platform compute. Each long-lived credential on the VMs rotated once |
 | Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Planned |
 | Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Planned |
