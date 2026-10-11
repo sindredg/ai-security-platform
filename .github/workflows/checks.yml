@@ -1,0 +1,110 @@
+# Static checks only. This workflow holds no cloud credentials and runs no
+# plans. Applies happen on the operator workstation from a saved plan.
+#
+# The only action used is pinned by commit. The scanners run as container
+# images pinned by digest, so no third-party action runs here.
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: "1.16.5"
+  TERRAFORM_SHA256: 2bc2fcfff033265c9e02ca0351f01794eb122f62a9b2a49a3294b9e49eaab5e4
+  # Checkov 3.3.27
+  CHECKOV_IMAGE: bridgecrew/checkov@sha256:f73d0af11e7145ba80e4a70fbfce9209d704c0d3583e26e7a725002f40eacd8a
+  # Trivy 0.75.0
+  TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
+  # gitleaks 8.30.1
+  GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+
+jobs:
+  terraform:
+    name: Terraform format and validate
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Terraform
+        run: |
+          zip="terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+          curl -fsSLO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/${zip}"
+          echo "${TERRAFORM_SHA256}  ${zip}" | sha256sum -c -
+          unzip -q "${zip}" terraform -d "${RUNNER_TEMP}/bin"
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
+      - name: Format
+        run: terraform fmt -check -recursive infra
+
+      - name: Validate
+        run: |
+          for root in bootstrap platform targets; do
+            echo "::group::${root}"
+            terraform -chdir="infra/${root}" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="infra/${root}" validate
+            echo "::endgroup::"
+          done
+
+  checkov:
+    name: Checkov
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan Terraform
+        run: >
+          docker run --rm --volume "${PWD}:/src:ro" "${CHECKOV_IMAGE}"
+          --directory /src/infra --framework terraform
+          --skip-download --quiet --compact
+
+  trivy:
+    name: Trivy
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The checks built into the pinned image are used as they are. Without
+      # --skip-check-update, a newer bundle is downloaded on every run.
+      - name: Scan Terraform
+        run: >
+          docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}"
+          config --skip-check-update --exit-code 1 /src/infra
+
+  gitleaks:
+    name: Secret scan
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The checkout belongs to the runner user and the container runs as
+      # another one, so Git has to be told the directory is safe.
+      - name: Scan the history
+        run: >
+          docker run --rm --volume "${PWD}:/repo:ro"
+          --env GIT_CONFIG_COUNT=1
+          --env GIT_CONFIG_KEY_0=safe.directory
+          --env GIT_CONFIG_VALUE_0=/repo
+          "${GITLEAKS_IMAGE}"
+          git /repo --redact --no-banner

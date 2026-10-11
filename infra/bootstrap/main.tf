@@ -58,7 +58,25 @@ resource "random_string" "state_suffix" {
   special = false
 }
 
+# Trivy findings accepted on these accounts, with the reason for each. The
+# Checkov equivalents are skipped inside the resource.
+#   AZU-0012  A network rule would put an operator address in configuration.
+#             Access already takes a Microsoft Entra token with a data role.
+#   AZU-0057  Logging waits for the audit log decision. Nothing collects it yet.
+#   AZU-0058  State can be rebuilt by import. LRS survives the workstation.
+#   AZU-0060  A customer-managed key needs a key vault, for no gain here.
+#   AZU-0061  Infrastructure encryption can only be set at creation.
+#trivy:ignore:AZU-0012
+#trivy:ignore:AZU-0057
+#trivy:ignore:AZU-0058
+#trivy:ignore:AZU-0060
+#trivy:ignore:AZU-0061
 resource "azurerm_storage_account" "state" {
+  #checkov:skip=CKV_AZURE_59:No network rule, so no operator address in configuration. Entra data roles only
+  #checkov:skip=CKV2_AZURE_33:A private endpoint needs a network path the workstation does not have
+  #checkov:skip=CKV_AZURE_33:No queues exist on these accounts
+  #checkov:skip=CKV_AZURE_206:State can be rebuilt by import. LRS survives the workstation
+  #checkov:skip=CKV2_AZURE_1:A customer-managed key needs a key vault and adds a component for no gain
   for_each = local.sides
 
   name                = "st${var.name_prefix}${each.key}${random_string.state_suffix[each.key].result}"
@@ -96,6 +114,7 @@ resource "azurerm_storage_account" "state" {
 }
 
 resource "azurerm_storage_container" "state" {
+  #checkov:skip=CKV2_AZURE_21:Blob read logging waits for the audit log decision. Nothing collects it yet
   for_each = local.sides
 
   name                  = "tfstate"
