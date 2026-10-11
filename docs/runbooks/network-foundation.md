@@ -2,7 +2,7 @@
 
 Status: Implemented and validated on 2026-10-10. Built once, from an empty subscription. A second build from scratch has not been run. Results are in the [milestone 1 worklog](../worklogs/0001-network-foundation.md).
 
-Key handling in steps 3 and 12 and in the rotation changed on 2026-10-11, to keep one key file per side. Checked that day: key generation with throwaway keys, and the sign-in from a temporary PEM for both identities. The rest of step 12 was not repeated.
+The state upload in step 5 was added and run on 2026-10-11. Key handling in steps 3 and 12 and in the rotation changed on 2026-10-11, to keep one key file per side. Checked that day: key generation with throwaway keys, and the sign-in from a temporary PEM for both identities. The rest of step 12 was not repeated.
 
 Run these steps to build or revalidate milestone 1: state storage, deployment identities, both virtual networks, their security groups, and the peering. Never commit local values, plans, state, keys, or raw output.
 
@@ -99,7 +99,18 @@ Three identities appear below. Keep track of which one a shell is using.
 
    Expected: the plan adds 23 resources: four resource groups, two storage accounts with one container each, two random suffixes, two app registrations with a service principal and a certificate each, one custom role, and six role assignments. The apply ends with `Resources: 23 added`. The last plan reports no changes and exits `0`.
 
-   `terraform.tfstate` now exists in this directory. It holds no keys, but it is the only record of what this root owns. Keep a copy somewhere other than this machine.
+   `terraform.tfstate` now exists in this directory. It holds no keys, but it is the record of what this root owns. Upload a copy after every apply of this root:
+
+   ```bash
+   az storage blob upload --auth-mode login \
+     --account-name "$(terraform output -json state_storage_accounts | jq -r .platform)" \
+     -c bootstrap -n terraform.tfstate -f terraform.tfstate --overwrite
+   openssl md5 -binary terraform.tfstate | base64
+   ```
+
+   Expected: the `content_md5` in the answer equals the checksum printed by the last command. A permission error right after the apply means the role assignment has not spread yet. Wait a minute and repeat.
+
+   The root has grown since the count above was taken: three policy assignments in milestone 2, and the container and role for this copy. The state holds 28 resources now, so a build from the current code plans 28, which has not been run from an empty subscription.
 
 6. Write the local files the other two roots need. None of them is tracked.
 

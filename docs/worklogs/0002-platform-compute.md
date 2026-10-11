@@ -431,6 +431,25 @@ After the rotations, the certificate files were still `600` and the feed path st
 
 The mesh VPN node key was rotated too, by enrolling the orchestrator again with a new single-use auth key and `tailscale up --force-reauth`. The node key changed. The node kept its address, its tag, and its approved routes, and the worker stayed reachable through it.
 
+## Bootstrap state copy
+
+Run on 2026-10-11. The bootstrap root keeps local state, because it creates the accounts a backend would need. That file was the only record of what the root owns.
+
+The root now creates a `bootstrap` container in the platform state account, and gives the operator `Storage Blob Data Contributor` on that container alone. The plan was 2 to add. The file is uploaded by hand after each apply:
+
+```bash
+az storage blob upload --auth-mode login \
+  --account-name "$(terraform output -json state_storage_accounts | jq -r .platform)" \
+  -c bootstrap -n terraform.tfstate -f terraform.tfstate --overwrite
+openssl md5 -binary terraform.tfstate | base64
+```
+
+The upload at 20:13:43 UTC returned a `content_md5` equal to the checksum of the local file, and a `version_id`, so blob versioning keeps earlier uploads.
+
+The platform identity holds a data role on the whole account and can read the copy. The state holds identifiers and no key, so that is accepted. The target identity cannot reach it.
+
+Not done: a restore. Nobody has downloaded the copy and planned against it.
+
 ## Limitations
 
 - **The benchmark profile is older than the cluster.** `k3s-cis-1.9` was written for K3s 1.27 to 1.29. The cluster runs 1.36. A newer profile does not ship with the tool.

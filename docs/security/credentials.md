@@ -7,7 +7,7 @@ Every secret the project has or has planned. A credential not in this table shou
 | Owner sign-in to Azure | Workstation token cache | Operator | New sign-in | In use |
 | Platform deployment key and certificate | Workstation, outside the repository | Operator | New key pair and a bootstrap apply. [Procedure](../runbooks/network-foundation.md#rotate-a-certificate) written, not yet run | In use |
 | Target deployment key and certificate | Same | Operator | Same | Same |
-| Bootstrap state | Workstation, local file | Operator | Not a secret to rotate | In use |
+| Bootstrap state | Workstation, local file. A copy in its own container in the platform state account | Operator. The platform identity can read the copy, which holds identifiers and no secret | Not a secret to rotate | In use |
 | Platform and target state | One storage account per root | That root's identity, and a subscription administrator | Not rotated. Access is by role | In use |
 | Operator's GitHub account | GitHub | Operator | Account sign-in settings | In use |
 | Mesh VPN auth key | Supplied at provisioning. A spent copy stays in the VM's custom data and in platform state | The orchestrator, once | Single use. A new key per rebuild | Spent |
