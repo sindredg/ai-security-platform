@@ -13,6 +13,37 @@ write_files:
     content: |
       net.ipv4.ip_forward = 1
 
+  # Routed TCP has to fit the mesh VPN's 1280-byte MTU. The fed machines never
+  # see the "fragmentation needed" replies, because their network security
+  # groups drop ICMP, so the orchestrator rewrites the segment size instead.
+  - path: /etc/aisec/mss-clamp.nft
+    permissions: "0644"
+    content: |
+      table inet aisec_mss
+      delete table inet aisec_mss
+      table inet aisec_mss {
+        chain forward {
+          type filter hook forward priority mangle; policy accept;
+          iifname "tailscale0" tcp flags syn tcp option maxseg size set 1240
+          oifname "tailscale0" tcp flags syn tcp option maxseg size set 1240
+        }
+      }
+
+  - path: /etc/systemd/system/aisec-mss-clamp.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Clamp TCP segment size on routes through the mesh VPN
+      Before=tailscaled.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/sbin/nft -f /etc/aisec/mss-clamp.nft
+
+      [Install]
+      WantedBy=multi-user.target
+
   # Kernel settings the kubelet expects when protect-kernel-defaults is on.
   - path: /etc/sysctl.d/90-aisec-kubelet.conf
     permissions: "0644"
@@ -62,6 +93,8 @@ write_files:
       set -euo pipefail
 
       sysctl --system >/dev/null
+      systemctl daemon-reload
+      systemctl enable --now aisec-mss-clamp.service
 
       # Mesh VPN, from the vendor's signed package repository, at a pinned version.
       . /etc/os-release
