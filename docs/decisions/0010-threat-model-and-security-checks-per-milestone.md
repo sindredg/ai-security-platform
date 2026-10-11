@@ -35,7 +35,7 @@ It lives in `docs/threat-model.md`.
 - **One table at the core:** threat, boundary, control, where the control is verified, and the risk left over. "Verified" means a roadmap gate or a drill, not a sentence.
 - **The credential inventory:** every secret, where it lives, what can read it, and how it is rotated.
 - **Lab against production:** for each deliberate lab compromise, what a production deployment would use instead. The mesh VPN, the single operator, the single node, and unfiltered orchestrator egress all belong here.
-- **The operator workstation is in scope.** It holds both deployment keys and the bootstrap state, which makes it the root of trust for everything else.
+- **The operator workstation is out of scope.** This project is the infrastructure. The model covers what a key taken from that machine can reach, not how the machine is kept.
 - **It stays small.** One table of a few dozen threats, each rated high, medium, or low. No scoring scheme.
 
 Later decision records name the threats they answer. Milestone 6 is the test: every threat rated high maps to a drill or to a stated accepted risk.
@@ -48,7 +48,6 @@ Later decision records name the threats they answer. Milestone 6 is the test: ev
 | Static checks on pull requests | Checkov and Trivy on Terraform and manifests, and a secret scan over the history | Milestone 2 |
 | Dependency updates | Automated pull requests for Terraform providers and pipeline actions, so a pin has a way to move | Milestone 2 |
 | Hardening baselines | The CIS benchmarks for the operating system and Kubernetes, and the K3s hardening guide | Milestone 2 |
-| Workstation | Deployment keys encrypted at rest, and a copy of the bootstrap state off the machine | Milestone 2 |
 | Credential inventory and rotation | Each new secret is listed before it is created. Long-lived ones get a rotation procedure that has been run once | Milestone 2, then every milestone |
 | Audit log | Every tool call recorded with caller, job, and decision, somewhere the worker cannot write | Milestone 3 |
 | Supply chain | Images and the model pinned by digest, signatures verified where upstream signs. An SBOM where an exercise needs one | Milestones 3 and 4, SBOM in milestone 8 |

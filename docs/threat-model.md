@@ -10,15 +10,17 @@ Five things stand out. None is fixed by this document.
 
 1. **The tool services are the wall.** Every limit on the AI worker ends at one service on the trusted machine that reads hostile input. That service is not designed yet, and neither is the way it tells one job from another. See T16, T18, T22.
 2. **The repository is the approval channel and is unprotected.** `main` accepts a force push today. Until that changes, "approval binds to a commit" has nothing to stand on. See T10.
-3. **The operator is a single point of total compromise.** One workstation holds both deployment keys. One Azure account owns both sides. One GitHub account approves every change. The design constrains automation, not that person. See T15, T29, T30.
+3. **The operator is a single point of total compromise.** One Azure account owns both sides. One GitHub account approves every change. The design constrains automation, not that person. See T15, T30.
 4. **A proposal is a data path to a public page.** The worker reads evidence and writes text that ends up in a pull request. Nothing decided so far checks what that text carries. See A5.
 5. **A compromised orchestrator is the end.** It holds every credential that matters and can reach any host on port 443. This is accepted, not solved. See T05.
 
 ## Scope and method
 
-In scope: the platform, the targets, the repository, the operator workstation, and the Azure control plane as the project uses it.
+In scope: the platform, the targets, the repository, and the Azure control plane as the project uses it.
 
 Out of scope: a compromise of Azure, GitHub, or the mesh VPN provider from the inside. The design trusts them and says so. A stolen operator account on any of them is in scope.
+
+Also out of scope: the operator's workstation. This project is the infrastructure, and how the operator's machine is secured is the operator's business. The model covers what a key taken from that machine can reach, not how it is kept.
 
 The method has two passes:
 
@@ -65,7 +67,6 @@ All target data is synthetic. Its confidentiality is not an asset in this lab. I
 | Compromised target | Control of NetBox or the lab VM, which is the expected state of a weak target |
 | Content author | An advisory, a package, an image, or a model that the platform fetches |
 | Repository attacker | A pull request from a fork, a hijacked pipeline action, or a stolen GitHub session |
-| Workstation attacker | Malware or theft on the operator machine |
 
 ## Trust boundaries
 
@@ -80,7 +81,7 @@ The diagram source is [`diagrams/trust-boundaries.html`](diagrams/trust-boundari
 | B3 | Platform to GitHub | Pull requests out, approvals in |
 | B4 | Orchestrator to AI worker and back | Job dispatch out, tool calls and results back |
 | B5 | Orchestrator to targets | Collection, probes, rehearsal, approved delivery |
-| B6 | Workstation to the Azure APIs | Terraform runs, state, role assignments, policy |
+| B6 | Operator to the Azure APIs | Terraform runs, state, role assignments, policy |
 
 ## Threats
 
@@ -143,9 +144,9 @@ The diagram source is [`diagrams/trust-boundaries.html`](diagrams/trust-boundari
 
 | ID | Threat | STRIDE | Rating | Control | State | Gate | Residual |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| T29 | A deployment key is copied from the workstation | S, E | High | Each key reaches one side only. Keys encrypted at rest | Scope [verified](worklogs/0001-network-foundation.md#identity-separation). Encryption planned | 2 | A key in use is a key in memory |
+| T29 | A deployment key is used by someone other than the operator | S, E | High | Each key reaches one side only. A certificate is valid for at most 91 days | [Verified](worklogs/0001-network-foundation.md#identity-separation) | 1 | Full control of one side until the certificate is removed or expires. How the key is stored is out of scope |
 | T30 | The Owner account is taken over | S, E | High | Strong sign-in on the account | Accepted | None | Total. The separation does not bind that role |
-| T31 | The bootstrap state is lost with the workstation | D | Low | A copy off the machine. Everything in it can be imported | Planned | 2 | An afternoon of imports |
+| T31 | The bootstrap state is lost | D | Low | Everything in it can be imported again | Accepted | None | An afternoon of imports |
 | T32 | State is read and gives up sensitive values | I | Medium | Entra authentication, shared keys off, one identity per account. Secrets kept out of Terraform | Verified | 1 | The accounts accept connections from any network |
 | T33 | One side's identity changes the other side | E | High | Role assignments scoped to one side | [Verified](worklogs/0001-network-foundation.md#identity-separation) | 1 | The peering action, which carries no traffic alone |
 | T34 | A change to the shared network module reaches both sides unnoticed | T | Medium | Each root's plan is read before its apply. Static checks on pull requests | Planned | 2 | One reader |
@@ -174,9 +175,9 @@ Every secret the project has or has planned. A credential not in this table shou
 | Credential | Lives | Read by | Rotation | State |
 | --- | --- | --- | --- | --- |
 | Owner sign-in to Azure | Workstation token cache | Operator | New sign-in | In use |
-| Platform deployment key and certificate | Workstation, outside the repository | Operator | New key pair and a bootstrap apply. [Procedure](runbooks/network-foundation.md#rotate-a-certificate) written, not yet run | In use, no passphrase |
-| Target deployment key and certificate | Same | Operator | Same | In use, no passphrase |
-| Bootstrap state | Workstation, local file | Operator | Not a secret to rotate. Needs a copy | In use, no copy |
+| Platform deployment key and certificate | Workstation, outside the repository | Operator | New key pair and a bootstrap apply. [Procedure](runbooks/network-foundation.md#rotate-a-certificate) written, not yet run | In use |
+| Target deployment key and certificate | Same | Operator | Same | Same |
+| Bootstrap state | Workstation, local file | Operator | Not a secret to rotate | In use |
 | Platform and target state | One storage account per root | That root's identity, and a subscription administrator | Not rotated. Access is by role | In use |
 | Operator's GitHub account | GitHub | Operator | Account sign-in settings | In use |
 | Mesh VPN auth key | Supplied at provisioning | The orchestrator, once | Single use. A new key per rebuild | Milestone 2 |
@@ -213,6 +214,8 @@ These have no control and no gate. They are carried on purpose.
 - **T15, T30:** a takeover of the operator's GitHub or Azure account defeats the design.
 - **Provider compromise:** Azure, GitHub, and the mesh VPN provider are trusted.
 - **Single approver:** nobody checks the operator.
+- **T31:** the bootstrap state has one copy. Losing it costs imports, not resources.
+- **The workstation:** out of scope. A deployment key taken from it is covered by T29.
 
 ## Open items
 

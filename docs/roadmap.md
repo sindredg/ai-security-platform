@@ -54,7 +54,6 @@ Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN, 
 - A public address on a network interface is refused by policy in both workload resource groups.
 - Idle CPU and memory use on both VMs is measured.
 - Every credential this milestone creates is in the credential inventory. Each long-lived one has a rotation procedure that has been run once.
-- The deployment keys are encrypted at rest, and the bootstrap state has a copy off the workstation.
 - Hardening benchmark results for the operating system and K3s are recorded. Each failed check is fixed or accepted with a reason.
 - `main` takes changes only through a pull request with passing checks, and a pushed secret is refused.
 - Pull requests run static checks on the Terraform and a secret scan. The pipeline holds no cloud credentials.
