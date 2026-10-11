@@ -38,6 +38,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | Date | Result | Notes |
 | --- | --- | --- |
 | 2026-10-11 | 92 of 94 passed | After a restart of both VMs. `M.3` and `M.4` failed: the mesh access policy still allowed every port. See [Access](access.md) |
+| 2026-10-11 | 94 of 94 passed | After the mesh access policy was replaced |
 
 ## What the checks do not cover
 

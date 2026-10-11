@@ -16,8 +16,8 @@ No VM has a public address. The only way in is the mesh VPN, then SSH with one k
 | `M.3` | The mesh policy refuses the proxy port | A mesh device has no business on the worker's proxy | A TCP connection to port 3128 has to fail |
 | `M.4` | The mesh policy refuses the kubelet port | The kubelet API is not an administration interface | A TCP connection to port 10250 has to fail |
 
-## Open
+## What these checks found
 
-`M.3` and `M.4` failed on 2026-10-11. The mesh access policy was the provider's default, which allows every device to reach every port. The intended policy allows the operator's devices to reach the orchestrator and the two routed networks on TCP 22 and 6443, and nothing else. It is set in the provider's admin console, not in this repository.
+`M.3` and `M.4` failed on their first run, on 2026-10-11. The mesh access policy was the provider's default, which allows every device to reach every port, so the threat model's statement that mesh access is limited was not true. The policy was replaced the same day and both checks pass. The policy text is on the [mesh VPN page](../components/mesh-vpn.md#access-policy).
 
-Until both pass, the threat model's statement that mesh access is limited is not true.
+The policy is set in the provider's admin console. These two checks are the only thing in the repository that notices if it is loosened.

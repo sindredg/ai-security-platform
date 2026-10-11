@@ -23,7 +23,29 @@ The tunnel carries 1280-byte packets and the virtual network 1500. The fed machi
 
 ## Access policy
 
-Set in the provider's admin console, not in this repository. The intended policy: the operator's devices reach the orchestrator and the two routed networks on TCP 22 and 6443, and nothing else. Checks `M.3` and `M.4` fail until it is in place.
+Set in the provider's admin console, not from this repository. The operator's devices reach the orchestrator and the two routed networks on SSH and the Kubernetes API. Nothing else is allowed, in either direction.
+
+```json
+{
+    "tagOwners": {
+        "tag:aisec-orchestrator": ["autogroup:admin"],
+    },
+    "grants": [
+        {
+            "src": ["autogroup:member"],
+            "dst": ["tag:aisec-orchestrator"],
+            "ip":  ["tcp:22", "tcp:6443"],
+        },
+        {
+            "src": ["autogroup:member"],
+            "dst": ["10.40.0.0/20", "10.50.0.0/20"],
+            "ip":  ["tcp:22", "tcp:6443"],
+        },
+    ],
+}
+```
+
+The provider's default policy allows everything, and that default was in place until 2026-10-11. Checks `M.3` and `M.4` fail if it comes back. The console's default rule for the provider's own SSH feature is left as it was. It applies to a user's own devices and not to the tagged orchestrator.
 
 ## Validation
 
