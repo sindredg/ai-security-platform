@@ -4,6 +4,68 @@ Self-hosted AI workers investigate security findings on a service they don't run
 
 The split of work is strict. Ordinary tools collect evidence and establish facts. AI interprets the evidence and proposes a bounded change. Neither gets to approve anything.
 
+## Target architecture
+
+This is what gets built. The networks, their rules, and the peering exist today. Everything on a VM is planned. Component detail and the reasoning are in the [architecture](docs/architecture.md).
+
+```mermaid
+flowchart LR
+    Operator["Operator device"]
+    Internet["Internet: registries, package mirrors, security feeds, mesh VPN service"]
+    GitHub["GitHub: pull requests and approval"]
+
+    subgraph Azure["One Azure subscription"]
+        subgraph Platform["Platform: Sweden Central, 10.40.0.0/20"]
+            NAT["NAT gateway: the only way out"]
+
+            subgraph Orch["Orchestrator VM, trusted: subnet 10.40.0.0/27"]
+                Mesh["Mesh VPN agent and subnet router"]
+                Feed["Artifact fetch, verify, push"]
+                subgraph K3s["K3s"]
+                    Argo["Argo Workflows"]
+                    Collect["Collectors and deterministic checks"]
+                    Tools["MCP tool services and policy"]
+                    Change["PR broker and delivery runner"]
+                end
+            end
+
+            subgraph Worker["AI worker VM, untrusted: subnet 10.40.0.32/27"]
+                Agent["Agent runtime"]
+                Model["Model server, CPU inference"]
+            end
+        end
+
+        subgraph Targets["Targets: Denmark East, 10.50.0.0/20"]
+            NetBox["NetBox VM: the service under investigation"]
+            Lab["Lab VM: consumer, unintended viewpoint, rehearsal copy"]
+        end
+    end
+
+    Operator -->|"mesh VPN: SSH and Argo UI"| Mesh
+    Orch -->|"outbound only"| NAT
+    NAT --> Internet
+    NAT --> GitHub
+
+    Argo -->|"dispatch job"| Agent
+    Agent --> Model
+    Agent -->|"scoped tool calls"| Tools
+
+    Collect -->|"evidence collection"| NetBox
+    Tools -->|"named probes and rehearsals"| Lab
+    Change -->|"approved change"| NetBox
+    Lab -->|"inventory API"| NetBox
+
+    Feed -.->|"verified artifacts over SSH"| Worker
+    Feed -.->|"verified artifacts over SSH"| Targets
+```
+
+The lines that are missing matter as much as the ones drawn:
+
+- **The AI worker reaches the tool services and nothing else.** No target, no internet, no public DNS.
+- **The targets reach nothing outside their own network.** They cannot open a connection into the platform, and they have no internet path.
+- **No VM has a public address.** The operator comes in over the mesh VPN. Outbound traffic leaves through one NAT gateway on the orchestrator subnet.
+- **The two sides cross only over network peering**, between separate Terraform roots, state, and deployment identities. Every crossing starts on the orchestrator.
+
 ## What can go wrong
 
 A suggested fix and a fix that can be trusted are different things. Three failures separate them:
