@@ -4,7 +4,7 @@
 
 These have no control and no gate. They are carried on purpose.
 
-- **T05:** a compromised orchestrator can send anything anywhere on port 443, and in cleartext on port 80. Closing port 80 was tried and costs more than it removes. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
+- **T05:** a compromised orchestrator can send anything anywhere on port 443, and in cleartext on port 80. [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) denies egress to pods, which will narrow this to root on the host once it is built. Closing port 80 was tried and costs more than it removes. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
 - **T15, T30:** a takeover of the operator's GitHub or Azure account defeats the design.
 - **Provider compromise:** Azure, GitHub, and the mesh VPN provider are trusted.
 - **Single approver:** nobody checks the operator.
@@ -19,9 +19,8 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 
 | Item | Threats | Needed before |
 | --- | --- | --- |
-| How a job proves which job it is | T18 | Milestone 3 |
-| What stands between a tool service bug and the rest of the orchestrator | T22, T36 | Milestone 3 |
-| Where the audit log is stored, and who can delete it | T04, T21 | Milestone 3 |
+| Cloud identity for cluster workloads | T36 | Milestone 4 |
+| Operator sessions to targets in the audit log | T04 | Milestone 4 |
 | What the broker allows into a pull request | A5 | Milestone 5 |
 | Repository app permissions | T12 | Milestone 5 |
 | Sign-in strength on the operator's accounts cannot be shown by a gate | T15, T30 | Not planned |

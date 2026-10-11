@@ -127,7 +127,7 @@ The agent runtime and the model server run on a second VM that is not part of th
 - One scoped session per job: one target, one evidence set, bounded time and output.
 - One network destination for work: the tool services on the orchestrator.
 
-The cost is dispatch. Argo runs pods, not processes on another machine. How a workflow hands a job to the worker is the first real integration risk, and still open. Detail: [AI worker](components/ai-worker.md).
+The cost is dispatch. Argo runs pods, not processes on another machine. A workflow step opens an SSH session to the worker with a key that can only run the job runner. Decided in [ADR 0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), not built, and still the first real integration risk. Detail: [AI worker](components/ai-worker.md).
 
 ### Components
 
@@ -211,7 +211,7 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Dependency updates | Automated pull requests that move the version pins | Platform compute | Configured. No update has been proposed yet |
 | Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Kubernetes benchmark run, one check accepted. The operating system has a Lynis audit with its findings triaged. No tool has a CIS profile for Ubuntu 26.04 yet, which is an accepted risk |
 | Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current through platform compute. Each long-lived credential on the VMs rotated once |
-| Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Planned |
+| Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Decided in [ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), not built |
 | Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Planned |
 | Incident response runbook | A turned worker, a compromised target, a leaked credential | Operational drills | Planned |
 
@@ -221,7 +221,8 @@ There is no compliance framework here. ISO 27001 and SOC 2 describe an organisat
 
 - **Operator:** Microsoft Entra ID sign-in through supported OIDC integrations, with no premium identity features assumed. One person investigates and approves. That is not separation of duties, and the project does not claim it is.
 - **Workloads:** collector, tool service, broker, delivery runner, and worker each have their own permissions. Delivery and repository credentials exist only in the `change` namespace.
-- **Cloud access from K3s:** open. Workload identity federation on a self-managed cluster needs its OIDC issuer document to be publicly reachable. A VM managed identity is simpler but is available to every process on that VM. No workload gets cloud access until this is decided.
+- **Jobs:** each job gets a random token at dispatch, scoped to one target and a list of tools, and dead when the job ends. Decided in [ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), not built.
+- **Cloud access from K3s:** none, and still open. Workload identity federation on a self-managed cluster needs its OIDC issuer document to be publicly reachable. A VM managed identity is simpler but is available to every process on that VM. Toolchain integration needs no cloud access, so the choice waits for the first workload that does.
 
 ## Capacity
 
@@ -266,8 +267,7 @@ Each gets a decision record before the milestone that depends on it.
 
 | Decision | Needed before |
 | --- | --- |
-| Dispatch from Argo to the worker VM | Toolchain integration |
-| Cloud identity for K3s workloads | Toolchain integration |
+| Cloud identity for K3s workloads | Target deployment |
 | Worker isolation beyond VM separation | Connecting real target evidence |
 | NetBox version, consumer scope, seeded settings | Target deployment |
 | GitHub App permissions and approval enforcement | Remediation and pull requests |

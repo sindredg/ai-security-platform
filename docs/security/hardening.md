@@ -40,9 +40,9 @@ Lynis was not run again after the last three fixes, so its numbers are slightly 
 
 | Gap | Why it matters | Lands with |
 | --- | --- | --- |
-| No `auditd`, no process accounting | Nothing records what ran on a machine | Milestone 3, with the audit log decision |
-| Logs stay on the machine they describe | A machine that is taken can rewrite its own history | Milestone 3 |
-| No file integrity monitoring | A changed binary or configuration file goes unnoticed | Milestone 3 |
+| No `auditd`, no process accounting | Nothing records what ran on a machine | Milestone 6, with the drills ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) |
+| Logs stay on the machine they describe | A machine that is taken can rewrite its own history | Milestone 3 for the worker, whose journal the orchestrator will pull. The orchestrator's own logs stay where they are |
+| No file integrity monitoring | A changed binary or configuration file goes unnoticed | Milestone 6 |
 | No CIS result for the operating system | The audit that ran is not the benchmark the plan named | When a tool supports Ubuntu 26.04 |
 | The 50 kube-bench warnings are not reviewed one by one | Some are manual checks that could be real findings | Milestone 3, when the cluster has workloads |
 | Held and pinned software gets no security fix until someone moves the pin | The mesh VPN agent and K3s run all the time | Each milestone start, from the [version table](../components/README.md#versions) |

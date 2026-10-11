@@ -65,7 +65,7 @@ Deploy Argo Workflows, the agent runtime, and the model server. Prove the round 
 
 This is where the design is most likely to be wrong, so it comes before any target exists.
 
-**Depends on:** the dispatch and workload identity decisions.
+**Depends on:** the dispatch, job identity, and tool service decisions, made in ADRs [0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), [0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), and [0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md). Cloud identity for cluster workloads is not needed here and moves to milestone 4.
 
 **Exit gate:**
 
@@ -77,6 +77,9 @@ This is where the design is most likely to be wrong, so it comes before any targ
 - The threat model covers dispatch, workload identity, and the AI-specific threats. Each threat rated high has a control or a stated acceptance.
 - Every image and the model file is pinned by digest and verified on the orchestrator before it runs or is pushed.
 - Every tool call, allowed or refused, is logged with caller, job, and decision. The worker cannot write to or delete that log.
+- A revoked or expired job token is refused.
+- A pod in a workload namespace cannot open a connection to the internet.
+- The worker's journal is copied to the orchestrator on a schedule.
 
 If a candidate needs a substantial custom service to pass this gate, replace it or simplify the design. Don't build the service.
 
@@ -122,6 +125,7 @@ Break the finished workflow on purpose.
 - Forged and stale target evidence.
 - Cleanup verification and measured resource use per investigation.
 - The incident response runbook, run for a turned worker, a compromised target, and a leaked credential.
+- An audit daemon and file integrity monitoring on both VMs, with a drill that shows each one catching something.
 
 Every threat rated high in the threat model maps to one of these drills or to a stated accepted risk. A high threat with neither is a gap, and the milestone stays open.
 
