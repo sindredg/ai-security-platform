@@ -41,6 +41,18 @@ for run in $(seq 1 "$runs"); do
     echo "-- output of the failed run"
     head -c 4000 "$out"
   fi
+  # What the agent's messages are made of. A thinking block is a part of its
+  # own, so this line shows whether the model server had thinking on.
+  echo "-- parts of the agent's messages"
+  /usr/bin/python3 -I -c '
+import collections, json, sys
+try:
+    messages = json.load(sys.stdin)["messages"]
+except (ValueError, KeyError, TypeError):
+    sys.exit("(no transcript)")
+print(dict(collections.Counter(
+    part.get("type") for m in messages if m.get("role") == "assistant" for part in m.get("content", [])
+)))' < "$out" || true
   echo "-- unit"
   cat "$err"
   echo "-- model server timings"
