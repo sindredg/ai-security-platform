@@ -143,10 +143,10 @@ jobs:
 
       # The default rule set of the pinned release. No configuration file, so
       # a new release cannot change the rules until the digest moves.
-      - name: Lint the measurement script
+      - name: Lint the worker's Python files
         run: >
           docker run --rm --volume "${PWD}:/io:ro" --workdir /io "${RUFF_IMAGE}"
-          check --no-cache worker/model-server/measure.py
+          check --no-cache worker
 
   dependencies:
     name: Dependency scan
