@@ -26,6 +26,8 @@ WORK=${AISEC_WORK:-10.40.0.36}
 ORCH_IP=10.40.0.4
 WORK_IP=10.40.0.36
 PROXY="http://$ORCH_IP:3128"
+MODEL_UNIT=aisec-llama-server
+MODEL_PORT=8080
 RG=rg-aisec-platform
 RG_TARGETS=rg-aisec-targets
 
@@ -134,6 +136,7 @@ echo "auth_key_file=$(ls /run/aisec 2>/dev/null | wc -l)"
 echo "egress_https=$(tcp 1.1.1.1 443)"
 echo "to_worker_ssh=$(tcp '"$WORK_IP"' 22)"
 echo "to_worker_http=$(tcp '"$WORK_IP"' 80)"
+echo "to_worker_model=$(tcp '"$WORK_IP"' '"$MODEL_PORT"')"
 echo "feed=$(sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec@aisec-worker hostname 2>/dev/null)"
 echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
 '
@@ -159,6 +162,13 @@ echo "apt_proxy=$(apt-config dump 2>/dev/null | grep -c "Acquire::http::Proxy \"
 echo "unattended_upgrades=$(systemctl is-enabled unattended-upgrades 2>/dev/null)"
 echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
 echo "ip_forward=$(sysctl -n net.ipv4.ip_forward)"
+echo "model_unit_active=$(systemctl is-active '"$MODEL_UNIT"' 2>/dev/null)"
+echo "model_unit_enabled=$(systemctl is-enabled '"$MODEL_UNIT"' 2>/dev/null)"
+echo "model_listen=$(ss -Hltnp | awk "\$4 ~ /:'"$MODEL_PORT"'\$/ {print \$4, \$6}" | sed "s/ users:((\"\([^\"]*\)\".*/ \1/" | tr "\n" " " | sed "s/ $//")"
+echo "model_health=$(code http://127.0.0.1:'"$MODEL_PORT"'/health)"
+echo "model_exposure=$(LC_ALL=C systemd-analyze security --no-pager '"$MODEL_UNIT"'.service 2>/dev/null | sed -n "s/.*Overall exposure level for [^:]*: \([0-9.]*\).*/\1/p")"
+model_file=$(systemctl show '"$MODEL_UNIT"' -p ExecStart --value 2>/dev/null | sed -n "s/.* --model \([^ ]*\) .*/\1/p")
+echo "model_sum=$(cd "$(dirname "$model_file")" 2>/dev/null && grep "  $(basename "$model_file")\$" SHA256SUMS 2>/dev/null | sha256sum --check --strict --status 2>/dev/null && echo match || echo differ)"
 '
 
 common_checks() { # prefix
@@ -207,6 +217,11 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check P.2 "Squid listens on the private address only" "$ORCH_IP:3128" "$(value squid_listen)"
   check P.3 "Squid cannot gain privileges" yes "$(value squid_no_new_privileges)"
   check P.4 "Squid refuses a client outside the worker subnet" 403 "$(value squid_from_orchestrator)"
+  # The model server listens on the worker's loopback address only (S.4), so
+  # this is E.3 again on the port that matters: nothing answers on this
+  # address, a packet the rules let in gets a reset, and only a timeout shows
+  # the rules dropped it.
+  check S.1 "The worker's rules drop the orchestrator on the model server port" timeout "$(value to_worker_model)"
   check U.1 "No security update is pending on the orchestrator" 0 "$(value security_updates_pending)"
   check U.2 "The mesh VPN agent is held at its pinned version" 1 "$(value tailscale_held)"
   common_checks HO
@@ -240,6 +255,17 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check P.9 "The proxy refuses an upload" 403 "$(value proxy_post)"
   check P.10 "The proxy refuses another port" 403 "$(value proxy_other_port)"
   check P.11 "The proxy refuses a tunnel" 403 "$(value proxy_connect)"
+  check S.2 "The model server unit is active" active "$(value model_unit_active)"
+  check S.3 "The model server unit starts at boot" enabled "$(value model_unit_enabled)"
+  check S.4 "The model server is the only listener on its port, on loopback" "127.0.0.1:$MODEL_PORT llama-server" "$(value model_listen)"
+  check S.5 "The model server answers with a loaded model" 200 "$(value model_health)"
+  # The score systemd gives the unit's sandbox settings, as observed on
+  # 2026-10-11. A setting taken out of the unit moves it. So does a systemd
+  # release that scores differently, and then the new value needs a look.
+  check S.6 "The model server unit's exposure score is unchanged" 1.3 "$(value model_exposure)"
+  # The file named on the unit's command line, against the line for it in the
+  # SHA256SUMS the build wrote. No line for that file is "differ", not a pass.
+  check S.7 "The model file the server loads matches its checksum from the build" match "$(value model_sum)"
   check U.3 "apt on the worker uses the proxy" 1 "$(value apt_proxy)"
   check U.4 "Unattended upgrades are enabled on the worker" enabled "$(value unattended_upgrades)"
   check U.5 "No security update is pending on the worker" 0 "$(value security_updates_pending)"

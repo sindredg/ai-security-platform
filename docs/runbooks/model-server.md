@@ -114,6 +114,8 @@ The download leaves through the NAT gateway and is billed per GB.
 
    Expected: one listener on `127.0.0.1:8080`, then `000` and `rc=28` from the orchestrator.
 
+   The `S` checks in `validation/platform-checks.sh` repeat this step and five more. See [validation](../validation/model-server.md).
+
 ## Measure
 
 9. Run the measurement exchange. It takes about six minutes.
