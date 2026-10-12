@@ -31,6 +31,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | [Access](access.md) | `A`, `M` | Who can get in, and through what |
 | [Containment](containment.md) | `C`, `E`, `R`, `Z.4` to `Z.9` | What the worker cannot reach, and what the orchestrator can |
 | [Package proxy](package-proxy.md) | `P`, `U` | The worker's one path out, and whether updates arrive |
+| [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |
 | [Host hardening](host-hardening.md) | `HO`, `HW` | SSH daemon, kernel settings, file modes, on both VMs |
 | [Azure policy](azure-policy.md) | `Z.1` to `Z.3`, `Z.10` to `Z.12` | Public addresses and the policy that refuses them |
@@ -43,6 +44,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-11 | 94 of 94 passed | After the mesh access policy was replaced |
 | 2026-10-11 | 94 of 94 passed | After the worker was rebuilt from the current template |
 | 2026-10-12 | 94 of 94 passed | First run of the corrected script, at commit `a9ca766`. Whole-rule comparison in `Z.4` and `Z.5`, and `timeout` expected where a rule is the claim |
+| 2026-10-12 | 101 of 101 passed | First run with the seven `S` checks for the [model server](model-server.md) |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
@@ -58,6 +60,8 @@ The run on 2026-10-12 is the first with that version. What it adds:
 - `Z.4` and `Z.5` got an answer from Azure for both interfaces, and every field of every rule matched.
 
 What it does not add: `C.2` and `C.3` also timed out, and still say nothing about the deny rule, because no target machine exists.
+
+The second run on 2026-10-12 adds the seven `S` checks, which brings the script to 101. All seven passed on their first run against the system. [Model server](model-server.md) says what each proves and how each was shown to fail first.
 
 ## What the checks do not cover
 

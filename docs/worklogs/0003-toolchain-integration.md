@@ -141,4 +141,4 @@ What the numbers say:
 - Twelve correct turns on one easy, fixed exchange show that the plumbing works. They say nothing about investigation quality.
 - No agent runtime has called the server yet. Goose's own prompt size and tool format are unmeasured.
 - A second build from the same pins has not been run, so nobody knows whether the model file's checksum repeats.
-- The validation script has no checks for the model server yet.
+- The validation script has seven checks for the model server, `S.1` to `S.7`. They were shown to fail on broken inputs with stubs, and passed on the system on 2026-10-12, in a run of 101 passed, 0 failed. See [validation](../validation/model-server.md).
