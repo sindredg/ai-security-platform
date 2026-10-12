@@ -14,6 +14,10 @@
 #   AISEC_WORK  Worker address or host alias. Default: 10.40.0.36
 #
 #   validation/platform-checks.sh [--no-azure] [--no-workstation]
+
+# The probes are single-quoted on purpose. They are sent to the VMs as text
+# and expand there, not here.
+# shellcheck disable=SC2016
 set -uo pipefail
 
 SSH=${AISEC_SSH:-ssh}
