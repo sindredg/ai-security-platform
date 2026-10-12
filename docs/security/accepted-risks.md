@@ -55,6 +55,7 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 | --- | --- | --- |
 | Cloud identity for cluster workloads | T36 | Milestone 4 |
 | Operator sessions to targets in the audit log | T04 | Milestone 4 |
+| Log upload from the mesh agent to its vendor. On by default, [seen on the orchestrator](../components/mesh-vpn.md#limits) | No entry yet | Milestone 4 |
 | What the broker allows into a pull request | A5 | Milestone 5 |
 | Repository app permissions | T12 | Milestone 5 |
 | Sign-in strength on the operator's accounts cannot be shown by a gate | T15, T30 | Not planned |

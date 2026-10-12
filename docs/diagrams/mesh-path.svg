@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 656" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="mesh-path-title mesh-path-desc" id="mesh-path-root">
+        <title id="mesh-path-title">Mesh VPN path</title>
+        <desc id="mesh-path-desc">Architecture diagram of the mesh VPN path: the operator device and the orchestrator's mesh agent each open outbound connections to a third-party coordination service for control and to a relay server over TLS on port 443 for the tunnel, the orchestrator's through the NAT gateway, and the orchestrator decrypts, filters to TCP 22 and 6443, clamps the segment size to 1240, translates the source to 10.40.0.4, and forwards to the worker and the target network on TCP 22.</desc>
+        <defs>
+      <style>#mesh-path-root { --color-paper:   #2d3142;   
+      --color-ink:     #f5f5f5;   
+      --color-muted:   #bfc0c0;
+      --color-accent:  #f08a59;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace; }
+      #mesh-path-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #mesh-path-root .diagram-container { width: 100%; overflow-x: auto; }
+      #mesh-path-root .diagram-container { overflow-x: visible; }</style>
+          <marker id="mesh-path-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
+          <marker id="mesh-path-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
+          <marker id="mesh-path-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#739fdf"/></marker>
+
+          <!-- OPTIONAL: dot-pattern background. Uncomment and add <rect fill="url(#mesh-path-dots)"/> after the paper rect to enable. -->
+          <!--
+          <pattern id="mesh-path-dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="#f5f5f5" fill-opacity="0.08"/>
+          </pattern>
+          -->
+        </defs>
+
+        <rect width="100%" height="100%" fill="#2d3142"/>
+
+        <!-- Zones -->
+        <rect x="464" y="56" width="456" height="496" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="622" y="60" width="140" height="12" rx="2" fill="#2d3142"/>
+        <text x="692" y="69" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">PLATFORM · SWEDEN CENTRAL</text>
+        <rect x="664" y="144" width="232" height="272" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="708" y="148" width="144" height="12" rx="2" fill="#2d3142"/>
+        <text x="780" y="157" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">ORCHESTRATOR VM · TRUSTED</text>
+        <rect x="232" y="432" width="200" height="120" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="270" y="436" width="124" height="12" rx="2" fill="#2d3142"/>
+        <text x="332" y="445" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">TARGETS · DENMARK EAST</text>
+        <!-- Control connections: both ends dial the coordination service -->
+        <path d="M 112,176 V 112 Q 112,104 120,104 H 248" fill="none" stroke="#739fdf" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#mesh-path-arrow-link)"/>
+        <line x1="688" y1="196" x2="632" y2="196" fill="none" stroke="#739fdf" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#mesh-path-arrow-link)"/>
+        <path d="M 536,176 V 112 Q 536,104 528,104 H 416" fill="none" stroke="#739fdf" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#mesh-path-arrow-link)"/>
+        <!-- Tunnel legs: both ends dial the relay -->
+        <line x1="184" y1="208" x2="248" y2="208" fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#mesh-path-arrow-accent)"/>
+        <line x1="688" y1="220" x2="632" y2="220" fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#mesh-path-arrow-accent)"/>
+        <line x1="488" y1="220" x2="416" y2="220" fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#mesh-path-arrow-accent)"/>
+        <!-- Routed traffic, decrypted -->
+        <line x1="780" y1="264" x2="780" y2="304" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#mesh-path-arrow)"/>
+        <line x1="780" y1="392" x2="780" y2="464" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#mesh-path-arrow)"/>
+        <path d="M 688,348 H 456 Q 448,348 448,356 V 488 Q 448,496 440,496 H 416" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#mesh-path-arrow)"/>
+        <!-- Labels -->
+        <rect x="120" y="134" width="48" height="12" rx="2" fill="#2d3142"/>
+        <text x="144" y="143" fill="#739fdf" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CONTROL</text>
+        <rect x="544" y="134" width="64" height="12" rx="2" fill="#2d3142"/>
+        <text x="576" y="143" fill="#739fdf" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CONTROL 80</text>
+        <rect x="194" y="188" width="44" height="12" rx="2" fill="#2d3142"/>
+        <text x="216" y="197" fill="#f08a59" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TLS 443</text>
+        <rect x="430" y="200" width="44" height="12" rx="2" fill="#2d3142"/>
+        <text x="452" y="209" fill="#f08a59" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TLS 443</text>
+        <rect x="790" y="278" width="52" height="12" rx="2" fill="#2d3142"/>
+        <text x="816" y="287" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">MTU 1280</text>
+        <rect x="792" y="434" width="40" height="12" rx="2" fill="#2d3142"/>
+        <text x="812" y="443" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TCP 22</text>
+        <rect x="552" y="328" width="40" height="12" rx="2" fill="#2d3142"/>
+        <text x="572" y="337" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TCP 22</text>
+        <!-- Nodes -->
+        <rect x="40" y="176" width="144" height="64" rx="6" fill="#2d3142"/>
+        <rect x="40" y="176" width="144" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <rect x="48" y="184" width="32" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
+        <text x="64" y="193" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">USER</text>
+        <text x="112" y="212" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Operator device</text>
+        <text x="112" y="228" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">agent · signing key</text>
+        <rect x="248" y="72" width="168" height="64" rx="6" fill="#2d3142"/>
+        <rect x="248" y="72" width="168" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <rect x="256" y="80" width="64" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
+        <text x="288" y="89" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">THIRD PARTY</text>
+        <text x="332" y="108" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Coordination service</text>
+        <text x="332" y="124" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">identity · keys · policy</text>
+        <rect x="248" y="176" width="168" height="64" rx="6" fill="#2d3142"/>
+        <rect x="248" y="176" width="168" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <rect x="256" y="184" width="64" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
+        <text x="288" y="193" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">THIRD PARTY</text>
+        <text x="332" y="212" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Relay server</text>
+        <text x="332" y="228" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">forwards ciphertext</text>
+        <rect x="488" y="176" width="144" height="64" rx="6" fill="#2d3142"/>
+        <rect x="488" y="176" width="144" height="64" rx="6" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
+        <rect x="496" y="184" width="32" height="12" rx="2" fill="none" stroke="#f08a59" stroke-opacity="0.50" stroke-width="0.8"/>
+        <text x="512" y="193" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">GATE</text>
+        <text x="560" y="212" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">NAT gateway</text>
+        <text x="560" y="228" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">no inbound path</text>
+        <rect x="688" y="176" width="184" height="88" rx="6" fill="#2d3142"/>
+        <rect x="688" y="176" width="184" height="88" rx="6" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
+        <rect x="696" y="184" width="76" height="12" rx="2" fill="none" stroke="#f08a59" stroke-opacity="0.50" stroke-width="0.8"/>
+        <text x="734" y="193" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">SUBNET ROUTER</text>
+        <text x="780" y="220" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Mesh agent</text>
+        <text x="780" y="236" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">tailscale0 · MTU 1280</text>
+        <text x="780" y="250" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">filter: tcp 22, 6443</text>
+        <rect x="688" y="304" width="184" height="88" rx="6" fill="#2d3142"/>
+        <rect x="688" y="304" width="184" height="88" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <rect x="696" y="312" width="44" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
+        <text x="718" y="321" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">KERNEL</text>
+        <text x="780" y="348" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Forwarding</text>
+        <text x="780" y="364" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">MSS clamp 1240 · SNAT</text>
+        <text x="780" y="378" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">eth0 10.40.0.4 · MTU 1500</text>
+        <rect x="688" y="464" width="184" height="64" rx="6" fill="#2d3142"/>
+        <rect x="688" y="464" width="184" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <rect x="696" y="472" width="56" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
+        <text x="724" y="481" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">UNTRUSTED</text>
+        <text x="780" y="500" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">AI worker VM</text>
+        <text x="780" y="516" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.40.0.36 · sees 10.40.0.4</text>
+        <rect x="248" y="464" width="168" height="64" rx="6" fill="#2d3142"/>
+        <rect x="248" y="464" width="168" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <rect x="256" y="472" width="56" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
+        <text x="284" y="481" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">UNTRUSTED</text>
+        <text x="332" y="500" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Target network</text>
+        <text x="332" y="516" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.50.0.0/20 · no VMs yet</text>
+        <line x1="40" y1="576" x2="920" y2="576" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <text x="40" y="592" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="40" y="608" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
+        <text x="60" y="616" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Subnet router</text>
+        <rect x="136" y="608" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="156" y="616" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Egress gate</text>
+        <rect x="224" y="608" width="14" height="10" rx="2" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="244" y="616" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">No public address</text>
+        <rect x="340" y="608" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="360" y="616" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Outside the networks</text>
+        <line x1="480" y1="614" x2="508" y2="614" stroke="#f08a59" stroke-width="1.4" marker-end="url(#mesh-path-arrow-accent)"/>
+        <text x="516" y="616" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Tunnel leg: WireGuard inside TLS. The arrow shows who opens it</text>
+        <line x1="40" y1="634" x2="68" y2="634" stroke="#739fdf" stroke-width="1" stroke-dasharray="5,4" marker-end="url(#mesh-path-arrow-link)"/>
+        <text x="76" y="636" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Control: keys, policy, node signatures. Its own encryption, port read on the orchestrator</text>
+        <line x1="520" y1="634" x2="548" y2="634" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#mesh-path-arrow)"/>
+        <text x="556" y="636" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Routed after decryption, on the port the security group allows</text>
+
+      </svg>

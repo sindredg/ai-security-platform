@@ -20,11 +20,11 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Ruff | `worker/model-server/measure.py`, with the default rules of the pinned release |
 | Dependency scan | Trivy over the converter's Python pins. Reports, never blocks |
 
-The first four are required by the ruleset on `main`. The last three run on every pull request and are not in the ruleset. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
+The first six are required by the ruleset on `main`. The dependency scan runs on every pull request and is not in the ruleset. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
 
 ## Repository settings
 
-Secret scanning with push protection is on. The ruleset `protect-main` refuses deletion and force pushes, and requires a pull request with the four checks.
+Secret scanning with push protection is on. The ruleset `protect-main` refuses deletion and force pushes, and requires a pull request with the six checks.
 
 ## Limits
 
@@ -32,7 +32,6 @@ Secret scanning with push protection is on. The ruleset `protect-main` refuses d
 - **Push protection is read as enabled, not tested with a pushed secret.**
 - **The secret scan has false positives.** A `curl -u` with a command substitution was flagged once.
 - **The dependency scan does not block.** The converter's packages follow llama.cpp's own pins, so an advisory in them has no fix here short of leaving upstream's list. On 2026-10-12, `trivy fs --scanners vuln` (0.75.0) on those pins listed 8 advisories, 5 of them high: 5 in `transformers` 4.57.6 and one each in `protobuf`, `setuptools`, and `torch`. The packages run once per model build, with no network. None of the eight is reachable in that build, and each is [accepted with its reason](../security/accepted-risks.md#advisories-in-the-converters-packages).
-- **Three checks are not required yet.** A failing ShellCheck or Ruff job shows on the pull request and does not stop a merge until the ruleset names it.
 - **Dependabot cannot see every pin.** See the version table in the [index](README.md#versions).
 
 ## Official documentation

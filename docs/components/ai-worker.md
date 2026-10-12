@@ -44,6 +44,10 @@ llama.cpp build `b11429` serves Qwen3.5-4B, quantized to `Q4_K_M`, on `127.0.0.1
 
 Goose 1.54.0, one static binary. It is not a service. `run-agent.sh` starts one run in a transient unit, hands it the task on standard input, and gets the transcript back as one JSON document.
 
+![One agent run on the worker: the task arrives from the operator over SSH on standard input, the job runner starts Goose in a sandboxed transient unit, Goose calls the model server on 127.0.0.1 port 8080 and one fixture tool over standard input and output, and the transcript goes back as one JSON document](../diagrams/agent-run.svg)
+
+The diagram source is [`diagrams/agent-run.html`](../diagrams/agent-run.html). It shows what runs today. Nothing dispatches a run yet, so the task comes from the operator's shell, through the mesh VPN.
+
 | | |
 | --- | --- |
 | Binary | `/opt/aisec/goose/goose-1.54.0/goose`, the project's release build, checked against the release's digest on the orchestrator and again on the worker |

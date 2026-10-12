@@ -19,6 +19,10 @@ One way out for the whole system: a NAT gateway on the orchestrator subnet. Ever
 
 ## Rules on the platform side
 
+![Network flows: the operator reaches the orchestrator on ports 22 and 6443, the orchestrator reaches the worker and the targets on port 22 and the internet through one NAT gateway, the worker reaches only port 3128 on the orchestrator, and everything else is denied](../diagrams/network-flows.svg)
+
+The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). The table below names the rule behind each path.
+
 | Security group | Direction | Access | What | Rule |
 | --- | --- | --- | --- | --- |
 | Orchestrator | Inbound | Deny | Anything from the target network | `deny-from-targets` |
