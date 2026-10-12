@@ -1,4 +1,4 @@
-# AI-driven security platform
+# A private AI-driven security platform
 
 Self-hosted AI workers investigate security findings on a target service they cannot reach directly, and propose fixes that are tested before review. No proposed change is delivered to the target service without human approval of that exact change.
 
