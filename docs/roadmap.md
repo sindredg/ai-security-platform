@@ -83,6 +83,30 @@ This is where the design is most likely to be wrong, so it comes before any targ
 
 If a candidate needs a substantial custom service to pass this gate, replace it or simplify the design. Don't build the service.
 
+### Hostile-input tests for the tool service
+
+Planned, with the service. The tool service is the one piece of custom code that reads what a turned worker sends ([ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)). These cases are unit tests that live beside its code and run in the pipeline. They are not drills, and they add nothing to the gate: the gate shows the round trip on the running system, and the tests keep the edges from moving afterwards.
+
+Every case ends the same way: the call is refused, nothing of the result goes back, and one audit line records the decision and the reason.
+
+| Group | Case |
+| --- | --- |
+| Malformed arguments | A body that is not JSON, or not valid UTF-8 |
+| | A missing field, a wrong type, and a field the schema does not name |
+| | An evidence reference with `..`, an absolute path, or a null byte |
+| | A tool name that no policy lists |
+| Cross-job access | A valid token for one job asks for another job's evidence |
+| | A valid token asks for a tool or a target outside its job's scope |
+| | The arguments name a different job than the token. The token decides |
+| Tokens | No token, a malformed token, and a token nobody issued |
+| | An expired token, and a token revoked when its job ended |
+| | A refusal never puts the token in the response or the log |
+| Oversized requests | A body over the size limit, refused before it is parsed |
+| | A result over the size limit, and one call more than the job's call limit |
+| Concurrent cancellation | A job is cancelled while its call is in flight. The result is dropped, not delivered late |
+| | Two calls race the revocation. None succeeds after it |
+| | The same job is cancelled twice, or registered twice. Neither is an error that leaves a live token |
+
 ## 4. NetBox target and exercise 1 investigation
 
 Define the consumer contract. Deploy NetBox, synthetic inventory, and the consumer. Seed the excess-permission finding and investigate it.
