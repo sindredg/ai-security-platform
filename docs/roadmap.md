@@ -94,7 +94,7 @@ Define the consumer contract. Deploy NetBox, synthetic inventory, and the consum
 - The consumer contract lists endpoints, fields, permitted records, and expected denials.
 - Deterministic checks confirm the finding and a known unaffected case.
 - The AI investigation cites tool evidence for each conclusion, and says so when evidence disagrees.
-- A baseline without AI, using the same tools, is recorded for comparison.
+- A baseline without AI, using the same tools, is recorded for comparison. The criteria for that comparison are drafted in [Does the AI earn its place](evaluation/ai-earns-its-place.md).
 - Every image on the target side is pinned by digest. Signatures are verified where upstream signs.
 
 ## 5. Remediation, pull requests, and delivery
