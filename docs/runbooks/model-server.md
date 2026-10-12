@@ -1,6 +1,6 @@
 # Model server: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Steps 1 to 8 were run during that build. A second build from the same pins has not been run. The cleanup after a failed build and the `libgomp1` version line were added to the build script afterwards and have not been run on the worker. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md).
+Status: Implemented on 2026-10-11. Built once. Steps 1 to 8 were run during that build. A second build from the same pins has not been run. The cleanup after a failed build and the `libgomp1` version line were added to the build script afterwards and have not been run on the worker. The unit was changed and installed again once, on 2026-10-12, to turn thinking off. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md).
 
 Run these steps to put llama.cpp and the starting model on the AI worker: download and verify on the orchestrator, push, build the model file on the worker, start the server, and measure it. No cloud resource changes.
 
@@ -102,7 +102,7 @@ The download leaves through the NAT gateway and is billed per GB.
    REPLACE_WITH_SSH aisec-worker 'cd feed/model-server && sudo scripts/install-server.sh'
    ```
 
-   Expected: `Active: active (running)`. The script checks the model file against `SHA256SUMS` first and waits until `http://127.0.0.1:8080/health` answers.
+   Expected: `Active: active (running)`, and a command line that ends `--cache-ram 0 --reasoning off --no-ui --offline`. The script checks the model file against `SHA256SUMS` first and waits until `http://127.0.0.1:8080/health` answers.
 
 8. Confirm that the port is closed to everything but the worker itself.
 
@@ -128,6 +128,8 @@ The download leaves through the NAT gateway and is billed per GB.
 
    Expected: twelve lines with `"ok": true`, then a table. On `Standard_D2ps_v6` the first run gave about 19 prompt tokens and 6 output tokens per second, and 5.96 GB resident.
 
+   That run was made before the unit had `--reasoning off`. The script asks for thinking per request in half its turns. Whether the server honours that with the flag set is untested, so the two thinking rows may now show the same output as the others.
+
 ## Clean up
 
 10. Remove the staged inputs from the worker. Keep them on the orchestrator for the next rebuild.
@@ -141,6 +143,20 @@ The download leaves through the NAT gateway and is billed per GB.
 ## After a worker rebuild
 
 A rebuilt worker is empty. Run steps 2 to 10 again. Step 3 finds the files already staged and prints `have` for each.
+
+## Changing a server setting
+
+The server's options are in `worker/model-server/aisec-llama-server.service`. Change them in a pull request, then copy the unit and run step 7 again. It restarts the server, which empties its prompt cache.
+
+```bash
+REPLACE_WITH_SSH aisec-worker 'cat > feed/model-server/scripts/aisec-llama-server.service' \
+  < worker/model-server/aisec-llama-server.service
+REPLACE_WITH_SSH aisec-worker 'cd feed/model-server && sudo scripts/install-server.sh'
+```
+
+Expected: `Active: active (running)` with the new command line. Run step 5 of the [agent runtime runbook](agent-runtime.md#run-and-measure) afterwards: its numbers are the review of the change.
+
+Thinking is off through `--reasoning off`. Take the option out to get the model's default back. The measured difference is in the [worklog](../worklogs/0003-toolchain-integration.md#thinking-measured-both-ways).
 
 ## Changing a pin
 

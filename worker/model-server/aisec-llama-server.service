@@ -5,12 +5,16 @@ Description=llama.cpp model server, localhost only
 After=network.target
 
 [Service]
+# Thinking is off. The agent runtime sends no switch for it, so the server
+# decides. Take out "--reasoning off" to get the model's default back, which
+# is on. The measured cost of thinking is in the milestone 3 worklog.
 ExecStart=@LLAMA_DIR@/llama-server \
   --model @MODEL_FILE@ \
   --alias local \
   --host 127.0.0.1 --port 8080 \
   --threads 2 --threads-batch 2 \
   --ctx-size 8192 --parallel 1 --cache-ram 0 \
+  --reasoning off \
   --no-ui --offline
 Restart=on-failure
 RestartSec=5

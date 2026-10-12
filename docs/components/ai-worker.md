@@ -73,9 +73,10 @@ One agent run on the same question, through Goose, on 2026-10-12:
 
 | | |
 | --- | --- |
-| Whole run, two model turns | 67 seconds, median of three. 97 on the first run after the server starts |
+| Whole run, two model turns | 24 seconds, median of three. 58 on the first run after the server starts |
+| The same with thinking on | 59 seconds, and 97. Thinking is off on the server: it changed no answer |
 | Agent memory | 56 MB at its peak, beside the model |
-| Prompt | 670 tokens on the first turn. The bare exchange needs 385 |
+| Prompt | 672 tokens on the first turn. The bare exchange needs 385 |
 
 The exchange and the full tables are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#measurements).
 
