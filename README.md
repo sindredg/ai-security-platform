@@ -1,18 +1,18 @@
 # Private AI security operations platform
 
-Self-hosted AI workers investigate security findings on a service they don't run, and propose fixes that have already been tested. Nothing reaches the service without a human approving the exact change.
+Self-hosted AI workers investigate security findings on a target service they cannot reach directly, and propose fixes that are tested before review. Nothing reaches the service without a human approving the exact change.
 
 The split of work is strict. Ordinary tools collect evidence and establish facts. AI interprets the evidence and proposes a bounded change. Neither gets to approve anything.
 
 ## Target architecture
 
-This is what gets built. The networks, their rules, the peering, both platform VMs, the mesh VPN, an empty K3s cluster, and a model server and an agent runtime on the AI worker exist today. Everything else that runs on them, and the whole target side, is planned. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
+This is what gets built. The networks, their rules, the peering, both platform VMs, the mesh VPN, a K3s cluster, and a model server and an agent runtime on the AI worker exist today. The cluster is there to run the trusted side: the workflow engine, the collectors, the tool services, and the pull request broker. None of those is deployed yet. They and the whole target side are planned. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
 
 ![Target architecture: a trusted orchestrator VM is the only link between the AI worker, the targets, and the outside world](docs/diagrams/target-architecture.svg)
 
 The blocked paths matter as much as the open ones:
 
-- **The AI worker reaches the tool services and nothing else.** No target, no internet, no public DNS.
+- **The AI worker reaches two services on the orchestrator and nothing else:** the tool services and the package proxy. No target, no internet, no name server.
 - **The targets reach nothing outside their own network.** They cannot open a connection into the platform, and they have no internet path.
 - **No VM has a public address.** The operator comes in over the mesh VPN. Outbound traffic leaves through one NAT gateway on the orchestrator subnet.
 - **The two sides cross only over network peering**, between separate Terraform roots, state, and deployment identities. Every crossing starts on the orchestrator.
