@@ -490,7 +490,7 @@ Not done: a restore. Nobody has downloaded the copy and planned against it.
 - **The targets have no update path.** The proxy is for the worker only. Milestone 4 decides how the targets are kept current.
 - **No CIS result for the operating system.** No tool ships a CIS profile for Ubuntu 26.04 yet. The audit that ran is not a CIS benchmark. Carried as an accepted risk in the [threat model](../security/accepted-risks.md#accepted-risks) until one does.
 - **No audit daemon, remote logging, or file integrity monitoring on either VM.** Open until the audit log decision in milestone 3.
-- **The hardening on the running orchestrator was applied by hand.** Same content as its template, but the orchestrator has not been built from it. The worker has. See [Worker rebuild](#worker-rebuild).
+- **The hardening on the running orchestrator was applied by hand.** The operating system part has the same content as its template. The two cluster settings from runbook steps 17 and 18 were not in the template until 2026-10-12. The orchestrator has not been built from it. The worker has. See [Worker rebuild](#worker-rebuild).
 - **Mesh VPN connections are relayed.** Fine for administration, slow for bulk transfer.
 - **Node signing was turned on after the orchestrator joined.** Enabling it signed the existing nodes. `tailscale lock status` on the orchestrator reports `Tailnet Lock is ENABLED` and a signature by the workstation's key, with two trusted signing keys. A rebuild is different: the new node has to be signed, and that path has not been run.
 - **No encryption at host.** The feature is not registered on the subscription.

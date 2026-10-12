@@ -229,6 +229,23 @@ write_files:
       INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_VERSION='${k3s_version}' sh "$work/install.sh"
       rm -rf "$work"
 
+      # Two settings the Kubernetes benchmark asks for and K3s does not ship.
+      # The server is still starting here, so each patch is retried until the
+      # API has created the namespace and its service account. A patch that
+      # never succeeds stops the script, and the marker below is not written.
+      retry() {
+        for _ in $(seq 1 60); do
+          "$@" && return 0
+          sleep 5
+        done
+        return 1
+      }
+      for ns in default kube-system kube-public kube-node-lease; do
+        retry k3s kubectl patch serviceaccount default -n "$ns" \
+          -p '{"automountServiceAccountToken": false}'
+      done
+      chmod 600 /var/lib/rancher/k3s/server/tls/*.crt
+
       # The key the orchestrator uses to feed the other machines. It is made
       # here so the private half never passes through Terraform or its state.
       install -d -m 0700 -o ${admin_username} -g ${admin_username} /home/${admin_username}/.ssh

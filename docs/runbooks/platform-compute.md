@@ -236,9 +236,11 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
 
     Expected: the checksum line ends in `OK`. Before steps 17 and 18, the summary is 63 pass, 3 fail, 50 warn, 14 info, and the fails are 1.1.20, 1.2.26, and 5.1.5. After them it is 65 pass and 1 fail. Check 1.2.26 stays failed: this cluster has no etcd.
 
+    The first-boot script has applied steps 17 and 18 since 2026-10-12, so a build from the current template should show 65 pass and 1 fail on the first run. That is reasoned, not observed: no build has run with them in the template.
+
 ## Harden
 
-17. Stop default service accounts from mounting a token. Answers check 5.1.5.
+17. Stop default service accounts from mounting a token. Answers check 5.1.5. First boot does this for the four namespaces K3s creates. Running it again changes nothing and prints the result.
 
     ```bash
     ssh $SSH_OPTS aisec@10.40.0.4 '
@@ -251,7 +253,7 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
 
     Expected: `false` for every namespace. A namespace created later needs the same patch.
 
-18. Tighten the certificate file permissions, restart K3s, and read them again. Answers check 1.1.20.
+18. Tighten the certificate file permissions, restart K3s, and read them again. Answers check 1.1.20. First boot sets the mode. The restart here shows that K3s keeps it.
 
     ```bash
     ssh $SSH_OPTS aisec@10.40.0.4 '
