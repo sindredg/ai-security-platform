@@ -29,8 +29,7 @@ Candidates, not selections. Each has something to prove first.
 | --- | --- | --- | --- |
 | Workflow engine and UI | Argo Workflows | Dispatch to the worker VM, restart recovery, footprint | 3 |
 | Agent runtime | Goose | Headless runs, a restricted tool set, a private model endpoint | 3 |
-| Model server | llama.cpp | Tool-call format, memory, throughput on the worker's size | 3 |
-| Starting model | Qwen3-4B-Instruct-2507, quantized | Structured output and tool calling on held-out fixtures | 3 |
+| Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far | 3 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
 | Metrics and dashboards | Prometheus, Grafana | That they fit on the orchestrator | 3 |
@@ -53,7 +52,10 @@ Every pin in one place. Checked against the official source on the date shown.
 | Squid | 7.2 | Not pinned, see [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) | Unattended upgrades | 2026-10-11 |
 | kube-bench | 0.16.0 | The [runbook](../runbooks/platform-compute.md) | By hand, at each run | 2026-10-11 |
 | Lynis | 3.1.7 | The runbook | By hand, at each run | 2026-10-11 |
+| llama.cpp | Build `b11429` | `worker/model-server/pins.env` and `artifacts.tsv`, with a checksum | By hand | 2026-10-11 |
+| Model | Qwen3.5-4B, revision `851bf6e8`, built to `Q4_K_M` on the worker | `worker/model-server/artifacts.tsv`, with a checksum per file | By hand | 2026-10-11 |
+| Converter packages | 27, PyTorch 2.11.0 the largest | `worker/model-server/artifacts.tsv` and `converter-requirements.txt` | By hand. Used only during a build | 2026-10-11 |
 | `actions/checkout` | v7.0.1, by commit | The checks workflow | Dependabot, weekly | |
 | Checkov, Trivy, gitleaks images | By digest | The checks workflow | By hand | |
 
-Five rows move by hand and nothing reminds anyone: Terraform, the image, the mesh VPN agent, K3s, and the scanner images. The mesh VPN agent and K3s are the two that matter, because they run all the time and get no security fix until the pin moves. Re-check this table at the start of each milestone.
+Eight rows move by hand and nothing reminds anyone: Terraform, the image, the mesh VPN agent, K3s, the scanner images, llama.cpp, the model, and the converter packages. The mesh VPN agent, K3s, and llama.cpp are the three that matter, because they run all the time and get no security fix until the pin moves. Re-check this table at the start of each milestone.
