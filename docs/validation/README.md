@@ -42,13 +42,22 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-11 | 92 of 94 passed | After a restart of both VMs. `M.3` and `M.4` failed: the mesh access policy still allowed every port. See [Access](access.md) |
 | 2026-10-11 | 94 of 94 passed | After the mesh access policy was replaced |
 | 2026-10-11 | 94 of 94 passed | After the worker was rebuilt from the current template |
+| 2026-10-12 | 94 of 94 passed | First run of the corrected script, at commit `a9ca766`. Whole-rule comparison in `Z.4` and `Z.5`, and `timeout` expected where a rule is the claim |
 
-These three runs used the first version of the script. It had two weaknesses:
+The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
 - `Z.4` and `Z.5` compared only the direction, priority, access, and name of each rule, and passed when both Azure calls failed.
 - Every connection that did not open counted as closed, whether it timed out or was refused.
 
-So the passes above for `Z.4`, `Z.5`, `C.1` to `C.8`, `E.3`, `M.3`, and `M.4` prove less than they appear to. The script now compares the whole rule and expects a timeout where a rule is the claim. That version has not been run against the system yet. Its first run goes in this table.
+So those three passes for `Z.4`, `Z.5`, `C.1` to `C.8`, `E.3`, `M.3`, and `M.4` prove less than they appear to. The script now compares the whole rule and expects a timeout where a rule is the claim.
+
+The run on 2026-10-12 is the first with that version. What it adds:
+
+- `E.3`, `M.3`, and `M.4` timed out. The expected value had been reasoned from how the rules drop, and the run confirms it: no packet reached the worker on port 80, or the orchestrator on 3128 or 10250 through the mesh.
+- `C.1`, `C.4`, and `C.6` to `C.8` timed out against ports that listen, so each is a drop on the path.
+- `Z.4` and `Z.5` got an answer from Azure for both interfaces, and every field of every rule matched.
+
+What it does not add: `C.2` and `C.3` also timed out, and still say nothing about the deny rule, because no target machine exists.
 
 ## What the checks do not cover
 
