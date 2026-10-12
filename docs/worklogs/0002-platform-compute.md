@@ -5,7 +5,7 @@ Milestone: 2, platform compute
 
 ## Summary
 
-The public address policy, the NAT gateway, both VMs, the mesh VPN, K3s, and the worker's package proxy exist and work. The gate is met, with one stated gap: the operating system has no CIS result. The procedure is in the [platform compute runbook](../runbooks/platform-compute.md).
+The public address policy, the NAT gateway, both VMs, the mesh VPN, K3s, and the worker's package proxy exist and work. The gate is met, with three stated gaps: the operating system has no CIS result, the refusal of a pushed secret is configured and not tested, and no dependency update pull request has been seen yet. The procedure is in the [platform compute runbook](../runbooks/platform-compute.md).
 
 | Gate | Result |
 | --- | --- |
@@ -17,7 +17,7 @@ The public address policy, the NAT gateway, both VMs, the mesh VPN, K3s, and the
 | Idle CPU and memory use is measured | Met |
 | Every credential is in the inventory, and each long-lived one has a rotation that has been run once | Met. The SSH keys, the cluster token, and the mesh VPN node key were each rotated once |
 | Hardening benchmark results are recorded, and each failed check is fixed or accepted | Met, with one stated gap. Kubernetes benchmark run: 3 fails, 2 fixed, 1 accepted. The operating system got a Lynis audit, not a CIS run, because no tool has a CIS profile for this release. Its findings are fixed, accepted with a reason, or carried to milestone 3 |
-| `main` takes changes only through a pull request with passing checks, and a pushed secret is refused | Met. Read on 2026-10-11 with `gh api`: ruleset `protect-main` is active with a pull request rule and four required checks, and secret scanning with push protection is enabled. No secret was pushed to prove the refusal |
+| `main` takes changes only through a pull request with passing checks, and a pushed secret is refused | The pull request rule is met. The refusal is configured, not tested. Read on 2026-10-11 with `gh api`: ruleset `protect-main` is active with a pull request rule and four required checks, and secret scanning with push protection is enabled. No secret was pushed to prove the refusal, and none will be: a real secret must not go to a public repository to test it |
 | Pull requests run static checks and a secret scan, with no cloud credentials | Met. `.github/workflows/checks.yml` runs the four checks on every pull request and holds no cloud credentials |
 | Version pins get automated update pull requests | Configured, not yet seen. `.github/dependabot.yml` covers the providers and the pipeline actions weekly. `gh pr list --state all --author app/dependabot` returns nothing, and every pin is current |
 
