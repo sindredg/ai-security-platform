@@ -168,7 +168,7 @@ Run on the workstation on 2026-10-12, with the pinned binary, against a stub tha
 | Does it run with no network? | Yes. It made no request the namespace could not serve | The worker's containment does not break it |
 | Can the tool set be restricted? | `--no-profile` with one `--with-extension` put exactly one tool in the request, `evidence__get_evidence`. With no extension named, none | The extension that runs shell commands is never loaded |
 | What else does it send the model? | One extra request per run, to make up a title for the session | Turned off with `GOOSE_DISABLE_SESSION_NAMING`. On this machine it would cost about 20 seconds a job |
-| What settings does it send? | The messages, the tools, and a request to stream. No temperature, no token limit, no thinking switch | The model's defaults apply. Thinking is on |
+| What settings does it send? | The messages, the tools, and a request to stream. No temperature, no token limit, no thinking switch | The model's defaults apply. Thinking was on, until the server was told otherwise below |
 | What does it write? | A session database and a log of every request with its full prompt, under `GOOSE_PATH_ROOT`. `--no-session` does not stop either | The run script points that at the unit's private `/tmp` |
 | Is the text output the answer? | No. With `--quiet` it still prints each tool call and the tool's result | Checks read the JSON transcript, and only the agent's last message |
 
@@ -223,13 +223,53 @@ What the numbers say:
 
 - **Goose's own prompt costs 285 tokens.** The first turn is 670 tokens, against 385 for the same exchange sent bare. That is 15 seconds on this machine, once. It is less than feared, because one tool is loaded and none of Goose's own.
 - **The model server's prompt cache is what makes later runs fast, and it crosses jobs.** The measured runs skipped all but 4 tokens of the first turn, because the server still held the previous run's prompt. A real job with different evidence pays for its own prompt. It also means something of one job is still in the server's memory when the next starts. Nothing reads it back, and the next prompt overwrites it, but it is state that outlives the session. Not cleared today.
-- **Thinking is on, and Goose has no switch for it.** Every turn in the transcripts starts with a thinking block. The earlier measurement put thinking at 11 seconds a turn. Turning it off is a setting on the model server, and a decision that has not been made.
+- **Thinking was on, and Goose has no switch for it.** Every turn in the transcripts starts with a thinking block. The earlier measurement put thinking at 11 seconds a turn. Turning it off is a setting on the model server. It was measured both ways afterwards and turned off: see [Thinking, measured both ways](#thinking-measured-both-ways).
 - **The agent needs almost nothing.** 56 MB beside a model that leaves 4 GB.
 - **Prompt processing ran at 14.8 tokens per second on the short second turn**, against 18.1 on the long first one and 18.7 in the model server measurement. Not investigated.
 
+### Thinking, measured both ways
+
+The model thinks by default and Goose cannot turn that off, so the server decides. The unit now starts it with `--reasoning off`. The option was read from the pinned build's own `--help` on the worker.
+
+What proves the flag works was written down before the runs: with thinking on, each of the agent's two turns carries a thinking part. With the flag, none does, the first turn produces far fewer output tokens, and the answers stay correct. `measure-agent.sh` got a line that counts the part types of the agent's messages for this. The run with thinking on is that line's failing case: it has to show the thinking parts before their absence means anything.
+
+```bash
+sudo scripts/measure-agent.sh --runs 3      # thinking on, the server as it had run since 2026-10-11
+sudo scripts/install-server.sh              # the unit with --reasoning off, one restart at 17:06:35 UTC
+sudo scripts/measure-agent.sh --runs 4      # thinking off, the first run with an empty prompt cache
+```
+
+On the worker, 2026-10-12, between about 17:02 and 17:11 UTC. The restart time is systemd's. The run times are worked out from the server's own log stamps, not read from a clock.
+
+| | Thinking on | Thinking off |
+| --- | --- | --- |
+| Correct | 3 of 3 | 4 of 4 |
+| Parts of the agent's messages | `{'thinking': 2, 'toolRequest': 1, 'text': 1}` in every run | `{'toolRequest': 1, 'text': 1}` in every run |
+| Turn 1 output, the tool call | 118 tokens in 19.4 s (94, 118, 123) | 35 tokens in 5.7 s, the same in all four |
+| Turn 2 output, the answer | 215 tokens in 35.9 s (172, 215, 266) | 61 tokens in 10.2 s (58, 61, 94). 48 in the first run |
+| Whole run, prompt cache holding the previous run | 59.1 s (55.8, 59.1, 72.5) | 23.8 s (23.3, 23.8, 29.5) |
+| Whole run, first after a server start | 97.4 s, from the install at 16:10 | 58.3 s |
+| Turn 1 prompt, first after a server start | 670 tokens in 37.1 s | 672 tokens in 37.0 s |
+
+Values with three in brackets are the median and the three runs. The thinking-off medians leave out the first run, which is in its own row.
+
+After the restart the unit's command line reads `--cache-ram 0 --reasoning off --no-ui --offline`, from `systemctl status`.
+
+What the numbers say:
+
+- **Thinking costs 35 seconds a run and bought nothing here.** That is 60 % of a run with a warm cache, and 39 seconds of the first run after a start. All seven answers named both record types. The question is easy, so this says thinking is not needed for the plumbing, not that it never helps.
+- **The time went into output tokens.** Generation runs at 6 tokens per second with or without it. Thinking made the model write 3.4 times as many tokens on the first turn and 3.5 times as many on the second.
+- **Runs got steadier.** The first turn was 35 tokens four times out of four. With thinking on it ranged from 94 to 123.
+- **The prompt grew by 2 tokens**, 672 against 670 on the first turn, and 111 against 109 on the second. Not looked into. The likely cause is the template closing an empty thinking block, which is a guess.
+- **The slot still crosses jobs.** Runs 2 to 4 processed 4 prompt tokens on the first turn, as before. Nothing here changes that.
+
+Thinking stays off. To turn it back on, take `--reasoning off` out of the unit and run `install-server.sh` again. A job that needs it would have to ask for it per request, and whether the server honours a request's own `enable_thinking` while the flag is set has not been tested. `measure.py` asks exactly that way for its two thinking rows, so those rows are unproven on the server as it runs now.
+
+The [platform checks](../validation/README.md) were run after the restart, at 17:17 UTC: 100 passed, 1 failed. The seven model server checks, `S.1` to `S.7`, passed, so the unit's exposure score is still 1.3 with the new option. The failure is `U.1`: three security updates published that day were pending on the orchestrator (`libdbi-perl`, `libx11-6`, `libx11-data`), with the next unattended run due at 06:12 UTC on 2026-10-13. It has nothing to do with this change, and it is not fixed here.
+
 ### Limits
 
-- One easy question, one tool, eight correct runs in all. It shows the runtime, the sandbox, and the cleanup work. It says nothing about investigation quality.
+- One easy question, one tool, fifteen correct runs in all. It shows the runtime, the sandbox, and the cleanup work. It says nothing about investigation quality.
 - The tool is a local fixture. No tool has been called over the network, with a token, or refused.
 - The answer is free text checked by a search for two names. No result is held to a schema yet. The earlier measurement found that the server refuses a response schema together with tool definitions, and how Goose's own structured output deals with that is untested.
 - The time limit and the turn limit on the unit have not been driven to their limits. Cancelling a run has not been tested.

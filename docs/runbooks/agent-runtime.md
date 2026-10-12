@@ -62,15 +62,16 @@ Run these steps to put Goose on the AI worker and prove one headless run against
    REPLACE_WITH_SSH aisec-worker 'cd feed/agent-runtime && sudo scripts/measure-agent.sh --runs 3'
    ```
 
-   Expected, after three to five minutes:
+   Expected, after two minutes:
 
    - three lines with `"ok": true` and `"tool_calls": 1`
+   - `{'toolRequest': 1, 'text': 1}` as the parts of the agent's messages. A `thinking` entry means the model server runs without `--reasoning off`
    - `Finished with result: success` for each unit, with a memory peak near 56 MB
    - two `prompt eval time` lines per run from the model server
    - `unit: inactive` and `private tmp directories: 0` after each run
    - `3 of 3 runs correct`
 
-   The first run after the model server starts takes about 100 seconds. Later runs take 60 to 75, because the server still holds the start of the prompt.
+   The first run after the model server starts takes about 60 seconds. Later runs take 23 to 30, because the server still holds the start of the prompt. With thinking on, the figures were 97 and 56 to 73.
 
 6. Confirm that a run cannot start while another exists, and that the session directory exists only during a run.
 

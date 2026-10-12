@@ -45,6 +45,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-11 | 94 of 94 passed | After the worker was rebuilt from the current template |
 | 2026-10-12 | 94 of 94 passed | First run of the corrected script, at commit `a9ca766`. Whole-rule comparison in `Z.4` and `Z.5`, and `timeout` expected where a rule is the claim |
 | 2026-10-12 | 101 of 101 passed | First run with the seven `S` checks for the [model server](model-server.md) |
+| 2026-10-12 | 100 of 101 passed | After the model server restart that turned thinking off. `U.1` failed: three security updates published that day were pending on the orchestrator, before the next unattended run. The seven `S` checks passed |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
