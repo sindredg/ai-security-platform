@@ -6,7 +6,7 @@ The split of work is strict. Ordinary tools collect evidence and establish facts
 
 ## Target architecture
 
-This is what gets built. The networks, their rules, the peering, both platform VMs, the mesh VPN, and an empty K3s cluster exist today. Everything that runs on them, and the whole target side, is planned. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
+This is what gets built. The networks, their rules, the peering, both platform VMs, the mesh VPN, an empty K3s cluster, and a model server on the AI worker exist today. Everything else that runs on them, and the whole target side, is planned. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
 
 ![Target architecture: a trusted orchestrator VM is the only link between the AI worker, the targets, and the outside world](docs/diagrams/target-architecture.svg)
 
@@ -31,15 +31,11 @@ The AI also has to earn its place. Each result is compared with the same workflo
 
 ## Status
 
-The network foundation and the platform VMs are deployed: two peered virtual networks, deny-by-default rules, one egress point, an orchestrator running K3s, and a contained AI worker. Nothing runs on the cluster yet, and there are no targets.
+- **Done:** the network foundation and both platform VMs, deployed and checked.
+- **In progress:** toolchain integration. A model server runs on the AI worker. No workflow, agent, or tool service exists yet.
+- **Planned:** the targets, the investigation and remediation workflow, and the drills.
 
-| Area | State |
-| --- | --- |
-| Architecture and decision records | Drafted |
-| Azure preflight (quota, VM size availability) | Done, see the worklog |
-| Network foundation: state, identities, networks, peering | Done, see the [worklog](docs/worklogs/0001-network-foundation.md) |
-| Platform compute: egress, VMs, mesh VPN, K3s | Done, see the [worklog](docs/worklogs/0002-platform-compute.md) |
-| Platform components, targets, workflows | Not started |
+The [roadmap](docs/roadmap.md#status) holds the state of every milestone and what each has to prove.
 
 ## Design in brief
 
