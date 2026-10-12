@@ -35,7 +35,7 @@ The orchestrator downloads Qwen's weights and everything the build needs, and ch
 
 - **Inputs are pinned, all of them.** `worker/model-server/artifacts.tsv` lists 38 files with their SHA-256: the weights and tokenizer files at one revision of Qwen's repository, the llama.cpp binaries, pip, and 27 Python packages. The converter's source is fetched by commit ID.
 - **The orchestrator hashes and never opens.** It does not unpack an archive, import a package, or load a model. [ADR 0009](0009-one-egress-point-on-the-orchestrator-subnet.md) already made it the only machine that downloads.
-- **The worker checks again, then builds in a sandbox.** The converter runs in a transient unit with its own account, no network, no view of `/home`, and one writable directory. The account and the directory are deleted afterwards.
+- **The worker checks again, then builds in a sandbox.** The second check uses the `artifacts.tsv` that came in the same push, so it catches a damaged transfer and nothing more. The converter runs in a transient unit with its own account, no network, no view of `/home`, and one writable directory. The account and the directory are deleted afterwards, whether the build succeeds or fails.
 - **llama.cpp comes prebuilt.** The binaries are the project's own release build `b11429`, pinned by the checksum the release publishes. Building from source would put a compiler on a machine where the hardening pass removed even the assembler and linker.
 - **Quantization is plain `Q4_K_M`.** No calibration data, so nothing else has to be fetched and trusted.
 - **The server listens on localhost.** The agent runs on the same machine. Nothing else has a reason to reach the model.
@@ -44,6 +44,8 @@ The orchestrator downloads Qwen's weights and everything the build needs, and ch
 
 - **Qwen and llama.cpp are still trusted.** A backdoor in the published weights, or in the release build, arrives intact with a matching checksum. Worker containment is what stands behind that, as before.
 - **The pins are trust on first use.** The checksums were read from the publisher's repository and the package indexes on 2026-10-11. They prove that every later build gets the same bytes, not that those bytes were good that day.
+- **A tampered orchestrator is not caught on the worker.** The worker gets its checksums from the orchestrator, in the same push as the files. An orchestrator that changes both passes the worker's check. The pins protect against a bad download, and the orchestrator is trusted to apply them.
+- **The OpenMP runtime is not pinned.** `libgomp1` comes from the Ubuntu archive at whatever version is current. The archive drops old versions, so a pin would break the next build. The package is signed by the archive and its version is in the build log.
 - **The model file itself has no pin from outside.** It is built here, so its checksum is a record, not a check against anyone else's. Whether a second build produces the same checksum has not been tested.
 - **The converter's packages deviate from upstream's list in one place.** llama.cpp pins `numpy~=2.2.6`, which has no build for the worker's Python 3.14. The build uses 2.3.5.
 - **No calibration costs some quality.** Third-party files use an importance matrix that a plain quantization skips. How much it matters for tool calling is unmeasured.

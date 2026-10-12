@@ -1,6 +1,6 @@
 # Model server: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Steps 1 to 8 were run during that build. A second build from the same pins has not been run. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md).
+Status: Implemented on 2026-10-11. Built once. Steps 1 to 8 were run during that build. A second build from the same pins has not been run. The cleanup after a failed build and the `libgomp1` version line were added to the build script afterwards and have not been run on the worker. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md).
 
 Run these steps to put llama.cpp and the starting model on the AI worker: download and verify on the orchestrator, push, build the model file on the worker, start the server, and measure it. No cloud resource changes.
 
@@ -76,12 +76,15 @@ The download leaves through the NAT gateway and is billed per GB.
    Expected, in order in the log:
 
    - `all files match artifacts.tsv`
+   - `libgomp1` and the installed version
    - `version: 0.6.0-dev (build 11429, commit d81235049)`
    - `Model successfully exported to /var/lib/aisec-model-build/Qwen3.5-4B-F16.gguf`
    - `llama_model_quantize_impl: quant size  =  2644.04 MiB (5.13 BPW)`
    - a last line with the checksum and `Qwen3.5-4B-Q4_K_M.gguf`
 
-   The script installs `libgomp1` through the package proxy if it is missing, converts in a sandboxed unit named `aisec-model-build`, and removes the build account and directory when it is done.
+   The script installs `libgomp1` through the package proxy if it is missing and prints its version. It converts in a sandboxed unit named `aisec-model-build`, and removes the build account and directory when it ends, also when it fails.
+
+   The first line proves the push arrived intact. The list it checks against came in the same push, so it says nothing about the orchestrator. Step 3 on the orchestrator is the check against the pins in the repository.
 
 6. Read the result.
 
