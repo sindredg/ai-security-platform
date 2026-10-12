@@ -1,0 +1,7 @@
+# Everything the agent runtime install downloads. Tab-separated: sha256, path
+# under the staging directory, source URL. fetch.sh refuses a file that does not
+# match.
+#
+# Goose 1.54.0, from the project's release pipeline. The checksum is the digest
+# the release lists for the file.
+baeb3e1b188fce75b444af35b5955f255e68fde87f60a5ba01f032227618a4ed	goose/goose-aarch64-unknown-linux-musl.tar.gz	https://github.com/aaif-goose/goose/releases/download/v1.54.0/goose-aarch64-unknown-linux-musl.tar.gz

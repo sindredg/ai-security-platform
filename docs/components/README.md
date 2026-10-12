@@ -28,7 +28,7 @@ Candidates, not selections. Each has something to prove first.
 | Role | Candidate | Has to prove | Milestone |
 | --- | --- | --- | --- |
 | Workflow engine and UI | Argo Workflows | Dispatch to the worker VM, restart recovery, footprint | 3 |
-| Agent runtime | Goose | Headless runs, a restricted tool set, a private model endpoint | 3 |
+| Agent runtime | Goose 1.54.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. Still to prove: a tool over the network, and a result held to a schema | 3 |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far | 3 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |

@@ -1,0 +1,1 @@
+Finding F-0001 says the API token 'consumer-readonly' can list more record types than its consumer needs. The evidence is stored under the reference ev-0001. Is the finding confirmed?
