@@ -57,5 +57,6 @@ Every pin in one place. Checked against the official source on the date shown.
 | Converter packages | 27, PyTorch 2.11.0 the largest | `worker/model-server/artifacts.tsv` and `converter-requirements.txt` | By hand. Used only during a build | 2026-10-11 |
 | `actions/checkout` | v7.0.1, by commit | The checks workflow | Dependabot, weekly | |
 | Checkov, Trivy, gitleaks images | By digest | The checks workflow | By hand | |
+| ShellCheck, Ruff images | 0.11.0 and 0.17.0, by digest | The checks workflow | By hand | 2026-10-12 |
 
-Eight rows move by hand and nothing reminds anyone: Terraform, the image, the mesh VPN agent, K3s, the scanner images, llama.cpp, the model, and the converter packages. The mesh VPN agent, K3s, and llama.cpp are the three that matter, because they run all the time and get no security fix until the pin moves. Re-check this table at the start of each milestone.
+Eight rows move by hand and nothing reminds anyone: Terraform, the image, the mesh VPN agent, K3s, the scanner and linter images, llama.cpp, the model, and the converter packages. The mesh VPN agent, K3s, and llama.cpp are the three that matter, because they run all the time and get no security fix until the pin moves. Re-check this table at the start of each milestone.

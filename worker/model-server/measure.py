@@ -180,7 +180,10 @@ def main():
             group = [r for r in rows if r["mode"] == mode and r["turn"] == turn]
             if not group:
                 continue
-            median = lambda key: statistics.median(r[key] for r in group)  # noqa: E731
+
+            def median(key, group=group):
+                return statistics.median(r[key] for r in group)
+
             print(
                 f"| {mode} | {turn} | {sum(r['ok'] for r in group)} of {len(group)} "
                 f"| {median('prompt_tokens'):.0f} | {median('output_tokens'):.0f} "

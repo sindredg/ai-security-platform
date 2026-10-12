@@ -1,8 +1,8 @@
 # Static checks only. This workflow holds no cloud credentials and runs no
 # plans. Applies happen on the operator workstation from a saved plan.
 #
-# The only action used is pinned by commit. The scanners run as container
-# images pinned by digest, so no third-party action runs here.
+# The only action used is pinned by commit. The scanners and linters run as
+# container images pinned by digest, so no third-party action runs here.
 name: checks
 
 on:
@@ -26,6 +26,10 @@ env:
   TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa
   # gitleaks 8.30.1
   GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+  # ShellCheck 0.11.0
+  SHELLCHECK_IMAGE: koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
+  # Ruff 0.17.0
+  RUFF_IMAGE: ghcr.io/astral-sh/ruff@sha256:0f9316141d252f8c4de3fb672e8433c1afbf9adb24b877ae887cffa4012d850c
 
 jobs:
   terraform:
@@ -108,3 +112,68 @@ jobs:
           --env GIT_CONFIG_VALUE_0=/repo
           "${GITLEAKS_IMAGE}"
           git /repo --redact --no-banner
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # These scripts run as root on the VMs, and nothing else reads them
+      # before they do. The image has no shell, so the runner finds the files.
+      # -x follows the "source" of pins.env, which holds no secret.
+      - name: Lint the worker and validation scripts
+        run: |
+          mapfile -t scripts < <(find worker validation -name '*.sh' | sort)
+          [ "${#scripts[@]}" -gt 0 ]
+          docker run --rm --volume "${PWD}:/mnt:ro" --workdir /mnt "${SHELLCHECK_IMAGE}" \
+            -x -P SCRIPTDIR "${scripts[@]}"
+
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The default rule set of the pinned release. No configuration file, so
+      # a new release cannot change the rules until the digest moves.
+      - name: Lint the measurement script
+        run: >
+          docker run --rm --volume "${PWD}:/io:ro" --workdir /io "${RUFF_IMAGE}"
+          check --no-cache worker/model-server/measure.py
+
+  dependencies:
+    name: Dependency scan
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Reports and never blocks. The versions follow the pins of llama.cpp's
+      # converter at one commit, so an advisory in them cannot be fixed here
+      # without leaving upstream's list, and a blocking scan would fail every
+      # unrelated pull request until upstream moves. The packages run once,
+      # during a model build, in a unit with no network and one writable
+      # directory. The job still fails if the scanner itself cannot run.
+      #
+      # Trivy reads pip pins only from a file named requirements.txt, so the
+      # file is copied under that name first. This step downloads the
+      # vulnerability database, unlike the configuration scan above.
+      - name: Scan the converter's packages
+        run: |
+          mkdir "${RUNNER_TEMP}/deps"
+          cp worker/model-server/converter-requirements.txt "${RUNNER_TEMP}/deps/requirements.txt"
+          {
+            echo '```text'
+            docker run --rm --volume "${RUNNER_TEMP}/deps:/deps:ro" "${TRIVY_IMAGE}" \
+              fs --scanners vuln --quiet --exit-code 0 /deps
+            echo '```'
+          } | tee -a "${GITHUB_STEP_SUMMARY}"

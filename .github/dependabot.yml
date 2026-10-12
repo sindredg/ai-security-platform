@@ -1,7 +1,14 @@
 # Version pins are exact, so something has to propose moving them.
 #
-# Not covered: the Terraform release itself and the scanner image digests in
-# the checks workflow. Dependabot cannot update either. Those move by hand.
+# Not covered, because Dependabot cannot update any of them. These move by
+# hand:
+#
+# - The Terraform release itself.
+# - The scanner and linter image digests in the checks workflow.
+# - worker/model-server/pins.env and artifacts.tsv: the llama.cpp build, the
+#   model revision, pip, and the converter's wheels, each with a checksum.
+#   converter-requirements.txt changes with them, in the same pull request,
+#   and the advisory review in docs/security/accepted-risks.md is redone.
 version: 2
 
 updates:
