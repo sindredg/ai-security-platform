@@ -5,7 +5,8 @@
 # thing it sends to Azure is a template validation, which deploys nothing.
 #
 # Run it from a workstation that is on the mesh VPN and signed in to Azure as
-# the operator. What each check proves is in docs/validation/.
+# the operator. What each check proves is in docs/validation/. The Azure
+# checks need python3, to put rules from two different commands in one form.
 #
 #   AISEC_SSH   The ssh command, with host key and identity options.
 #               Default: ssh
@@ -51,10 +52,42 @@ check() {
 # value KEY, from the "key=value" lines a probe printed
 value() { printf '%s\n' "$probe" | sed -n "s/^$1=//p" | head -n 1; }
 
+# tcp HOST PORT [SECONDS] prints how a connection attempt ended:
+#
+#   open         the handshake completed
+#   refused      a reset came back, so the packet reached a host and nothing
+#                listens there
+#   timeout      nothing came back, so something on the path dropped the packet
+#   unreachable  there is no route, or a router said so
+#   error        anything else
+#
+# A network security group and the mesh policy both drop without answering. A
+# check that says a rule blocks a path therefore expects "timeout" and nothing
+# else. "refused" on such a path means the packet got past the rule and reached
+# the host, which is the failure the check is there to catch.
+#
+# A timeout proves a drop only when something listens at the far end. Where
+# nothing does, the comment at the check says what the result is worth.
+#
+# One definition, sent to the VMs inside the probes and loaded on the
+# workstation.
+tcp_fn='
+tcp() {
+  local out rc
+  out=$(LC_ALL=C timeout "${3:-5}" bash -c "</dev/tcp/$1/$2" 2>&1); rc=$?
+  case "$rc:$out" in
+    0:*) echo open ;;
+    124:*) echo timeout ;;
+    *"Connection refused"*) echo refused ;;
+    *"No route to host"*|*"Network is unreachable"*) echo unreachable ;;
+    *) echo error ;;
+  esac
+}
+'
+
 # The probes run on the VMs and print key=value lines. Nothing in them changes
 # the machine.
-probe_common='
-tcp() { timeout 5 bash -c "</dev/tcp/$1/$2" 2>/dev/null && echo open || echo closed; }
+probe_common="$tcp_fn"'
 sshd_opt() { sshd -T 2>/dev/null | sed -n "s/^$1 //p"; }
 echo "failed_units=$(systemctl --failed --no-legend | wc -l)"
 echo "sshd_root=$(sshd_opt permitrootlogin)"
@@ -162,7 +195,9 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check R.3 "The orchestrator forwards packets" 1 "$(value ip_forward)"
   check E.1 "The orchestrator reaches the internet on 443" open "$(value egress_https)"
   check E.2 "The orchestrator reaches the worker on 22" open "$(value to_worker_ssh)"
-  check E.3 "The orchestrator does not reach the worker on 80" closed "$(value to_worker_http)"
+  # Nothing listens on the worker's port 80. If its rules let the packet in,
+  # the worker answers with a reset. Only a timeout shows the rules dropped it.
+  check E.3 "The worker's rules drop the orchestrator on 80" timeout "$(value to_worker_http)"
   check E.4 "The feed key logs in to the worker" aisec-worker "$(value feed)"
   check P.1 "Squid is active" active "$(value unit_squid)"
   check P.2 "Squid listens on the private address only" "$ORCH_IP:3128" "$(value squid_listen)"
@@ -180,14 +215,19 @@ echo "== Worker ($WORK)"
 if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "$probe" ]; then
   check A.6 "Reachable through the subnet router with the operator key" yes yes
   check A.7 "Only the operator key and the feed key are authorized" 2 "$(value authorized_keys)"
-  check C.1 "No connection to the internet" closed "$(value internet)"
-  check C.2 "No connection to the NetBox subnet" closed "$(value targets_netbox)"
-  check C.3 "No connection to the rehearsal subnet" closed "$(value targets_rehearsal)"
-  check C.4 "No connection to the platform resolver" closed "$(value azure_dns)"
+  # C.1 and C.4 aim at ports that are known to listen, so a timeout is a drop.
+  check C.1 "No connection to the internet" timeout "$(value internet)"
+  # No target machine exists, so these two time out with or without the deny
+  # rule. They prove no path today and nothing about the rule. Z.6 names it.
+  check C.2 "No connection to the NetBox subnet" timeout "$(value targets_netbox)"
+  check C.3 "No connection to the rehearsal subnet" timeout "$(value targets_rehearsal)"
+  check C.4 "No connection to the platform resolver" timeout "$(value azure_dns)"
   check C.5 "A public name does not resolve" no "$([ "$(value resolve_public_name_rc)" = 0 ] && echo yes || echo no)"
-  check C.6 "No connection to the orchestrator on 22" closed "$(value orchestrator_ssh)"
-  check C.7 "No connection to the Kubernetes API" closed "$(value orchestrator_api)"
-  check C.8 "No connection to the kubelet" closed "$(value orchestrator_kubelet)"
+  # All three ports listen on the orchestrator: E.2 and M.1 reach 22, M.2
+  # reaches 6443, and the kubelet runs with k3s. A timeout is a drop.
+  check C.6 "No connection to the orchestrator on 22" timeout "$(value orchestrator_ssh)"
+  check C.7 "No connection to the Kubernetes API" timeout "$(value orchestrator_api)"
+  check C.8 "No connection to the kubelet" timeout "$(value orchestrator_kubelet)"
   check C.9 "The worker does not forward packets" 0 "$(value ip_forward)"
   check P.5 "The worker reaches the proxy port" open "$(value orchestrator_proxy)"
   check P.6 "The proxy serves archive.ubuntu.com" 200 "$(value proxy_archive)"
@@ -207,11 +247,14 @@ fi
 if [ "$workstation" = 1 ]; then
   echo
   echo "== Workstation, through the mesh VPN"
-  tcp() { timeout 6 bash -c "</dev/tcp/$1/$2" 2>/dev/null && echo open || echo closed; }
-  check M.1 "The mesh policy allows SSH to the orchestrator" open "$(tcp $ORCH_IP 22)"
-  check M.2 "The mesh policy allows the Kubernetes API" open "$(tcp $ORCH_IP 6443)"
-  check M.3 "The mesh policy refuses the proxy port" closed "$(tcp $ORCH_IP 3128)"
-  check M.4 "The mesh policy refuses the kubelet port" closed "$(tcp $ORCH_IP 10250)"
+  eval "$tcp_fn"
+  check M.1 "The mesh policy allows SSH to the orchestrator" open "$(tcp $ORCH_IP 22 6)"
+  check M.2 "The mesh policy allows the Kubernetes API" open "$(tcp $ORCH_IP 6443 6)"
+  # Squid and the kubelet both listen on this address (P.2, and C.8 above). The
+  # mesh drops what its policy does not grant, so a timeout is the policy.
+  # "refused" would mean the packet reached the orchestrator.
+  check M.3 "The mesh policy drops the proxy port" timeout "$(tcp $ORCH_IP 3128 6)"
+  check M.4 "The mesh policy drops the kubelet port" timeout "$(tcp $ORCH_IP 10250 6)"
 fi
 
 if [ "$azure" = 1 ]; then
@@ -224,21 +267,100 @@ if [ "$azure" = 1 ]; then
   check Z.3 "The target group holds no public address" 0 \
     "$(az network public-ip list -g $RG_TARGETS --query "length(@)" -o tsv 2>/dev/null)"
 
-  # Effective rules equal configured rules. The platform adds one IPv6 deny of
-  # its own, which is the only difference allowed.
+  # Effective rules equal configured rules, field by field: direction,
+  # priority, access, name, protocol, both address lists, both port lists. A
+  # rule that keeps its name and changes its port is a difference.
+  #
+  # The two commands spell the same rule differently. Effective rules say "All"
+  # for any protocol, "0.0.0.0/0" and "::/0" for any address, "22-22" for port
+  # 22, and fill both the single and the list field. nsg_rules puts both in one
+  # form and sorts every list. A configured "0.0.0.0/0" reads as any address,
+  # which is what it means to a rule.
+  #
+  # Two differences are allowed. Azure's default rules are in every effective
+  # list and in no configured one. The platform adds one IPv6 deny through its
+  # network manager, and only that rule from that source is skipped: a second
+  # security group on the interface would still show up.
+  nsg_normalise='
+import json, sys
+
+ANY = {"*", "0.0.0.0/0", "::/0"}
+
+def values(rule, one, many):
+    found = set(rule.get(many) or [])
+    if rule.get(one):
+        found.add(rule[one])
+    return found
+
+def addresses(rule, side):
+    found = values(rule, side + "AddressPrefix", side + "AddressPrefixes")
+    return ",".join(sorted({"*" if a in ANY else a for a in found}))
+
+def ports(rule, side):
+    found = values(rule, side + "PortRange", side + "PortRanges")
+    spans = {"0-65535" if p == "*" else p if "-" in p else p + "-" + p for p in found}
+    return ",".join(sorted(spans))
+
+try:
+    doc = json.load(sys.stdin)
+except ValueError:
+    sys.exit("the answer is not JSON")
+if sys.argv[1] == "effective":
+    rules = []
+    for group in doc["value"]:
+        managed = bool((group.get("association") or {}).get("networkManager"))
+        for rule in group["effectiveSecurityRules"]:
+            if managed and rule["name"].endswith("DefaultIPv6OutboundDeny"):
+                continue
+            rules.append(rule)
+else:
+    rules = doc["securityRules"]
+
+lines = []
+for rule in rules:
+    if rule["name"].startswith("defaultSecurityRules/"):
+        continue
+    protocol = rule["protocol"].lower()
+    lines.append(" ".join([
+        rule["direction"], str(rule["priority"]), rule["access"], rule["name"].split("/")[-1],
+        "*" if protocol == "all" else protocol,
+        "from", addresses(rule, "source"), "ports", ports(rule, "source"),
+        "to", addresses(rule, "destination"), "ports", ports(rule, "destination"),
+    ]))
+if not lines:
+    sys.exit("the answer holds no rules")
+print("\n".join(sorted(lines)))
+'
+  nsg_rules() { python3 -c "$nsg_normalise" "$1"; }
+
+  # An Azure call that fails prints nothing, and two empty answers are equal.
+  # So an answer has to arrive and hold rules before anything is compared. No
+  # answer is a FAIL that says so.
+  az_err=$(mktemp)
   n=4
   for vm in orchestrator worker; do
-    effective=$(az network nic list-effective-nsg -g $RG -n "nic-aisec-$vm" \
-      --query "value[].effectiveSecurityRules[].[direction,to_string(priority),access,name]" -o tsv 2>/dev/null |
-      grep -v defaultSecurityRules | awk '{sub(/.*\//, "", $4); print $1, $2, $3, $4}' |
-      grep -v ' DefaultIPv6OutboundDeny$' | sort)
-    configured=$(az network nsg show -g $RG -n "nsg-aisec-platform-$vm" \
-      --query "securityRules[].[direction,to_string(priority),access,name]" -o tsv 2>/dev/null |
-      awk '{print $1, $2, $3, $4}' | sort)
-    check "Z.$n" "Effective rules on the $vm interface equal the configured rules" \
-      "$(printf '%s' "$configured" | sha256sum | cut -c1-12)" "$(printf '%s' "$effective" | sha256sum | cut -c1-12)"
+    claim="Effective rules on the $vm interface equal the configured rules"
+    : >"$az_err"
+    effective=$(az network nic list-effective-nsg -g $RG -n "nic-aisec-$vm" -o json 2>>"$az_err" |
+      nsg_rules effective 2>>"$az_err")
+    effective_rc=$?
+    configured=$(az network nsg show -g $RG -n "nsg-aisec-platform-$vm" -o json 2>>"$az_err" |
+      nsg_rules configured 2>>"$az_err")
+    configured_rc=$?
+    if [ "$effective_rc" != 0 ] || [ -z "$effective" ]; then
+      check "Z.$n" "$claim" "effective rules from Azure" "no usable answer: $(head -n 1 "$az_err" | cut -c1-200)"
+    elif [ "$configured_rc" != 0 ] || [ -z "$configured" ]; then
+      check "Z.$n" "$claim" "configured rules from Azure" "no usable answer: $(head -n 1 "$az_err" | cut -c1-200)"
+    elif [ "$effective" = "$configured" ]; then
+      check "Z.$n" "$claim" equal equal
+    else
+      check "Z.$n" "$claim" equal different
+      # "<" is configured only, ">" is effective only.
+      diff <(printf '%s\n' "$configured") <(printf '%s\n' "$effective") | grep '^[<>]' | sed 's/^/            /'
+    fi
     n=$((n + 1))
   done
+  rm -f "$az_err"
 
   flow() { # remote address:port, printed as "Access rule"
     az network watcher test-ip-flow -g $RG --vm vm-aisec-worker --direction Outbound --protocol TCP \
