@@ -12,6 +12,10 @@ Two sides, two identities, two state stores. The platform identity cannot change
 
 ## What each identity holds
 
+![Two sides, two identities: the bootstrap root creates each side, each identity holds roles on its own resource group and state, and the only cross-side permission is the peering action](../diagrams/separation.svg)
+
+The diagram source is [`diagrams/separation.html`](../diagrams/separation.html).
+
 | Identity | Role | Scope |
 | --- | --- | --- |
 | Platform | Contributor | Its own resource group |
