@@ -5,17 +5,17 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices. One is done: the model server on the AI worker. The gate is not met.
+The milestone is built in slices. Two are done: the model server on the AI worker, and the agent runtime running headless against it with a fixture tool. The gate is not met.
 
 | Gate | Result |
 | --- | --- |
 | A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back | Open |
 | A tool call for another job or target is refused by the tool service | Open |
 | Cancelling a workflow stops the worker job and cleans up its session | Open |
-| Model memory use, latency per turn, and tokens per second are measured on the chosen size | Met for the model server alone. Not measured with the agent runtime beside it |
+| Model memory use, latency per turn, and tokens per second are measured on the chosen size | Met for the model server alone, and for one agent run beside it on a fixture. Not measured with a tool over the network |
 | Component footprint on the orchestrator is measured | Open |
 | The threat model covers dispatch, workload identity, and the AI-specific threats | Open |
-| Every image and every model input is pinned by digest and verified on the orchestrator | Met for the model server: 38 files and one commit. No image exists yet |
+| Every image and every model input is pinned by digest and verified on the orchestrator | Met for the model server (38 files and one commit) and for the agent runtime (one file). No image exists yet |
 | Every tool call is logged with caller, job, and decision, out of the worker's reach | Open |
 | A revoked or expired job token is refused | Open |
 | A pod in a workload namespace cannot open a connection to the internet | Open |
@@ -139,6 +139,100 @@ What the numbers say:
 ### Limits
 
 - Twelve correct turns on one easy, fixed exchange show that the plumbing works. They say nothing about investigation quality.
-- No agent runtime has called the server yet. Goose's own prompt size and tool format are unmeasured.
+- The agent runtime has called the server on one fixture question. See the limits of that slice below.
 - A second build from the same pins has not been run, so nobody knows whether the model file's checksum repeats.
 - The validation script has seven checks for the model server, `S.1` to `S.7`. They were shown to fail on broken inputs with stubs, and passed on the system on 2026-10-12, in a run of 101 passed, 0 failed. See [validation](../validation/model-server.md).
+
+## Slice: the agent runtime
+
+Goose runs headless on the worker, against the model server on localhost, with one tool. It is not a service: `run-agent.sh` starts one run in a transient unit. The procedure is the [agent runtime runbook](../runbooks/agent-runtime.md).
+
+The tool is a fixture. It runs on the worker and returns the same synthetic evidence the model server measurement used, so the two sets of numbers can be compared. The tool service on the orchestrator ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) is not built.
+
+### Version
+
+Read from the official source on 2026-10-12.
+
+| Component | Version | Source |
+| --- | --- | --- |
+| Goose | `v1.54.0`, released 2026-10-08, Apache-2.0. The static `aarch64-unknown-linux-musl` build | GitHub releases, `aaif-goose/goose`. The newest release, and not a prerelease. The project moved there from `block/goose` |
+
+The pinned checksum is the digest the release lists for the file. A download on the workstation gave the same value.
+
+### What Goose does, found before it went on the worker
+
+Run on the workstation on 2026-10-12, with the pinned binary, against a stub that records each request and answers with a fixed reply. The run was inside a network namespace with a loopback interface and nothing else.
+
+| Question | Finding | Consequence |
+| --- | --- | --- |
+| Does it run with no network? | Yes. It made no request the namespace could not serve | The worker's containment does not break it |
+| Can the tool set be restricted? | `--no-profile` with one `--with-extension` put exactly one tool in the request, `evidence__get_evidence`. With no extension named, none | The extension that runs shell commands is never loaded |
+| What else does it send the model? | One extra request per run, to make up a title for the session | Turned off with `GOOSE_DISABLE_SESSION_NAMING`. On this machine it would cost about 20 seconds a job |
+| What settings does it send? | The messages, the tools, and a request to stream. No temperature, no token limit, no thinking switch | The model's defaults apply. Thinking is on |
+| What does it write? | A session database and a log of every request with its full prompt, under `GOOSE_PATH_ROOT`. `--no-session` does not stop either | The run script points that at the unit's private `/tmp` |
+| Is the text output the answer? | No. With `--quiet` it still prints each tool call and the tool's result | Checks read the JSON transcript, and only the agent's last message |
+
+### Install
+
+```bash
+scripts/fetch.sh stage && scripts/push.sh stage    # on the orchestrator
+sudo scripts/install-agent.sh stage                 # on the worker
+```
+
+16:10:00 to 16:10:15 UTC. `ok    goose/goose-aarch64-unknown-linux-musl.tar.gz`, 49 MB staged, `the archive matches artifacts.tsv` on the worker. The install script does not run the binary. The first thing to execute it was the sandboxed unit.
+
+Tested locally before the install, each against a broken input:
+
+| Script | Broken input | Result |
+| --- | --- | --- |
+| `fetch.sh` | A wrong checksum in `artifacts.tsv` | `checksum mismatch, removed`, exit 1, nothing left in the staging directory |
+| `install-agent.sh` | One byte added to the archive | `FAILED`, exit 1, before anything is written |
+| `install-agent.sh` | No line for the archive in `artifacts.tsv` | Refused, exit 1 |
+| `evidence_tool.py` | Eleven malformed or hostile requests: not JSON, another tool, an extra argument, a path as the reference, a list as the reference | Each refused or ignored, and the tool kept running. The list crashed the first version, which is why this test exists |
+| `check_answer.py` | Ten broken transcripts: the right answer with no tool call, with two calls, with another reference, with a tool error, with a run that did not complete, an answer naming one of the two record types, an empty input | Each failed. A transcript where the agent said only "ok" failed too, which a search of the whole output would have passed |
+
+### The run
+
+```bash
+sudo scripts/measure-agent.sh --runs 3      # on the worker
+```
+
+16:16:57 to 16:20:23 UTC. `3 of 3 runs correct`: in each, one call to the tool for `ev-0001`, no tool error, and a last message that named both record types the evidence shows in excess.
+
+| | Turn 1, the tool call | Turn 2, the answer | Whole run |
+| --- | --- | --- | --- |
+| First run after the install, at 16:10 | 670 prompt tokens in 37.1 s, 124 output tokens in 20.7 s | 109 new prompt tokens in 7.4 s, 191 output tokens in 31.9 s | 97.4 s |
+| Three measured runs, median | 4 new prompt tokens in 0.3 s, 122 output tokens in 20.3 s | 109 new prompt tokens in 7.3 s, 240 output tokens in 40.2 s | 67.0 s (63.4, 67.0, 73.6) |
+
+The token counts and times are the model server's own, from its journal. The wall time is the script's.
+
+| Agent | Value | How |
+| --- | --- | --- |
+| Memory peak of the unit, Goose and the tool together | 54.8 to 55.6 MB | What `systemd-run` reports when the unit ends |
+| CPU time | 0.35 s per run | Same |
+| Exposure score of the transient unit | 1.3 | `systemd-analyze security aisec-agent-job.service`, during a run |
+| Accounts | Goose and the tool both ran as `aisec-agent-job`, an account that exists only while the unit does | `ps`, during a run |
+
+| Session and cleanup | Result |
+| --- | --- |
+| During a run | Two private directories for the unit under `/tmp` and `/var/tmp`, holding `sessions.db` and `llm_request.*.jsonl` |
+| After each run | `unit: inactive`, `private tmp directories: 0` |
+| A second run started while the first existed | `Failed to start transient service unit: Unit aisec-agent-job.service was already loaded or has a fragment file.`, exit 1. The first run finished and was correct |
+
+What the numbers say:
+
+- **Goose's own prompt costs 285 tokens.** The first turn is 670 tokens, against 385 for the same exchange sent bare. That is 15 seconds on this machine, once. It is less than feared, because one tool is loaded and none of Goose's own.
+- **The model server's prompt cache is what makes later runs fast, and it crosses jobs.** The measured runs skipped all but 4 tokens of the first turn, because the server still held the previous run's prompt. A real job with different evidence pays for its own prompt. It also means something of one job is still in the server's memory when the next starts. Nothing reads it back, and the next prompt overwrites it, but it is state that outlives the session. Not cleared today.
+- **Thinking is on, and Goose has no switch for it.** Every turn in the transcripts starts with a thinking block. The earlier measurement put thinking at 11 seconds a turn. Turning it off is a setting on the model server, and a decision that has not been made.
+- **The agent needs almost nothing.** 56 MB beside a model that leaves 4 GB.
+- **Prompt processing ran at 14.8 tokens per second on the short second turn**, against 18.1 on the long first one and 18.7 in the model server measurement. Not investigated.
+
+### Limits
+
+- One easy question, one tool, eight correct runs in all. It shows the runtime, the sandbox, and the cleanup work. It says nothing about investigation quality.
+- The tool is a local fixture. No tool has been called over the network, with a token, or refused.
+- The answer is free text checked by a search for two names. No result is held to a schema yet. The earlier measurement found that the server refuses a response schema together with tool definitions, and how Goose's own structured output deals with that is untested.
+- The time limit and the turn limit on the unit have not been driven to their limits. Cancelling a run has not been tested.
+- The sandbox settings are the model server's, and nothing was taken out to make Goose run. Whether each one holds was not tested one by one: the score is the evidence, and a score is not a test.
+- Nothing dispatches a job. The run was started by hand, as root. The account, the forced command, and the job document of [ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md) are not built.
+- The validation script has no checks for the agent runtime yet.

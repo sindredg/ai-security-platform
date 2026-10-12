@@ -6,7 +6,7 @@ The split of work is strict. Ordinary tools collect evidence and establish facts
 
 ## Target architecture
 
-This is what gets built. The networks, their rules, the peering, both platform VMs, the mesh VPN, an empty K3s cluster, and a model server on the AI worker exist today. Everything else that runs on them, and the whole target side, is planned. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
+This is what gets built. The networks, their rules, the peering, both platform VMs, the mesh VPN, an empty K3s cluster, and a model server and an agent runtime on the AI worker exist today. Everything else that runs on them, and the whole target side, is planned. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
 
 ![Target architecture: a trusted orchestrator VM is the only link between the AI worker, the targets, and the outside world](docs/diagrams/target-architecture.svg)
 
@@ -32,7 +32,7 @@ The AI also has to earn its place. Each result is compared with the same workflo
 ## Status
 
 - **Done:** the network foundation and both platform VMs, deployed and checked.
-- **In progress:** toolchain integration. A model server runs on the AI worker. No workflow, agent, or tool service exists yet.
+- **In progress:** toolchain integration. A model server runs on the AI worker, and the agent runtime has made one kind of run against it, with a fixture tool. No workflow, dispatch, or tool service exists yet.
 - **Planned:** the targets, the investigation and remediation workflow, and the drills.
 
 The [roadmap](docs/roadmap.md#status) holds the state of every milestone and what each has to prove.

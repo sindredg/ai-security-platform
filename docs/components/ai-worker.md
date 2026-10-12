@@ -4,12 +4,12 @@ The machine that will run the agent and the model. It reads advisories, target e
 
 | | |
 | --- | --- |
-| State | Runs the model server. No agent runtime yet |
+| State | Runs the model server. The agent runtime is installed and runs once per job. Nothing dispatches a job yet |
 | Where | Sweden Central, `snet-worker`, fixed private address `10.40.0.36` |
 | Size | `Standard_D2ps_v6`: 2 vCPUs, 8 GiB, Arm64. Two physical cores for the same quota as one x64 core pair |
 | Image | Ubuntu 26.04 LTS, `Canonical:ubuntu-26_04-lts:server-arm64` |
 | Disk | 64 GB, Standard SSD |
-| Defined in | `infra/platform/compute.tf`, `infra/platform/cloud-init/worker.yaml.tftpl`, `worker/model-server/` |
+| Defined in | `infra/platform/compute.tf`, `infra/platform/cloud-init/worker.yaml.tftpl`, `worker/model-server/`, `worker/agent-runtime/` |
 | Decisions | [0005](../decisions/0005-ai-workers-on-a-separate-vm.md), [0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), [0011](../decisions/0011-package-proxy-for-the-worker.md), [0015](../decisions/0015-build-the-model-file-on-the-worker.md) |
 
 ## What it can reach
@@ -40,6 +40,20 @@ llama.cpp build `b11429` serves Qwen3.5-4B, quantized to `Q4_K_M`, on `127.0.0.1
 | Settings | 2 threads, 8192-token context, one slot, no web interface, no RAM prompt cache |
 | Procedure | The [model server runbook](../runbooks/model-server.md) |
 
+## The agent runtime
+
+Goose 1.54.0, one static binary. It is not a service. `run-agent.sh` starts one run in a transient unit, hands it the task on standard input, and gets the transcript back as one JSON document.
+
+| | |
+| --- | --- |
+| Binary | `/opt/aisec/goose/goose-1.54.0/goose`, the project's release build, checked against the release's digest on the orchestrator and again on the worker |
+| Unit | `aisec-agent-job`, transient: a throwaway account, a read-only file system, localhost only, a 2 GB memory limit, a 15-minute time limit. Exposure score 1.3, the same as the model server |
+| Tools | One, and only the ones named on the command line. `--no-profile` keeps Goose from loading its own, including the one that runs shell commands |
+| Session | Goose writes a session database and a log of every prompt, even when told to keep no session. Both land in the unit's private `/tmp`, which systemd deletes when the unit stops |
+| One at a time | The unit's name is fixed. A second run is refused while one exists |
+| Today's tool | A fixture on the worker that returns one piece of synthetic evidence. The tool service on the orchestrator replaces it ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) |
+| Procedure | The [agent runtime runbook](../runbooks/agent-runtime.md) |
+
 ## Measured
 
 Empty, about 20 minutes after boot: 0.5 of 7.9 GiB memory used, CPU 99 to 100 % idle, 2.0 GB of disk. cloud-init finished 72 seconds after boot.
@@ -55,13 +69,21 @@ With the model loaded, on 2026-10-11:
 | Start | 3 seconds with the file cached, 26 after a reboot |
 | Disk | 4.8 GB used |
 
-The exchange and the full table are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#measurements).
+One agent run on the same question, through Goose, on 2026-10-12:
+
+| | |
+| --- | --- |
+| Whole run, two model turns | 67 seconds, median of three. 97 on the first run after the server starts |
+| Agent memory | 56 MB at its peak, beside the model |
+| Prompt | 670 tokens on the first turn. The bare exchange needs 385 |
+
+The exchange and the full tables are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#measurements).
 
 ## Planned
 
 | Role | Candidate | Has to prove |
 | --- | --- | --- |
-| Agent runtime | Goose | Headless runs, a restricted tool set, a private model endpoint |
+| Agent runtime | Goose, installed | A tool over the network with a job token, and a result held to a schema. Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far |
 
 A workflow hands a job to this machine over SSH, with a key that can only run the job runner ([ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md)). Decided, not built. Today the worker cannot start a connection to anything on the orchestrator except the proxy. The tool service gets the second rule ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)).

@@ -1,0 +1,104 @@
+# Agent runtime: operator procedure
+
+Status: Implemented on 2026-10-12. Installed once. Every step below was run during that install. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-agent-runtime).
+
+Run these steps to put Goose on the AI worker and prove one headless run against the local model server: download and verify on the orchestrator, push, install, run, and measure. No cloud resource changes. Nothing is left running: the agent is a program that runs once per job, not a service.
+
+## Inputs and access
+
+| Input | Notes |
+| --- | --- |
+| The model server, running | The [model server runbook](model-server.md). Check `S.2` and `S.5` pass |
+| SSH to both VMs over the mesh VPN | `REPLACE_WITH_SSH` below stands for the operator's `ssh` command with its options, for example `ssh -F <config>` |
+| A checkout of this repository on the workstation | The scripts and the pin are in `worker/agent-runtime/` |
+
+## Check the pin
+
+1. Compare the pinned checksum with the digest the release lists.
+
+   ```bash
+   gh api repos/aaif-goose/goose/releases/tags/v1.54.0 \
+     -q '.assets[] | select(.name == "goose-aarch64-unknown-linux-musl.tar.gz") | .digest'
+   grep -v '^#' worker/agent-runtime/artifacts.tsv | cut -f1
+   ```
+
+   Expected: the same 64 characters twice, the first with `sha256:` in front. A newer release is a decision, not a step: change the pin in a pull request first.
+
+## Download and push
+
+2. Copy the scripts to the orchestrator.
+
+   ```bash
+   tar -C worker/agent-runtime -cf - . |
+     REPLACE_WITH_SSH aisec-orchestrator \
+     'mkdir -p feed/agent-runtime/scripts feed/agent-runtime/stage && tar -C feed/agent-runtime/scripts -xf -'
+   ```
+
+   Expected: no output.
+
+3. Download and verify, then push to the worker.
+
+   ```bash
+   REPLACE_WITH_SSH aisec-orchestrator 'cd feed/agent-runtime && scripts/fetch.sh stage && scripts/push.sh stage'
+   ```
+
+   Expected: `ok    goose/goose-aarch64-unknown-linux-musl.tar.gz`, then `49M	feed/agent-runtime/stage`. A file that does not match its pin is removed and the script stops.
+
+## Install
+
+4. Install Goose and the fixture on the worker.
+
+   ```bash
+   REPLACE_WITH_SSH aisec-worker 'cd feed/agent-runtime && sudo scripts/install-agent.sh stage'
+   ```
+
+   Expected: `the archive matches artifacts.tsv`, then one checksum line for `goose`. The script checks the archive again, takes the one file out of it, and does not run it.
+
+## Run and measure
+
+5. Run the fixture question three times.
+
+   ```bash
+   REPLACE_WITH_SSH aisec-worker 'cd feed/agent-runtime && sudo scripts/measure-agent.sh --runs 3'
+   ```
+
+   Expected, after three to five minutes:
+
+   - three lines with `"ok": true` and `"tool_calls": 1`
+   - `Finished with result: success` for each unit, with a memory peak near 56 MB
+   - two `prompt eval time` lines per run from the model server
+   - `unit: inactive` and `private tmp directories: 0` after each run
+   - `3 of 3 runs correct`
+
+   The first run after the model server starts takes about 100 seconds. Later runs take 60 to 75, because the server still holds the start of the prompt.
+
+6. Confirm that a run cannot start while another exists, and that the session directory exists only during a run.
+
+   ```bash
+   REPLACE_WITH_SSH aisec-worker 'cd feed/agent-runtime &&
+     (sudo scripts/run-agent.sh < /opt/aisec/agent-fixture/question.txt > /dev/null 2>&1 &); sleep 12
+     sudo find /tmp /var/tmp -maxdepth 1 -name "systemd-private-*aisec-agent-job*" | wc -l
+     sudo scripts/run-agent.sh < /opt/aisec/agent-fixture/question.txt; echo "rc=$?"
+     while systemctl is-active -q aisec-agent-job; do sleep 3; done
+     sudo find /tmp /var/tmp -maxdepth 1 -name "systemd-private-*aisec-agent-job*" | wc -l'
+   ```
+
+   Expected: `2`, then `Failed to start transient service unit: Unit aisec-agent-job.service was already loaded or has a fragment file.` and `rc=1`, then `0`.
+
+## Clean up
+
+7. Remove the staged archive from the worker. Keep it on the orchestrator for the next rebuild.
+
+   ```bash
+   REPLACE_WITH_SSH aisec-worker 'rm -rf feed/agent-runtime/stage && df -h / | tail -1'
+   ```
+
+   Expected: about 5.0 GB used on the worker's disk.
+
+## After a worker rebuild
+
+A rebuilt worker is empty. Run the [model server runbook](model-server.md) first, then steps 2 to 7 here. Step 3 finds the file already staged and prints `have`.
+
+## Changing the pin
+
+Change `artifacts.tsv` and `pins.env` together, in a pull request. Read the new checksum from the release's asset digest. Then run this procedure from step 1. A new release can change the prompt Goose sends and the files it writes, so step 5's numbers are part of the review.
