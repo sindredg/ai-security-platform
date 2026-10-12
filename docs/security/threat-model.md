@@ -1,6 +1,6 @@
 # Threat model
 
-Status: first pass, written 2026-10-11 against the design and revised the same day after the platform VMs were built. The network, the two platform VMs, and their containment are built and tested. Everything that runs on them is not, so most controls here are still decided or planned. Each row says which.
+Status: first pass, written 2026-10-11 against the design and revised the same day after the platform VMs were built. The network, the two platform VMs, and their containment are built and tested. Of what runs on them, only the model server on the worker is built, so most controls here are still decided or planned. Each row says which.
 
 This document lists what can go wrong at each trust boundary, what stops it, where that gets proven, and what is left over. The method and the reason for doing it now are in [ADR 0010](../decisions/0010-threat-model-and-security-checks-per-milestone.md). The system it describes is in the [architecture](../architecture.md).
 

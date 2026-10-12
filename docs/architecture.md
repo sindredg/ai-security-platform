@@ -1,6 +1,6 @@
 # Architecture
 
-This is the system as designed. The network foundation and the platform VMs are deployed: state storage, deployment identities, both virtual networks, their security groups, the peering, the NAT gateway, the orchestrator with the mesh VPN and K3s, and the AI worker. Everything that runs on the cluster or the worker, and every target, is still planned. Each section says what is built, what is decided, and what is still open.
+This is the system as designed. The network foundation and the platform VMs are deployed: state storage, deployment identities, both virtual networks, their security groups, the peering, the NAT gateway, the orchestrator with the mesh VPN and K3s, and the AI worker. A model server runs on the AI worker. Everything else that runs on the cluster or the worker, and every target, is still planned. Each section says what is built, what is decided, and what is still open.
 
 The reasoning behind each choice is in the [decision records](decisions/README.md). The order of work is in the [roadmap](roadmap.md).
 
@@ -212,7 +212,7 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Kubernetes benchmark run, one check accepted. The operating system has a Lynis audit with its findings triaged. No tool has a CIS profile for Ubuntu 26.04 yet, which is an accepted risk |
 | Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current through platform compute. Each long-lived credential on the VMs rotated once |
 | Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Decided in [ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), not built |
-| Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Planned |
+| Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Built for the model server: 38 inputs pinned by checksum and verified on the orchestrator ([worklog](worklogs/0003-toolchain-integration.md#download-and-verify)). Planned for the rest |
 | Incident response runbook | A turned worker, a compromised target, a leaked credential | Operational drills | Planned |
 
 There is no compliance framework here. ISO 27001 and SOC 2 describe an organisation, and this one has a single operator.
@@ -281,6 +281,6 @@ Each gets a decision record before the milestone that depends on it.
 - One operator. There is no multi-user access model, and nobody else reviews a change. Automated checks are the only second reader.
 - A separate VM limits what a compromised worker can reach. It does nothing against a compromised host or provider.
 - Both roots use the same network module. A change to it reaches both sides, so the separation is in state, identity, and network rules, not in the code.
-- Nothing outside the roots stops a deployment identity from creating a public IP address in its own resource group yet. The policy that does is decided in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) and not assigned.
+- The public address policy leaves one gap on the platform side. It refuses a public address on a network interface in both resource groups, and any public IP resource on the target side. Both are assigned from the bootstrap root and [validated](worklogs/0002-platform-compute.md#public-address-policy). The platform identity can still create a public IP resource in its own group, because the NAT gateway needs one. It cannot attach it to a machine.
 - The orchestrator's egress is not filtered by hostname. It can reach any host on port 443.
 - The [threat model](security/threat-model.md) is a first pass against a design, written by the designer. Most of its controls are decided or planned, not verified, and its [open items](security/accepted-risks.md#open-items) have no answer yet.
