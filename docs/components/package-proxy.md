@@ -24,7 +24,7 @@ The diagram source is [`diagrams/update-path.html`](../diagrams/update-path.html
 | `CONNECT`, to anywhere | 403 |
 | Anything from outside the worker subnet | 403 |
 
-It caches nothing. Plain HTTP is enough: `apt` checks every package against signed repository metadata, so the proxy cannot change what gets installed.
+It caches nothing. Package integrity over HTTP relies on `apt` verifying package hashes against signed repository metadata. This prevents the proxy from substituting altered packages, but it can still block downloads.
 
 ## The worker's side
 

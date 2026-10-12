@@ -1,8 +1,8 @@
 # Roadmap
 
-Each milestone has an exit gate: things that must be shown to work, not things that must be built. A milestone is done when its gate is met and the evidence is in a [worklog](worklogs/README.md). The design behind all of this is in the [architecture](architecture.md).
+Each milestone has completion criteria: things that must be shown to work, not things that must be built. A milestone is done when those criteria are met and the evidence is in a [worklog](worklogs/README.md). The design behind all of this is in the [architecture](architecture.md).
 
-Security work has no milestone of its own. Each practice sits in the gate of the milestone that builds what it checks, as decided in [ADR 0010](decisions/0010-threat-model-and-security-checks-per-milestone.md).
+Security work has no milestone of its own. Each practice is part of the completion criteria for the milestone that builds what it checks, as decided in [ADR 0010](decisions/0010-threat-model-and-security-checks-per-milestone.md).
 
 ## Status
 
@@ -22,7 +22,7 @@ Security work has no milestone of its own. Each practice sits in the gate of the
 
 Write down the design and the first decisions, and get account-specific evidence for regions and sizes before anything depends on them.
 
-**Exit gate:** the architecture, roadmap, and first decision records are published. The preflight worklog records quota and VM size evidence for both regions.
+**Completion criteria:** the architecture, roadmap, and first decision records are published. The preflight worklog records quota and VM size evidence for both regions.
 
 ## 1. Network foundation
 
@@ -30,7 +30,7 @@ Create the state storage and both Terraform roots. Provision resource groups, vi
 
 The point of doing this first is to prove the separation before there is anything to separate.
 
-**Exit gate:**
+**Completion criteria:**
 
 - `terraform plan` is clean for both roots after apply.
 - Peering state is `Connected` in both directions.
@@ -45,7 +45,7 @@ Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN, 
 
 **Depends on:** the egress decision, made in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), and the first pass of the [threat model](security/threat-model.md).
 
-**Exit gate:**
+**Completion criteria:**
 
 - Both VMs are reachable over the mesh VPN and have no public address.
 - Effective rules on each network interface match the configured rules, and the denied paths are tested with traffic. Carried over from milestone 1.
@@ -67,7 +67,7 @@ This is where the design is most likely to be wrong, so it comes before any targ
 
 **Depends on:** the dispatch, job identity, and tool service decisions, made in ADRs [0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), [0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), and [0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md). Cloud identity for cluster workloads is not needed here and moves to milestone 4.
 
-**Exit gate:**
+**Completion criteria:**
 
 - A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back.
 - A tool call for another job or target is refused by the tool service.
@@ -81,11 +81,11 @@ This is where the design is most likely to be wrong, so it comes before any targ
 - A pod in a workload namespace cannot open a connection to the internet.
 - The worker's journal is copied to the orchestrator on a schedule.
 
-If a candidate needs a substantial custom service to pass this gate, replace it or simplify the design. Don't build the service.
+If a candidate needs a substantial custom service to meet these criteria, replace it or simplify the design. Don't build the service.
 
 ### Hostile-input tests for the tool service
 
-Planned, with the service. The tool service is the one piece of custom code that reads what a turned worker sends ([ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)). These cases are unit tests that live beside its code and run in the pipeline. They are not drills, and they add nothing to the gate: the gate shows the round trip on the running system, and the tests keep the edges from moving afterwards.
+Planned, with the service. The tool service is the one piece of custom code that reads what a turned worker sends ([ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)). These cases are unit tests that live beside its code and run in the pipeline. They are not drills, and they do not add to the milestone's completion criteria: those criteria demonstrate the round trip on the running system, and the tests keep the edges from moving afterwards.
 
 Every case ends the same way: the call is refused, nothing of the result goes back, and one audit line records the decision and the reason.
 
@@ -113,7 +113,7 @@ Define the consumer contract. Deploy NetBox, synthetic inventory, and the consum
 
 **Depends on:** the NetBox version and consumer scope decisions.
 
-**Exit gate:**
+**Completion criteria:**
 
 - The consumer contract lists endpoints, fields, permitted records, and expected denials.
 - Deterministic checks confirm the finding and a known unaffected case.
@@ -127,7 +127,7 @@ Rehearse a proposed fix on the rehearsal copy, publish it as a pull request, and
 
 **Depends on:** the credential and approval enforcement decisions.
 
-**Exit gate:**
+**Completion criteria:**
 
 - A proposal becomes a pull request with evidence, and the worker never holds repository credentials.
 - A deliberately unsafe patch is rejected even though its functional tests pass.
@@ -140,7 +140,7 @@ Rehearse a proposed fix on the rehearsal copy, publish it as a pull request, and
 
 Break the finished workflow on purpose.
 
-**Exit gate:** recorded results, failures included, for:
+**Completion criteria:** recorded results, failures included, for:
 
 - Worker and orchestrator interruption without duplicate changes.
 - Duplicate findings without duplicate pull requests.
@@ -157,7 +157,7 @@ Every threat rated high in the threat model maps to one of these drills or to a 
 
 Same workflow, different change surface. Seed a target network rule that lets the unintended viewpoint in.
 
-**Exit gate:**
+**Completion criteria:**
 
 - Probes from both viewpoints, before and after.
 - The change touches only allowlisted target network fields.
@@ -169,7 +169,7 @@ Same workflow, different change surface. Seed a target network rule that lets th
 
 Pick a real advisory, an affected pinned artifact, and a reviewed fix before seeding anything.
 
-**Exit gate:**
+**Completion criteria:**
 
 - An applicability record for the specific artifact, backed by its SBOM. A version-string match is not enough.
 - The update is rehearsed with database migration and a tested recovery procedure.

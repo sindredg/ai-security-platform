@@ -1,8 +1,8 @@
 # Private AI security operations platform
 
-Self-hosted AI workers investigate security findings on a target service they cannot reach directly, and propose fixes that are tested before review. Nothing reaches the service without a human approving the exact change.
+Self-hosted AI workers investigate security findings on a target service they cannot reach directly, and propose fixes that are tested before review. No proposed change is delivered to the target service without human approval of that exact change.
 
-The split of work is strict. Ordinary tools collect evidence and establish facts. AI interprets the evidence and proposes a bounded change. Neither gets to approve anything.
+The split of work is strict. Ordinary tools collect evidence and establish facts. AI interprets the evidence and proposes a change within defined limits. Neither gets to approve anything.
 
 ## Target architecture
 
@@ -25,14 +25,14 @@ A suggested fix and a fix that can be trusted are different things. Three failur
 - **The evidence lies.** A compromised target reports whatever it likes, and an advisory can carry instructions.
 - **A worker dies halfway.** The change ends up half applied, or applied twice.
 
-The design is built around those failures. Models run inside the platform, so evidence never leaves it. Workers get narrow tools and no credentials. Every proposal is rehearsed against the service's real consumer before a person sees it, and nothing is delivered without approval of the exact change.
+The design is built around those failures. Models run inside the platform, so inference does not send evidence to an external model provider. Workers get narrowly scoped tools and no cloud, repository, or delivery credentials. Every proposal is rehearsed against the service's real consumer before a person sees it, and nothing is delivered without approval of the exact change.
 
 The AI also has to earn its place. Each result is compared with the same workflow run without it.
 
 ## Status
 
 - **Done:** the network foundation and both platform VMs, deployed and checked.
-- **In progress:** toolchain integration. A model server runs on the AI worker, and the agent runtime has made one kind of run against it, with a fixture tool. No workflow, dispatch, or tool service exists yet.
+- **In progress:** toolchain integration. A model server runs on the AI worker, and the agent runtime has completed fixture-based runs against it. No workflow, dispatch, or tool service exists yet.
 - **Planned:** the targets, the investigation and remediation workflow, and the drills.
 
 The [roadmap](docs/roadmap.md#status) holds the state of every milestone and what each has to prove.
@@ -41,7 +41,7 @@ The [roadmap](docs/roadmap.md#status) holds the state of every milestone and wha
 
 - **Platform:** a small K3s cluster for trusted orchestration, plus a separate VM for AI workers and model inference. Sweden Central.
 - **Target:** a NetBox inventory service with a real API consumer that must keep working. Denmark East, on its own network.
-- **Separation:** platform and targets share a subscription and nothing else. Separate Terraform roots, state, resource groups, networks, and identities.
+- **Separation:** platform and targets share an Azure subscription, with separate Terraform roots, state, resource groups, networks, and deployment identities.
 - **Workflow:** collect evidence, investigate, propose, rehearse on a disposable copy, open a pull request, wait for approval, deliver, verify.
 - **Inference:** open-weight models on CPU, inside the platform. No external model API.
 

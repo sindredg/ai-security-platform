@@ -17,7 +17,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Trivy | Terraform misconfigurations, a second opinion |
 | Secret scan | gitleaks over the whole history |
 | ShellCheck | Every shell script under `worker/` and `validation/`. They run as root on the VMs |
-| Ruff | `worker/model-server/measure.py`, with the default rules of the pinned release |
+| Ruff | All Python files under `worker/`, with the default rules of the pinned release |
 | Dependency scan | Trivy over the converter's Python pins. Reports, never blocks |
 
 The first six are required by the ruleset on `main`. The dependency scan runs on every pull request and is not in the ruleset. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.

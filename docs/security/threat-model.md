@@ -87,7 +87,7 @@ The diagram source is [`diagrams/trust-boundaries.html`](../diagrams/trust-bound
 
 ## Threats
 
-"Gate" names the roadmap milestone whose exit gate proves the control. A threat with no gate is listed under [open items](accepted-risks.md#open-items).
+"Gate" names the roadmap milestone whose completion criteria prove the control. A threat with no gate is listed under [open items](accepted-risks.md#open-items).
 
 ### B1. Operator access
 
