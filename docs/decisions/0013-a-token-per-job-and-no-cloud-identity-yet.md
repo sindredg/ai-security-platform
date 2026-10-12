@@ -9,7 +9,7 @@ Two identity questions were open before milestone 3, and they are different ques
 
 **Which job is calling?** Every tool call from the worker arrives from the same address. The tool service has to refuse a call for another job or another target ([T18](../security/threat-model.md)), so something in the call has to say which job it belongs to, and the worker must not be able to make that up.
 
-**How does a cluster workload reach Azure?** The architecture left this open, with the two obvious answers and what is wrong with each. Workload identity federation on a self-managed cluster needs the cluster's OIDC issuer document to be publicly readable, and this project has no public endpoint. A VM managed identity needs nothing public, and is available to every process on the VM.
+**How does a cluster workload reach Azure?** The architecture left this open, with the two obvious answers and what is wrong with each. Workload identity federation on a self-managed cluster needs publicly reachable OIDC issuer metadata and public signing keys. Those documents can be hosted separately from the cluster, as described in the [official setup guide](https://azure.github.io/azure-workload-identity/docs/installation/self-managed-clusters/oidc-issuer.html); this project has not chosen a hosting arrangement. A VM managed identity needs nothing public, and is available to every process on the VM.
 
 Milestone 3 runs on synthetic evidence. Nothing in it calls an Azure API.
 
@@ -30,7 +30,7 @@ For cloud access from the cluster:
 | --- | --- | --- | --- |
 | No cloud identity for any workload | None | None | Possible only while nothing needs Azure |
 | VM managed identity on the orchestrator | None | Every process on the VM | One identity for collector, broker, and anything that lands there |
-| Workload identity federation | The issuer document | One workload each | The production answer. Needs a public address in a design that refuses them by policy |
+| Workload identity federation | Issuer metadata and public signing keys | One workload each | Needs a public endpoint for these documents, not a public IP on a cluster VM. Hosting is not decided |
 | A stored service principal secret per workload | None | One workload each | A long-lived secret in the cluster, to rotate and to lose |
 
 ## Decision
@@ -53,4 +53,4 @@ For cloud access from the cluster:
 - **The dispatch step holds two things that matter:** the dispatch key and, briefly, the token. It is trusted code on the trusted machine. It is also the one place where a mistake leaks both.
 - **A private certificate authority, however small, is one more secret on the orchestrator.** It signs one server certificate. It goes in the credential inventory with a rotation.
 - **The registration listener is protected by a network policy and a service account token.** Namespaces are not a wall, and this project says so. The token check is the control. The policy is the second layer.
-- **The cloud question is postponed, not answered.** Both real options are bad in a known way, and choosing between them without a workload that needs one would be guessing. The cost is that milestone 4 starts with a decision.
+- **The cloud question is postponed, not answered.** Federation needs a hosting and key-rotation arrangement; a VM managed identity shares its permissions across processes on the VM. Choosing between them without a workload that needs one would be guessing. The cost is that milestone 4 starts with a decision.

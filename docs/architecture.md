@@ -11,7 +11,7 @@ Finding a misconfiguration is only the start. The real work is proposing a fix t
 That is what this platform does, for a service it does not host:
 
 - Tools collect evidence and establish facts: configured access, observed reachability, deployed versions.
-- AI workers read the evidence, ask for more through narrow tools, and propose a bounded change.
+- AI workers read the evidence, ask for more through narrow tools, and propose a change within defined limits.
 - A trusted runner rehearses the change on a disposable copy of the target.
 - A pull request carries the change and its evidence to the operator.
 - After approval, a trusted delivery step applies it, and fresh collection checks the result.
@@ -30,7 +30,7 @@ The orchestrator box hides four groups of components. They are listed under [Orc
 
 The platform holds the credentials and rules that decide what may change. The target is deliberately weak and gets rebuilt often. Putting them in the same Terraform configuration, network, or permission scope would let a mistake in one reach the other.
 
-So they share one Azure subscription and nothing else. See [ADR 0002](decisions/0002-separate-platform-and-target-infrastructure.md).
+They share an Azure subscription, with separate Terraform roots, state, resource groups, networks, and deployment identities. See [ADR 0002](decisions/0002-separate-platform-and-target-infrastructure.md).
 
 | Aspect | Platform | Targets |
 | --- | --- | --- |
@@ -206,8 +206,8 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Practice | What it covers | Lands with | State |
 | --- | --- | --- | --- |
 | Threat model | Threats per trust boundary, AI-specific threats, the control for each, residual risk, and the gap between this lab and production | Before platform compute, then updated with each decision | First pass written |
-| Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Built. Secret scanning, push protection, and a ruleset on `main` with four required checks |
-| Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Built. Seven checks on every pull request, four of them required |
+| Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Built. Secret scanning, push protection, and a ruleset on `main`. Required checks are documented in the [pipeline page](components/pipeline.md#repository-settings) |
+| Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Built. Seven checks on every pull request. The [pipeline page](components/pipeline.md#checks-on-every-pull-request) lists which are required |
 | Dependency updates | Automated pull requests that move the version pins | Platform compute | Configured. No update has been proposed yet |
 | Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Kubernetes benchmark run, one check accepted. The operating system has a Lynis audit with its findings triaged. No tool has a CIS profile for Ubuntu 26.04 yet, which is an accepted risk |
 | Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current through platform compute. Each long-lived credential on the VMs rotated once |
@@ -222,7 +222,7 @@ There is no compliance framework here. ISO 27001 and SOC 2 describe an organisat
 - **Operator:** Microsoft Entra ID sign-in through supported OIDC integrations, with no premium identity features assumed. One person investigates and approves. That is not separation of duties, and the project does not claim it is.
 - **Workloads:** collector, tool service, broker, delivery runner, and worker each have their own permissions. Delivery and repository credentials exist only in the `change` namespace.
 - **Jobs:** each job gets a random token at dispatch, scoped to one target and a list of tools, and dead when the job ends. Decided in [ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), not built.
-- **Cloud access from K3s:** none, and still open. Workload identity federation on a self-managed cluster needs its OIDC issuer document to be publicly reachable. A VM managed identity is simpler but is available to every process on that VM. Toolchain integration needs no cloud access, so the choice waits for the first workload that does.
+- **Cloud access from K3s:** none, and still open. Workload identity federation on a self-managed cluster needs publicly reachable OIDC issuer metadata and public signing keys, which can be hosted separately from the cluster. A VM managed identity is simpler but is available to every process on that VM. Toolchain integration needs no cloud access, so the choice waits for the first workload that does. See [ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md).
 
 ## Capacity
 

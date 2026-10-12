@@ -20,7 +20,7 @@ The lab is small. Its controls should not be. One node and one operator are capa
 | Keep reasoning per decision record | Nothing new | Coverage is whatever each record happened to think of. Gaps between records stay invisible |
 | One security review before the drills in milestone 6 | A findings list at the end | Finds problems when they are most expensive to fix. The drills test whatever came to mind that week |
 | A compliance framework: ISO 27001, SOC 2, or a full NIST CSF programme | Policies, roles, and audit evidence | These describe an organisation. With one operator they produce paperwork about people who do not exist. A mapping to one of them would be the same paperwork in a smaller font |
-| A threat model now, and technical baselines attached to the milestone that builds what they cover | One list of threats and controls, with checks in the exit gates | Costs a document before compute, and upkeep after |
+| A threat model now, and technical baselines attached to the milestone that builds what they cover | One list of threats and controls, with checks in the completion criteria | Costs a document before compute, and upkeep after |
 
 ## Decision
 

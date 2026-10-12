@@ -2,7 +2,7 @@
 
 Threats that exist because a model reads untrusted text and can act on it. They sit on top of the boundary threats in the [threat model](threat-model.md), and most of their controls arrive in milestone 3 with the tool services.
 
-The design's answer to most of these is the same: assume the attack works, and make sure a turned worker holds nothing and reaches nothing.
+The design's answer to most of these is the same: assume the worker is compromised, and limit its credentials, tool access, and network connections.
 
 | ID | Threat | Reference | Rating | Control | State | Gate | Residual |
 | --- | --- | --- | --- | --- | --- | --- | --- |
