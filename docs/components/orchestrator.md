@@ -25,7 +25,9 @@ The one trusted machine. It runs the cluster, routes for the mesh VPN, feeds the
 
 ## First boot
 
-cloud-init writes every configuration file, then one script does the rest in order: kernel settings, the segment size clamp, file modes, the mesh VPN agent from its signed repository, the proxy, K3s from a binary and an install script that are both checked against pinned checksums, and a key pair for feeding the other machines.
+cloud-init writes every configuration file, then one script does the rest in order: kernel settings, the segment size clamp, file modes, the mesh VPN agent from its signed repository, the proxy, K3s from a binary and an install script that are both checked against pinned checksums, two cluster settings the Kubernetes benchmark asks for, and a key pair for feeding the other machines.
+
+The two cluster settings wait for the API: no token on the default service account of each namespace K3s creates, and mode `600` on the certificate files. If the API never answers, the script stops and leaves no `/var/lib/aisec-first-boot.done`. This part is configured, not tested: it went into the template on 2026-10-12, after the running VM was built, and was applied there by hand.
 
 Custom data is ignored after creation. A change to the template does not reach a running VM. It takes a rebuild, or the same change by hand.
 
