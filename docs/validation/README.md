@@ -46,6 +46,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-12 | 94 of 94 passed | First run of the corrected script, at commit `a9ca766`. Whole-rule comparison in `Z.4` and `Z.5`, and `timeout` expected where a rule is the claim |
 | 2026-10-12 | 101 of 101 passed | First run with the seven `S` checks for the [model server](model-server.md) |
 | 2026-10-12 | 100 of 101 passed | After the model server restart that turned thinking off. `U.1` failed: three security updates published that day were pending on the orchestrator, before the next unattended run. The seven `S` checks passed |
+| 2026-10-13 | 100 of 101 passed | Baseline before the orchestrator rebuild. `U.5` failed: two security updates were pending on the worker. `U.1` passed again after the unattended run |
+| 2026-10-13 | 101 of 101 passed | After the [orchestrator rebuild](../worklogs/0002-platform-compute.md#orchestrator-rebuild) and an update run on both VMs. `K.5` and `K.6` passed on settings that first boot applied |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
@@ -66,7 +68,7 @@ The second run on 2026-10-12 adds the seven `S` checks, which brings the script 
 
 ## What the checks do not cover
 
-- **A rebuild of the orchestrator.** It was changed by hand to match its template, and whether the template builds the same machine is a different test. The worker has had that test: it was rebuilt from its template and passed every check.
+- **A rebuild of everything at once.** Each VM has been rebuilt from its template and passed every check, the worker on 2026-10-11 and the orchestrator on 2026-10-13. Both together, or from an empty subscription, has not been run.
 - **The target side.** No target exists yet.
 - **Anything a benchmark tool finds.** kube-bench and Lynis results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). The checks here hold the fixes in place.
 - **Clean Terraform plans.** `terraform plan -detailed-exitcode` needs each root's own identity. The [runbook](../runbooks/platform-compute.md) has that step.

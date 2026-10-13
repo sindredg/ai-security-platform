@@ -11,7 +11,6 @@ These have no control and no gate. They are carried on purpose.
 - **T31:** the bootstrap state has one copy off the operator machine, uploaded by hand after each apply. A forgotten upload leaves the copy behind the real thing, and a restore from it has not been run. Losing both costs imports, not resources.
 - **No CIS benchmark result for the operating system.** No tool has a CIS profile for Ubuntu 26.04 yet: not ComplianceAsCode 0.1.82, and not the vendor's Ubuntu Security Guide. A Lynis audit stands in. Run the CIS profile when either ships one.
 - **Push protection is not tested.** Secret scanning with push protection is read as enabled on the repository. No secret was pushed to see it refused, because a real secret must not go to a public repository and a fake one proves little. The secret scan in the pipeline has been seen to fire once, on a false positive.
-- **The orchestrator has not been rebuilt from its current template.** It was changed by hand to match cloud-init. The worker was rebuilt on 2026-10-11 and passed every [validation check](../validation/README.md), so the worker template is proven and the orchestrator's is not. An orchestrator rebuild takes a new mesh VPN key, a signed node, and K3s from nothing, and was not run. The first real one is the test.
 - **Eight advisories in the converter's packages.** None is reachable in how the model build uses them. The reason for each is [below](#advisories-in-the-converters-packages).
 - **The workstation:** out of scope. A deployment key taken from it is covered by T29.
 

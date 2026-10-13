@@ -460,7 +460,60 @@ The destroy took 57 seconds and the create 54. The network interface, the addres
 
 The rebuild found one gap in the procedure. Step 14 adds the worker's host key on the orchestrator only if no entry exists. After a rebuild an entry exists and is wrong, so the feed login fails on a changed host key. The rebuild steps remove the old entry first.
 
-What this does not show: the orchestrator's template. That rebuild needs a new mesh VPN key, a signed node, and K3s from nothing, and has not been run.
+What this does not show: the orchestrator's template. That rebuild needs a new mesh VPN key, a signed node, and K3s from nothing. It was run two days later. See [Orchestrator rebuild](#orchestrator-rebuild).
+
+## Orchestrator rebuild
+
+Run on 2026-10-13, on the live system. The running orchestrator had been changed by hand to match its template: the segment size clamp, the package proxy, the operating system hardening, and the two cluster settings. Whether the template builds that machine was a claim without a test. The procedure is in the [runbook](../runbooks/platform-compute.md#rebuild-the-orchestrator).
+
+The result that proves it was written down before the run: every platform check passes on the new VM, with `K.5` and `K.6` passing although runbook steps 17 and 18 were not run on it.
+
+Before the rebuild, at 19:58 UTC, the checks gave 100 of 101. `U.5` failed with two security updates pending on the worker. The image, K3s, and mesh VPN agent pins equalled the newest releases from the publishers.
+
+```bash
+terraform plan -replace='azurerm_linux_virtual_machine.vm["orchestrator"]' -out=platform.tfplan
+terraform apply platform.tfplan
+```
+
+```text
+Plan: 1 to add, 0 to change, 1 to destroy.
+```
+
+The plan named the orchestrator VM and nothing else. It replaced the administrator key with the one from the operator key rotation, which until then existed only on the running VMs. The apply's own output and timings were not kept.
+
+| Check | Result |
+| --- | --- |
+| VM | Created at 20:24:00 UTC from image `26.04.202610070`, same name and address |
+| Serial log | Cloud-init finished at 20:25:35 UTC, 78.1 seconds after boot |
+| Host key | New. The fingerprint in the serial log equals the one the orchestrator presents over the mesh VPN |
+| First boot | Marker file present, `status: done`, `/run/aisec` empty |
+| K3s | Node `Ready` on `v1.36.5+k3s1`, three `kube-system` pods `Running`, secrets encryption `Enabled` |
+| Cluster settings at first boot | `serviceaccount/default patched` four times in the serial log, after two tries that found no service account yet. The retry in the script is what made it pass |
+| Mesh VPN | Agent 1.104.1, held. The node joined as `aisec-orchestrator` with its tag, and both routes were served after approval |
+| Node signing | `This node is accessible under Tailnet Lock`. The signature is of kind `credential`: the node came in on a signed auth key and was not signed afterwards |
+| Services | `k3s`, `tailscaled`, `aisec-mss-clamp`, `squid` active. No failed unit |
+| Worker through the new proxy | `200` for the archive's release file |
+| Feed key | New. The worker's `authorized_keys` went from the old feed key to the new one, two lines before and after. Login from the orchestrator returned `aisec-worker` |
+| `sudo unattended-upgrade`, orchestrator | Installed `libx11-6`, `libx11-data`, `sudo`, `libpng16-16t64`, `libxml2-16`. Nothing left from the security suite, no restart required |
+| `sudo unattended-upgrade`, worker | Installed `libx11-6`, `libx11-data`. Nothing left from the security suite |
+| Staged inputs | 38 model server files, the converter source, and the agent runtime archive downloaded and verified again. `9.0G` |
+| `validation/platform-checks.sh` | 101 passed, 0 failed, at 20:50 UTC |
+| Idle use | 1077 MiB of 7881 used, 12 GB of disk with the staged inputs |
+
+What the rebuild shows:
+
+- **The template builds the machine the checks describe.** Nothing was installed or changed by hand on the new VM except the two things no template can do: the worker's trust in the new feed key, and the first update run.
+- **The cluster settings hold from first boot.** `K.5` and `K.6` passed without steps 17 and 18.
+- **A signed auth key joins a node under node signing.** No signing step after the join.
+- **The segment size clamp works from the template.** SSH to the worker through the new orchestrator worked on the first connection.
+
+What it does not show:
+
+- **kube-bench was not run on the new VM.** The 65 pass and 1 fail in the runbook is still a reasoned count. `K.5` and `K.6` read the two settings directly.
+- **Lynis was not run on the new VM.** The `HO` checks read the settings the audit led to, not the score.
+- **The cluster was empty.** Nothing had been deployed, so the rebuild says nothing about bringing workloads back.
+- **Signing a node after it joins** is still not run.
+- **The worker was out of reach during the rebuild.** How long was not measured.
 
 ## Bootstrap state copy
 
@@ -484,15 +537,15 @@ Not done: a restore. Nobody has downloaded the copy and planned against it.
 ## Limitations
 
 - **The benchmark profile is older than the cluster.** `k3s-cis-1.9` was written for K3s 1.27 to 1.29. The cluster runs 1.36. A newer profile does not ship with the tool.
-- **The running orchestrator differs from its template in how it got one fix.** The segment size clamp was installed by hand with the same content as the cloud-init template. A VM built from the template has not been booted with it.
+- **The first orchestrator got the segment size clamp by hand.** No longer the case: the VM was rebuilt from the template on 2026-10-13 and the clamp came with it. See [Orchestrator rebuild](#orchestrator-rebuild).
 - **The worker can open one connection to the orchestrator, to the package proxy.** Everything else is refused. Dispatch and results in milestone 3 still have to be initiated from the orchestrator, or get their own rule.
 - **The worker's updates depend on the proxy and on two hostnames.** If either changes, updates stop quietly. Nothing alerts on that yet.
 - **The targets have no update path.** The proxy is for the worker only. Milestone 4 decides how the targets are kept current.
 - **No CIS result for the operating system.** No tool ships a CIS profile for Ubuntu 26.04 yet. The audit that ran is not a CIS benchmark. Carried as an accepted risk in the [threat model](../security/accepted-risks.md#accepted-risks) until one does.
 - **No audit daemon, remote logging, or file integrity monitoring on either VM.** Open until the audit log decision in milestone 3.
-- **The hardening on the running orchestrator was applied by hand.** The operating system part has the same content as its template. The two cluster settings from runbook steps 17 and 18 were not in the template until 2026-10-12. The orchestrator has not been built from it. The worker has. See [Worker rebuild](#worker-rebuild).
+- **The hardening on the first orchestrator was applied by hand.** No longer the case. Both VMs have been rebuilt from their templates, the worker on 2026-10-11 and the orchestrator on 2026-10-13, and the two cluster settings from runbook steps 17 and 18 came from first boot. kube-bench and Lynis were not run again on the rebuilt orchestrator.
 - **Mesh VPN connections are relayed.** Fine for administration, slow for bulk transfer.
-- **Node signing was turned on after the orchestrator joined.** Enabling it signed the existing nodes. `tailscale lock status` on the orchestrator reports `Tailnet Lock is ENABLED` and a signature by the workstation's key, with two trusted signing keys. A rebuild is different: the new node has to be signed, and that path has not been run.
+- **Node signing was turned on after the first orchestrator joined.** Enabling it signed the existing nodes. The rebuilt orchestrator joined on a signed auth key. Signing a node after it joins has not been run.
 - **No encryption at host.** The feature is not registered on the subscription.
 - **The regional core quota is full.**
-- **Built once.** The runbook was written from this build. The worker has been rebuilt once. A rebuild of everything from scratch and a removal have not been run.
+- **Built once.** The runbook was written from this build. Each VM has been rebuilt once, on different days. A rebuild of everything from scratch and a removal have not been run.

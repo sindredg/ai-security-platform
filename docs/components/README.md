@@ -45,10 +45,10 @@ Every pin in one place. Checked against the official source on the date shown.
 | `hashicorp/azurerm` | 5.9.0 | `versions.tf` and the lock files | Dependabot, weekly | 2026-10-11 |
 | `hashicorp/azuread` | 3.10.0 | The same | Dependabot, weekly | 2026-10-11 |
 | `hashicorp/random` | 3.9.1 | The same | Dependabot, weekly | 2026-10-11 |
-| Ubuntu image | 26.04 LTS, `26.04.202610070` | `infra/platform/variables.tf` | By hand, and only at a rebuild | 2026-10-11 |
+| Ubuntu image | 26.04 LTS, `26.04.202610070` | `infra/platform/variables.tf` | By hand, and only at a rebuild | 2026-10-13 |
 | Ubuntu packages | Whatever the archive serves | Not pinned | Unattended upgrades, daily, security suite | |
-| Mesh VPN agent | 1.104.1 | `infra/platform/variables.tf`, held on the VM | By hand | 2026-10-11 |
-| K3s | `v1.36.5+k3s1` | `infra/platform/variables.tf`, with two checksums | By hand | 2026-10-11 |
+| Mesh VPN agent | 1.104.1 | `infra/platform/variables.tf`, held on the VM | By hand | 2026-10-13 |
+| K3s | `v1.36.5+k3s1` | `infra/platform/variables.tf`, with two checksums | By hand | 2026-10-13 |
 | Squid | 7.2 | Not pinned, see [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) | Unattended upgrades | 2026-10-11 |
 | kube-bench | 0.16.0 | The [runbook](../runbooks/platform-compute.md) | By hand, at each run | 2026-10-11 |
 | Lynis | 3.1.7 | The runbook | By hand, at each run | 2026-10-11 |

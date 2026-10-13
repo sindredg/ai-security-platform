@@ -27,13 +27,13 @@ The one trusted machine. It runs the cluster, routes for the mesh VPN, feeds the
 
 cloud-init writes every configuration file, then one script does the rest in order: kernel settings, the segment size clamp, file modes, the mesh VPN agent from its signed repository, the proxy, K3s from a binary and an install script that are both checked against pinned checksums, two cluster settings the Kubernetes benchmark asks for, and a key pair for feeding the other machines.
 
-The two cluster settings wait for the API: no token on the default service account of each namespace K3s creates, and mode `600` on the certificate files. If the API never answers, the script stops and leaves no `/var/lib/aisec-first-boot.done`. This part is configured, not tested: it went into the template on 2026-10-12, after the running VM was built, and was applied there by hand.
+The two cluster settings wait for the API: no token on the default service account of each namespace K3s creates, and mode `600` on the certificate files. If the API never answers, the script stops and leaves no `/var/lib/aisec-first-boot.done`. Tested on the live system: the VM was rebuilt from the template on 2026-10-13, and checks `K.5` and `K.6` passed with neither setting applied by hand. The first two tries found no service account yet, and the retry carried it. The failure path, an API that never answers, has not been seen on the live system.
 
 Custom data is ignored after creation. A change to the template does not reach a running VM. It takes a rebuild, or the same change by hand.
 
 ## Measured
 
-About 20 minutes after boot, with an empty cluster: 1.0 of 7.9 GiB memory used, CPU 98 to 99 % idle, 2.9 GB of disk. cloud-init finished 54 seconds after boot.
+About 20 minutes after boot, with an empty cluster: 1.0 of 7.9 GiB memory used, CPU 98 to 99 % idle, 2.9 GB of disk. cloud-init finished 54 seconds after boot. On the rebuild of 2026-10-13, with the two cluster settings in the script, it finished after 78 seconds.
 
 ## Validation
 
@@ -44,7 +44,7 @@ About 20 minutes after boot, with an empty cluster: 1.0 of 7.9 GiB memory used, 
 - **It is the supply chain.** What it pushes is what runs on the fed machines.
 - **A compromise of it is not contained.** It holds every credential that matters and reaches any host on port 443.
 - **No encryption at host.** The subscription feature is not registered.
-- **Not rebuilt from the current template.** The running VM got several changes by hand.
+- **Rebuilt once, with an empty cluster.** The [rebuild](../worklogs/0002-platform-compute.md#orchestrator-rebuild) on 2026-10-13 proves the template. It says nothing about bringing workloads back.
 
 ## Official documentation
 

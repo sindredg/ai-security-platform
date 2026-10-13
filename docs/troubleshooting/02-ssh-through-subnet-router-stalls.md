@@ -53,7 +53,7 @@ table inet aisec_mss {
 }
 ```
 
-The table is in `/etc/aisec/mss-clamp.nft`, loaded by `aisec-mss-clamp.service` before the mesh VPN agent starts. Both files come from the orchestrator's cloud-init. On the running orchestrator they were installed by hand with the same content, because the VM's custom data is not reapplied after creation.
+The table is in `/etc/aisec/mss-clamp.nft`, loaded by `aisec-mss-clamp.service` before the mesh VPN agent starts. Both files come from the orchestrator's cloud-init. On the orchestrator of that day they were installed by hand with the same content, because the VM's custom data is not reapplied after creation. The orchestrator was rebuilt from the template on 2026-10-13, and SSH to the worker through it worked on the first connection.
 
 The obvious alternative is to let the ICMP message through. That is the wrong trade here. A security group rule cannot select one ICMP type, so it would mean allowing all ICMP from the orchestrator into the worker and into every target subnet. The clamp fixes it in one place and opens nothing.
 
