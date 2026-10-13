@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Counts the server's lines of code and fails past the limit.
 
 ADR 0014 gives small a number: the server without its tools. A line counts
