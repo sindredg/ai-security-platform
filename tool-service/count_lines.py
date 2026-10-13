@@ -1,6 +1,6 @@
 """Counts the server's lines of code and fails past the limit.
 
-ADR 0014 gives small a number: the server without its tools. A line counts
+ADR 0016 gives small a number: the server without its tools. A line counts
 when it holds code. Blank lines, comments, and docstrings do not count. The
 tools directory and the tests are not the server.
 

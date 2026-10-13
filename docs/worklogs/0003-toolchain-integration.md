@@ -325,7 +325,7 @@ What else came out of it:
 | Goose sends `server/discover` before `initialize` | The service answers both |
 | After a 401, Goose asks eight OAuth discovery paths and posts to `/register` | The service refuses every path that is not the tool endpoint, with a line in the audit log for each |
 
-The pinned certificate is why [ADR 0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md) no longer has a private authority.
+The pinned certificate is why [ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md) drops the private authority that ADR 0013 had.
 
 ### What was written
 
@@ -351,7 +351,7 @@ Evidence is stored per target, and a job's scope names one target. Two jobs on t
 
 ### Size
 
-ADR 0014 gives small a number. The count is lines that hold code, in the server without its tools.
+ADR 0016 gives small the number 300. The count is lines that hold code, in the server without its tools.
 
 ```bash
 cd tool-service && python3 count_lines.py 300 aisec_tools/*.py
