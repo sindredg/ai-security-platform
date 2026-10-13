@@ -42,6 +42,6 @@ The short list, for a reader who opens only this page. Detail is in the topic pa
 
 1. **A compromised orchestrator is the end.** It holds every credential that matters and reaches any host on port 443. Accepted.
 2. **One operator.** One Azure account owns both sides and one GitHub account approves every change. Accepted.
-3. **The tool service is the wall, and it is designed but not built.** Every limit on the AI worker will end at one small custom service that reads hostile input. See [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md).
+3. **The tool service is the wall, and it is written but not deployed.** Every limit on the AI worker will end at one small custom service that reads hostile input. Its refusals are tested in the pipeline. Nothing about it is tested on the running system yet. See [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md).
 4. **Nothing watches the machines.** No audit daemon, no remote logs, no alerting.
 5. **Each VM has been rebuilt once, and never both together.** The worker and the orchestrator were each rebuilt from their templates and passed every check. A build of everything from nothing has not been run. Accepted.

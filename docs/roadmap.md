@@ -11,7 +11,7 @@ Security work has no milestone of its own. Each practice is part of the completi
 | 0. Documentation baseline and preflight | Done. [Worklog](worklogs/0000-azure-preflight.md) |
 | 1. Network foundation | Done, with one check carried to milestone 2. [Worklog](worklogs/0001-network-foundation.md) |
 | 2. Platform compute | Done, with three stated gaps. No CIS result for the operating system, because no tool supports the release yet. Push protection is configured and not tested. No dependency update has been proposed yet. [Worklog](worklogs/0002-platform-compute.md) |
-| 3. Toolchain integration | In progress. The model server runs on the worker, and the agent runtime runs headless against it with a fixture tool. [Worklog](worklogs/0003-toolchain-integration.md) |
+| 3. Toolchain integration | In progress. The model server runs on the worker, and the agent runtime runs headless against it with a fixture tool. The tool service is written and tested in the pipeline, and not deployed. [Worklog](worklogs/0003-toolchain-integration.md) |
 | 4. NetBox target and exercise 1 investigation | Planned |
 | 5. Remediation, pull requests, and delivery | Planned |
 | 6. Operational and containment drills | Planned |
@@ -85,7 +85,7 @@ If a candidate needs a substantial custom service to meet these criteria, replac
 
 ### Hostile-input tests for the tool service
 
-Planned, with the service. The tool service is the one piece of custom code that reads what a turned worker sends ([ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)). These cases are unit tests that live beside its code and run in the pipeline. They are not drills, and they do not add to the milestone's completion criteria: those criteria demonstrate the round trip on the running system, and the tests keep the edges from moving afterwards.
+Implemented in `tool-service/tests/`, with the service. The tool service is the one piece of custom code that reads what a turned worker sends ([ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)). These cases are unit tests that live beside its code and run in the pipeline. They are not drills, and they do not add to the milestone's completion criteria: those criteria demonstrate the round trip on the running system, and the tests keep the edges from moving afterwards.
 
 Every case ends the same way: the call is refused, nothing of the result goes back, and one audit line records the decision and the reason.
 

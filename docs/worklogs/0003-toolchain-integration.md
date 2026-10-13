@@ -5,19 +5,19 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices. Two are done: the model server on the AI worker, and the agent runtime running headless against it with a fixture tool. The gate is not met.
+The milestone is built in slices. Two are done on the system: the model server on the AI worker, and the agent runtime running headless against it with a fixture tool. A third is written and not deployed: the tool service, tested in the pipeline and on a workstation. The gate is not met.
 
 | Gate | Result |
 | --- | --- |
 | A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back | Open |
-| A tool call for another job or target is refused by the tool service | Open |
+| A tool call for another job or target is refused by the tool service | Open on the system. Tested in the service's own tests, where nothing is deployed |
 | Cancelling a workflow stops the worker job and cleans up its session | Open |
 | Model memory use, latency per turn, and tokens per second are measured on the chosen size | Met for the model server alone, and for one agent run beside it on a fixture. Not measured with a tool over the network |
 | Component footprint on the orchestrator is measured | Open |
 | The threat model covers dispatch, workload identity, and the AI-specific threats | Open |
 | Every image and every model input is pinned by digest and verified on the orchestrator | Met for the model server (38 files and one commit) and for the agent runtime (one file). No image exists yet |
-| Every tool call is logged with caller, job, and decision, out of the worker's reach | Open |
-| A revoked or expired job token is refused | Open |
+| Every tool call is logged with caller, job, and decision, out of the worker's reach | Open. The service prints the line, tested. Nothing stores it yet |
+| A revoked or expired job token is refused | Open on the system. Tested in the service's own tests |
 | A pod in a workload namespace cannot open a connection to the internet | Open |
 | The worker's journal is copied to the orchestrator on a schedule | Open |
 
@@ -276,3 +276,168 @@ The [platform checks](../validation/README.md) were run after the restart, at 17
 - The sandbox settings are the model server's, and nothing was taken out to make Goose run. Whether each one holds was not tested one by one: the score is the evidence, and a score is not a test.
 - Nothing dispatches a job. The run was started by hand, as root. The account, the forced command, and the job document of [ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md) are not built.
 - The validation script has no checks for the agent runtime yet.
+
+## Slice: the tool service
+
+The MCP server of [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) is written, with its tests and its place in the pipeline. It is not deployed. There is no image, no pod, no certificate on the orchestrator, and no rule for its port. Every result in this slice comes from a workstation or from the pipeline, and none from the running system.
+
+### Versions
+
+Read from PyPI, the Python release list, and the image registry on 2026-10-13.
+
+| Thing | Version | Pinned in |
+| --- | --- | --- |
+| Python | 3.15.0, released 2026-10-09 | The image digest in the checks workflow |
+| MCP SDK | 2.3.0, released 2026-10-02 | `tool-service/requirements.in` |
+| PyJWT, cryptography | 2.15.1 and 50.0.2 | The same file |
+| Starlette, Uvicorn, jsonschema, AnyIO | 1.8.0, 0.54.0, 4.26.0, 4.15.1 | The same file. The SDK needs all four, and the service imports them |
+| pytest | 9.1.1 | `tool-service/requirements-dev.in` |
+
+`requirements.txt` is compiled from `requirements.in` and holds 28 packages, each with its hashes. `requirements-dev.txt` adds 5 for the tests. The pipeline installs both with `--require-hashes`.
+
+Python 3.15.0 was four days old when it was pinned. Every package in the list ships a build for it, and the tests pass on it. A first release of a new Python line can still carry defects that a later patch release fixes. The pin is the newest stable release, and it moves with the next one.
+
+### What Goose needs, found before the service was written
+
+ADR 0014 named one thing the build had to show first: that the agent runtime speaks MCP over HTTP with TLS, a bearer token, and a restricted tool set. If it could not, the transport had to change before any code existed.
+
+Run on a workstation on 2026-10-13, with the pinned Goose 1.54.0 binary, against a stub tool server and a stub model server. The run was inside a network namespace with a loopback interface and nothing else. The expected result of each case was written down before the run.
+
+| Case | Expected | Result |
+| --- | --- | --- |
+| Certificate signed by a private authority, right token | The tool stub logs `initialize`, `tools/list`, and `tools/call`, each over TLS with the token. The model sees one tool | As expected. TLS 1.3 |
+| One self-signed certificate, not marked as an authority, right token | The same | As expected |
+| One self-signed certificate, marked as an authority | Not predicted | Refused by Goose. No request reaches the stub |
+| Wrong token | 401. No `tools/call`. The model sees no tool | As expected |
+| An authority the client does not trust | No request reaches the stub | As expected |
+| A name that is not in the certificate | No request reaches the stub | As expected |
+| No trust file given | No request reaches the stub | As expected |
+
+What else came out of it:
+
+| Finding | Consequence |
+| --- | --- |
+| `--no-profile` drops the extensions a recipe names. Goose ran with no tool and no error | The job runner leaves the option out. With an empty configuration directory the model still saw exactly one tool |
+| There is no command-line option for a request header | The token goes in a recipe file in the unit's private `/tmp`. Nothing on a command line holds it, which is what [ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md) asks for |
+| Goose copies the recipe, token included, into its session database | That file is under `GOOSE_PATH_ROOT`, in the same private `/tmp`, and is deleted with the unit |
+| `SSL_CERT_FILE` replaces the system's trust store | The agent trusts the tool service's certificate and nothing else |
+| A tool server that cannot be reached is a warning on standard error. Goose exits 0 and answers without the tool | The job runner has to treat that as a failed job. Not built |
+| Goose sends `server/discover` before `initialize` | The service answers both |
+| After a 401, Goose asks eight OAuth discovery paths and posts to `/register` | The service refuses every path that is not the tool endpoint, with a line in the audit log for each |
+
+The pinned certificate is why [ADR 0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md) no longer has a private authority.
+
+### What was written
+
+```text
+tool-service/aisec_tools/   The server: gate, job registry, registration, audit line, entry point
+tool-service/aisec_tools/tools/   The one tool, get_evidence
+tool-service/tests/         153 tests
+tool-service/count_lines.py The size check
+policies/tool-service.json  The rules
+```
+
+The service has two listeners, both with TLS 1.3 and the same certificate.
+
+- **The tool listener** is the one the worker reaches. A request passes two stages. The gate, in front of the SDK, decides who is calling: the path, the token, the size, and the shape of the message. The call handler, behind the SDK, decides what that job may do: the tool, the arguments against the policy's schema, the call limit, the result size, and whether the job is still alive when the tool returns. The handler is the authority, because it works on what the SDK parsed.
+- **The registration listener** is for the dispatch step. It takes a job's ID, target, tools, lifetime, and the SHA-256 digest of its token, and it revokes by job ID. The caller's service account token is checked offline against a public key.
+
+Two things the design did not have before the code:
+
+- **The SDK can refuse what the gate let through**, for example a request with another host name. The gate watches the reply and writes a refusal line for it, so no refusal goes unrecorded.
+- **`$` in a pattern lets a trailing newline through** in Python. The policy's patterns end with a lookahead that nothing follows, and a test holds every pattern in the file to that.
+
+Evidence is stored per target, and a job's scope names one target. Two jobs on the same target read the same evidence. That is enough for synthetic evidence. It is not enough once a collector writes evidence for one job.
+
+### Size
+
+ADR 0014 gives small a number. The count is lines that hold code, in the server without its tools.
+
+```bash
+cd tool-service && python3 count_lines.py 300 aisec_tools/*.py
+```
+
+```text
+    0  aisec_tools/__init__.py
+   52  aisec_tools/__main__.py
+   10  aisec_tools/audit.py
+  102  aisec_tools/gate.py
+   23  aisec_tools/http.py
+   55  aisec_tools/jobs.py
+   50  aisec_tools/registration.py
+  292  total, limit 300
+```
+
+The first version was 342 lines and the check failed it. What brought it down was moving rules out of the code: the shape of a message and of a registration are schemas in the policy file now, and the listeners and the registration caller are settings there. Run with a limit of 291, the check fails with "the server is 1 lines over the limit".
+
+Eight lines of room is not much. The next tool does not count, but the next feature of the server does.
+
+### Tests
+
+```bash
+cd tool-service && python -m pytest -q
+```
+
+Result: 153 passed, on Python 3.15.0 with the packages installed by hash, and on Python 3.12.3. Both on a workstation. The tests drive the two applications in one process, without a socket and without TLS.
+
+They cover each case in the roadmap's [hostile-input table](../roadmap.md#hostile-input-tests-for-the-tool-service), the registration caller, the tool on its own, the policy file, and the size check. Every refusal is held to the same three things: nothing of a result in the reply, exactly one audit line with the reason, and no token in the reply or the line.
+
+A test that cannot fail proves nothing, so each control was removed in turn in a copy of the service, and the tests were run against the copy. 27 changes, one at a time: the late result kept, a schema not checked, a revoked or expired token accepted, the call limit off, any path let through, the read without a limit, the caller's subject, audience, or issuer not checked, a token written to the audit line, and so on.
+
+| Run | Changes caught | Not caught |
+| --- | --- | --- |
+| First | 24 of 27 | The tool scope check, the declared length check, the algorithm list |
+| After two tests were fixed | 26 of 27 | The algorithm list |
+
+The first run found two tests that passed for the wrong reason. The out-of-scope tool did not exist as a function, so it was refused whether or not scope was checked. The oversized body was caught while reading, so nothing showed that the declared length was checked first. Both tests now fail when their control is removed.
+
+The one left: accepting `HS256` in the algorithm list changes nothing the tests can see. The key is held as a public key object, and PyJWT will not use that as a shared secret. The algorithm list is a second layer behind the first, and the test for that attack passes with either one in place.
+
+The tests also found a defect. PyJWT raises a `TypeError`, not one of its own errors, when a token's algorithm does not fit the key. A token signed with an RSA algorithm against an elliptic curve key crashed the registration handler. The algorithm now follows the type of the key, and the error is a refusal.
+
+### End to end, on a workstation
+
+The real service on Python 3.15.0, started as `python -m aisec_tools` with a self-signed certificate, the pinned Goose, and a stub model that asks for one piece of evidence. Inside a network namespace with loopback only, on 2026-10-13.
+
+Expected, written before the run: the job registers, Goose's answer holds the marker from the evidence file, and the audit log has one allowed call with the file's size. After the job is revoked, Goose gets no tool, the answer holds no marker, and the audit log has refusals and no call.
+
+| Step | Result |
+| --- | --- |
+| Register the job over TLS, with a signed caller token | 201 |
+| Register with the job's own token | 401 |
+| Offer TLS 1.2 to the tool listener | The handshake fails |
+| Goose run with the live token | Exit 0. The marker is in the answer. The model was offered one tool |
+| Revoke the job | 200 |
+| Goose run with the revoked token | Exit 0, with the warning that the tool server failed. No marker. The model was offered no tool |
+
+The audit log of that run, with the time and the digest left out:
+
+```text
+register  allowed  e2e-1  127.0.0.1
+request   refused         127.0.0.1                 caller not accepted
+call      allowed  e2e-1  127.0.0.1  get_evidence   result_bytes 295
+revoke    allowed  e2e-1  127.0.0.1
+request   refused  e2e-1  127.0.0.1                 revoked token
+request   refused         127.0.0.1                 not the tool endpoint   (nine lines)
+```
+
+295 is the size of the evidence file. The token and the marker appear nowhere in the log. The nine last lines are Goose looking for an OAuth server after the refusal.
+
+### The pipeline
+
+| Change | Status |
+| --- | --- |
+| Ruff lints `tool-service/` with more rules than the default set, and checks the formatting of every Python file | **Tested** locally with Ruff 0.17.0: no findings, 20 files formatted. Three files under `worker/` were reformatted to get there |
+| A new job counts the lines and runs the tests on the pinned Python image | **Configured, not tested** before the pull request. The same commands pass locally without the container |
+| The dependency scan covers the tool service's two package lists, and blocks | **Tested** locally with Trivy 0.75.0: 28 and 5 packages read, no finding, exit 0. A list with two old releases gave 18 findings and exit 1 |
+| Dependabot watches `tool-service/` | **Configured, not tested**. Whether it keeps the hashes in step is unknown until its first update |
+
+### Limits
+
+- Nothing is deployed. No image is built, and the pod limits, the network policies, the port rule, and the certificate do not exist. The gate rows in the summary stay open.
+- The audit line is printed. Nothing captures it or stores it out of the service's reach yet.
+- The offline check of a service account token was tested with keys made for the test. That K3s signs with a key this check accepts, and what its issuer is called, were reasoned and not observed. The issuer, audience, and account name in the policy file are placeholders until the deployment.
+- The end-to-end run had a stub for the model, no systemd sandbox, and one machine. The unit on the worker allows no address but localhost today.
+- Jobs live in memory. A restart of the service forgets every job, so every token stops working. That fails closed, and it ends running jobs.
+- Nothing limits the rate of refused requests before a token is checked, beyond sixteen connections at a time.
+- The job runner on the worker is not changed. It still starts Goose with the fixture and `--no-profile`.
