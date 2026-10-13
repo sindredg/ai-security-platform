@@ -44,4 +44,4 @@ The short list, for a reader who opens only this page. Detail is in the topic pa
 2. **One operator.** One Azure account owns both sides and one GitHub account approves every change. Accepted.
 3. **The tool service is the wall, and it is designed but not built.** Every limit on the AI worker will end at one small custom service that reads hostile input. See [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md).
 4. **Nothing watches the machines.** No audit daemon, no remote logs, no alerting.
-5. **The orchestrator has not been rebuilt.** Its template and the running machine agree only because the same text was applied by hand. The worker was rebuilt from its template and passed every check. Accepted.
+5. **Each VM has been rebuilt once, and never both together.** The worker and the orchestrator were each rebuilt from their templates and passed every check. A build of everything from nothing has not been run. Accepted.

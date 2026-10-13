@@ -1,6 +1,6 @@
 # Platform compute: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11. A rebuild from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md).
+Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md).
 
 Run these steps to build milestone 2: the public address policy, the NAT gateway, the orchestrator and AI worker VMs, the mesh VPN, and K3s. Never commit local values, plans, state, keys, or raw output.
 
@@ -69,7 +69,7 @@ The addresses below are the ones the configuration assigns: `10.40.0.4` for the 
 
    Expected: one key, shown once. Generate it right before step 8. It ends up in the VM's custom data and in state, which is why it has to be single use.
 
-   Node signing is on in this tailnet. A node that joins with a plain key is on the network and can talk to nothing until it is signed. Sign the key on a signing device with `tailscale lock sign <auth-key>` and use the longer key it prints, or sign the node after it joins. Neither has been run: this build turned signing on after the orchestrator had joined, which signed it.
+   Node signing is on in this tailnet. A node that joins with a plain key is on the network and can talk to nothing until it is signed. Sign the key on a signing device with `tailscale lock sign <auth-key>` and use the longer key it prints, or sign the node after it joins. The first build turned signing on after the orchestrator had joined, which signed it. The rebuild on 2026-10-13 joined with a signed key and needed nothing more. Signing a node after it joins has not been run.
 
 5. Store the key outside the repository until the apply.
 
@@ -236,7 +236,7 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
 
     Expected: the checksum line ends in `OK`. Before steps 17 and 18, the summary is 63 pass, 3 fail, 50 warn, 14 info, and the fails are 1.1.20, 1.2.26, and 5.1.5. After them it is 65 pass and 1 fail. Check 1.2.26 stays failed: this cluster has no etcd.
 
-    The first-boot script has applied steps 17 and 18 since 2026-10-12, so a build from the current template should show 65 pass and 1 fail on the first run. That is reasoned, not observed: no build has run with them in the template.
+    The first-boot script has applied steps 17 and 18 since 2026-10-12, so a build from the current template should show 65 pass and 1 fail on the first run. The count is reasoned, not observed. The orchestrator was rebuilt from that template on 2026-10-13 and the two settings were in place after first boot, read by checks `K.5` and `K.6`. kube-bench itself was not run on that build.
 
 ## Harden
 
@@ -360,6 +360,98 @@ Run once, on 2026-10-11, while the worker was empty. The commands are that run, 
 
     Expected: `0` packages left from the security suite, and every check passes. The environment the script needs is in [validation](../validation/README.md).
 
+## Rebuild the orchestrator
+
+Run once, on 2026-10-13. The commands are that run, condensed. Results are in the [worklog](../worklogs/0002-platform-compute.md#orchestrator-rebuild).
+
+A rebuild destroys everything on the orchestrator:
+
+| Lost | What brings it back |
+| --- | --- |
+| The cluster and everything deployed in it | First boot installs an empty K3s. Workloads have to be deployed again |
+| The mesh VPN node identity | A new auth key, and the routes approved again |
+| The feed key | First boot makes a new one. The worker has to trust it, step 29 |
+| The orchestrator's `known_hosts` | Step 29 |
+| The staged inputs under `~/feed`, about 9 GB | Step 31 |
+
+The worker keeps running, but it has no way out and cannot be reached while the orchestrator is gone: the mesh routes and the package proxy both live there. Do this when no job is running.
+
+26. Record a baseline and check the pins. Run `validation/platform-checks.sh`, then steps 1 and 2. Check the K3s and mesh VPN agent versions in `infra/platform/variables.tf` against the releases the publishers serve.
+
+    Expected: every check passes, or the failures are known. A newer pin is a pull request first, not a step.
+
+27. Generate a new auth key as in step 4 and sign it on a signing device. Plan with the key in the environment, and read the plan before going on. Run in `infra/platform` as the platform identity.
+
+    ```bash
+    source "$CRED_DIR/platform.env"
+    export TF_VAR_tailscale_auth_key='REPLACE_WITH_SIGNED_AUTH_KEY'
+    [ -n "$TF_VAR_tailscale_auth_key" ] && echo set
+    terraform init -backend-config=backend.hcl
+    terraform plan -replace='azurerm_linux_virtual_machine.vm["orchestrator"]' -out=platform.tfplan
+    ```
+
+    Expected: `set`, then `1 to add, 0 to change, 1 to destroy`, and the only resource is the orchestrator VM. If the plan names anything else, stop.
+
+    The plan shows `custom_data` as `(sensitive value)`, so it cannot tell whether the key is in it. That is what the `set` line is for. A VM built with an empty key boots and never joins the mesh.
+
+    The plan also shows a changed `admin_ssh_key` if the operator key was rotated since the last build. The key in the plan has to be the one the workstation logs in with.
+
+28. Remove the old `aisec-orchestrator` node in the mesh VPN admin console, then apply. Access to both VMs is gone from here until the routes are approved.
+
+    ```bash
+    terraform apply platform.tfplan
+    rm -f platform.tfplan
+    unset TF_VAR_tailscale_auth_key
+    ```
+
+    Expected: `1 added, 0 changed, 1 destroyed`. Then approve both routes of the new node in the admin console, as in step 11. If the old node is still listed, the new one joins under a different name.
+
+29. Take the new host key from the serial log, then swap the feed key on the worker. Run as the operator. First boot takes about 80 seconds.
+
+    ```bash
+    az vm boot-diagnostics get-boot-log -g rg-aisec-platform -n vm-aisec-orchestrator -o tsv \
+      | grep -a -o 'SHA256:[A-Za-z0-9+/]* root@aisec-[a-z]* (ED25519)' | sort -u
+    grep -v '^10.40.0.4 ' "$KNOWN_HOSTS" > "$KNOWN_HOSTS.new"
+    ssh-keyscan -T 10 -t ed25519 10.40.0.4 >> "$KNOWN_HOSTS.new"
+    mv "$KNOWN_HOSTS.new" "$KNOWN_HOSTS"
+    ssh-keygen -lf "$KNOWN_HOSTS"
+
+    FEED_KEY="$(ssh $SSH_OPTS aisec@10.40.0.4 'cat ~/.ssh/aisec-feed.pub')"
+    ssh $SSH_OPTS aisec@10.40.0.36 "sed -i '/ aisec-feed\$/d' ~/.ssh/authorized_keys &&
+      echo '$FEED_KEY' >> ~/.ssh/authorized_keys && grep -c . ~/.ssh/authorized_keys"
+    WORKER_KEY="$(grep '^10.40.0.36 ' "$KNOWN_HOSTS" | sed 's/^10.40.0.36/aisec-worker,10.40.0.36/')"
+    ssh $SSH_OPTS aisec@10.40.0.4 "echo '$WORKER_KEY' >> ~/.ssh/known_hosts &&
+      ssh -i ~/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes aisec@aisec-worker hostname"
+    ```
+
+    Expected: the orchestrator's fingerprint from the scan equals the one from the serial log. Then `2`, the operator key and the new feed key, and `aisec-worker`. The old feed key's private half died with the old VM, and its line is removed here so the worker trusts nothing that no longer exists.
+
+30. Confirm first boot and node signing, then install the pending updates on both VMs.
+
+    ```bash
+    ssh $SSH_OPTS aisec@10.40.0.4 '
+      ls /var/lib/aisec-first-boot.done; cloud-init status; sudo ls /run/aisec
+      sudo k3s kubectl get nodes
+      sudo tailscale lock status | head -4'
+    ```
+
+    Expected: the marker file, `status: done`, an empty `/run/aisec`, the node `Ready`, and `This node is accessible under Tailnet Lock`. If the node is locked out, sign it from a signing device with `tailscale lock sign <node-key>`. That fallback has not been run.
+
+    Then run step 20 on the orchestrator and the last two lines of step 21 on the worker.
+
+    Expected: nothing left from the `-security` suite on either VM.
+
+31. Stage the inputs again, then run every check.
+
+    Run step 2 and step 3 of the [model server runbook](model-server.md), and step 2 and the download half of step 3 of the [agent runtime runbook](agent-runtime.md). Do not push: the worker still has its model and its agent runtime.
+
+    ```bash
+    ssh $SSH_OPTS aisec@10.40.0.4 'du -sh feed'
+    validation/platform-checks.sh
+    ```
+
+    Expected: one `ok` line per file, about `9.0G`, and every check passes. `K.5` and `K.6` pass without steps 17 and 18, because first boot applies both.
+
 ## Rotate a credential
 
 Each rotation was run once on 2026-10-11. The commands are that run, condensed. Each ends by proving that the old credential no longer works.
@@ -447,5 +539,6 @@ Expected: a different `nodekey:` value from before, an empty `/run/aisec`, and `
 
 - A CIS benchmark run for the operating system. No tool has a profile for this release yet. `sudo pro enable usg` on an attached machine says so.
 - Updates for the targets. The package proxy serves the worker only.
-- A build with node signing already on. See step 4.
+- Signing a node after it has joined. The rebuild used a signed key. See step 4.
+- A rebuild of both VMs at once, or of everything from an empty subscription.
 - Removal. Destroying the VMs and the NAT gateway has not been run.

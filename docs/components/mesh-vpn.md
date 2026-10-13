@@ -76,7 +76,7 @@ The provider's default policy allows everything, and that default was in place u
 - **Connections are relayed.** A NAT gateway prevents direct connections. Fine for a shell, slow for bulk.
 - **The access policy and the signing setup are console settings.** Nothing in the repository can rebuild them.
 - **The agent version is held.** It gets no security fix until someone moves the pin.
-- **A rebuild with node signing on has not been run.**
+- **Signing a node after it joins has not been run.** The orchestrator rebuild on 2026-10-13 joined on a signed auth key, which needs no step afterwards.
 - **The agent uploads its own logs to the vendor.** On 2026-10-12 `tailscaled` held a connection to the vendor's log host on port 443. The agent runs with no extra flags, so the upload is on. Whether to turn it off is not decided.
 
 ## Official documentation
