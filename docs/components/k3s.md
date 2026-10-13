@@ -41,6 +41,8 @@ Namespaces keep things tidy. They are not a wall against malicious code, and not
 
 kube-bench 0.16.0 with the `k3s-cis-1.9` profile: 65 pass, 1 fail, 50 warn, 14 info. The one fail asks for an etcd flag, and there is no etcd. Details are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md#kubernetes-benchmark).
 
+That run was on 2026-10-11, on the orchestrator that was replaced on 2026-10-13. It has not been repeated on the new one. The `K` checks, which hold the fixes in place, passed there.
+
 ## Validation
 
 `K` in the [validation pages](../validation/cluster.md).
