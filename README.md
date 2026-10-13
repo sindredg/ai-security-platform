@@ -64,3 +64,7 @@ The [roadmap](docs/roadmap.md#status) holds the state of every milestone and wha
 - Not production. One node, one operator, no high availability, no compliance claim.
 - Not real data. All inventory in the target is synthetic.
 - Not protection from the cloud provider. The design trusts Azure and the platform administrator, and says so. See [trust boundaries](docs/architecture.md#trust-boundaries).
+
+## License
+
+[MIT](LICENSE).
