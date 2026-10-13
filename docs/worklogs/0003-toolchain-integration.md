@@ -427,8 +427,8 @@ request   refused         127.0.0.1                 not the tool endpoint   (nin
 
 | Change | Status |
 | --- | --- |
-| Ruff lints `tool-service/` with more rules than the default set, and checks the formatting of every Python file | **Tested** locally with Ruff 0.17.0: no findings, 20 files formatted. Three files under `worker/` were reformatted to get there |
-| A new job counts the lines and runs the tests on the pinned Python image | **Configured, not tested** before the pull request. The same commands pass locally without the container |
+| Ruff lints `tool-service/` with more rules than the default set, and checks the formatting of every Python file | **Tested** locally and in the pipeline with Ruff 0.17.0. Three files under `worker/` were reformatted to get there. The pipeline failed the first push on a shebang in a file that is not executable, which the local run cannot see on a file system without executable bits |
+| A new job counts the lines and runs the tests on the pinned Python image | **Tested** in the pipeline on the pull request: 292 lines against the limit of 300, and 153 passed, in the container |
 | The dependency scan covers the tool service's two package lists, and blocks | **Tested** locally with Trivy 0.75.0: 28 and 5 packages read, no finding, exit 0. A list with two old releases gave 18 findings and exit 1 |
 | Dependabot watches `tool-service/` | **Configured, not tested**. Whether it keeps the hashes in step is unknown until its first update |
 
