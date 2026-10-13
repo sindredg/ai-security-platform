@@ -8,6 +8,7 @@ timings, then a summary. Standard library only.
 
 Usage: measure.py [--runs N] [--url URL]
 """
+
 import argparse
 import json
 import statistics
@@ -53,7 +54,12 @@ EVIDENCE = json.dumps(
         "collected": "2026-10-11T12:00:00Z",
         "token": "consumer-readonly",
         "contract_object_types": ["dcim.device", "ipam.prefix"],
-        "granted_object_types": ["dcim.device", "ipam.prefix", "tenancy.contact", "circuits.circuit"],
+        "granted_object_types": [
+            "dcim.device",
+            "ipam.prefix",
+            "tenancy.contact",
+            "circuits.circuit",
+        ],
         "write_access": False,
     }
 )
@@ -123,7 +129,9 @@ def exchange(url, mode, run, rows):
     ok = False
     if len(calls) == 1 and calls[0]["function"]["name"] == "get_evidence":
         try:
-            ok = json.loads(calls[0]["function"]["arguments"]) == {"reference": "ev-0001"}
+            ok = json.loads(calls[0]["function"]["arguments"]) == {
+                "reference": "ev-0001"
+            }
         except ValueError:
             ok = False
     record(rows, mode, run, "tool call", reply, wall, ok)
@@ -131,8 +139,20 @@ def exchange(url, mode, run, rows):
         print(json.dumps({"unexpected": message}), flush=True)
         return
 
-    messages.append({"role": "assistant", "content": message.get("content") or "", "tool_calls": calls})
-    messages.append({"role": "tool", "tool_call_id": calls[0].get("id", "call_0"), "content": EVIDENCE})
+    messages.append(
+        {
+            "role": "assistant",
+            "content": message.get("content") or "",
+            "tool_calls": calls,
+        }
+    )
+    messages.append(
+        {
+            "role": "tool",
+            "tool_call_id": calls[0].get("id", "call_0"),
+            "content": EVIDENCE,
+        }
+    )
     # No tools on this turn: the server refuses a response schema together with
     # tool definitions ("failed to parse grammar").
     reply, wall = chat(
@@ -142,7 +162,11 @@ def exchange(url, mode, run, rows):
             "messages": messages,
             "response_format": {
                 "type": "json_schema",
-                "json_schema": {"name": "verdict", "strict": True, "schema": VERDICT_SCHEMA},
+                "json_schema": {
+                    "name": "verdict",
+                    "strict": True,
+                    "schema": VERDICT_SCHEMA,
+                },
             },
         },
     )
@@ -173,7 +197,9 @@ def main():
             exchange(args.url, mode, run, rows)
 
     print()
-    print("| Mode | Turn | Correct | Prompt tokens | Output tokens | Prompt tokens/s | Output tokens/s | Seconds per turn |")
+    print(
+        "| Mode | Turn | Correct | Prompt tokens | Output tokens | Prompt tokens/s | Output tokens/s | Seconds per turn |"
+    )
     print("| --- | --- | --- | --- | --- | --- | --- | --- |")
     for mode in ("no thinking", "thinking"):
         for turn in ("tool call", "verdict"):

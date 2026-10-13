@@ -14,6 +14,7 @@ Only the agent's last message is searched. The tool's answer holds the same
 two names, so a search of the whole transcript would pass an agent that said
 nothing. Standard library only.
 """
+
 import json
 import sys
 
@@ -40,7 +41,9 @@ def main():
                 calls.append((value.get("name"), value.get("arguments")))
             elif kind == "toolResponse":
                 result = part.get("toolResult") or {}
-                if result.get("status") != "success" or (result.get("value") or {}).get("isError"):
+                if result.get("status") != "success" or (result.get("value") or {}).get(
+                    "isError"
+                ):
                     tool_errors += 1
             elif kind == "text":
                 texts.append(part.get("text") or "")
