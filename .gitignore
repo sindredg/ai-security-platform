@@ -24,3 +24,7 @@ kubeconfig
 
 # Backend settings that name real resources
 backend.hcl
+
+# Python
+__pycache__/
+.pytest_cache/

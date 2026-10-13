@@ -1,0 +1,10 @@
+# The tool service reads hostile input on the trusted machine, so it gets more
+# rules than the default set: bugbear, the security rules, and import order.
+extend = "../ruff.toml"
+
+[lint]
+extend-select = ["B", "S", "I", "UP"]
+
+[lint.per-file-ignores]
+# Tests assert, and they hold made-up tokens.
+"tests/*" = ["S101", "S105", "S106"]
