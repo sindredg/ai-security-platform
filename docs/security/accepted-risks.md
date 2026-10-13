@@ -4,7 +4,7 @@
 
 These have no control and no gate. They are carried on purpose.
 
-- **T05:** a compromised orchestrator can send anything anywhere on port 443, and in cleartext on port 80. [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) denies egress to pods, which will narrow this to root on the host once it is built. Closing port 80 was tried and costs more than it removes. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
+- **T05:** a compromised orchestrator can send anything anywhere on TCP 443, in cleartext on TCP 80, and on any UDP port. The UDP rule exists for the mesh agent's direct connections, which never succeed behind the NAT gateway. [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) denies egress to pods, which will narrow this to root on the host once it is built. Closing port 80 was tried and costs more than it removes. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
 - **T15, T30:** a takeover of the operator's GitHub or Azure account defeats the design.
 - **Provider compromise:** Azure, GitHub, and the mesh VPN provider are trusted.
 - **Single approver:** nobody checks the operator.
@@ -13,6 +13,7 @@ These have no control and no gate. They are carried on purpose.
 - **Push protection is not tested.** Secret scanning with push protection is read as enabled on the repository. No secret was pushed to see it refused, because a real secret must not go to a public repository and a fake one proves little. The secret scan in the pipeline has been seen to fire once, on a false positive.
 - **Eight advisories in the converter's packages.** None is reachable in how the model build uses them. The reason for each is [below](#advisories-in-the-converters-packages).
 - **The workstation:** out of scope. A deployment key taken from it is covered by T29.
+- **The tool service's certificate is trusted because it was copied, not because anyone signed it.** One self-signed certificate, pinned on the worker ([ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md)). There is no revocation. A stolen key is answered by a new certificate and a new copy.
 
 ## Advisories in the converter's packages
 
@@ -54,6 +55,9 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 | --- | --- | --- |
 | Cloud identity for cluster workloads | T36 | Milestone 4 |
 | Operator sessions to targets in the audit log | T04 | Milestone 4 |
+| Evidence written for one job is readable by the next job on the same target. The tool service stores evidence per target | T16, T19 | Milestone 4, with the first collector |
+| Requests without a valid token are refused one by one, and nothing slows them down | T20 | Milestone 3, with the deployment |
+| How the targets get packages and stay current | T09 | Milestone 4 |
 | Log upload from the mesh agent to its vendor. On by default, [seen on the orchestrator](../components/mesh-vpn.md#limits) | No entry yet | Milestone 4 |
 | What the broker allows into a pull request | A5 | Milestone 5 |
 | Repository app permissions | T12 | Milestone 5 |
