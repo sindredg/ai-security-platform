@@ -32,7 +32,7 @@ Secret scanning with push protection is on. The ruleset `protect-main` refuses d
 - **One person approves their own pull requests.**
 - **Push protection is read as enabled, not tested with a pushed secret.**
 - **The secret scan has false positives.** A `curl -u` with a command substitution was flagged once.
-- **The dependency scan does not block.** The converter's packages follow llama.cpp's own pins, so an advisory in them has no fix here short of leaving upstream's list. On 2026-10-12, `trivy fs --scanners vuln` (0.75.0) on those pins listed 8 advisories, 5 of them high: 5 in `transformers` 4.57.6 and one each in `protobuf`, `setuptools`, and `torch`. The packages run once per model build, with no network. None of the eight is reachable in that build, and each is [accepted with its reason](../security/accepted-risks.md#advisories-in-the-converters-packages).
+- **The dependency scan does not block for the converter's packages.** It blocks for the tool service's. The converter's packages follow llama.cpp's own pins, so an advisory in them has no fix here short of leaving upstream's list. On 2026-10-12, `trivy fs --scanners vuln` (0.75.0) on those pins listed 8 advisories, 5 of them high: 5 in `transformers` 4.57.6 and one each in `protobuf`, `setuptools`, and `torch`. The packages run once per model build, with no network. None of the eight is reachable in that build, and each is [accepted with its reason](../security/accepted-risks.md#advisories-in-the-converters-packages).
 - **Dependabot cannot see every pin.** See the version table in the [index](README.md#versions).
 
 ## Official documentation

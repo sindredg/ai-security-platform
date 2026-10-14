@@ -29,7 +29,7 @@ The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.
 | Orchestrator | Inbound | Allow | TCP 3128 from the worker subnet | `allow-package-proxy-from-worker` |
 | Orchestrator | Outbound | Allow | TCP 22 to the worker subnet and the target network | `allow-ssh-to-worker`, `allow-ssh-to-targets` |
 | Orchestrator | Outbound | Allow | TCP 443 and 80 to the internet | `allow-https-to-internet`, `allow-http-to-internet` |
-| Orchestrator | Outbound | Allow | The UDP the mesh agent uses | `allow-mesh-stun`, `allow-mesh-direct` |
+| Orchestrator | Outbound | Allow | UDP for the mesh agent: port 3478, and every port to the internet for direct connections | `allow-mesh-stun`, `allow-mesh-direct` |
 | Worker | Inbound | Deny | Anything from the target network | `deny-from-targets` |
 | Worker | Inbound | Allow | TCP 22 from the orchestrator subnet | `allow-ssh-from-orchestrator` |
 | Worker | Outbound | Deny | The target network, the internet, Azure DNS | `deny-to-targets`, `deny-to-internet`, `deny-to-azure-dns` |
@@ -46,6 +46,7 @@ The orchestrator has no inbound allow for administration. That arrives inside th
 
 - **The gateway bills by the hour whether or not a VM runs.**
 - **The orchestrator's egress is not filtered by hostname.** That takes a firewall that costs more than the VMs.
+- **Every UDP port is open to the internet from the orchestrator.** The rule is there for the mesh agent's direct connections, which never succeed behind the NAT gateway. It widens what a compromised orchestrator can send, for no gain.
 - **Port 80 is open as well as 443.** Only the package mirrors need it. Closing it was tried and failed. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
 - **Platform endpoints are not the internet and stay reachable.**
 

@@ -1,6 +1,6 @@
 # Decision records
 
-One record per consequential architecture choice. A record states the context, the options considered, the decision, and its trade-offs. A decision that changes gets a new record, and the old one is marked superseded.
+One record per consequential architecture choice. A record states the context, the options considered, the decision, and its trade-offs. A decision that changes gets a new record, and the old one is marked superseded. When a later record changes one part of an earlier one, the earlier record keeps its text and gets a sentence that points to the later one.
 
 | Record | Decision | Status |
 | --- | --- | --- |
@@ -19,6 +19,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0013](0013-a-token-per-job-and-no-cloud-identity-yet.md) | A token per job for tool calls, and no cloud identity for workloads yet | Accepted |
 | [0014](0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) | A small custom tool service, and an audit log on the orchestrator | Accepted |
 | [0015](0015-build-the-model-file-on-the-worker.md) | Build the model file on the worker, from the publisher's weights | Accepted |
+| [0016](0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md) | A pinned certificate, an offline caller check, and a line limit for the tool service. Replaces the private authority in 0013 | Accepted |
 
 ## Format
 

@@ -28,7 +28,8 @@ Candidates, not selections. Each has something to prove first.
 | Role | Candidate | Has to prove | Milestone |
 | --- | --- | --- | --- |
 | Workflow engine and UI | Argo Workflows | Dispatch to the worker VM, restart recovery, footprint | 3 |
-| Agent runtime | Goose 1.54.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. Still to prove: a tool over the network, and a result held to a schema | 3 |
+| Agent runtime | Goose 1.54.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A tool over TLS with a job token is shown on a workstation, not on the worker. Still to prove: that on the worker, and a result held to a schema | 3 |
+| Tool service | A small MCP server written for this project. Written and tested in the pipeline, not deployed ([security page](../security/tool-service.md)) | The image, the pod limits, the port rule, and one authorized call from the worker on the running system | 3 |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far | 3 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
@@ -55,10 +56,11 @@ Every pin in one place. Checked against the official source on the date shown.
 | llama.cpp | Build `b11429` | `worker/model-server/pins.env` and `artifacts.tsv`, with a checksum | By hand | 2026-10-11 |
 | Model | Qwen3.5-4B, revision `851bf6e8`, built to `Q4_K_M` on the worker | `worker/model-server/artifacts.tsv`, with a checksum per file | By hand | 2026-10-11 |
 | Converter packages | 27, PyTorch 2.11.0 the largest | `worker/model-server/artifacts.tsv` and `converter-requirements.txt` | By hand. Used only during a build | 2026-10-11 |
+| Goose | 1.54.0, one static binary | `worker/agent-runtime/pins.env` and `artifacts.tsv`, with a checksum | By hand | 2026-10-12 |
 | `actions/checkout` | v7.0.1, by commit | The checks workflow | Dependabot, weekly | |
-| Checkov, Trivy, gitleaks images | By digest | The checks workflow | By hand | |
+| Checkov, Trivy, gitleaks images | 3.3.27, 0.75.0, and 8.30.1, by digest | The checks workflow | By hand | |
 | ShellCheck, Ruff images | 0.11.0 and 0.17.0, by digest | The checks workflow | By hand | 2026-10-12 |
 | Python image | 3.15.0, slim, by digest. Runs the tool service tests | The checks workflow | By hand | 2026-10-13 |
 | Tool service packages | 28, with the MCP SDK 2.3.0, PyJWT 2.15.1, and cryptography 50.0.2 | `tool-service/requirements.in`, compiled to `requirements.txt` with hashes | Dependabot, weekly | 2026-10-13 |
 
-Nine rows move by hand and nothing reminds anyone: Terraform, the image, the mesh VPN agent, K3s, the scanner and linter images, the Python image, llama.cpp, the model, and the converter packages. The mesh VPN agent, K3s, and llama.cpp are the three that matter, because they run all the time and get no security fix until the pin moves. Re-check this table at the start of each milestone.
+Ten kinds of pin move by hand and nothing reminds anyone: Terraform, the image, the mesh VPN agent, K3s, the scanner and linter images, the Python image, llama.cpp, Goose, the model, and the converter packages. The mesh VPN agent, K3s, and llama.cpp are the three that matter most, because they run all the time and get no security fix until the pin moves. Goose runs for every job. Re-check this table at the start of each milestone.

@@ -27,14 +27,14 @@ Use Tailscale. Its agent runs on the orchestrator VM and on the operator's works
 
 - The orchestrator advertises the platform and target address ranges as a subnet router. The other VMs need no agent.
 - The operator uses SSH with key authentication to each VM's private address, and reaches the Argo interface the same way.
-- The mesh access policy limits access to the operator's signed-in devices.
+- The mesh access policy limits access to the operator's signed-in devices. Since 2026-10-11 it also limits them to two ports, and node signing keeps the provider from adding a device by itself. Both are on the [mesh VPN page](../components/mesh-vpn.md).
 - The agent's auth key is a secret. It is supplied at provisioning time and never committed.
 - No VM gets a public IP for administration, and no network rule names an operator address.
 
 ## Trade-offs
 
 - **A third party joins the trust boundary.** Tailscale's coordination service handles device identity and key exchange. Traffic is encrypted between devices and the service does not see it in the clear.
-- **The orchestrator needs outbound internet** for the agent. That is part of the egress design, which is still open.
+- **The orchestrator needs outbound internet** for the agent. That is part of the egress design, which is still open. [0009](0009-one-egress-point-on-the-orchestrator-subnet.md) settled it the next day.
 - **The orchestrator is the only way in.** If it is down, the other VMs are reachable only through the provider's serial console or run-command features.
 - **Operator sessions to targets arrive from the orchestrator's address.** The subnet router translates source addresses, so target network rules cannot tell an operator from a collector by address. Port and credential separate them instead.
 - **The orchestrator forwards packets.** That widens what a compromise of it can reach. It already holds the platform's most sensitive credentials, so this does not create a new most-trusted machine. It makes the existing one matter slightly more.

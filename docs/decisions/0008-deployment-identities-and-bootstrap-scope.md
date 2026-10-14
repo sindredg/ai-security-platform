@@ -47,7 +47,7 @@ The bootstrap root, run by the operator, owns everything a scoped identity canno
 - **Two private keys sit on the workstation.** File permissions protect them, nothing more. Whoever reads a key file is that deployment identity until the certificate is removed or expires.
 - **Certificates expire.** The end date is set at bootstrap. Rotation is a new key pair and a bootstrap apply. Miss it and the root stops authenticating.
 - **The boundary has one deliberate hole.** Each side can name the other's network as a peering partner. It cannot read or change it, and a one-sided peering carries no traffic.
-- **Contributor on a resource group is broad.** An identity can create anything inside its own group, including a public IP address. Nothing outside the root stops that yet.
+- **Contributor on a resource group is broad.** An identity can create anything inside its own group, including a public IP address. Nothing outside the root stops that yet. [0009](0009-one-egress-point-on-the-orchestrator-subnet.md) closed most of it with two policies assigned from the bootstrap root.
 - **New role assignments need the operator.** A root that later needs a managed identity with a role has to get that assignment from the bootstrap root.
 - **Losing the bootstrap state now costs more.** It holds the identities and assignments as well as the accounts. Everything in it can still be imported.
 - **The operator still spans both sides.** As in 0002 and 0006, the separation constrains automation and workloads, not the Owner.

@@ -27,7 +27,7 @@ There is a practical reason too. Inference is the biggest CPU and memory consume
 Run the agent runtime and the model server on a separate VM that is not a Kubernetes node.
 
 - The worker VM has no cluster credentials and no privileged cloud identity.
-- Network rules let it reach the tool services on the orchestrator and nothing else.
+- Network rules let it reach the tool services on the orchestrator and nothing else. [0011](0011-package-proxy-for-the-worker.md) later added one more destination on the orchestrator: a package proxy.
 - Jobs arrive through a narrow, authenticated dispatch interface that carries a job scope and returns a schema-checked result.
 - One job at a time, one loaded model.
 
