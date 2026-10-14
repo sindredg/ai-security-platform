@@ -22,11 +22,11 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Tool service image | hadolint on the Dockerfile, a build from the pinned base image, and a Trivy scan of the image that blocks on any finding with a fix. On `main`, the job pushes the image to the repository's package registry and writes its digest to the run summary |
 | Dependency scan | Trivy over the converter's Python pins: reports, never blocks. Trivy over the tool service's pins: blocks |
 
-The first six are required by the ruleset on `main`. The tool service tests, the image job, and the dependency scan run on every pull request and are not in the ruleset. The image job is the only job with write permission. It can write packages to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
+All but the dependency scan are required by the ruleset on `main`. The dependency scan runs on every pull request and does not block a merge. The image job is the only job with write permission. It can write packages to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
 
 ## Repository settings
 
-Secret scanning with push protection is on. The ruleset `protect-main` refuses deletion and force pushes, and requires a pull request with the six checks.
+Secret scanning with push protection is on. The ruleset `protect-main` refuses deletion and force pushes, and requires a pull request with every check above except the dependency scan. Read from the ruleset on 2026-10-14.
 
 ## Limits
 
