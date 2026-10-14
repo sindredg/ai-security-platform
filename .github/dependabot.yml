@@ -30,3 +30,13 @@ updates:
     groups:
       terraform-providers:
         patterns: ["*"]
+
+  # requirements.txt is compiled from requirements.in with hashes. An update
+  # has to move both files, and the pipeline installs with --require-hashes.
+  - package-ecosystem: pip
+    directory: /tool-service
+    schedule:
+      interval: weekly
+    groups:
+      tool-service:
+        patterns: ["*"]

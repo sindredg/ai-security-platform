@@ -17,10 +17,11 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Trivy | Terraform misconfigurations, a second opinion |
 | Secret scan | gitleaks over the whole history |
 | ShellCheck | Every shell script under `worker/` and `validation/`. They run as root on the VMs |
-| Ruff | All Python files under `worker/`, with the default rules of the pinned release |
-| Dependency scan | Trivy over the converter's Python pins. Reports, never blocks |
+| Ruff | Lint and format check on all Python files under `worker/` and `tool-service/`. The tool service adds bugbear, the security rules, and import order |
+| Tool service tests | The line count against the limit of 300, then the tests, on the pinned Python image with every package installed by hash |
+| Dependency scan | Trivy over the converter's Python pins: reports, never blocks. Trivy over the tool service's pins: blocks |
 
-The first six are required by the ruleset on `main`. The dependency scan runs on every pull request and is not in the ruleset. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
+The first six are required by the ruleset on `main`. The tool service tests and the dependency scan run on every pull request and are not in the ruleset. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
 
 ## Repository settings
 

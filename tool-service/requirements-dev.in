@@ -1,0 +1,3 @@
+# What the tests need on top of requirements.txt. Compiled the same way, with
+# -c requirements.txt so that shared packages stay at one version.
+pytest==9.1.1

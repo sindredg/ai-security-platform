@@ -30,6 +30,10 @@ env:
   SHELLCHECK_IMAGE: koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
   # Ruff 0.17.0
   RUFF_IMAGE: ghcr.io/astral-sh/ruff@sha256:0f9316141d252f8c4de3fb672e8433c1afbf9adb24b877ae887cffa4012d850c
+  # Python 3.15.0, slim, Debian 13. The tool service's tests run on it.
+  PYTHON_IMAGE: python@sha256:ea4f1f290e071bf7d28199cfb3e09f5dbad31b50e9c32fd58f2f2d7be915f3ae
+  # ADR 0014: the tool service without its tools stays under this many lines.
+  TOOL_SERVICE_LINE_LIMIT: "300"
 
 jobs:
   terraform:
@@ -141,12 +145,43 @@ jobs:
         with:
           persist-credentials: false
 
-      # The default rule set of the pinned release. No configuration file, so
-      # a new release cannot change the rules until the digest moves.
-      - name: Lint the worker's Python files
+      # ruff.toml sets the line length for every Python file. The worker's
+      # files get the default rule set of the pinned release. The tool service
+      # adds rules in its own ruff.toml, because it reads hostile input.
+      - name: Lint the Python files
         run: >
           docker run --rm --volume "${PWD}:/io:ro" --workdir /io "${RUFF_IMAGE}"
-          check --no-cache worker
+          check --no-cache worker tool-service
+
+      - name: Check the formatting
+        run: >
+          docker run --rm --volume "${PWD}:/io:ro" --workdir /io "${RUFF_IMAGE}"
+          format --no-cache --check worker tool-service
+
+  tool-service:
+    name: Tool service tests
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The repository is mounted read-only. Every package is installed by hash
+      # into a directory inside the container, and nothing else is fetched.
+      # The size check runs first: a server over the limit fails before its
+      # tests say anything.
+      - name: Count the lines and run the tests
+        run: |
+          docker run --rm --volume "${PWD}:/src:ro" --workdir /src/tool-service \
+            --env PYTHONDONTWRITEBYTECODE=1 --env LIMIT="${TOOL_SERVICE_LINE_LIMIT}" \
+            "${PYTHON_IMAGE}" sh -ec '
+              python count_lines.py "${LIMIT}" aisec_tools/*.py
+              python -m venv /tmp/venv
+              /tmp/venv/bin/pip install --quiet --no-cache-dir --disable-pip-version-check \
+                --require-hashes -r requirements.txt -r requirements-dev.txt
+              /tmp/venv/bin/python -m pytest -q
+            '
 
   dependencies:
     name: Dependency scan
@@ -177,3 +212,15 @@ jobs:
               fs --scanners vuln --quiet --exit-code 0 /deps
             echo '```'
           } | tee -a "${GITHUB_STEP_SUMMARY}"
+
+      # This one blocks. The tool service's pins are this project's own, so an
+      # advisory in them is fixed by moving the pin. The two files are scanned
+      # apart, each under the one name Trivy reads.
+      - name: Scan the tool service's packages
+        run: |
+          for list in requirements requirements-dev; do
+            mkdir -p "${RUNNER_TEMP}/tool-service/${list}"
+            cp "tool-service/${list}.txt" "${RUNNER_TEMP}/tool-service/${list}/requirements.txt"
+            docker run --rm --volume "${RUNNER_TEMP}/tool-service/${list}:/deps:ro" "${TRIVY_IMAGE}" \
+              fs --scanners vuln --quiet --exit-code 1 /deps
+          done

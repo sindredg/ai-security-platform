@@ -58,5 +58,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | `actions/checkout` | v7.0.1, by commit | The checks workflow | Dependabot, weekly | |
 | Checkov, Trivy, gitleaks images | By digest | The checks workflow | By hand | |
 | ShellCheck, Ruff images | 0.11.0 and 0.17.0, by digest | The checks workflow | By hand | 2026-10-12 |
+| Python image | 3.15.0, slim, by digest. Runs the tool service tests | The checks workflow | By hand | 2026-10-13 |
+| Tool service packages | 28, with the MCP SDK 2.3.0, PyJWT 2.15.1, and cryptography 50.0.2 | `tool-service/requirements.in`, compiled to `requirements.txt` with hashes | Dependabot, weekly | 2026-10-13 |
 
-Eight rows move by hand and nothing reminds anyone: Terraform, the image, the mesh VPN agent, K3s, the scanner and linter images, llama.cpp, the model, and the converter packages. The mesh VPN agent, K3s, and llama.cpp are the three that matter, because they run all the time and get no security fix until the pin moves. Re-check this table at the start of each milestone.
+Nine rows move by hand and nothing reminds anyone: Terraform, the image, the mesh VPN agent, K3s, the scanner and linter images, the Python image, llama.cpp, the model, and the converter packages. The mesh VPN agent, K3s, and llama.cpp are the three that matter, because they run all the time and get no security fix until the pin moves. Re-check this table at the start of each milestone.

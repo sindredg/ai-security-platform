@@ -245,7 +245,7 @@ Idle use of the two built VMs is on their [component pages](components/README.md
 
 ## Repository layout
 
-`.github/`, `infra/`, `worker/`, `validation/`, and `docs/` exist. Every other directory appears with the milestone that needs it.
+`.github/`, `infra/`, `worker/`, `tool-service/`, `policies/`, `validation/`, and `docs/` exist. Every other directory appears with the milestone that needs it.
 
 ```text
 .github/            Static checks on pull requests, dependency update configuration
@@ -255,8 +255,9 @@ infra/platform/     Platform Terraform root
 infra/targets/      Target Terraform root
 platform/           K3s component configuration and workflow templates
 worker/             What the orchestrator feeds the AI worker: pins, build scripts, service units
+tool-service/       The MCP server that checks every tool call, its tests, and its pinned packages
 targets/netbox/     NetBox deployment definition, fixtures, consumer contract
-policies/           Target, tool, and change rules
+policies/           Target, tool, and change rules. Today: the tool service's
 collectors/         Collection and adaptation scripts
 validation/         Checks against the running system. Contract tests and drills come later
 docs/               Architecture, components, decisions, diagrams, runbooks, security, troubleshooting, validation, worklogs

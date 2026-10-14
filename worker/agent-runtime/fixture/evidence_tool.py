@@ -5,6 +5,7 @@ Serves one fixed piece of synthetic evidence, the same one measure.py uses, so
 the agent's numbers can be set beside the model server's. It reads no file and
 opens no connection. Standard library only.
 """
+
 import json
 import sys
 
@@ -14,7 +15,12 @@ EVIDENCE = {
         "collected": "2026-10-11T12:00:00Z",
         "token": "consumer-readonly",
         "contract_object_types": ["dcim.device", "ipam.prefix"],
-        "granted_object_types": ["dcim.device", "ipam.prefix", "tenancy.contact", "circuits.circuit"],
+        "granted_object_types": [
+            "dcim.device",
+            "ipam.prefix",
+            "tenancy.contact",
+            "circuits.circuit",
+        ],
         "write_access": False,
     }
 }
@@ -24,7 +30,10 @@ TOOL = {
     "inputSchema": {
         "type": "object",
         "properties": {
-            "reference": {"type": "string", "description": "Evidence reference, for example ev-0001"}
+            "reference": {
+                "type": "string",
+                "description": "Evidence reference, for example ev-0001",
+            }
         },
         "required": ["reference"],
         "additionalProperties": False,
@@ -34,7 +43,11 @@ TOOL = {
 
 def call(params):
     arguments = params.get("arguments")
-    if params.get("name") != TOOL["name"] or not isinstance(arguments, dict) or set(arguments) != {"reference"}:
+    if (
+        params.get("name") != TOOL["name"]
+        or not isinstance(arguments, dict)
+        or set(arguments) != {"reference"}
+    ):
         return "refused: unknown tool or arguments", True
     if not isinstance(arguments["reference"], str):
         return "refused: unknown tool or arguments", True
