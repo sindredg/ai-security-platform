@@ -35,7 +35,7 @@ The installer is not piped from the network into a shell. The script is fetched 
 | `change` | PR broker and delivery runner | Publish permitted patches, apply approved changes |
 | `observability` | Metrics and logs, sized after measurement | Operational and audit visibility without private payloads |
 
-Namespaces keep things tidy. They are not a wall against malicious code, and nothing here relies on them as one.
+Namespaces organize workloads. They are not a security boundary against malicious code, and nothing here relies on them as one.
 
 ## Benchmark
 

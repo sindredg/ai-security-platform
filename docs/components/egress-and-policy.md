@@ -1,6 +1,6 @@
 # Egress and policy
 
-One way out for the whole system: a NAT gateway on the orchestrator subnet. Every other machine is closed three times over, because any one control alone leaks.
+One outbound path for the whole system: a NAT gateway on the orchestrator subnet. Every other machine has three controls that block outbound access, because any one control alone leaves a path open.
 
 | | |
 | --- | --- |
@@ -9,7 +9,7 @@ One way out for the whole system: a NAT gateway on the orchestrator subnet. Ever
 | Defined in | `infra/platform/egress.tf`, the rules in `infra/platform/main.tf` and `infra/targets/`, the policy in `infra/bootstrap/policy.tf` |
 | Decisions | [0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), [0008](../decisions/0008-deployment-identities-and-bootstrap-scope.md) |
 
-## The three controls on a fed machine
+## The three controls on the worker and target machines
 
 | Control | What it stops | What it does not |
 | --- | --- | --- |
@@ -46,7 +46,7 @@ The orchestrator has no inbound allow for administration. That arrives inside th
 
 - **The gateway bills by the hour whether or not a VM runs.**
 - **The orchestrator's egress is not filtered by hostname.** That takes a firewall that costs more than the VMs.
-- **Every UDP port is open to the internet from the orchestrator.** The rule is there for the mesh agent's direct connections, which never succeed behind the NAT gateway. It widens what a compromised orchestrator can send, for no gain.
+- **Every UDP port is open to the internet from the orchestrator.** The rule is there for the mesh agent's direct connections, which have not succeeded in this lab behind the NAT gateway. The rule increases outbound access without an observed benefit. See [issue #49](https://github.com/sindredg/ai-security-platform/issues/49).
 - **Port 80 is open as well as 443.** Only the package mirrors need it. Closing it was tried and failed. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
 - **Platform endpoints are not the internet and stay reachable.**
 

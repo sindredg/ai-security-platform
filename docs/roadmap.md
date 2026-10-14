@@ -85,7 +85,7 @@ If a candidate needs a substantial custom service to meet these criteria, replac
 
 ### Hostile-input tests for the tool service
 
-Implemented in `tool-service/tests/`, with the service. The tool service is the one piece of custom code that reads what a turned worker sends ([ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)). These cases are unit tests that live beside its code and run in the pipeline. They are not drills, and they do not add to the milestone's completion criteria: those criteria demonstrate the round trip on the running system, and the tests keep the edges from moving afterwards.
+Implemented in `tool-service/tests/`, with the service. The tool service is the one piece of custom code that reads what a compromised worker sends ([ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)). These cases are unit tests that live beside its code and run in the pipeline. They are not drills, and they do not add to the milestone's completion criteria: those criteria demonstrate the round trip on the running system, and the tests keep the edges from moving afterwards.
 
 Every case ends the same way: the call is refused, nothing of the result goes back, and one audit line records the decision and the reason.
 
@@ -111,7 +111,7 @@ Every case ends the same way: the call is refused, nothing of the result goes ba
 
 Define the consumer contract. Deploy NetBox, synthetic inventory, and the consumer. Seed the excess-permission finding and investigate it.
 
-**Depends on:** the NetBox version and consumer scope decisions, the cloud identity for cluster workloads that [ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md) moved here, and how the targets get packages, which [ADR 0011](decisions/0011-package-proxy-for-the-worker.md) left open.
+**Depends on:** decisions about the NetBox version, consumer permissions, cloud identity for cluster workloads ([ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)), and target package updates ([ADR 0011](decisions/0011-package-proxy-for-the-worker.md)).
 
 **Completion criteria:**
 
@@ -148,7 +148,7 @@ Break the finished workflow on purpose.
 - Instructions embedded in advisories and tool results.
 - Forged and stale target evidence.
 - Cleanup verification and measured resource use per investigation.
-- The incident response runbook, run for a turned worker, a compromised target, and a leaked credential.
+- The incident response runbook, run for a compromised worker, a compromised target, and a leaked credential.
 - An audit daemon and file integrity monitoring on both VMs, with a drill that shows each one catching something.
 
 Every threat rated high in the threat model maps to one of these drills or to a stated accepted risk. A high threat with neither is a gap, and the milestone stays open.

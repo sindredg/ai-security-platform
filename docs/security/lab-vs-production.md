@@ -1,105 +1,105 @@
 # Lab against production
 
-The design is meant to hold up in production. The lab around it is not production. This page keeps the two apart, so that a lab shortcut is not mistaken for a design choice, and a design choice is not excused as a lab shortcut.
+This page separates the controls intended for production from the lab's limitations. It explains why each limitation is accepted here, what risk it leaves, and what a production deployment would need.
 
-Three lists:
+It covers three areas:
 
-- **What carries over.** Controls that would look the same in production.
-- **What the lab cuts.** Each gap, why it is tolerable here, what it leaves open, and what production would use.
-- **What production does not fix.** Problems that money and a second machine do not solve.
+- **Controls to keep.** Security controls to retain in production.
+- **Lab limitations.** Accepted gaps and the changes needed for production.
+- **Remaining risks.** Risks that production infrastructure alone cannot remove.
 
-A gap is tolerable here for one of three reasons: the data is synthetic, there is one operator, or the lab can be rebuilt from the runbooks. None of the three is true in production.
+Synthetic data, a single operator, and rebuild procedures make some gaps acceptable in this lab. These reasons are not enough to accept the same gaps in production. Some choices below are planned rather than deployed; the [roadmap](../roadmap.md) records milestone status.
 
 ## What carries over
 
-These are the design. A production deployment would keep them and build on them.
+These controls are part of the design. Their current implementation and evidence are listed below.
 
 | Control | State here |
 | --- | --- |
-| The AI worker is treated as compromised from the start. It holds no credential that reaches a target or a repository | Built. See [containment](../validation/containment.md) |
-| Deny by default on every subnet, with explicit denies for the internet, the targets, and DNS | Verified with traffic on the worker |
-| No public address on any VM, refused by a policy that neither deployment identity can change | Verified |
-| One deployment identity per side, each unable to change the other | Verified |
+| The AI worker is treated as compromised from the start. It holds no credential that grants access to a target or repository | Built. See [containment](../validation/containment.md) and the [credential inventory](credentials.md) |
+| Deny by default on every subnet, with explicit denies for the internet, the targets, and DNS | Verified with traffic on the worker: [containment checks](../validation/containment.md). Target traffic has not been tested |
+| No public address on any VM, enforced by a policy that neither deployment identity can change | Verified: [`Z.1` to `Z.3` and `Z.10` to `Z.12`](../validation/azure-policy.md), and the [identity separation test](../worklogs/0001-network-foundation.md#identity-separation) |
+| One deployment identity per side, each unable to change the other | Verified by the [identity separation test](../worklogs/0001-network-foundation.md#identity-separation) |
 | Every tool call authorized on the server, from a scope the caller cannot widen | Written, not deployed. See [tool service](tool-service.md) |
-| Tools that read and never change. Delivery belongs to a separate trusted runner | Written for one tool. The runner is planned |
-| Everything fetched is pinned by digest and checked on the trusted machine before it runs | Built for what exists |
-| A change reaches a target only through a pull request that a person approved | The repository rule is built. Delivery is planned |
-| Threats written down before the thing they threaten is built, and a gate behind every control | [ADR 0010](../decisions/0010-threat-model-and-security-checks-per-milestone.md) |
+| Read-only tools. A separate trusted runner applies approved changes | Written for one [evidence tool](tool-service.md). The runner is planned |
+| Downloaded artifacts are pinned by digest and verified before use | Built for the model server and agent runtime: [milestone 3 worklog](../worklogs/0003-toolchain-integration.md). Tool service dependencies install by hash |
+| A target change requires an approved pull request | Built for the repository rules: [pipeline settings](../components/pipeline.md#repository-settings). Delivery is planned |
+| Threats documented before implementation, with validation tied to each control | Decided in [ADR 0010](../decisions/0010-threat-model-and-security-checks-per-milestone.md) |
 
-## What the lab cuts
+## Lab limitations
 
-"Leaves open" is what an attacker gains, or what fails, because of the lab choice. Threat IDs are from the [threat model](threat-model.md) and the [AI-specific threats](ai-threats.md).
+The risk column describes what an attacker could do, or what could fail, because of each lab choice. Threat IDs refer to the [threat model](threat-model.md) and the [AI-specific threats](ai-threats.md).
 
 ### People and accounts
 
-| Lab choice | Why it is tolerable here | Leaves open | Production would use |
+| Lab choice | Reason in this lab | Risk | Production approach |
 | --- | --- | --- | --- |
-| One person writes, approves, and operates | There is one person | Nobody checks the operator. A stolen GitHub session approves its own change (T15) | A separate approver, required review, and privileged roles that are requested and expire |
-| One Azure account owns both sides | One subscription | The separation between platform and targets binds the deployment identities, not the owner (T30) | A subscription per side, under separate administrators |
-| Deployment keys on a workstation | Terraform runs there | A key taken from that machine controls one side for up to 91 days (T29) | Workload identity federation from a controlled runner, with no long-lived key |
+| One person writes, approves, and operates | The lab has one operator | No independent approval. A stolen GitHub session can approve a malicious change (T15) | A separate approver, required review, and temporary privileged access |
+| One Azure account owns both sides | Both sides share one subscription | Deployment identities are separated, but the owner controls both sides (T30) | Separate subscriptions and administrators |
+| Deployment keys on a workstation | Terraform runs there | A stolen key grants control of one side until it expires, up to 91 days (T29) | Workload identity federation from a controlled runner, without a long-lived key |
 
 ### Access and network
 
-| Lab choice | Why it is tolerable here | Leaves open | Production would use |
+| Lab choice | Reason in this lab | Risk | Production approach |
 | --- | --- | --- | --- |
-| Mesh VPN with a third-party coordination service | No public address, no operator address in a rule, one agent. Node signing is on | The provider is trusted for availability, and its agent uploads logs by default (T01) | A self-hosted control plane, or a VPN gateway or private circuit with a bastion |
-| Orchestrator egress open on TCP 443 and 80, and on every UDP port | Hostname filtering costs as much as the four VMs | A compromised orchestrator sends anything anywhere (T05) | A firewall or proxy with a hostname allowlist |
+| Mesh VPN with a third-party coordination service | Private administration without public VM addresses or rules tied to the operator's IP address. Node signing is enabled | Availability depends on the provider. Its agent uploads logs by default (T01) | A self-hosted control plane, or a VPN gateway or private circuit with a bastion |
+| Orchestrator outbound access allows TCP 443 and 80, and every UDP port | A firewall for hostname filtering would add substantial lab cost | A compromised orchestrator can send data to any internet host on those ports (T05) | A firewall or proxy with a hostname allowlist |
 | State storage accounts accept connections from any network | Access is by identity, and shared keys are off | A stolen identity works from anywhere (T32) | Private endpoints, and no public network access |
-| The worker's packages come through a proxy to two public hosts, over HTTP | The packages are signed, and the proxy passes nothing else | A few bytes leave in each request, and the proxy is a service the worker can attack (T17) | An internal mirror |
+| The worker downloads packages through an HTTP proxy limited to two public hosts | Package verification uses signed repository metadata. The proxy restricts hosts, methods, and ports | Requests can carry some data out, and the worker can attack the proxy (T17) | An internal package mirror |
 
 ### Compute and isolation
 
-| Lab choice | Why it is tolerable here | Leaves open | Production would use |
+| Lab choice | Reason in this lab | Risk | Production approach |
 | --- | --- | --- | --- |
-| One K3s node, one VM per role | A quota of 4 vCPUs per region | No availability. A stuck job blocks the only worker (T20) | A highly available control plane across zones, and more than one worker |
-| One worker VM shared by consecutive jobs | No capacity for more | Files are cleaned up, the kernel and the model server's memory are shared (T19, A6) | A fresh sandbox or VM per job |
-| The tool service is a container on the trusted machine | One trusted machine | A parsing bug is a path to the machine that holds every credential (T22) | A sandboxed runtime or its own machine, and an independent review of the code |
-| Credentials are files on the orchestrator and secrets in the cluster | Secrets encryption is on, and one person has root | Root on the orchestrator reads all of them (T36) | A managed secret store, hardware-backed keys, and credentials issued per use |
-| A small model, built on the worker from the publisher's weights | It fits in 8 GiB and nothing leaves the lab | Weak answers. Investigation quality is not measured yet (A3) | A model chosen by evaluation, behind a gateway that logs every request |
+| One K3s node, one VM per role | A quota of 4 vCPUs per region | No redundancy. A stuck job blocks the only worker (T20) | A highly available control plane across zones and multiple workers |
+| One worker VM shared by consecutive jobs | No capacity for more | Agent files are cleaned up, but jobs share the kernel and model server memory (T19, A6) | A fresh sandbox or VM per job |
+| Planned: the tool service runs in a container on the orchestrator | The lab has one trusted machine | A service vulnerability could expose the machine that holds the credentials (T22) | A sandboxed runtime or separate machine, plus independent code review |
+| Credentials stored as files on the orchestrator and, for planned workloads, Kubernetes Secrets | K3s secret encryption is enabled. One operator has root access | Root on the orchestrator can read them (T36) | A managed secret store, hardware-backed keys, and short-lived credentials |
+| A small model, built on the worker from the publisher's weights | It fits in 8 GiB and keeps inference local | Investigation quality has not been evaluated (A3) | A model selected through evaluation, with request logging and appropriate data controls |
 
 ### Tool service and job identity
 
-| Lab choice | Why it is tolerable here | Leaves open | Production would use |
+| Lab choice | Reason in this lab | Risk | Production approach |
 | --- | --- | --- | --- |
-| A job is a bearer token | Simple to issue, check, and revoke | Whoever reads the token on the worker is the job until it ends (T18) | A credential bound to the job's sandbox, such as a certificate per job |
-| One self-signed certificate, copied to the worker ([ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md)) | No authority key to protect, for one server | No revocation. Rotation is a copy made by hand | An internal authority with short-lived certificates, issued automatically |
-| The registration caller is checked against a copied public key | The pod keeps no cluster credential | A deleted pod's token works until it expires. A stale copy stops registration | Key discovery with rotation, or mutual TLS between workloads |
-| Jobs and call counts live in memory | One replica | A restart ends every job, and a second replica would not know the first one's jobs | A store shared by replicas |
+| Job authentication uses a bearer token; issuing tokens is not implemented | Simple to issue, validate, and revoke | Anyone who reads the token can use the job's permissions until revocation or expiry (T18) | A credential restricted to the job's sandbox, such as a private key kept there for mutual TLS |
+| Planned: one self-signed server certificate copied to the worker ([ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md)) | One server, with no certificate authority key to protect | Revocation requires replacing the certificate. Rotation requires a manual copy to the worker | An internal certificate authority with automatic issuance and renewal |
+| Registration tokens are verified using a copied public key | The service needs no cluster credential or Kubernetes API connection | A deleted pod's token remains valid until expiry. A stale key copy stops registration | Automatic signing-key discovery and rotation, or mutual TLS between workloads |
+| Jobs and call counts live in memory | The design uses one replica | A restart invalidates every job token. Replicas would have separate job records | A job store shared by replicas |
 
 ### Detection and response
 
-| Lab choice | Why it is tolerable here | Leaves open | Production would use |
+| Lab choice | Reason in this lab | Risk | Production approach |
 | --- | --- | --- | --- |
-| The audit log sits on the orchestrator | No second trusted machine | Root on the orchestrator can edit it (T21) | An append-only store outside the platform |
-| No audit daemon, no file integrity monitoring, no alerting | Planned: alerting with milestone 3, the other two with the drills in milestone 6 | A change on a machine, a dead service, or a full disk goes unnoticed | Central logging, integrity monitoring, alerts, and someone on call |
-| The worker's journal is pulled on a timer | A push would need another port from the worker | Whatever happened since the last pull can be erased | Logs shipped as they are written, to a store the source cannot change |
-| A Lynis audit where a CIS benchmark was planned | No tool has a CIS profile for this release yet | No result against a recognized benchmark for the operating system | An operating system release with a supported benchmark profile |
-| Pins move by hand | One person, a short list | A held agent or cluster version gets no security fix until someone moves it | Automated update proposals for every pin, and rebuilt images on a schedule |
+| Planned: tool audit logs stored on the orchestrator | No second trusted machine | Root on the orchestrator can edit them (T21) | An append-only log store outside the platform |
+| No audit daemon, file integrity monitoring, or alerting | Alerting is planned for milestone 3; the other controls for milestone 6 | Unauthorized changes and service failures may go unnoticed | Central logging, integrity monitoring, alerts, and an on-call operator |
+| Planned: the orchestrator pulls the worker's journal on a timer | Pushing logs would need another allowed connection from the worker | The worker can erase records created since the last pull | Continuous log forwarding to storage the source cannot modify |
+| Lynis audit instead of the planned CIS benchmark | No tool has a CIS profile for the pinned OS release | No CIS benchmark result for the operating system | An OS release with a supported benchmark profile |
+| Some version pins are updated manually | One operator and a short list | Software receives no security fix until its pin is updated | Automated update proposals and scheduled image rebuilds |
 
 ### Data, repository, and recovery
 
-| Lab choice | Why it is tolerable here | Leaves open | Production would use |
+| Lab choice | Reason in this lab | Risk | Production approach |
 | --- | --- | --- | --- |
-| Public repository, synthetic data | Nothing in it is real | Nothing here. In production the proposal text is a path from evidence to a public page (A5) | A private repository, classified data, and strict control over what a pull request may carry |
-| Locally redundant state. The bootstrap state is a local file with a copy made by hand | The lab can be rebuilt from the runbooks | A forgotten upload leaves the copy behind. A restore has not been run (T31) | Geo-redundant remote state, with tested recovery |
-| Each VM rebuilt once, never both together | Each machine came back from its template and passed every check | Nobody knows whether everything comes back from an empty subscription | Recovery rehearsed on a schedule, with a time it has to meet |
+| Public repository with synthetic evidence | No real target data is published | Real evidence could leak through proposal text in production (A5) | A private repository, data classification, and controls on pull request content |
+| Locally redundant remote state; bootstrap state kept locally with a manual remote copy | The lab has rebuild runbooks | A missed upload leaves a stale backup. Restoration has not been tested (T31) | Geo-redundant remote state with tested recovery |
+| Each VM rebuilt separately; no full-system rebuild | Each VM passed the validation checks after its rebuild | Recovery from an empty subscription has not been tested | Scheduled recovery exercises with a recovery time objective |
 
 ## What production does not fix
 
-These are not lab shortcuts. A larger budget does not remove them.
+Production infrastructure alone does not remove these risks.
 
-- **Injected instructions are not prevented (A1).** The design contains what a turned agent can do. It does not stop the agent from being turned.
-- **A convincing wrong answer still reaches a person (A3).** Rehearsal and evidence narrow it. The approver is the last check, in a lab and in a company.
-- **A digest proves identity, not innocence (T06, A4).** A backdoored model or package that was pinned on day one is pinned.
-- **Custom policy code is custom (T16).** No product ships this project's rule for which job may call which tool. Production reviews that code. It does not get to skip writing it.
-- **A compromised orchestrator is the end (T05).** Egress filtering and a secret store make it slower and louder. The machine that dispatches jobs, checks calls, and delivers changes is still the machine to take.
+- **Prompt injection remains possible (A1).** The design limits what a compromised agent can do. It does not prevent malicious instructions from influencing the agent.
+- **A convincing wrong answer can be approved (A3).** Evidence and rehearsal reduce the risk. Human review remains the final check.
+- **A digest verifies an artifact, not its safety (T06, A4).** Pinning preserves malicious code as well as legitimate code. The initial choice still needs review.
+- **Job authorization still needs project-specific policy (T16).** Production needs reviewed rules and tests for which jobs can call which tools.
+- **The orchestrator remains a critical trust point (T05).** Outbound filtering and a secret store can limit a compromise and aid detection. They do not remove the orchestrator's authority to dispatch jobs and apply changes.
 
 ## If this went to production, in this order
 
-1. **A second person and a second account.** Every other control assumes the operator is honest and not compromised.
-2. **Logs and the audit trail off the platform, with alerts.** Today a successful attack could leave no record anywhere else.
-3. **Egress filtering on the orchestrator.** It turns "anything, anywhere" into a list.
-4. **A sandbox per job, and the tool service off the machine that holds the credentials.**
-5. **A secret store and an internal certificate authority.** Hand-copied certificates and files on disk do not survive a second operator.
+1. **Independent approval and separate administrative accounts.** Reduce the authority of one operator or stolen session.
+2. **Logs stored outside the platform, with alerts.** Preserve evidence if a platform machine is compromised.
+3. **Outbound filtering on the orchestrator.** Restrict destinations to an explicit allowlist.
+4. **A sandbox per job and a separate host for the tool service.** Limit shared state and access to orchestrator credentials.
+5. **A secret store and an internal certificate authority.** Automate credential access and certificate renewal.
 
-The order is a judgment. It puts first what a single mistake or a single stolen session would cost most.
+This is a proposed order, based on the impact of one mistake or stolen session. It is not a measured result or an agreed implementation plan.

@@ -1,6 +1,8 @@
 # Architecture
 
-This is the system as designed. The network foundation and the platform VMs are deployed: state storage, deployment identities, both virtual networks, their security groups, the peering, the NAT gateway, the orchestrator with the mesh VPN and K3s, and the AI worker. A model server and an agent runtime run on the AI worker, and the agent has only run against a fixture tool. The tool service is written and not deployed. Nothing runs on the cluster yet beyond K3s itself, nothing dispatches a job, and every target is still planned. Each section says what is built, what is decided, and what is still open.
+This page describes the current system and its planned design. The network foundation and platform VMs are deployed: state storage, deployment identities, both virtual networks, security groups, peering, the NAT gateway, the orchestrator with the mesh VPN and K3s, and the AI worker.
+
+The model server and agent runtime run on the worker. The agent has only used a local test tool. The tool service is implemented but not deployed. No application workloads are deployed on K3s yet. Automated job dispatch and all targets are still planned. Each section distinguishes implemented controls, decisions, and open work.
 
 The reasoning behind each choice is in the [decision records](decisions/README.md). The order of work is in the [roadmap](roadmap.md).
 
@@ -83,13 +85,13 @@ Global virtual network peering joins the two networks. Peering is plumbing, not 
 
 Each security group ends in a deny-all rule in both directions at priority 4096. That rule is the point: Azure's built-in rules allow everything inside the `VirtualNetwork` tag, and peering puts the other network inside that tag.
 
-The table is the design. Rules exist for what is built: SSH from the orchestrator subnet to the worker and to the target network, the package proxy port from the worker to the orchestrator, and the orchestrator's way out. The other allowed flows get their rules with the service that listens on them. The denied flows are enforced now.
+The table is the design. Rules exist for what is built: SSH from the orchestrator subnet to the worker and to the target network, the package proxy port from the worker to the orchestrator, and outbound internet access from the orchestrator. The other allowed flows get their rules with the service that listens on them. The denied flows are enforced now.
 
 | Source | Destination | Purpose | State |
 | --- | --- | --- | --- |
 | Orchestrator subnet | NetBox subnet | Evidence collection, approved delivery | Allowed, fixed ports |
 | Orchestrator subnet | Viewpoint and rehearsal subnets | Start named probes and rehearsals | Allowed, fixed ports |
-| Orchestrator subnet | AI worker subnet | Feeding today, dispatch later. Both over SSH | Allowed, TCP 22 |
+| Orchestrator subnet | AI worker subnet | Artifact transfer now; job dispatch planned. Both use SSH | Allowed, TCP 22 |
 | AI worker subnet | Orchestrator subnet | The package proxy, built. Tool services, planned | Allowed, fixed ports. Today that is TCP 3128 only |
 | AI worker subnet | Target network | None | Denied, by an explicit rule on the platform side |
 | AI worker subnet | Internet | None. The orchestrator pushes what the worker needs | Denied, by an explicit rule on the platform side |
@@ -107,7 +109,7 @@ No VM has a public address. The operator gets in over a mesh VPN: the orchestrat
 
 ### Egress
 
-The system has one way out: a NAT gateway on the orchestrator subnet. The orchestrator is the only machine that downloads anything. The worker and the targets are fed, and three controls keep them closed, because any one alone leaks: no outbound method, explicit deny rules, and Azure Policy assigned outside both roots.
+The system has one outbound path to the internet: a NAT gateway on the orchestrator subnet. The orchestrator is the only machine that downloads anything. The worker and the targets get their software from the orchestrator, and three controls block their outbound access, because any one alone leaves a path open: no outbound method, explicit deny rules, and Azure Policy assigned outside both roots.
 
 The worker has one exception: a proxy on the orchestrator that forwards package downloads to two hosts. The targets do not get it.
 
@@ -121,7 +123,7 @@ One K3s server on one VM runs everything that is trusted. It also routes for the
 
 ### AI worker
 
-The agent runtime and the model server run on a second VM that is not part of the cluster. The worker reads advisories, target evidence, and tool output. Any of those can carry instructions. So the design assumes the worker can be turned, and gives it nothing worth stealing:
+The agent runtime and the model server run on a second VM that is not part of the cluster. The worker reads advisories, target evidence, and tool output. Any of those can carry malicious instructions. The design assumes the worker can be compromised and restricts its access:
 
 - No delivery credentials, no repository credentials, no privileged cloud identity.
 - One scoped session per job: one target, one evidence set, bounded time and output.
@@ -129,7 +131,7 @@ The agent runtime and the model server run on a second VM that is not part of th
 
 The cost is dispatch. Argo runs pods, not processes on another machine. A workflow step opens an SSH session to the worker with a key that can only run the job runner. Decided in [ADR 0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), not built, and still the first real integration risk. Detail: [AI worker](components/ai-worker.md).
 
-What exists today is narrower than the design. The agent runs when someone starts it by hand, and its one tool is a fixture on the worker. The tool service that replaces the fixture is written and tested in the pipeline, and is not on the orchestrator yet. See the [milestone 3 worklog](worklogs/0003-toolchain-integration.md).
+What exists today is narrower than the design. The agent is started manually and uses one local test tool on the worker. The tool service that replaces the fixture is written and tested in the pipeline, and is not on the orchestrator yet. See the [milestone 3 worklog](worklogs/0003-toolchain-integration.md).
 
 ### Components
 
@@ -199,23 +201,23 @@ What follows from that:
 
 ## Security practices
 
-The method is in [ADR 0010](decisions/0010-threat-model-and-security-checks-per-milestone.md). The State column says how far each practice has come.
+The method is in [ADR 0010](decisions/0010-threat-model-and-security-checks-per-milestone.md). The State column records implementation and validation evidence.
 
 The table above says who is trusted. The [threat model](security/threat-model.md) says what can go wrong at each boundary, what stops it, and where that gets tested. Its first pass was written before any VM existed.
 
-Everything else is attached to the milestone that builds the thing it checks. A practice with no gate behind it is a good intention.
+Everything else is attached to the milestone that builds the thing it checks. A practice without a gate has no check that it was done.
 
 | Practice | What it covers | Lands with | State |
 | --- | --- | --- | --- |
-| Threat model | Threats per trust boundary, AI-specific threats, the control for each, residual risk, and the gap between this lab and production | Before platform compute, then updated with each decision | First pass written. States read again on 2026-10-14 against the checks and the repository |
+| Threat model | Threats per trust boundary, AI-specific threats, the control for each, residual risk, and the gap between this lab and production | Before platform compute, then updated with each decision | First pass written. States reviewed on 2026-10-14 against the validation checks and repository settings |
 | Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Built. Secret scanning, push protection, and a ruleset on `main`. Required checks are documented in the [pipeline page](components/pipeline.md#repository-settings) |
 | Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Built. Eight checks on every pull request. The [pipeline page](components/pipeline.md#checks-on-every-pull-request) lists which are required |
 | Dependency updates | Automated pull requests that move the version pins | Platform compute | Configured. No update has been proposed yet |
 | Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Kubernetes benchmark run, one check accepted. The operating system has a Lynis audit with its findings triaged. No tool has a CIS profile for Ubuntu 26.04 yet, which is an accepted risk. Neither tool has been run again on the orchestrator that was rebuilt on 2026-10-13 |
-| Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current. Each long-lived credential on the VMs rotated once. Four credentials for toolchain integration are decided and not made |
-| Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Half written. The tool service prints one line per decision, tested in the pipeline. Nothing stores the lines yet ([ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) |
+| Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current. Each long-lived credential on the VMs rotated once. Four toolchain credentials are planned and have not been created |
+| Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Written for audit output: the tool service writes one JSON entry per decision, tested in CI. Persistent storage is not implemented ([ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) |
 | Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Built for the model server: 38 inputs pinned by checksum and verified on the orchestrator ([worklog](worklogs/0003-toolchain-integration.md#download-and-verify)). Built for the agent runtime the same way, and for the tool service's 28 packages, which install by hash. No image exists yet, no signature is checked, and there is no SBOM |
-| Incident response runbook | A turned worker, a compromised target, a leaked credential | Operational drills | Planned |
+| Incident response runbook | A compromised worker or target, a leaked credential | Operational drills | Planned |
 
 There is no compliance framework here. ISO 27001 and SOC 2 describe an organisation, and this one has a single operator.
 
@@ -223,7 +225,7 @@ There is no compliance framework here. ISO 27001 and SOC 2 describe an organisat
 
 - **Operator:** Microsoft Entra ID sign-in through supported OIDC integrations, with no premium identity features assumed. One person investigates and approves. That is not separation of duties, and the project does not claim it is.
 - **Workloads:** collector, tool service, broker, delivery runner, and worker each have their own permissions. Delivery and repository credentials exist only in the `change` namespace.
-- **Jobs:** each job gets a random token at dispatch, scoped to one target and a list of tools, and dead when the job ends. Decided in [ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md). The tool service's side is written: it registers, checks, and revokes tokens. Nothing issues one yet. Detail: [tool service and job identity](security/tool-service.md).
+- **Jobs:** each job gets a random token at dispatch, scoped to one target and a list of tools, and revoked when the job ends. Decided in [ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md). The tool service can register jobs, validate tokens, and revoke jobs. Token issuance is not implemented. Detail: [tool service and job identity](security/tool-service.md).
 - **Cloud access from K3s:** none, and still open. Workload identity federation on a self-managed cluster needs publicly reachable OIDC issuer metadata and public signing keys, which can be hosted separately from the cluster. A VM managed identity is simpler but is available to every process on that VM. Toolchain integration needs no cloud access, so the choice waits for the first workload that does. See [ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md).
 
 ## Capacity
@@ -256,7 +258,7 @@ infra/modules/      Shared Terraform modules
 infra/platform/     Platform Terraform root
 infra/targets/      Target Terraform root
 platform/           K3s component configuration and workflow templates
-worker/             What the orchestrator feeds the AI worker: pins, build scripts, service units
+worker/             What the orchestrator copies to the AI worker: pins, build scripts, service units
 tool-service/       The MCP server that checks every tool call, its tests, and its pinned packages
 targets/netbox/     NetBox deployment definition, fixtures, consumer contract
 policies/           Target, tool, and change rules. Today: the tool service's
@@ -286,5 +288,5 @@ Each gets a decision record before the milestone that depends on it.
 - A separate VM limits what a compromised worker can reach. It does nothing against a compromised host or provider.
 - Both roots use the same network module. A change to it reaches both sides, so the separation is in state, identity, and network rules, not in the code.
 - The public address policy leaves one gap on the platform side. It refuses a public address on a network interface in both resource groups, and any public IP resource on the target side. Both are assigned from the bootstrap root and [validated](worklogs/0002-platform-compute.md#public-address-policy). The platform identity can still create a public IP resource in its own group, because the NAT gateway needs one. It cannot attach it to a machine.
-- The orchestrator's egress is not filtered by hostname. It can reach any host on TCP 443 and 80, and on any UDP port. The UDP rule is there for the mesh agent's direct connections, which never succeed behind the NAT gateway.
+- The orchestrator's egress is not filtered by hostname. It can reach any host on TCP 443 and 80, and on any UDP port. The UDP rule is there for the mesh agent's direct connections, which have not succeeded in this lab behind the NAT gateway.
 - The [threat model](security/threat-model.md) is a first pass, written by the designer. The controls on the network, the VMs, and the repository are verified or built. Most of the rest are written, decided, or planned, and its [open items](security/accepted-risks.md#open-items) have no answer yet.

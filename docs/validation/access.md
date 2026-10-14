@@ -6,7 +6,7 @@ No VM has a public address. The only way in is the mesh VPN, then SSH with one k
 | --- | --- | --- | --- |
 | `A.1` | The orchestrator is reachable over the mesh VPN with the operator key | Without this there is no administration at all | An SSH login from the workstation |
 | `A.2` | Node signing is enabled on the mesh | The coordination service cannot add a device by itself | `tailscale lock status` on the orchestrator |
-| `A.3` | The orchestrator's node key is signed | An unsigned node is on the network and can talk to nothing | The same command |
+| `A.3` | The orchestrator's node key is signed | An unsigned node is on the network but cannot reach any other node | The same command |
 | `A.4` | The spent auth key file is gone | The key is single use, and the file should not outlive first boot | `/run/aisec` is empty |
 | `A.5` | Only the operator key is authorized on the orchestrator | A second key is a second way in | One line in `authorized_keys` |
 | `A.6` | The worker is reachable through the subnet router | Proves the route, the segment size clamp, and the worker's SSH rule together | An SSH login from the workstation |

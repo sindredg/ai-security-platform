@@ -69,7 +69,7 @@ The addresses below are the ones the configuration assigns: `10.40.0.4` for the 
 
    Expected: one key, shown once. Generate it right before step 8. It ends up in the VM's custom data and in state, which is why it has to be single use.
 
-   Node signing is on in this tailnet. A node that joins with a plain key is on the network and can talk to nothing until it is signed. Sign the key on a signing device with `tailscale lock sign <auth-key>` and use the longer key it prints, or sign the node after it joins. The first build turned signing on after the orchestrator had joined, which signed it. The rebuild on 2026-10-13 joined with a signed key and needed nothing more. Signing a node after it joins has not been run.
+   Node signing is on in this tailnet. A node that joins with a plain key is on the network but cannot reach any other node until it is signed. Sign the key on a signing device with `tailscale lock sign <auth-key>` and use the longer key it prints, or sign the node after it joins. The first build turned signing on after the orchestrator had joined, which signed it. The rebuild on 2026-10-13 joined with a signed key and needed nothing more. Signing a node after it joins has not been run.
 
 5. Store the key outside the repository until the apply.
 
@@ -191,7 +191,7 @@ Plan, read the plan, then apply the saved plan. Do not apply a plan nobody read.
 
     Expected: the marker file exists, `status: done`, and `/run/aisec` is empty, so the auth key file is gone. Four services `active`. The node is `Ready`, three `kube-system` pods are `Running`, and encryption status is `Enabled`.
 
-14. Let the orchestrator feed the worker. Its key pair was generated at first boot, so the private half never passed through Terraform.
+14. Let the orchestrator copy files to the worker. Its key pair was generated at first boot, so the private half never passed through Terraform.
 
     ```bash
     FEED_KEY="$(ssh $SSH_OPTS aisec@10.40.0.4 'cat ~/.ssh/aisec-feed.pub')"
@@ -337,7 +337,7 @@ Run once, on 2026-10-11, while the worker was empty. The commands are that run, 
 
     Expected: the worker's fingerprint from the scan equals the one from the serial log, and `status: done`.
 
-24. Let the orchestrator feed the new worker. The orchestrator still holds the old host key, so remove it first.
+24. Let the orchestrator copy files to the new worker. The orchestrator still holds the old host key, so remove it first.
 
     ```bash
     FEED_KEY="$(ssh $SSH_OPTS aisec@10.40.0.4 'cat ~/.ssh/aisec-feed.pub')"
@@ -374,7 +374,7 @@ A rebuild destroys everything on the orchestrator:
 | The orchestrator's `known_hosts` | Step 29 |
 | The staged inputs under `~/feed`, about 9 GB | Step 31 |
 
-The worker keeps running, but it has no way out and cannot be reached while the orchestrator is gone: the mesh routes and the package proxy both live there. Do this when no job is running.
+The worker keeps running, but it has no outbound access and cannot be reached while the orchestrator is gone: the mesh routes and the package proxy both live there. Do this when no job is running.
 
 26. Record a baseline and check the pins. Run `validation/platform-checks.sh`, then steps 1 and 2. Check the K3s and mesh VPN agent versions in `infra/platform/variables.tf` against the releases the publishers serve.
 

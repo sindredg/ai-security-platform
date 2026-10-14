@@ -43,8 +43,8 @@ The orchestrator was rebuilt on 2026-10-13. kube-bench and Lynis have not been r
 | Gap | Why it matters | Lands with |
 | --- | --- | --- |
 | No `auditd`, no process accounting | Nothing records what ran on a machine | Milestone 6, with the drills ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) |
-| Logs stay on the machine they describe | A machine that is taken can rewrite its own history | Milestone 3 for the worker, whose journal the orchestrator will pull. Not built. The orchestrator's own logs stay where they are |
-| The tool service's pod limits and network policies do not exist | They are what stands behind custom code that reads hostile input | Milestone 3, with the deployment of the [tool service](tool-service.md) |
+| Logs stay on the machine they describe | A compromised machine can alter its own logs | Milestone 3 for the worker, whose journal the orchestrator will pull. Not built. The orchestrator's own logs stay where they are |
+| The tool service's pod limits and network policies do not exist | They limit the impact of a vulnerability in code that parses untrusted input | Milestone 3, with the deployment of the [tool service](tool-service.md) |
 | No file integrity monitoring | A changed binary or configuration file goes unnoticed | Milestone 6 |
 | No CIS result for the operating system | The audit that ran is not the benchmark the plan named | When a tool supports Ubuntu 26.04 |
 | The 50 kube-bench warnings are not reviewed one by one | Some are manual checks that could be real findings | Milestone 3, when the cluster has workloads |
