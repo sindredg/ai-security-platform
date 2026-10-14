@@ -158,6 +158,10 @@ write_files:
       disable:
         - traefik
         - servicelb
+      # Node ports answer on the private address only: not on loopback, not on
+      # the mesh interface. The tool service's port to the worker is one.
+      kube-proxy-arg:
+        - nodeport-addresses=${orchestrator_ip}/32
       kube-apiserver-arg:
         - audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log
         - audit-policy-file=/var/lib/rancher/k3s/server/audit.yaml

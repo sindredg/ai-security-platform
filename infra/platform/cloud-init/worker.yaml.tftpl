@@ -5,7 +5,7 @@ write_files:
   - path: /etc/hosts
     append: true
     content: |
-      ${orchestrator_ip} aisec-orchestrator
+      ${orchestrator_ip} aisec-orchestrator tool-service.aisec.internal
 
   # Packages come through the proxy on the orchestrator. Unattended upgrades
   # are on in the image and use it too.

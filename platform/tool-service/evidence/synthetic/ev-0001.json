@@ -1,0 +1,16 @@
+{
+  "reference": "ev-0001",
+  "collected": "2026-10-11T12:00:00Z",
+  "token": "consumer-readonly",
+  "contract_object_types": [
+    "dcim.device",
+    "ipam.prefix"
+  ],
+  "granted_object_types": [
+    "dcim.device",
+    "ipam.prefix",
+    "tenancy.contact",
+    "circuits.circuit"
+  ],
+  "write_access": false
+}
