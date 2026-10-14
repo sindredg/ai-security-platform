@@ -1,0 +1,5 @@
+# Only the package and its pins go into the image.
+*
+!aisec_tools/
+!requirements.txt
+**/__pycache__

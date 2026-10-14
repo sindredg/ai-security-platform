@@ -1,5 +1,7 @@
-# Static checks only. This workflow holds no cloud credentials and runs no
-# plans. Applies happen on the operator workstation from a saved plan.
+# Static checks, and the tool service image. This workflow holds no cloud
+# credentials and runs no plans. Applies happen on the operator workstation
+# from a saved plan. One job may write to the repository's package registry,
+# and only on main.
 #
 # The only action used is pinned by commit. The scanners and linters run as
 # container images pinned by digest, so no third-party action runs here.
@@ -30,7 +32,10 @@ env:
   SHELLCHECK_IMAGE: koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
   # Ruff 0.17.0
   RUFF_IMAGE: ghcr.io/astral-sh/ruff@sha256:0f9316141d252f8c4de3fb672e8433c1afbf9adb24b877ae887cffa4012d850c
-  # Python 3.15.0, slim, Debian 13. The tool service's tests run on it.
+  # hadolint 2.15.1
+  HADOLINT_IMAGE: hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+  # Python 3.15.0, slim, Debian 13. The tool service's tests run on it, and its
+  # image is built from it. tool-service/Dockerfile names the same digest.
   PYTHON_IMAGE: python@sha256:ea4f1f290e071bf7d28199cfb3e09f5dbad31b50e9c32fd58f2f2d7be915f3ae
   # ADR 0016: the tool service without its tools stays under this many lines.
   TOOL_SERVICE_LINE_LIMIT: "300"
@@ -91,10 +96,12 @@ jobs:
 
       # The checks built into the pinned image are used as they are. Without
       # --skip-check-update, a newer bundle is downloaded on every run.
-      - name: Scan Terraform
-        run: >
-          docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}"
-          config --skip-check-update --exit-code 1 /src/infra
+      - name: Scan Terraform and the Dockerfile
+        run: |
+          for path in infra tool-service/Dockerfile; do
+            docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
+              config --skip-check-update --exit-code 1 "/src/${path}"
+          done
 
   gitleaks:
     name: Secret scan
@@ -182,6 +189,65 @@ jobs:
                 --require-hashes -r requirements.txt -r requirements-dev.txt
               /tmp/venv/bin/python -m pytest -q
             '
+
+  tool-service-image:
+    name: Tool service image
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    # The only job that can write anything: the image, to this repository's
+    # package registry. The push step runs on main and nowhere else.
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}/tool-service
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Lint the Dockerfile
+        run: docker run --rm -i "${HADOLINT_IMAGE}" hadolint - < tool-service/Dockerfile
+
+      - name: Check that the Dockerfile and the tests use one base image
+        run: |
+          digest="${PYTHON_IMAGE#python@}"
+          [ "$(grep -c "^FROM python@${digest}" tool-service/Dockerfile)" = 2 ]
+
+      - name: Build
+        run: >
+          docker build --pull --no-cache --provenance=false
+          --tag "${IMAGE}:${GITHUB_SHA}" tool-service
+
+      # Blocks on any finding with a fix. The tool service's own packages are
+      # pinned here and move with the pin. The base image's are Debian's.
+      - name: Scan the image
+        run: >
+          docker run --rm --volume /var/run/docker.sock:/var/run/docker.sock:ro
+          "${TRIVY_IMAGE}" image --scanners vuln --exit-code 1 --ignore-unfixed
+          --no-progress "${IMAGE}:${GITHUB_SHA}"
+
+      - name: List what the scan let through
+        if: always()
+        run: |
+          {
+            echo '```text'
+            docker run --rm --volume /var/run/docker.sock:/var/run/docker.sock:ro \
+              "${TRIVY_IMAGE}" image --scanners vuln --exit-code 0 --quiet \
+              --format table "${IMAGE}:${GITHUB_SHA}" || true
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Push, from main only
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "${TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+          docker push --quiet "${IMAGE}:${GITHUB_SHA}"
+          digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "${IMAGE}:${GITHUB_SHA}")
+          docker logout ghcr.io
+          echo "Pushed \`${digest}\` from commit \`${GITHUB_SHA}\`." | tee -a "${GITHUB_STEP_SUMMARY}"
 
   dependencies:
     name: Dependency scan

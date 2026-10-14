@@ -40,3 +40,10 @@ updates:
     groups:
       tool-service:
         patterns: ["*"]
+
+  # The base image of the tool service, by digest. The checks workflow names
+  # the same digest for the tests, and the pipeline fails until both move.
+  - package-ecosystem: docker
+    directory: /tool-service
+    schedule:
+      interval: weekly
