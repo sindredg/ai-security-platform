@@ -22,7 +22,7 @@ This is an infrastructure project. The work is Terraform, Kubernetes operations,
 
 ## System overview
 
-![Target architecture: a trusted orchestrator VM is the only link between the AI worker, the targets, and the outside world](diagrams/target-architecture.svg)
+![Target architecture: a trusted orchestrator VM is the only link between the AI worker, the targets, and the outside world. The operator reaches it through a mesh VPN service outside Azure](diagrams/target-architecture.svg)
 
 Note the dotted line from the AI worker: it ends at a stop bar. The worker cannot reach the target region at all. Everything it knows about the target, it was handed by a tool service on the orchestrator.
 
