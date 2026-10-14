@@ -40,7 +40,7 @@ No page yet. Each gets one when the milestone that builds it starts.
 
 The short list, for a reader who opens only this page. Detail is in the topic pages.
 
-1. **A compromised orchestrator can control the platform.** It holds every credential that matters and reaches any host on TCP 443 and 80 and on any UDP port. Accepted.
+1. **A compromised orchestrator can control the platform.** It holds every credential that matters and reaches any host on TCP 443 and 80. Accepted.
 2. **One operator.** One Azure account owns both sides and one GitHub account approves every change. Accepted.
 3. **Tool authorization relies on custom code.** The service is implemented and its rejection cases are tested in CI. It has not been deployed or tested on the running platform. See [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md).
 4. **Monitoring is incomplete.** No audit daemon, remote log collection, or alerting is configured. The tool service writes audit entries, but persistent storage is not implemented.

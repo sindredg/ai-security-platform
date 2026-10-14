@@ -4,7 +4,7 @@
 
 These have no control and no gate. They are carried on purpose.
 
-- **T05:** a compromised orchestrator can send data to any internet host on TCP 443 or 80 and on any UDP port. The UDP rule is intended for direct mesh VPN connections, which have not succeeded in this lab behind the NAT gateway. Removing it is tracked in [issue #49](https://github.com/sindredg/ai-security-platform/issues/49). [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) plans default-deny egress for workload pods. This would restrict pod access while leaving host access unchanged. Closing port 80 prevented package downloads. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
+- **T05:** a compromised orchestrator can send data to any internet host on TCP 443 or 80. Its UDP rules are removed in Terraform ([ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md)); `E.5` checks it after the apply. [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) plans default-deny egress for workload pods. This would restrict pod access while leaving host access unchanged. Closing port 80 prevented package downloads. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
 - **T15, T30:** a takeover of the operator's GitHub or Azure account defeats the design.
 - **Provider compromise:** Azure, GitHub, and the mesh VPN provider are trusted.
 - **Single approver:** nobody checks the operator.

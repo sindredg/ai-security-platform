@@ -5,7 +5,7 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices. Two are done on the system: the model server on the AI worker, and the agent runtime running headless against it with a fixture tool. A third is written and not deployed: the tool service, tested in the pipeline and on a workstation. The gate is not met.
+The milestone is built in slices. Two are done on the system: the model server on the AI worker, and the agent runtime running headless against it with a fixture tool. A third is written and not deployed: the tool service, tested in the pipeline and on a workstation. Its image is published, and its deployment is written. The gate is not met.
 
 | Gate | Result |
 | --- | --- |
@@ -15,7 +15,7 @@ The milestone is built in slices. Two are done on the system: the model server o
 | Model memory use, latency per turn, and tokens per second are measured on the chosen size | Met for the model server alone, and for one agent run beside it on a fixture. Not measured with a tool over the network |
 | Component footprint on the orchestrator is measured | Open |
 | The threat model covers dispatch, workload identity, and the AI-specific threats | Open |
-| Every image and every model input is pinned by digest and verified on the orchestrator | Met for the model server (38 files and one commit) and for the agent runtime (one file). No image exists yet |
+| Every image and every model input is pinned by digest and verified on the orchestrator | Met for the model server (38 files and one commit) and for the agent runtime (one file). The tool service image is pinned by digest in its manifest. That the orchestrator runs that digest is check `T.2`, not yet run |
 | Every tool call is logged with caller, job, and decision, out of the worker's reach | Open. The service prints the line, tested. Nothing stores it yet |
 | A revoked or expired job token is refused | Open on the system. Tested in the service's own tests |
 | A pod in a workload namespace cannot open a connection to the internet | Open |
@@ -448,7 +448,7 @@ This slice builds the service from the previous slice into an image, deploys it 
 
 ### The image and the key set
 
-Status: **tested** in the pipeline on 2026-10-14: the image builds, hadolint and the image scan pass, and the tests pass on the image's base. **Configured, not tested:** the push to the registry, which runs on `main` only.
+Status: **tested** in the pipeline on 2026-10-14: the image builds, hadolint and the image scan pass, and the tests pass on the image's base. The push to the registry, which runs on `main` only, is **tested** under [The push](#the-push).
 
 | Change | Why |
 | --- | --- |
@@ -488,3 +488,47 @@ Alpine was chosen over Wolfi. It comes from the same publisher as the image alre
 
 The tests now run on the same Alpine image. The pipeline checks that the Dockerfile and the test job name one digest.
 
+### The push
+
+Status: **tested** on the live registry on 2026-10-14.
+
+The squash merge of the image change to `main` ran the image job as commit `75f8c19`. Its log ends with the digest:
+
+```text
+Pushed `ghcr.io/sindredg/ai-security-platform/tool-service@sha256:3f9f2c6f05f381a910801fb87a4e92b75b51e77927e8bd9c8817088f4c5edbc6` from commit `75f8c19849e7ec7d393edc64eab4b709216fbcba`.
+```
+
+The package was then made public, so the cluster pulls without a registry token. Proof that it is public: a request for the manifest by digest with an anonymous registry token, from the workstation.
+
+| Request | Expected | Result |
+| --- | --- | --- |
+| The tool service manifest by that digest | 200, and the same digest back | 200, `docker-content-digest` equal to the pushed digest |
+| A package that does not exist, the same way | Not 200, so the request can fail | 403 |
+
+The image's configuration, read the same way, names `amd64`, `linux`, and user `65532:65532`. The orchestrator is x64.
+
+### The deployment, written
+
+Status: **configured, not tested.** Nothing in this section is deployed.
+
+| Change | Why |
+| --- | --- |
+| `platform/tool-service/`: two namespaces at the restricted pod security level, default-deny network policies, the tool service deployment, and two services | [Deployment controls](../security/tool-service.md#deployment-controls) |
+| A node port, 30443, held to the orchestrator's private address by a K3s setting in the first-boot template | The worker cannot reach a cluster address. The node port keeps the caller's address for the network policy and the audit line |
+| A rule pair for TCP 30443 from the worker subnet to the orchestrator | The worker's second allowed connection |
+| The mesh agent's UDP rules removed | [ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md), [issue #49](https://github.com/sindredg/ai-security-platform/issues/49) |
+| `deploy.sh`, `make-cert.sh`, and `register.sh` | Apply the manifests after checking the dispatch token's claims against the policy file, make the one certificate, and register a job until dispatch exists |
+| The [`T` checks](../validation/tool-service.md), `E.5`, `M.5`, and `Z.13` | The deployment's claims, tested on the system |
+| A pipeline job that validates the manifests with kubeconform, and Checkov and Trivy over `platform/` | A manifest error fails before it reaches the cluster |
+
+The manifest names the image by the digest above. The pipeline and `deploy.sh` both refuse a manifest whose image has no digest. The first version of that check looked only for the placeholder of zeros, so an image named by tag would have passed. Both now require `@sha256:` and 64 hexadecimal characters, and refuse the zeros.
+
+Run locally on 2026-10-14, the pipeline step's script and the `deploy.sh` guard, against the pinned manifest and four broken copies:
+
+| Manifest image | Pipeline step | `deploy.sh` |
+| --- | --- | --- |
+| The pinned digest | 0 | 0 |
+| The digest replaced by 64 zeros | 1 | 1 |
+| A tag, `:latest` | 1 | 1 |
+| No image line | 1 | 1 |
+| A digest cut to 10 characters | 1 | 1 |
