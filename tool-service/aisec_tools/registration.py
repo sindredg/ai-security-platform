@@ -26,7 +26,7 @@ class CallerCheck:
     def __init__(self, jwks_json, issuer, audience, subject):
         # The cluster's public signing keys, as its API publishes them. A token
         # names its key by ID, and the key's type picks the algorithm. The
-        # token's own algorithm header has no say.
+        # token's own algorithm header is not used to choose it.
         keys = jwt.PyJWKSet.from_json(jwks_json).keys
         self.keys = {key.key_id: key for key in keys if key.key_id}
         self.checks = {"issuer": issuer, "audience": audience, "options": REQUIRED}

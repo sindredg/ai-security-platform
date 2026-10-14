@@ -17,7 +17,7 @@ The design assumes the worker can be compromised. The service identifies the job
 
 The service can register jobs, validate tokens, authorize calls, and revoke jobs. The dispatch step that issues tokens and connects these steps has not been built.
 
-ADR 0013 asks for the service account token and does not say how it is checked. ADR 0014 gives the pod no credential and no egress, which rules out asking the API server. The offline check fits both. [ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md) describes the two records as contradictory. They are not: the method was open, and 0016 is where it was chosen.
+ADR 0013 requires the service account token but does not say how the service verifies it. ADR 0014 gives the pod no credential and no outbound access, which rules out asking the API server. Offline verification satisfies both. [ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md) describes the two records as contradictory. They do not conflict: neither specifies the verification method, and ADR 0016 chooses it.
 
 ## What is checked, and where
 

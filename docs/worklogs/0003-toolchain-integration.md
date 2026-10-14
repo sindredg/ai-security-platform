@@ -444,34 +444,34 @@ request   refused         127.0.0.1                 not the tool endpoint   (nin
 
 ## Slice: the tool service on the orchestrator
 
-The service from the slice above, built into an image and deployed to the cluster, with the worker's port to it. Built in two steps: the image first, because the deployment names its digest, and the deployment second.
+This slice builds the service from the previous slice into an image, deploys it to the cluster, and opens its port to the worker. The image comes first, because the deployment names the image's digest.
 
 ### The image and the key set
 
-Written on 2026-10-14. Not yet built by the pipeline.
+Status: **tested** in the pipeline on 2026-10-14: the image builds, hadolint and the image scan pass, and the tests pass on the image's base. **Configured, not tested:** the push to the registry, which runs on `main` only.
 
 | Change | Why |
 | --- | --- |
 | `tool-service/Dockerfile`: two stages from the pinned Python 3.15.0 image on Alpine, packages installed by hash into a virtual environment, pip and the package manager removed, a fixed unprivileged user | The pod will run with a read-only root file system and no root, so the image cannot expect either |
 | A pipeline job: hadolint, a build, a Trivy scan of the image, and a push to the repository's registry from `main` only | ADR 0014: the pipeline builds the image and still holds no cloud credential |
-| Registration reads the cluster's key set (JWKS) instead of one PEM key | The API serves the key set as it is, so the copy is a read and not a conversion. A token names its key by ID, so a rotation that publishes two keys keeps working |
+| Registration reads the cluster's key set (JWKS) instead of one PEM key | The API serves the key set in this format, so copying it needs no conversion. A token names its key by ID, so tokens signed with either key pass during a rotation that publishes two keys |
 | The policy file names the port the worker dials, `advertised_port`, apart from the container's port | The worker reaches the pod through a node port. The Host header it sends carries that port, and the service checks the Host header |
 
-The key set choice was checked against the alternative of one key: with one key, a cluster that starts signing with a new key stops every registration until someone copies it. With the key set, the copy has to be refreshed after a rotation too, but a token signed by either published key passes.
+The alternative was one PEM key. With one key, every registration fails from the moment the cluster signs with a new key until someone copies that key. With the key set, the copy still has to be refreshed after a rotation, but tokens signed with any published key pass.
 
-Tests, on a workstation, Python 3.15.0, packages installed by hash:
+Tests, run locally on Python 3.15.0 with packages installed by hash:
 
 ```bash
 cd tool-service && python -m pytest -q
 ```
 
-Result: 160 passed. The two new controls, a key chosen by the token's key ID and the Host check on the advertised port, were added to the runs with each control removed in turn. 28 of 29 changes were caught. The one left is the same as before: `HS256` in the algorithm list changes nothing, because the key is a key object that PyJWT will not use as a shared secret.
+Result: **tested**, 160 passed. The mutation run, which removes one control at a time, now also covers the two new controls: selecting the key by the token's key ID, and checking the Host header against the advertised port. It caught 28 of 29 changes. The undetected change is the same as before: adding `HS256` to the algorithm list has no effect, because the key is a key object that PyJWT does not use as a shared secret.
 
 `count_lines.py 300`: 291 lines.
 
 ### The base image
 
-The first build used the Debian slim variant of Python 3.15.0, the image the tests ran on. The pipeline's scan passed it, because it blocks only on findings with a fix. The full list told a different story: 164 known vulnerabilities in the image's system packages, 44 of them high, none with a fix in Debian yet. Accepting a finding needs evidence that the vulnerable code is not reachable, and 164 of those is not a review anyone does honestly. So the base changed instead.
+The first build used the Debian slim variant of Python 3.15.0, the image the tests ran on. The pipeline's scan passed it, because the scan fails only on findings that have a fix. The full list showed 164 known vulnerabilities in the image's system packages, 44 of them high, none with a fix in Debian yet. Accepting a finding requires evidence that the vulnerable code is not reachable. A credible reachability review of 164 findings is not practical, so the base image changed instead.
 
 Four candidates, scanned on 2026-10-14 with the pinned Trivy 0.75.0, straight from the registry, for `linux/amd64`:
 
@@ -482,9 +482,9 @@ Four candidates, scanned on 2026-10-14 with the pinned Trivy 0.75.0, straight fr
 | `python:3.15.0-alpine` | Alpine 3.24.2 | 6: 4 high, 2 medium | 6 |
 | `cgr.dev/chainguard/python:latest` | Wolfi | 0 | 0 |
 
-The Alpine image's six findings are all in Python packages that ship with pip: its own copies of `urllib3` and `msgpack`, and `setuptools`. Its 30 system packages have none. The image removes pip.
+The Alpine image's six findings are all in Python packages that ship with pip: pip's bundled copies of `urllib3` and `msgpack`, and `setuptools`. Its 30 system packages have none. The tool service image removes pip.
 
-Alpine was chosen over Wolfi. It comes from the same publisher as the image already in use, tracks the newest Python release, and adds no new party to trust. Wolfi had no findings at all, and brings another publisher and a base the tests would have to move to as well. The cost of Alpine is musl instead of glibc. Every compiled package in the requirements ships a musl build for Python 3.15, and its hash is already in `requirements.txt`, because the file lists the hash of every published file for each pinned version.
+Alpine was chosen over Wolfi. It comes from the same publisher as the image already in use and tracks the newest Python release. Wolfi had no findings, but it adds a second image publisher to trust, and the tests would have to move to it as well. The cost of Alpine is the musl C library instead of glibc. Every compiled package in the requirements ships a musl build for Python 3.15, and its hash is already in `requirements.txt`, because the file lists the hash of every published file for each pinned version.
 
 The tests now run on the same Alpine image. The pipeline checks that the Dockerfile and the test job name one digest.
 

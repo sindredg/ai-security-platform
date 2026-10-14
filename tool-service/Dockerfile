@@ -22,7 +22,8 @@ FROM python@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4
 
 # The base image's own pip is not needed at run time. It also carries its own
 # copies of urllib3 and msgpack, which is where the base image's only known
-# findings were. The package manager goes too: nothing installs at run time.
+# findings were. The package manager is removed too, because nothing is
+# installed at run time.
 RUN python -m pip uninstall --yes pip \
     && apk del --no-cache apk-tools
 
