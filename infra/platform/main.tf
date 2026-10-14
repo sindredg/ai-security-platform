@@ -144,7 +144,7 @@ module "network" {
           source_address_prefix      = "*"
           destination_address_prefix = "AzurePlatformDNS"
           destination_port_range     = "*"
-          description                = "Containment. Azure DNS ignores every rule that does not name this tag, and a resolver is a way out."
+          description                = "Containment. Azure DNS ignores every rule that does not name this tag, and a resolver can carry data out."
         },
         {
           name                       = "allow-package-proxy-to-orchestrator"

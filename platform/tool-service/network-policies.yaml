@@ -5,8 +5,8 @@
 #
 # orchestration: no ingress, and no egress except what dispatch needs: the
 # registration port and the cluster's name server. ADR 0014 puts default-deny
-# egress on every workload namespace, so a pod that is taken cannot use the
-# orchestrator's way out.
+# egress on every workload namespace, so a compromised pod cannot use the
+# orchestrator's outbound internet access.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
