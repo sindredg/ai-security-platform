@@ -452,7 +452,7 @@ Written on 2026-10-14. Not yet built by the pipeline.
 
 | Change | Why |
 | --- | --- |
-| `tool-service/Dockerfile`: two stages from the pinned Python 3.15.0 image, packages installed by hash into a virtual environment, pip removed, a fixed unprivileged user | The pod will run with a read-only root file system and no root, so the image cannot expect either |
+| `tool-service/Dockerfile`: two stages from the pinned Python 3.15.0 image on Alpine, packages installed by hash into a virtual environment, pip and the package manager removed, a fixed unprivileged user | The pod will run with a read-only root file system and no root, so the image cannot expect either |
 | A pipeline job: hadolint, a build, a Trivy scan of the image, and a push to the repository's registry from `main` only | ADR 0014: the pipeline builds the image and still holds no cloud credential |
 | Registration reads the cluster's key set (JWKS) instead of one PEM key | The API serves the key set as it is, so the copy is a read and not a conversion. A token names its key by ID, so a rotation that publishes two keys keeps working |
 | The policy file names the port the worker dials, `advertised_port`, apart from the container's port | The worker reaches the pod through a node port. The Host header it sends carries that port, and the service checks the Host header |
@@ -468,4 +468,23 @@ cd tool-service && python -m pytest -q
 Result: 160 passed. The two new controls, a key chosen by the token's key ID and the Host check on the advertised port, were added to the runs with each control removed in turn. 28 of 29 changes were caught. The one left is the same as before: `HS256` in the algorithm list changes nothing, because the key is a key object that PyJWT will not use as a shared secret.
 
 `count_lines.py 300`: 291 lines.
+
+### The base image
+
+The first build used the Debian slim variant of Python 3.15.0, the image the tests ran on. The pipeline's scan passed it, because it blocks only on findings with a fix. The full list told a different story: 164 known vulnerabilities in the image's system packages, 44 of them high, none with a fix in Debian yet. Accepting a finding needs evidence that the vulnerable code is not reachable, and 164 of those is not a review anyone does honestly. So the base changed instead.
+
+Four candidates, scanned on 2026-10-14 with the pinned Trivy 0.75.0, straight from the registry, for `linux/amd64`:
+
+| Image | System | Known vulnerabilities | With a fix |
+| --- | --- | --- | --- |
+| `python:3.15.0-slim-trixie` | Debian 13.7 | 170: 48 high, 60 medium, 61 low, 1 unknown | 6 |
+| `gcr.io/distroless/python3-debian13:nonroot` | Debian 13.7 | 166: 31 high, 82 medium, 53 low | 0 |
+| `python:3.15.0-alpine` | Alpine 3.24.2 | 6: 4 high, 2 medium | 6 |
+| `cgr.dev/chainguard/python:latest` | Wolfi | 0 | 0 |
+
+The Alpine image's six findings are all in Python packages that ship with pip: its own copies of `urllib3` and `msgpack`, and `setuptools`. Its 30 system packages have none. The image removes pip.
+
+Alpine was chosen over Wolfi. It comes from the same publisher as the image already in use, tracks the newest Python release, and adds no new party to trust. Wolfi had no findings at all, and brings another publisher and a base the tests would have to move to as well. The cost of Alpine is musl instead of glibc. Every compiled package in the requirements ships a musl build for Python 3.15, and its hash is already in `requirements.txt`, because the file lists the hash of every published file for each pinned version.
+
+The tests now run on the same Alpine image. The pipeline checks that the Dockerfile and the test job name one digest.
 

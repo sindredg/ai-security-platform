@@ -61,7 +61,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | Checkov, Trivy, gitleaks images | 3.3.27, 0.75.0, and 8.30.1, by digest | The checks workflow | By hand | |
 | ShellCheck, Ruff images | 0.11.0 and 0.17.0, by digest | The checks workflow | By hand | 2026-10-12 |
 | hadolint image | 2.15.1, by digest | The checks workflow | By hand | 2026-10-14 |
-| Python image | 3.15.0, slim, by digest. Runs the tool service tests, and is the base of its image | The checks workflow and `tool-service/Dockerfile`. The pipeline fails until the two name the same digest | Dependabot, weekly, for the Dockerfile. The workflow by hand | 2026-10-14 |
+| Python image | 3.15.0 on Alpine 3.24, by digest. Runs the tool service tests, and is the base of its image | The checks workflow and `tool-service/Dockerfile`. The pipeline fails until the two name the same digest | Dependabot, weekly, for the Dockerfile. The workflow by hand | 2026-10-14 |
 | Tool service packages | 28, with the MCP SDK 2.3.0, PyJWT 2.15.1, and cryptography 50.0.2 | `tool-service/requirements.in`, compiled to `requirements.txt` with hashes | Dependabot, weekly | 2026-10-13 |
 
 The rows marked "By hand" need manual version reviews. There is no automated reminder. Prioritize the mesh VPN agent, K3s, and llama.cpp because they run continuously, and Goose because it runs for each job. Review this table at the start of each milestone.
