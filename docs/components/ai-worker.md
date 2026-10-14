@@ -1,6 +1,6 @@
 # AI worker
 
-The machine that runs the agent and the model. It reads advisories, target evidence, and tool output, and any of those can carry instructions. So the design assumes it can be turned, and gives it nothing worth stealing and nowhere to go.
+The machine that runs the agent and the model. It reads advisories, target evidence, and tool output, and any of those can carry instructions. The design assumes it can be compromised and restricts its credentials and network access.
 
 | | |
 | --- | --- |
@@ -52,10 +52,10 @@ The diagram source is [`diagrams/agent-run.html`](../diagrams/agent-run.html). I
 | --- | --- |
 | Binary | `/opt/aisec/goose/goose-1.54.0/goose`, the project's release build, checked against the release's digest on the orchestrator and again on the worker |
 | Unit | `aisec-agent-job`, transient: a throwaway account, a read-only file system, localhost only, a 2 GB memory limit, a 15-minute time limit. Exposure score 1.3, the same as the model server |
-| Tools | One, and only the ones named on the command line. `--no-profile` keeps Goose from loading its own, including the one that runs shell commands. That option also drops the tools a recipe names, so the run against the tool service will leave it out and rely on an empty configuration directory instead. Shown on a workstation, not here |
+| Tools | One, and only the ones named on the command line. `--no-profile` keeps Goose from loading its own, including the one that runs shell commands. That option also disables tools declared in a recipe. The planned tool service integration will omit it and use an empty configuration directory. This approach was tested on a workstation; it has not been tested on the worker |
 | Session | Goose writes a session database and a log of every prompt, even when told to keep no session. Both land in the unit's private `/tmp`, which systemd deletes when the unit stops |
 | One at a time | The unit's name is fixed. A second run is refused while one exists |
-| Today's tool | A fixture on the worker that returns one piece of synthetic evidence. The [tool service](../security/tool-service.md) on the orchestrator replaces it. It is written and not deployed, and the unit still allows no address but localhost |
+| Today's tool | A fixture on the worker that returns one piece of synthetic evidence. The [tool service](../security/tool-service.md) on the orchestrator replaces it. It is written but not deployed. The current worker unit permits only localhost connections |
 | Procedure | The [agent runtime runbook](../runbooks/agent-runtime.md) |
 
 ## Measured
@@ -88,7 +88,7 @@ The exchange and the full tables are in the [milestone 3 worklog](../worklogs/00
 
 | Role | Candidate | Has to prove |
 | --- | --- | --- |
-| Agent runtime | Goose, installed | A tool over the network with a job token, on this machine, and a result held to a schema. Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. The call to the tool service over TLS is shown on a workstation |
+| Agent runtime | Goose, installed | A network tool call with a job token on this worker, and validation of the result against a schema. Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A TLS call to the tool service was tested on a workstation |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far |
 
 A workflow hands a job to this machine over SSH, with a key that can only run the job runner ([ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md)). Decided, not built. Today the worker cannot start a connection to anything on the orchestrator except the proxy. The tool service gets the second rule ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)).

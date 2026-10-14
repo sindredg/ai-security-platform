@@ -79,5 +79,5 @@ Limit: service tags such as `Internet` are compared by name. The addresses a tag
 
 ## Not checked
 
-- The orchestrator can reach any host on TCP 443 and 80, and on any UDP port. That is an accepted risk, not a claim.
+- The orchestrator can reach any host on TCP 443 and 80, and on any UDP port. This access is an [accepted risk](../security/accepted-risks.md#accepted-risks); these checks do not test it.
 - Platform endpoints such as the instance metadata service stay reachable from every VM.

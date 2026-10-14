@@ -71,6 +71,6 @@ The second run on 2026-10-12 adds the seven `S` checks, which brings the script 
 - **A rebuild of everything at once.** Each VM has been rebuilt from its template and passed every check, the worker on 2026-10-11 and the orchestrator on 2026-10-13. Both together, or from an empty subscription, has not been run.
 - **The target side.** No target exists yet.
 - **The agent runtime.** Its install and its cleanup were checked by hand and are not in the script.
-- **The tool service.** It is not deployed. Its refusals are tested in the pipeline, which proves the code and nothing about the running system.
+- **The tool service.** It is not deployed. Its rejection cases are tested in CI. Those tests do not validate deployment controls on the running system.
 - **Anything a benchmark tool finds.** kube-bench and Lynis results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). The checks here hold the fixes in place.
 - **Clean Terraform plans.** `terraform plan -detailed-exitcode` needs each root's own identity. The [runbook](../runbooks/platform-compute.md) has that step.

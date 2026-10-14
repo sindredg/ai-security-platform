@@ -111,7 +111,7 @@ Every case ends the same way: the call is refused, nothing of the result goes ba
 
 Define the consumer contract. Deploy NetBox, synthetic inventory, and the consumer. Seed the excess-permission finding and investigate it.
 
-**Depends on:** the NetBox version and consumer scope decisions, the cloud identity for cluster workloads that [ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md) moved here, and how the targets get packages, which [ADR 0011](decisions/0011-package-proxy-for-the-worker.md) left open.
+**Depends on:** decisions about the NetBox version, consumer permissions, cloud identity for cluster workloads ([ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)), and target package updates ([ADR 0011](decisions/0011-package-proxy-for-the-worker.md)).
 
 **Completion criteria:**
 

@@ -46,7 +46,7 @@ The orchestrator has no inbound allow for administration. That arrives inside th
 
 - **The gateway bills by the hour whether or not a VM runs.**
 - **The orchestrator's egress is not filtered by hostname.** That takes a firewall that costs more than the VMs.
-- **Every UDP port is open to the internet from the orchestrator.** The rule is there for the mesh agent's direct connections, which never succeed behind the NAT gateway. It widens what a compromised orchestrator can send, for no gain.
+- **Every UDP port is open to the internet from the orchestrator.** The rule is there for the mesh agent's direct connections, which have not succeeded in this lab behind the NAT gateway. The rule increases outbound access without an observed benefit. See [issue #49](https://github.com/sindredg/ai-security-platform/issues/49).
 - **Port 80 is open as well as 443.** Only the package mirrors need it. Closing it was tried and failed. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
 - **Platform endpoints are not the internet and stay reachable.**
 

@@ -28,8 +28,8 @@ Candidates, not selections. Each has something to prove first.
 | Role | Candidate | Has to prove | Milestone |
 | --- | --- | --- | --- |
 | Workflow engine and UI | Argo Workflows | Dispatch to the worker VM, restart recovery, footprint | 3 |
-| Agent runtime | Goose 1.54.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A tool over TLS with a job token is shown on a workstation, not on the worker. Still to prove: that on the worker, and a result held to a schema | 3 |
-| Tool service | A small MCP server written for this project. Written and tested in the pipeline, not deployed ([security page](../security/tool-service.md)) | The image, the pod limits, the port rule, and one authorized call from the worker on the running system | 3 |
+| Agent runtime | Goose 1.54.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A TLS tool call with a job token was tested on a workstation. Still to test: the same call on the worker and validation of the result against a schema | 3 |
+| Tool service | A small MCP server written for this project. Written and tested in the pipeline, not deployed ([security page](../security/tool-service.md)) | Image build, pod restrictions, network rules, and an authorized call from the live worker | 3 |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far | 3 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
@@ -63,4 +63,4 @@ Every pin in one place. Checked against the official source on the date shown.
 | Python image | 3.15.0, slim, by digest. Runs the tool service tests | The checks workflow | By hand | 2026-10-13 |
 | Tool service packages | 28, with the MCP SDK 2.3.0, PyJWT 2.15.1, and cryptography 50.0.2 | `tool-service/requirements.in`, compiled to `requirements.txt` with hashes | Dependabot, weekly | 2026-10-13 |
 
-Ten kinds of pin move by hand and nothing reminds anyone: Terraform, the image, the mesh VPN agent, K3s, the scanner and linter images, the Python image, llama.cpp, Goose, the model, and the converter packages. The mesh VPN agent, K3s, and llama.cpp are the three that matter most, because they run all the time and get no security fix until the pin moves. Goose runs for every job. Re-check this table at the start of each milestone.
+The rows marked "By hand" need manual version reviews. There is no automated reminder. Prioritize the mesh VPN agent, K3s, and llama.cpp because they run continuously, and Goose because it runs for each job. Review this table at the start of each milestone.
