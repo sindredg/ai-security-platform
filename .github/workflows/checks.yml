@@ -110,8 +110,10 @@ jobs:
         run: |
           docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
             config --skip-check-update --exit-code 1 /src/infra
+          # The registry list for KSV-0125 is in the data file, with its reason.
           docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
-            config --skip-check-update --exit-code 1 /src/platform
+            config --skip-check-update --exit-code 1 \
+            --config-data /src/.github/trivy-data /src/platform
           # The one suppression has its reason in the ignore file.
           docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
             config --skip-check-update --exit-code 1 \

@@ -532,3 +532,11 @@ Run locally on 2026-10-14, the pipeline step's script and the `deploy.sh` guard,
 | A tag, `:latest` | 1 | 1 |
 | No image line | 1 | 1 |
 | A digest cut to 10 characters | 1 | 1 |
+
+The first pipeline run of the manifest scans failed on one finding. Trivy's KSV-0125 refuses an image from a registry outside its list, and the default list names the Azure, AWS, and Google registries, not `ghcr.io`. The check reads its list from data, and a configured list replaces the default. `.github/trivy-data/ksv0125.yaml` names `ghcr.io`. The check matches on the registry domain only, so it cannot name this repository's packages. The digest pin is the control on the image. Run locally on 2026-10-14 with the pinned Trivy 0.75.0 binary for arm64, its checksum verified against the release:
+
+| Input | Expected | Exit |
+| --- | --- | --- |
+| `platform/` without the data file | KSV-0125, exit 1 | 1 |
+| `platform/` with the data file | Exit 0 | 0 |
+| A copy with the image moved to `quay.io`, with the data file | KSV-0125, exit 1 | 1 |
