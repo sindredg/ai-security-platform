@@ -7,7 +7,8 @@ AISEC_ROOT moves it, for a run outside one.
     evidence/       one directory of evidence per target, read-only
     tls/tls.crt     the server certificate, and
     tls/tls.key     its key. Both listeners use it
-    sa-signer.pub   the cluster's service account signing key, public half
+    sa-jwks.json    the cluster's service account signing keys, public halves,
+                    as the API serves them at /openid/v1/jwks
 """
 
 import asyncio
@@ -34,15 +35,16 @@ def build(root):
     handlers = {"on_list_tools": calls.list_tools, "on_call_tool": calls.call_tool}
     # Stateless, with plain JSON replies: no session to steal and no stream to
     # hold open. The SDK's own size limit and Host check stay on, behind the gate.
-    name = "{tls_name}:{tool_port}".format(**policy["listeners"])
+    # The Host header carries the port the worker dials, not the container's.
+    name = "{tls_name}:{advertised_port}".format(**policy["listeners"])
     mcp_app = Server("aisec-tools", **handlers).streamable_http_app(
         json_response=True,
         stateless_http=True,
         max_request_body_size=policy["limits"]["request_bytes"],
         transport_security=TransportSecuritySettings(allowed_hosts=[name]),
     )
-    signer = (root / "sa-signer.pub").read_bytes()
-    check = CallerCheck(signer, **policy["registration_caller"])
+    keys = (root / "sa-jwks.json").read_text(encoding="utf-8")
+    check = CallerCheck(keys, **policy["registration_caller"])
     return policy, Gate(mcp_app, jobs), Registration(jobs, check)
 
 

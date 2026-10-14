@@ -27,6 +27,25 @@ def public_pem(key):
     )
 
 
+def kid_of(key):
+    return hashlib.sha256(public_pem(key)).hexdigest()[:16]
+
+
+def jwks(*keys):
+    """A key set in the form the cluster serves at /openid/v1/jwks."""
+    entries = []
+    for key in keys:
+        if isinstance(key, rsa.RSAPrivateKey):
+            entry = jwt.algorithms.RSAAlgorithm.to_jwk(key.public_key(), as_dict=True)
+            entry["alg"] = "RS256"
+        else:
+            entry = jwt.algorithms.ECAlgorithm.to_jwk(key.public_key(), as_dict=True)
+            entry["alg"] = "ES256"
+        entry.update({"use": "sig", "kid": kid_of(key)})
+        entries.append(entry)
+    return json.dumps({"keys": entries})
+
+
 @pytest.fixture(scope="session")
 def signer():
     return rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -55,7 +74,7 @@ def root(tmp_path, signer):
         (tmp_path / "evidence" / target).mkdir(parents=True)
         path = tmp_path / "evidence" / target / (reference + ".json")
         path.write_text(json.dumps({"reference": reference, "marker": marker}))
-    (tmp_path / "sa-signer.pub").write_bytes(public_pem(signer))
+    (tmp_path / "sa-jwks.json").write_text(jwks(signer), encoding="utf-8")
     return tmp_path
 
 
@@ -87,11 +106,12 @@ class Service:
         self.jobs.clock = lambda: self.now
         where = self.policy["listeners"]
         self.caller = self.policy["registration_caller"]
-        host = "https://{tls_name}:{tool_port}".format(**where)
+        # The worker dials the advertised port, and the Host header says so.
+        host = "https://{tls_name}:{advertised_port}".format(**where)
         self.tools = TestClient(self.tool_app, base_url=host)
         self.registration = TestClient(self.register_app)
 
-    def sa_token(self, key=None, algorithm="RS256", **changes):
+    def sa_token(self, key=None, algorithm="RS256", kid=None, **changes):
         claims = {
             "iss": self.caller["issuer"],
             "aud": self.caller["audience"],
@@ -100,7 +120,9 @@ class Service:
             "exp": int(time.time()) + 600,
         }
         claims.update(changes)
-        return jwt.encode(claims, key or self.signer, algorithm=algorithm)
+        key = key or self.signer
+        headers = {"kid": kid or kid_of(key)}
+        return jwt.encode(claims, key, algorithm=algorithm, headers=headers)
 
     def register(self, job, token, target="synthetic", tools=None, seconds=600):
         body = {

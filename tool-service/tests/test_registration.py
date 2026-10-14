@@ -9,7 +9,7 @@ import time
 
 import jwt
 import pytest
-from conftest import TOKEN_A, public_pem, refused_by_gate
+from conftest import TOKEN_A, jwks, kid_of, public_pem, refused_by_gate
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from aisec_tools.registration import CallerCheck
@@ -74,7 +74,8 @@ def test_a_service_account_token_with_the_wrong_claims(service, lines, changes):
     for name in [k for k, v in changes.items() if v is ...]:
         claims = jwt.decode(token, options={"verify_signature": False})
         del claims[name]
-        token = jwt.encode(claims, service.signer, algorithm="RS256")
+        headers = {"kid": kid_of(service.signer)}
+        token = jwt.encode(claims, service.signer, algorithm="RS256", headers=headers)
     line = refused_by_gate(post(service, token), 401, lines, token)
     assert line["reason"] == "caller not accepted"
     assert service.call(TOKEN_A).status_code == 401
@@ -96,7 +97,8 @@ def test_a_token_signed_with_the_public_key_as_a_shared_secret(service, lines):
         return base64.urlsafe_b64encode(data).rstrip(b"=")
 
     claims = jwt.decode(service.sa_token(), options={"verify_signature": False})
-    signed = part(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
+    header = {"alg": "HS256", "typ": "JWT", "kid": kid_of(service.signer)}
+    signed = part(json.dumps(header).encode())
     signed += b"." + part(json.dumps(claims).encode())
     mac = hmac.new(public_pem(service.signer), signed, hashlib.sha256).digest()
     token = (signed + b"." + part(mac)).decode()
@@ -105,7 +107,9 @@ def test_a_token_signed_with_the_public_key_as_a_shared_secret(service, lines):
 
 def test_an_unsigned_token(service, lines):
     claims = jwt.decode(service.sa_token(), options={"verify_signature": False})
-    token = jwt.encode(claims, None, algorithm="none")
+    token = jwt.encode(
+        claims, None, algorithm="none", headers={"kid": kid_of(service.signer)}
+    )
     refused_by_gate(post(service, token), 401, lines, token)
 
 
@@ -127,13 +131,39 @@ def test_the_workers_job_token_does_not_open_registration(service, lines):
 def test_an_elliptic_curve_signer_works_the_same(service, ec_signer, other_signer):
     """K3s can sign with either key type. The check follows the key."""
     caller = service.policy["registration_caller"]
-    check = CallerCheck(public_pem(ec_signer), **caller)
+    check = CallerCheck(jwks(ec_signer), **caller)
     assert check.accepts(service.sa_token(key=ec_signer, algorithm="ES256"))
     # An RSA token against an elliptic curve key is refused, not a crash.
-    assert not check.accepts(service.sa_token())
+    assert not check.accepts(service.sa_token(kid=kid_of(ec_signer)))
     assert not check.accepts(service.sa_token(key=other_signer))
     other_curve = ec.generate_private_key(ec.SECP256R1())
     assert not check.accepts(service.sa_token(key=other_curve, algorithm="ES256"))
+    forged = service.sa_token(key=other_curve, algorithm="ES256", kid=kid_of(ec_signer))
+    assert not check.accepts(forged)
+
+
+def test_a_key_set_with_two_keys_accepts_both(service, ec_signer, other_signer):
+    """A rotation publishes the old key and the new one side by side."""
+    caller = service.policy["registration_caller"]
+    check = CallerCheck(jwks(service.signer, other_signer), **caller)
+    assert check.accepts(service.sa_token())
+    assert check.accepts(service.sa_token(key=other_signer))
+    assert not check.accepts(service.sa_token(key=ec_signer, algorithm="ES256"))
+
+
+@pytest.mark.parametrize("kid", ["", "unknown-key", None])
+def test_a_token_that_names_no_known_key(service, lines, kid):
+    claims = jwt.decode(service.sa_token(), options={"verify_signature": False})
+    headers = {} if kid is None else {"kid": kid}
+    token = jwt.encode(claims, service.signer, algorithm="RS256", headers=headers)
+    refused_by_gate(post(service, token), 401, lines, token)
+
+
+def test_a_token_that_names_the_right_key_and_is_signed_by_another(
+    service, lines, other_signer
+):
+    token = service.sa_token(key=other_signer, kid=kid_of(service.signer))
+    refused_by_gate(post(service, token), 401, lines, token)
 
 
 def test_an_elliptic_curve_token_against_an_rsa_signer(service, lines, ec_signer):
