@@ -3,9 +3,11 @@
 # pulls it by digest.
 #
 # Both stages start from the image the tests run on, pinned by digest: Python
-# 3.15.0, slim, Debian 13. Nothing here is fetched except the packages in
-# requirements.txt, and pip refuses any file whose hash is not listed there.
-FROM python@sha256:ea4f1f290e071bf7d28199cfb3e09f5dbad31b50e9c32fd58f2f2d7be915f3ae AS build
+# 3.15.0 on Alpine 3.24. Its 30 system packages had no known vulnerability when
+# it was pinned, against 164 for the Debian slim image. Nothing here is fetched
+# except the packages in requirements.txt, and pip refuses any file whose hash
+# is not listed there.
+FROM python@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928 AS build
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -16,11 +18,13 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-deps --require-hashes -r /tmp/requirements.txt \
     && /opt/venv/bin/pip uninstall --yes pip
 
-FROM python@sha256:ea4f1f290e071bf7d28199cfb3e09f5dbad31b50e9c32fd58f2f2d7be915f3ae
+FROM python@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928
 
-# The base image's own pip is not needed at run time, and every package it
-# carries is one more thing for a scanner to find.
-RUN python -m pip uninstall --yes pip
+# The base image's own pip is not needed at run time. It also carries its own
+# copies of urllib3 and msgpack, which is where the base image's only known
+# findings were. The package manager goes too: nothing installs at run time.
+RUN python -m pip uninstall --yes pip \
+    && apk del --no-cache apk-tools
 
 COPY --from=build /opt/venv /opt/venv
 COPY aisec_tools /opt/aisec-tools/aisec_tools

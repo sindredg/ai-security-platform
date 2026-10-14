@@ -34,9 +34,9 @@ env:
   RUFF_IMAGE: ghcr.io/astral-sh/ruff@sha256:0f9316141d252f8c4de3fb672e8433c1afbf9adb24b877ae887cffa4012d850c
   # hadolint 2.15.1
   HADOLINT_IMAGE: hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
-  # Python 3.15.0, slim, Debian 13. The tool service's tests run on it, and its
+  # Python 3.15.0 on Alpine 3.24. The tool service's tests run on it, and its
   # image is built from it. tool-service/Dockerfile names the same digest.
-  PYTHON_IMAGE: python@sha256:ea4f1f290e071bf7d28199cfb3e09f5dbad31b50e9c32fd58f2f2d7be915f3ae
+  PYTHON_IMAGE: python@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928
   # ADR 0016: the tool service without its tools stays under this many lines.
   TOOL_SERVICE_LINE_LIMIT: "300"
 
