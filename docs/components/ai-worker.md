@@ -20,6 +20,7 @@ The machine that runs the agent and the model. It reads advisories, target evide
 | The target network | Nothing |
 | A name server | Nothing. It uses a hosts file |
 | The orchestrator, TCP 3128 | The package proxy |
+| The orchestrator, TCP 30443 | The [tool service](../security/tool-service.md). Written, not deployed |
 | The orchestrator, any other port | Nothing |
 
 It is not part of the cluster. It installs nothing at first boot, because it has nothing to install from. The model server is pushed and built afterwards, from the orchestrator.

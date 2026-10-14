@@ -29,10 +29,11 @@ The script changes nothing. It opens connections that should fail, reads setting
 | Page | Checks | What it covers |
 | --- | --- | --- |
 | [Access](access.md) | `A`, `M` | Who can get in, and through what |
-| [Containment](containment.md) | `C`, `E`, `R`, `Z.4` to `Z.9` | What the worker cannot reach, and what the orchestrator can |
+| [Containment](containment.md) | `C`, `E`, `R`, `Z.4` to `Z.9`, `Z.13` | What the worker cannot reach, and what the orchestrator can |
 | [Package proxy](package-proxy.md) | `P`, `U` | The worker's one path out, and whether updates arrive |
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |
+| [Tool service](tool-service.md) | `T` | The deployed tool service: its pod, namespaces, network paths, and certificate. Configured, not tested |
 | [Host hardening](host-hardening.md) | `HO`, `HW` | SSH daemon, kernel settings, file modes, on both VMs |
 | [Azure policy](azure-policy.md) | `Z.1` to `Z.3`, `Z.10` to `Z.12` | Public addresses and the policy that refuses them |
 
@@ -71,6 +72,6 @@ The second run on 2026-10-12 adds the seven `S` checks, which brings the script 
 - **A rebuild of everything at once.** Each VM has been rebuilt from its template and passed every check, the worker on 2026-10-11 and the orchestrator on 2026-10-13. Both together, or from an empty subscription, has not been run.
 - **The target side.** No target exists yet.
 - **The agent runtime.** Its install and its cleanup were checked by hand and are not in the script.
-- **The tool service.** It is not deployed. Its rejection cases are tested in CI. Those tests do not validate deployment controls on the running system.
+- **The tool service.** It is not deployed. Its rejection cases are tested in CI. The `T` checks, `E.5`, `M.5`, and `Z.13` are written for the deployment and have not run. The [tool service checks](tool-service.md) list them.
 - **Anything a benchmark tool finds.** kube-bench and Lynis results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). The checks here hold the fixes in place.
 - **Clean Terraform plans.** `terraform plan -detailed-exitcode` needs each root's own identity. The [runbook](../runbooks/platform-compute.md) has that step.

@@ -32,6 +32,10 @@ env:
   SHELLCHECK_IMAGE: koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
   # Ruff 0.17.0
   RUFF_IMAGE: ghcr.io/astral-sh/ruff@sha256:0f9316141d252f8c4de3fb672e8433c1afbf9adb24b877ae887cffa4012d850c
+  # kubeconform 0.8.0, and the Kubernetes version its schemas are checked
+  # against: the cluster's, from infra/platform/variables.tf.
+  KUBECONFORM_IMAGE: ghcr.io/yannh/kubeconform@sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e
+  KUBERNETES_VERSION: "1.36.5"
   # hadolint 2.15.1
   HADOLINT_IMAGE: hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
   # Python 3.15.0 on Alpine 3.24. The tool service's tests run on it, and its
@@ -85,6 +89,12 @@ jobs:
           --directory /src/infra --framework terraform
           --skip-download --quiet --compact
 
+      - name: Scan the Kubernetes manifests
+        run: >
+          docker run --rm --volume "${PWD}:/src:ro" "${CHECKOV_IMAGE}"
+          --directory /src/platform --framework kubernetes
+          --skip-download --quiet --compact
+
   trivy:
     name: Trivy
     runs-on: ubuntu-26.04
@@ -96,10 +106,14 @@ jobs:
 
       # The checks built into the pinned image are used as they are. Without
       # --skip-check-update, a newer bundle is downloaded on every run.
-      - name: Scan Terraform and the Dockerfile
+      - name: Scan Terraform, the manifests, and the Dockerfile
         run: |
           docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
             config --skip-check-update --exit-code 1 /src/infra
+          # The registry list for KSV-0125 is in the data file, with its reason.
+          docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
+            config --skip-check-update --exit-code 1 \
+            --config-data /src/.github/trivy-data /src/platform
           # The one suppression has its reason in the ignore file.
           docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
             config --skip-check-update --exit-code 1 \
@@ -138,9 +152,9 @@ jobs:
       # These scripts run as root on the VMs, and nothing else reads them
       # before they do. The image has no shell, so the runner finds the files.
       # -x follows the "source" of pins.env, which holds no secret.
-      - name: Lint the worker and validation scripts
+      - name: Lint the worker, platform, and validation scripts
         run: |
-          mapfile -t scripts < <(find worker validation -name '*.sh' | sort)
+          mapfile -t scripts < <(find worker platform validation -name '*.sh' | sort)
           [ "${#scripts[@]}" -gt 0 ]
           docker run --rm --volume "${PWD}:/mnt:ro" --workdir /mnt "${SHELLCHECK_IMAGE}" \
             -x -P SCRIPTDIR "${scripts[@]}"
@@ -160,12 +174,43 @@ jobs:
       - name: Lint the Python files
         run: >
           docker run --rm --volume "${PWD}:/io:ro" --workdir /io "${RUFF_IMAGE}"
-          check --no-cache worker tool-service
+          check --no-cache worker platform tool-service
 
       - name: Check the formatting
         run: >
           docker run --rm --volume "${PWD}:/io:ro" --workdir /io "${RUFF_IMAGE}"
-          format --no-cache --check worker tool-service
+          format --no-cache --check worker platform tool-service
+
+  manifests:
+    name: Kubernetes manifests
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Every manifest against the schemas of the cluster's Kubernetes release,
+      # strictly: a field the schema does not name is an error. The schemas
+      # are downloaded from the kubeconform project at run time.
+      - name: Validate the manifests
+        run: |
+          mapfile -t manifests < <(find platform -name '*.yaml' | sort)
+          [ "${#manifests[@]}" -gt 0 ]
+          docker run --rm --volume "${PWD}:/src:ro" --workdir /src "${KUBECONFORM_IMAGE}" \
+            -strict -summary -kubernetes-version "${KUBERNETES_VERSION}" "${manifests[@]}"
+
+      # Every image line names a digest. A tag alone fails, and so does the
+      # placeholder of zeros the manifest held before the first image existed.
+      - name: Check that every manifest image is pinned by digest
+        run: |
+          mapfile -t images < <(grep -rhE '^ *image:' platform --include='*.yaml')
+          [ "${#images[@]}" -gt 0 ]
+          printf '%s\n' "${images[@]}"
+          for line in "${images[@]}"; do
+            grep -Eq '@sha256:[0-9a-f]{64}$' <<< "${line}"
+            if grep -Eq '@sha256:0{64}$' <<< "${line}"; then exit 1; fi
+          done
 
   tool-service:
     name: Tool service tests

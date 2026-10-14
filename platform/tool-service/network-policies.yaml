@@ -1,0 +1,88 @@
+# Who may talk to whom. Everything a policy here does not allow is refused.
+#
+# tool-services: no egress at all. In from the worker subnet on the tool port,
+# and from the dispatch pods on the registration port.
+#
+# orchestration: no ingress, and no egress except what dispatch needs: the
+# registration port and the cluster's name server. ADR 0014 puts default-deny
+# egress on every workload namespace, so a compromised pod cannot use the
+# orchestrator's outbound internet access.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: tool-services
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tool-service-ingress
+  namespace: tool-services
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: tool-service
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: 10.40.0.32/27
+      ports:
+        - protocol: TCP
+          port: 8443
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: orchestration
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: dispatch
+      ports:
+        - protocol: TCP
+          port: 8444
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: orchestration
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dispatch-egress
+  namespace: orchestration
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: dispatch
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tool-services
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: tool-service
+      ports:
+        - protocol: TCP
+          port: 8444
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

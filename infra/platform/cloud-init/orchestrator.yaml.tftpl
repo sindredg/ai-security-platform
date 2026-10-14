@@ -13,9 +13,10 @@ write_files:
     content: |
       net.ipv4.ip_forward = 1
 
-  # Routed TCP has to fit the mesh VPN's 1280-byte MTU. The fed machines never
-  # see the "fragmentation needed" replies, because their network security
-  # groups drop ICMP, so the orchestrator rewrites the segment size instead.
+  # Routed TCP has to fit the mesh VPN's 1280-byte MTU. The worker and target
+  # machines never see the "fragmentation needed" replies, because their
+  # network security groups drop ICMP, so the orchestrator rewrites the
+  # segment size instead.
   - path: /etc/aisec/mss-clamp.nft
     permissions: "0644"
     content: |
@@ -158,6 +159,10 @@ write_files:
       disable:
         - traefik
         - servicelb
+      # Node ports answer on the private address only: not on loopback, not on
+      # the mesh interface. The tool service's port to the worker is one.
+      kube-proxy-arg:
+        - nodeport-addresses=${orchestrator_ip}/32
       kube-apiserver-arg:
         - audit-log-path=/var/lib/rancher/k3s/server/logs/audit.log
         - audit-policy-file=/var/lib/rancher/k3s/server/audit.yaml

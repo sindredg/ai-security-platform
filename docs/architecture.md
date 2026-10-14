@@ -92,10 +92,10 @@ The table is the design. Rules exist for what is built: SSH from the orchestrato
 | Orchestrator subnet | NetBox subnet | Evidence collection, approved delivery | Allowed, fixed ports |
 | Orchestrator subnet | Viewpoint and rehearsal subnets | Start named probes and rehearsals | Allowed, fixed ports |
 | Orchestrator subnet | AI worker subnet | Artifact transfer now; job dispatch planned. Both use SSH | Allowed, TCP 22 |
-| AI worker subnet | Orchestrator subnet | The package proxy, built. Tool services, planned | Allowed, fixed ports. Today that is TCP 3128 only |
+| AI worker subnet | Orchestrator subnet | The package proxy, built. The tool service, written and not deployed | Allowed, fixed ports: TCP 3128 and 30443 |
 | AI worker subnet | Target network | None | Denied, by an explicit rule on the platform side |
 | AI worker subnet | Internet | None. The orchestrator pushes what the worker needs | Denied, by an explicit rule on the platform side |
-| Orchestrator subnet | Internet | Mesh VPN, downloads, security feeds, GitHub | Allowed, through the NAT gateway: TCP 443 and 80, and UDP for the mesh agent |
+| Orchestrator subnet | Internet | Mesh VPN, downloads, security feeds, GitHub | Allowed, through the NAT gateway: TCP 443 and 80 ([ADR 0017](decisions/0017-no-udp-from-the-orchestrator.md)) |
 | Target network | Internet | None. The orchestrator pushes what the targets need | Denied, by explicit rules and by a policy that refuses public IP resources on the target side |
 | Target network | Platform network | None | Denied for new connections, by an explicit rule on the platform side |
 | Operator device | Orchestrator, then other VMs | Administration over the mesh VPN | Allowed for the operator's signed devices, on SSH and the Kubernetes API |
@@ -288,5 +288,5 @@ Each gets a decision record before the milestone that depends on it.
 - A separate VM limits what a compromised worker can reach. It does nothing against a compromised host or provider.
 - Both roots use the same network module. A change to it reaches both sides, so the separation is in state, identity, and network rules, not in the code.
 - The public address policy leaves one gap on the platform side. It refuses a public address on a network interface in both resource groups, and any public IP resource on the target side. Both are assigned from the bootstrap root and [validated](worklogs/0002-platform-compute.md#public-address-policy). The platform identity can still create a public IP resource in its own group, because the NAT gateway needs one. It cannot attach it to a machine.
-- The orchestrator's egress is not filtered by hostname. It can reach any host on TCP 443 and 80, and on any UDP port. The UDP rule is there for the mesh agent's direct connections, which have not succeeded in this lab behind the NAT gateway.
+- The orchestrator's egress is not filtered by hostname. It can reach any host on TCP 443 and 80.
 - The [threat model](security/threat-model.md) is a first pass, written by the designer. The controls on the network, the VMs, and the repository are verified or built. Most of the rest are written, decided, or planned, and its [open items](security/accepted-risks.md#open-items) have no answer yet.

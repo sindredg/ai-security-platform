@@ -52,6 +52,17 @@ module "network" {
           description                = "The worker's package manager. The proxy forwards to two package hosts and nothing else."
         },
         {
+          name                       = "allow-tool-service-from-worker"
+          priority                   = 1010
+          direction                  = "Inbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = local.worker_prefix
+          destination_address_prefix = local.orchestrator_prefix
+          destination_port_range     = "30443"
+          description                = "Tool calls. The tool service checks the job token on every call."
+        },
+        {
           name                       = "allow-ssh-to-worker"
           priority                   = 1000
           direction                  = "Outbound"
@@ -82,7 +93,7 @@ module "network" {
           source_address_prefix      = local.orchestrator_prefix
           destination_address_prefix = "Internet"
           destination_port_range     = "443"
-          description                = "Egress. Downloads, registries, feeds, GitHub, and the mesh VPN control and relay servers."
+          description                = "Egress. Downloads, registries, feeds, GitHub, and the mesh VPN relay and log servers."
         },
         {
           name                       = "allow-http-to-internet"
@@ -93,30 +104,7 @@ module "network" {
           source_address_prefix      = local.orchestrator_prefix
           destination_address_prefix = "Internet"
           destination_port_range     = "80"
-          description                = "Egress. Package mirrors that serve signed packages over plain HTTP."
-        },
-        {
-          name                       = "allow-mesh-stun"
-          priority                   = 1120
-          direction                  = "Outbound"
-          access                     = "Allow"
-          protocol                   = "Udp"
-          source_address_prefix      = local.orchestrator_prefix
-          destination_address_prefix = "Internet"
-          destination_port_range     = "3478"
-          description                = "Mesh VPN. The agent learns how it is seen from outside."
-        },
-        {
-          name                       = "allow-mesh-direct"
-          priority                   = 1130
-          direction                  = "Outbound"
-          access                     = "Allow"
-          protocol                   = "Udp"
-          source_address_prefix      = local.orchestrator_prefix
-          source_port_range          = "41641"
-          destination_address_prefix = "Internet"
-          destination_port_range     = "*"
-          description                = "Mesh VPN. Direct connection attempts from the agent's own port."
+          description                = "Egress. Package mirrors that serve signed packages over plain HTTP, and the mesh VPN control connection."
         },
       ]
     }
@@ -156,7 +144,7 @@ module "network" {
           source_address_prefix      = "*"
           destination_address_prefix = "AzurePlatformDNS"
           destination_port_range     = "*"
-          description                = "Containment. Azure DNS ignores every rule that does not name this tag, and a resolver is a way out."
+          description                = "Containment. Azure DNS ignores every rule that does not name this tag, and a resolver can carry data out."
         },
         {
           name                       = "allow-package-proxy-to-orchestrator"
@@ -167,7 +155,18 @@ module "network" {
           source_address_prefix      = local.worker_prefix
           destination_address_prefix = local.orchestrator_prefix
           destination_port_range     = "3128"
-          description                = "Package updates. The only connection the worker may start."
+          description                = "Package updates."
+        },
+        {
+          name                       = "allow-tool-service-to-orchestrator"
+          priority                   = 1010
+          direction                  = "Outbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = local.worker_prefix
+          destination_address_prefix = local.orchestrator_prefix
+          destination_port_range     = "30443"
+          description                = "Tool calls. With package updates, the only connections the worker may start."
         },
         {
           name                       = "allow-ssh-from-orchestrator"

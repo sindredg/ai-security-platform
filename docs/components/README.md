@@ -29,7 +29,7 @@ Candidates, not selections. Each has something to prove first.
 | --- | --- | --- | --- |
 | Workflow engine and UI | Argo Workflows | Dispatch to the worker VM, restart recovery, footprint | 3 |
 | Agent runtime | Goose 1.54.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A TLS tool call with a job token was tested on a workstation. Still to test: the same call on the worker and validation of the result against a schema | 3 |
-| Tool service | A small MCP server written for this project. Written and tested in the pipeline, not deployed ([security page](../security/tool-service.md)) | Image build, pod restrictions, network rules, and an authorized call from the live worker | 3 |
+| Tool service | A small MCP server written for this project. The service, its image, and its deployment are written and checked in the pipeline. Not deployed ([security page](../security/tool-service.md)) | Image build, pod restrictions, network rules, and an authorized call from the live worker | 3 |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far | 3 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
@@ -61,7 +61,9 @@ Every pin in one place. Checked against the official source on the date shown.
 | Checkov, Trivy, gitleaks images | 3.3.27, 0.75.0, and 8.30.1, by digest | The checks workflow | By hand | |
 | ShellCheck, Ruff images | 0.11.0 and 0.17.0, by digest | The checks workflow | By hand | 2026-10-12 |
 | hadolint image | 2.15.1, by digest | The checks workflow | By hand | 2026-10-14 |
+| kubeconform image | 0.8.0, by digest. Validates the manifests against the schemas for Kubernetes 1.36.5, the cluster's release | The checks workflow | By hand, and the Kubernetes version with K3s | 2026-10-14 |
 | Python image | 3.15.0 on Alpine 3.24, by digest. Runs the tool service tests, and is the base of its image | The checks workflow and `tool-service/Dockerfile`. The pipeline fails until the two name the same digest | Dependabot, weekly, for the Dockerfile. The workflow by hand | 2026-10-14 |
+| Tool service image | The digest the pipeline pushed from `main` at `75f8c19` | `platform/tool-service/tool-service.yaml`. The pipeline and `deploy.sh` refuse a manifest image without a digest | By hand, after each image change merges | 2026-10-14 |
 | Tool service packages | 28, with the MCP SDK 2.3.0, PyJWT 2.15.1, and cryptography 50.0.2 | `tool-service/requirements.in`, compiled to `requirements.txt` with hashes | Dependabot, weekly | 2026-10-13 |
 
 The rows marked "By hand" need manual version reviews. There is no automated reminder. Prioritize the mesh VPN agent, K3s, and llama.cpp because they run continuously, and Goose because it runs for each job. Review this table at the start of each milestone.

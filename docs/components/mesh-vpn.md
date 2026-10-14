@@ -28,7 +28,7 @@ Nothing dials in. Both ends open their connections outbound, which is why the or
 | Translate | The source address becomes `10.40.0.4`. The worker and target machines never see a mesh address, so their security groups name the orchestrator subnet and nothing else | `NoSNAT` is `false`, the masquerade rule counts packets, and an SSH login from the workstation shows `10.40.0.4` as its client on the worker |
 | Forward | The security groups allow TCP 22 from the orchestrator subnet to the worker and to the target network. The policy also allows 6443 to the routed networks. The security groups do not | The rules are in [egress and policy](egress-and-policy.md#rules-on-the-platform-side) |
 
-The agent also tries a direct connection: UDP 3478 to learn its outside address, then UDP from port 41641. The security group allows both outbound. They fail here, because the NAT gateway gives each destination a different mapping (`tailscale netcheck` reports `MappingVariesByDestIP: true`), so the relay carries everything.
+The agent also tries a direct connection over UDP. Those attempts failed here, because the NAT gateway gives each destination a different mapping (`tailscale netcheck` reported `MappingVariesByDestIP: true`), so the relay carried everything. [ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md) removes the UDP rules, so the relay is the only path.
 
 ## How a node joins
 

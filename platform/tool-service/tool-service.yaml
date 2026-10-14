@@ -1,0 +1,137 @@
+# The tool service: one pod, two listeners, nothing it can write.
+#
+# The image is pinned by the digest the pipeline printed when it pushed the
+# commit's image from main. The orchestrator runs what this file names, not
+# what the registry holds under a tag.
+#
+# Its files arrive as one read-only volume under /aisec: the policy, the
+# synthetic evidence, the cluster's public signing keys, and the certificate
+# with its key. deploy.sh makes the config maps and the secret.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tool-service
+  namespace: tool-services
+  labels:
+    app.kubernetes.io/name: tool-service
+spec:
+  replicas: 1
+  # Jobs live in memory. Two pods would each know half of them.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tool-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tool-service
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: tool-service
+          image: ghcr.io/sindredg/ai-security-platform/tool-service@sha256:3f9f2c6f05f381a910801fb87a4e92b75b51e77927e8bd9c8817088f4c5edbc6
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: tools
+              containerPort: 8443
+            - name: registration
+              containerPort: 8444
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            privileged: false
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          # A TCP probe. Every HTTP path answers a refusal without a token,
+          # and a refusal is an audit line.
+          readinessProbe:
+            tcpSocket:
+              port: tools
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: tools
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: aisec
+              mountPath: /aisec
+              readOnly: true
+      volumes:
+        - name: aisec
+          projected:
+            defaultMode: 0440
+            sources:
+              - configMap:
+                  name: tool-service-policy
+                  items:
+                    - key: policy.json
+                      path: policy.json
+              - configMap:
+                  name: tool-service-jwks
+                  items:
+                    - key: sa-jwks.json
+                      path: sa-jwks.json
+              - configMap:
+                  name: tool-service-evidence
+                  items:
+                    - key: ev-0001.json
+                      path: evidence/synthetic/ev-0001.json
+              - secret:
+                  name: tool-service-tls
+                  items:
+                    - key: tls.crt
+                      path: tls/tls.crt
+                    - key: tls.key
+                      path: tls/tls.key
+---
+# The worker's way in: the tool port on the orchestrator's private address
+# only, which K3s's node port setting holds to. The node port keeps the
+# caller's address, so the network policy and the audit line both see the
+# worker.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tool-service-worker
+  namespace: tool-services
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local
+  selector:
+    app.kubernetes.io/name: tool-service
+  ports:
+    - name: tools
+      port: 8443
+      targetPort: tools
+      nodePort: 30443
+---
+# Registration, inside the cluster only.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tool-service
+  namespace: tool-services
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: tool-service
+  ports:
+    - name: registration
+      port: 8444
+      targetPort: registration

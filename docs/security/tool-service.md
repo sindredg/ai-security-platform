@@ -59,13 +59,15 @@ One JSON object per decision, on standard output. Standard output carries nothin
 
 The service writes to standard output and opens no log file. A planned host service will append the entries to a file that no pod mounts. Persistent log storage has not been implemented.
 
-## Planned deployment controls
+## Deployment controls
 
-The service parses untrusted input. The following controls will limit the impact of a service vulnerability. They are decided in ADR 0014 and have not been implemented.
+The service parses untrusted input. These controls limit what a bug in it gives an attacker. They are decided in [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), written in `platform/tool-service/` and `infra/platform/main.tf`, and checked in the pipeline. They are not deployed. The [tool service checks](../validation/tool-service.md) test them once they are.
 
-- The pod runs without root, capabilities, a writable file system, or a service account token.
-- Network policy admits the worker subnet on the tool port and the workflow's pods on the registration port. Egress is denied.
-- A pair of network security group rules allows the worker subnet to reach the tool port on the orchestrator.
+- The pod runs as user 65532, without a service account token, privilege escalation, capabilities, or a writable file system. Both namespaces enforce the restricted pod security level.
+- Both namespaces deny all traffic by default. The tool port admits the worker subnet, the registration port admits the dispatch pods, and the tool service pod has no egress.
+- The worker reaches the tool port through node port 30443, which keeps the caller's address for the network policy and the audit line. K3s answers node ports on the orchestrator's private address only.
+- A pair of network security group rules allows the worker subnet to reach TCP 30443 on the orchestrator.
+- The image is pulled by digest from the repository's package registry. The package is public, so the cluster needs no pull secret and the orchestrator holds no registry token. The image holds the code in this repository and no secret. The certificate, its key, the policy, and the cluster's key set are mounted when the pod starts.
 
 CI enforces a 300-line limit on the server code and scans its pinned dependencies. A size-limit violation or a dependency vulnerability fails the check. The [worklog](../worklogs/0003-toolchain-integration.md#size) records the line count.
 

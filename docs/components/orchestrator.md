@@ -42,7 +42,7 @@ About 20 minutes after boot, with an empty cluster: 1.0 of 7.9 GiB memory used, 
 ## Limits
 
 - **It is the supply chain.** What it copies to the worker and the targets is what runs there.
-- **A compromise of it is not contained.** It holds every credential that matters and reaches any host on TCP 443 and 80 and on any UDP port.
+- **A compromise of it is not contained.** It holds every credential that matters and reaches any host on TCP 443 and 80.
 - **No encryption at host.** The subscription feature is not registered.
 - **Rebuilt once, with an empty cluster.** The [rebuild](../worklogs/0002-platform-compute.md#orchestrator-rebuild) on 2026-10-13 proves the template. It says nothing about bringing workloads back.
 

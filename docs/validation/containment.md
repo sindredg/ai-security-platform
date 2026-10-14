@@ -1,8 +1,8 @@
 # Containment
 
-The AI worker runs untrusted model output. It gets no path to the internet, to the targets, or to a name server, and one port on the orchestrator. The design is [ADR 0005](../decisions/0005-ai-workers-on-a-separate-vm.md) and [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md). The threat is T17: the worker reaches a target or the internet directly.
+The AI worker runs untrusted model output. It gets no path to the internet, to the targets, or to a name server, and two ports on the orchestrator: the package proxy and the tool service. The design is [ADR 0005](../decisions/0005-ai-workers-on-a-separate-vm.md) and [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md). The threat is T17: the worker reaches a target or the internet directly.
 
-![Network flows: the operator reaches the orchestrator on ports 22 and 6443, the orchestrator reaches the worker and the targets on port 22 and the internet through one NAT gateway, the worker reaches only port 3128 on the orchestrator, and everything else is denied](../diagrams/network-flows.svg)
+![Network flows: the operator reaches the orchestrator on ports 22 and 6443, the orchestrator reaches the worker and the targets on port 22 and the internet through one NAT gateway, the worker reaches only ports 3128 and 30443 on the orchestrator, and everything else is denied](../diagrams/network-flows.svg)
 
 The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). It shows what is enforced today. The [target architecture](../architecture.md#system-overview) shows what is planned on top of it.
 
@@ -44,6 +44,7 @@ A timeout proves a packet was dropped. It does not say which rule dropped it, an
 | `Z.7` | Worker to the internet is denied by `deny-to-internet` | IP flow verify |
 | `Z.8` | Worker to the proxy is allowed by `allow-package-proxy-to-orchestrator` | IP flow verify |
 | `Z.9` | Worker to the Kubernetes API is denied by `deny-all-outbound` | IP flow verify |
+| `Z.13` | Worker to the tool port is allowed by `allow-tool-service-to-orchestrator` | IP flow verify. Configured, not tested: see [tool service](tool-service.md) |
 
 ### What `Z.4` and `Z.5` compare
 
@@ -73,11 +74,12 @@ Limit: service tags such as `Internet` are compared by name. The addresses a tag
 | `E.2` | The orchestrator reaches the worker on 22 | Copying files to the worker, and administration | TCP to the worker |
 | `E.3` | The worker's rules drop the orchestrator on 80 | The allow is one port, not the subnet | TCP times out. Nothing listens on that port, so `refused` would mean the rules let the packet in |
 | `E.4` | The feed key logs in to the worker | The feed path works end to end | An SSH login from the orchestrator with the feed key |
+| `E.5` | The orchestrator sends no UDP to the internet | [ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md) removed the mesh agent's UDP rules | `tailscale netcheck` reports `UDP: false`. Configured, not tested: it passes only after the platform apply |
 | `R.1` | The mesh VPN agent is active | The subnet router is the way in | `systemctl is-active` |
 | `R.2` | The segment size clamp is loaded | Without it, connections through the router stall. See [troubleshooting 02](../troubleshooting/02-ssh-through-subnet-router-stalls.md) | Two rules in the `aisec_mss` table |
 | `R.3` | The orchestrator forwards packets | It routes for the mesh | `net.ipv4.ip_forward` is `1` |
 
 ## Not checked
 
-- The orchestrator can reach any host on TCP 443 and 80, and on any UDP port. This access is an [accepted risk](../security/accepted-risks.md#accepted-risks); these checks do not test it.
+- The orchestrator can reach any host on TCP 443 and 80. This access is an [accepted risk](../security/accepted-risks.md#accepted-risks); these checks do not test it.
 - Platform endpoints such as the instance metadata service stay reachable from every VM.

@@ -13,11 +13,12 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Check | What it does |
 | --- | --- |
 | Terraform format and validate | `terraform fmt -check` and `terraform validate` on every root |
-| Checkov | Terraform misconfigurations |
-| Trivy | Terraform and Dockerfile misconfigurations. For Terraform, a second scanner beside Checkov |
+| Checkov | Terraform and Kubernetes manifest misconfigurations |
+| Trivy | Terraform, Kubernetes manifest, and Dockerfile misconfigurations. For Terraform and the manifests, a second scanner beside Checkov. For the manifests, `.github/trivy-data/ksv0125.yaml` names `ghcr.io` as the trusted registry, with its reason |
 | Secret scan | gitleaks over the whole history |
-| ShellCheck | Every shell script under `worker/` and `validation/`. They run as root on the VMs |
-| Ruff | Lint and format check on all Python files under `worker/` and `tool-service/`. The tool service adds bugbear, the security rules, and import order |
+| ShellCheck | Every shell script under `worker/`, `platform/`, and `validation/`. They run as root on the VMs |
+| Ruff | Lint and format check on all Python files under `worker/`, `platform/`, and `tool-service/`. The tool service adds bugbear, the security rules, and import order |
+| Kubernetes manifests | kubeconform over every manifest under `platform/`, strict, against the cluster's Kubernetes release. Then every image line has to name a digest that is not the placeholder of zeros |
 | Tool service tests | The line count against the limit of 300, then the tests, on the pinned Python image with every package installed by hash |
 | Tool service image | hadolint on the Dockerfile, a build from the pinned base image, and a Trivy scan of the image that blocks on any finding with a fix. On `main`, the job pushes the image to the repository's package registry and writes its digest to the run summary |
 | Dependency scan | Trivy over the converter's Python pins: reports, never blocks. Trivy over the tool service's pins: blocks |

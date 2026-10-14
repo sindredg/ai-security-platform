@@ -28,6 +28,12 @@ WORK_IP=10.40.0.36
 PROXY="http://$ORCH_IP:3128"
 MODEL_UNIT=aisec-llama-server
 MODEL_PORT=8080
+TOOL_PORT=30443
+TOOL_NAME=tool-service.aisec.internal
+TOOL_CERT=/etc/aisec/tool-service.crt
+here=$(cd "$(dirname "$0")" && pwd)
+# The digest the reviewed manifest names, read from this checkout.
+TOOL_IMAGE_DIGEST=$(sed -n 's/^ *image: ghcr.io[^@]*@\(sha256:[0-9a-f]*\)$/\1/p' "$here/../platform/tool-service/tool-service.yaml")
 RG=rg-aisec-platform
 RG_TARGETS=rg-aisec-targets
 
@@ -139,6 +145,16 @@ echo "to_worker_http=$(tcp '"$WORK_IP"' 80)"
 echo "to_worker_model=$(tcp '"$WORK_IP"' '"$MODEL_PORT"')"
 echo "feed=$(sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec@aisec-worker hostname 2>/dev/null)"
 echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
+echo "mesh_udp=$(tailscale netcheck 2>/dev/null | sed -n "s/^[^A-Za-z]*UDP: //p" | head -n 1)"
+k() { k3s kubectl "$@" 2>/dev/null; }
+echo "tool_ready=$(k get deployment tool-service -n tool-services -o jsonpath="{.status.readyReplicas}")"
+echo "tool_image=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{.items[0].status.containerStatuses[0].imageID}" | sed "s/.*@//")"
+echo "tool_pod_security=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{.items[0].spec.automountServiceAccountToken} {.items[0].spec.securityContext.runAsNonRoot} {.items[0].spec.containers[0].securityContext.readOnlyRootFilesystem} {.items[0].spec.containers[0].securityContext.allowPrivilegeEscalation} {.items[0].spec.containers[0].securityContext.capabilities.drop[0]}")"
+echo "pod_security_admission=$(k get namespace tool-services orchestration -o jsonpath="{range .items[*]}{.metadata.labels.pod-security\.kubernetes\.io/enforce} {end}" | sed "s/ $//")"
+echo "default_deny=$({ k get networkpolicy default-deny -n tool-services -o name; k get networkpolicy default-deny -n orchestration -o name; } | tr "\n" " " | sed "s/ $//")"
+echo "tool_port_on_mesh=$(tcp "$(tailscale ip -4 2>/dev/null | head -n 1)" '"$TOOL_PORT"')"
+echo "tool_cert_14_days=$(openssl x509 -in /etc/aisec/tool-service/tls.crt -noout -checkend 1209600 >/dev/null 2>&1 && echo yes || echo no)"
+echo "tool_egress=$(k3s kubectl exec -n tool-services deployment/tool-service -- python -c "import socket; socket.create_connection((\"1.1.1.1\", 443), 5)" 2>&1 | grep -q -i "timed out" && echo timeout || echo other)"
 '
 
 probe_worker="$probe_common"'
@@ -169,6 +185,12 @@ echo "model_health=$(code http://127.0.0.1:'"$MODEL_PORT"'/health)"
 echo "model_exposure=$(LC_ALL=C systemd-analyze security --no-pager '"$MODEL_UNIT"'.service 2>/dev/null | sed -n "s/.*Overall exposure level for [^:]*: \([0-9.]*\).*/\1/p")"
 model_file=$(systemctl show '"$MODEL_UNIT"' -p ExecStart --value 2>/dev/null | sed -n "s/.* --model \([^ ]*\) .*/\1/p")
 echo "model_sum=$(cd "$(dirname "$model_file")" 2>/dev/null && grep "  $(basename "$model_file")\$" SHA256SUMS 2>/dev/null | sha256sum --check --strict --status 2>/dev/null && echo match || echo differ)"
+tool() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 -X POST -d "{}" "$@"; }
+echo "tool_port=$(tcp '"$ORCH_IP"' '"$TOOL_PORT"')"
+echo "tool_no_token=$(tool --cacert '"$TOOL_CERT"' https://'"$TOOL_NAME"':'"$TOOL_PORT"'/mcp)"
+echo "tool_untrusted=$(tool https://'"$TOOL_NAME"':'"$TOOL_PORT"'/mcp)"
+echo "tool_wrong_name=$(tool --cacert '"$TOOL_CERT"' https://'"$ORCH_IP"':'"$TOOL_PORT"'/mcp)"
+echo "tool_tls12=$(tool --cacert '"$TOOL_CERT"' --tls-max 1.2 https://'"$TOOL_NAME"':'"$TOOL_PORT"'/mcp)"
 '
 
 common_checks() { # prefix
@@ -224,6 +246,23 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check S.1 "The worker's rules drop the orchestrator on the model server port" timeout "$(value to_worker_model)"
   check U.1 "No security update is pending on the orchestrator" 0 "$(value security_updates_pending)"
   check U.2 "The mesh VPN agent is held at its pinned version" 1 "$(value tailscale_held)"
+  # The mesh agent's UDP rules are gone, so it cannot reach a STUN server.
+  check E.5 "The orchestrator sends no UDP to the internet" false "$(value mesh_udp)"
+  check T.1 "The tool service pod is ready" 1 "$(value tool_ready)"
+  # The digest that runs, against the digest the reviewed manifest names. An
+  # empty manifest digest is a failure, not a match.
+  check T.2 "The tool service runs the image its manifest names" "${TOOL_IMAGE_DIGEST:-no digest in the manifest}" "$(value tool_image)"
+  check T.3 "The tool service pod has no token, no root, and nothing writable" "false true true false ALL" "$(value tool_pod_security)"
+  check T.4 "Both namespaces enforce the restricted pod security level" "restricted restricted" "$(value pod_security_admission)"
+  check T.5 "Both namespaces deny by default" "networkpolicy.networking.k8s.io/default-deny networkpolicy.networking.k8s.io/default-deny" "$(value default_deny)"
+  # Node ports answer on the private address only. The mesh address is a
+  # local address of this machine, so the mesh policy does not apply here.
+  # Nothing listens: a reset, "refused", is the expected answer.
+  check T.6 "The tool port does not answer on the mesh address" refused "$(value tool_port_on_mesh)"
+  check T.7 "The tool service certificate has more than 14 days left" yes "$(value tool_cert_14_days)"
+  # From inside the pod. A timeout is the network policy. Any other end, a
+  # connection or an error, is a failure.
+  check T.8 "The tool service pod cannot reach the internet" timeout "$(value tool_egress)"
   common_checks HO
 else
   check A.1 "Reachable over the mesh VPN with the operator key" yes no
@@ -266,6 +305,14 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # The file named on the unit's command line, against the line for it in the
   # SHA256SUMS the build wrote. No line for that file is "differ", not a pass.
   check S.7 "The model file the server loads matches its checksum from the build" match "$(value model_sum)"
+  check T.9 "The worker reaches the tool port" open "$(value tool_port)"
+  # Through TLS with the pinned certificate and the name in it, to a refusal:
+  # the service answers, and wants a token.
+  check T.10 "The tool service refuses a call without a token" 401 "$(value tool_no_token)"
+  # 000 is curl's code for no HTTP answer. Here it means the TLS handshake failed.
+  check T.11 "The system's trust store does not trust the tool service" 000 "$(value tool_untrusted)"
+  check T.12 "The certificate does not cover the bare address" 000 "$(value tool_wrong_name)"
+  check T.13 "The tool service refuses TLS 1.2" 000 "$(value tool_tls12)"
   check U.3 "apt on the worker uses the proxy" 1 "$(value apt_proxy)"
   check U.4 "Unattended upgrades are enabled on the worker" enabled "$(value unattended_upgrades)"
   check U.5 "No security update is pending on the worker" 0 "$(value security_updates_pending)"
@@ -285,6 +332,7 @@ if [ "$workstation" = 1 ]; then
   # "refused" would mean the packet reached the orchestrator.
   check M.3 "The mesh policy drops the proxy port" timeout "$(tcp $ORCH_IP 3128 6)"
   check M.4 "The mesh policy drops the kubelet port" timeout "$(tcp $ORCH_IP 10250 6)"
+  check M.5 "The mesh policy drops the tool port" timeout "$(tcp $ORCH_IP $TOOL_PORT 6)"
 fi
 
 if [ "$azure" = 1 ]; then
@@ -401,6 +449,7 @@ print("\n".join(sorted(lines)))
   check Z.7 "Worker to the internet is denied by its own rule" "Deny deny-to-internet" "$(flow 1.1.1.1:443)"
   check Z.8 "Worker to the proxy is allowed by its own rule" "Allow allow-package-proxy-to-orchestrator" "$(flow $ORCH_IP:3128)"
   check Z.9 "Worker to the Kubernetes API is denied" "Deny deny-all-outbound" "$(flow $ORCH_IP:6443)"
+  check Z.13 "Worker to the tool port is allowed by its own rule" "Allow allow-tool-service-to-orchestrator" "$(flow $ORCH_IP:$TOOL_PORT)"
 
   # A network interface with a public address, validated and never deployed.
   sub=$(az account show --query id -o tsv 2>/dev/null)

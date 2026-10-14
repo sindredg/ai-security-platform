@@ -43,7 +43,7 @@ The risk column describes what an attacker could do, or what could fail, because
 | Lab choice | Reason in this lab | Risk | Production approach |
 | --- | --- | --- | --- |
 | Mesh VPN with a third-party coordination service | Private administration without public VM addresses or rules tied to the operator's IP address. Node signing is enabled | Availability depends on the provider. Its agent uploads logs by default (T01) | A self-hosted control plane, or a VPN gateway or private circuit with a bastion |
-| Orchestrator outbound access allows TCP 443 and 80, and every UDP port | A firewall for hostname filtering would add substantial lab cost | A compromised orchestrator can send data to any internet host on those ports (T05) | A firewall or proxy with a hostname allowlist |
+| Orchestrator outbound access allows TCP 443 and 80 | A firewall for hostname filtering would add substantial lab cost | A compromised orchestrator can send data to any internet host on those ports (T05) | A firewall or proxy with a hostname allowlist |
 | State storage accounts accept connections from any network | Access is by identity, and shared keys are off | A stolen identity works from anywhere (T32) | Private endpoints, and no public network access |
 | The worker downloads packages through an HTTP proxy limited to two public hosts | Package verification uses signed repository metadata. The proxy restricts hosts, methods, and ports | Requests can carry some data out, and the worker can attack the proxy (T17) | An internal package mirror |
 
@@ -53,7 +53,7 @@ The risk column describes what an attacker could do, or what could fail, because
 | --- | --- | --- | --- |
 | One K3s node, one VM per role | A quota of 4 vCPUs per region | No redundancy. A stuck job blocks the only worker (T20) | A highly available control plane across zones and multiple workers |
 | One worker VM shared by consecutive jobs | No capacity for more | Agent files are cleaned up, but jobs share the kernel and model server memory (T19, A6) | A fresh sandbox or VM per job |
-| Planned: the tool service runs in a container on the orchestrator | The lab has one trusted machine | A service vulnerability could expose the machine that holds the credentials (T22) | A sandboxed runtime or separate machine, plus independent code review |
+| Written, not deployed: the tool service runs in a container on the orchestrator | The lab has one trusted machine | A service vulnerability could expose the machine that holds the credentials (T22) | A sandboxed runtime or separate machine, plus independent code review |
 | Credentials stored as files on the orchestrator and, for planned workloads, Kubernetes Secrets | K3s secret encryption is enabled. One operator has root access | Root on the orchestrator can read them (T36) | A managed secret store, hardware-backed keys, and short-lived credentials |
 | A small model, built on the worker from the publisher's weights | It fits in 8 GiB and keeps inference local | Investigation quality has not been evaluated (A3) | A model selected through evaluation, with request logging and appropriate data controls |
 
