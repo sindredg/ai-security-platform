@@ -441,3 +441,31 @@ request   refused         127.0.0.1                 not the tool endpoint   (nin
 - Jobs live in memory. A restart of the service forgets every job, so every token stops working. That fails closed, and it ends running jobs.
 - Nothing limits the rate of refused requests before a token is checked, beyond sixteen connections at a time.
 - The job runner on the worker is not changed. It still starts Goose with the fixture and `--no-profile`.
+
+## Slice: the tool service on the orchestrator
+
+The service from the slice above, built into an image and deployed to the cluster, with the worker's port to it. Built in two steps: the image first, because the deployment names its digest, and the deployment second.
+
+### The image and the key set
+
+Written on 2026-10-14. Not yet built by the pipeline.
+
+| Change | Why |
+| --- | --- |
+| `tool-service/Dockerfile`: two stages from the pinned Python 3.15.0 image, packages installed by hash into a virtual environment, pip removed, a fixed unprivileged user | The pod will run with a read-only root file system and no root, so the image cannot expect either |
+| A pipeline job: hadolint, a build, a Trivy scan of the image, and a push to the repository's registry from `main` only | ADR 0014: the pipeline builds the image and still holds no cloud credential |
+| Registration reads the cluster's key set (JWKS) instead of one PEM key | The API serves the key set as it is, so the copy is a read and not a conversion. A token names its key by ID, so a rotation that publishes two keys keeps working |
+| The policy file names the port the worker dials, `advertised_port`, apart from the container's port | The worker reaches the pod through a node port. The Host header it sends carries that port, and the service checks the Host header |
+
+The key set choice was checked against the alternative of one key: with one key, a cluster that starts signing with a new key stops every registration until someone copies it. With the key set, the copy has to be refreshed after a rotation too, but a token signed by either published key passes.
+
+Tests, on a workstation, Python 3.15.0, packages installed by hash:
+
+```bash
+cd tool-service && python -m pytest -q
+```
+
+Result: 160 passed. The two new controls, a key chosen by the token's key ID and the Host check on the advertised port, were added to the runs with each control removed in turn. 28 of 29 changes were caught. The one left is the same as before: `HS256` in the algorithm list changes nothing, because the key is a key object that PyJWT will not use as a shared secret.
+
+`count_lines.py 300`: 291 lines.
+
