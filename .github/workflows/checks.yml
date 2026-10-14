@@ -98,10 +98,12 @@ jobs:
       # --skip-check-update, a newer bundle is downloaded on every run.
       - name: Scan Terraform and the Dockerfile
         run: |
-          for path in infra tool-service/Dockerfile; do
-            docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
-              config --skip-check-update --exit-code 1 "/src/${path}"
-          done
+          docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
+            config --skip-check-update --exit-code 1 /src/infra
+          # The one suppression has its reason in the ignore file.
+          docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
+            config --skip-check-update --exit-code 1 \
+            --ignorefile /src/tool-service/.trivyignore /src/tool-service/Dockerfile
 
   gitleaks:
     name: Secret scan
@@ -236,7 +238,7 @@ jobs:
               "${TRIVY_IMAGE}" image --scanners vuln --exit-code 0 --quiet \
               --format table "${IMAGE}:${GITHUB_SHA}" || true
             echo '```'
-          } >> "${GITHUB_STEP_SUMMARY}"
+          } | tee -a "${GITHUB_STEP_SUMMARY}"
 
       - name: Push, from main only
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
