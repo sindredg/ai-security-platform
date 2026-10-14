@@ -25,7 +25,7 @@ Nothing dials in. Both ends open their connections outbound, which is why the or
 | Tunnel | WireGuard between the two agents, encrypted end to end. Each agent sends it inside TLS on port 443 to a relay server, which forwards ciphertext | `tailscale status`: the workstation is `active; relay`, with no direct address. `ss`: two connections from `tailscaled` to relay hosts on port 443 |
 | Filter | The orchestrator's agent drops anything the access policy does not allow, for itself and for the routed networks | The agent's packet filter holds TCP 22 and 6443 for its own address and both networks, and nothing else. Checks `M.1` to `M.4` test it with traffic |
 | Clamp | Routed TCP handshakes get a maximum segment size of 1240 | `tailscale0` has MTU 1280, `eth0` 1500, and the rule is loaded |
-| Translate | The source address becomes `10.40.0.4`. A fed machine never sees a mesh address, so its security group names the orchestrator subnet and nothing else | `NoSNAT` is `false`, the masquerade rule counts packets, and an SSH login from the workstation shows `10.40.0.4` as its client on the worker |
+| Translate | The source address becomes `10.40.0.4`. The worker and target machines never see a mesh address, so their security groups name the orchestrator subnet and nothing else | `NoSNAT` is `false`, the masquerade rule counts packets, and an SSH login from the workstation shows `10.40.0.4` as its client on the worker |
 | Forward | The security groups allow TCP 22 from the orchestrator subnet to the worker and to the target network. The policy also allows 6443 to the routed networks. The security groups do not | The rules are in [egress and policy](egress-and-policy.md#rules-on-the-platform-side) |
 
 The agent also tries a direct connection: UDP 3478 to learn its outside address, then UDP from port 41641. The security group allows both outbound. They fail here, because the NAT gateway gives each destination a different mapping (`tailscale netcheck` reports `MappingVariesByDestIP: true`), so the relay carries everything.
@@ -34,11 +34,11 @@ The agent also tries a direct connection: UDP 3478 to learn its outside address,
 
 A single-use, tagged auth key that lasts one day. It travels in the VM's custom data, is used once at first boot, and its file is removed. The key ends up in Terraform state, which is why it has to be single use.
 
-Node signing is on. Two of the operator's devices hold signing keys. A node that joins without a signature is on the network and can talk to nothing.
+Node signing is on. Two of the operator's devices hold signing keys. A node that joins without a signature is on the network but cannot reach any other node.
 
 ## The segment size clamp
 
-The tunnel carries 1280-byte packets and the virtual network 1500. The fed machines never see the "fragmentation needed" reply, because their security groups drop ICMP. So the orchestrator rewrites the maximum segment size on every routed TCP handshake. Without it, a connection through the router opens and then stalls. See [troubleshooting 02](../troubleshooting/02-ssh-through-subnet-router-stalls.md).
+The tunnel carries 1280-byte packets and the virtual network 1500. The worker and target machines never see the "fragmentation needed" reply, because their security groups drop ICMP. So the orchestrator rewrites the maximum segment size on every routed TCP handshake. Without it, a connection through the router opens and then stalls. See [troubleshooting 02](../troubleshooting/02-ssh-through-subnet-router-stalls.md).
 
 ## Access policy
 

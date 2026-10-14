@@ -1,6 +1,6 @@
 # Package proxy
 
-The worker's one way out: a proxy on the orchestrator that forwards package downloads to two hosts. The design is [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md). It is the exception to T17, so it gets its own checks.
+The worker's only outbound access: a proxy on the orchestrator that forwards package downloads to two hosts. The design is [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md). It is the exception to T17, so it gets its own checks.
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
@@ -10,7 +10,7 @@ The worker's one way out: a proxy on the orchestrator that forwards package down
 | `P.4` | Squid refuses a client outside the worker subnet | Nothing else gets to use it | A request from the orchestrator's own address returns 403 |
 | `P.5` | The worker reaches the proxy port | The path exists | TCP to 3128 |
 | `P.6`, `P.7` | The proxy serves the two package hosts | Updates work | A release file from each returns 200 |
-| `P.8` | The proxy refuses another host | It is not a general way out | `http://example.com/` returns 403 |
+| `P.8` | The proxy refuses another host | It is not a general outbound path | `http://example.com/` returns 403 |
 | `P.9` | The proxy refuses an upload | Package hosts accept uploads. The proxy does not pass them | A `POST` to a package host returns 403 |
 | `P.10` | The proxy refuses another port | Only plain package downloads | Port 8080 on a package host returns 403 |
 | `P.11` | The proxy refuses a tunnel | A tunnel would carry anything | `CONNECT` returns 403 |

@@ -16,7 +16,7 @@ The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 | [AI worker](ai-worker.md) | The contained VM for the agent and the model | Sweden Central |
 | [K3s](k3s.md) | The cluster | Orchestrator |
 | [Mesh VPN](mesh-vpn.md) | The only way in | Orchestrator, operator devices |
-| [Egress and policy](egress-and-policy.md) | One way out, and what keeps the rest closed | Azure |
+| [Egress and policy](egress-and-policy.md) | The one outbound path, and what blocks outbound access everywhere else | Azure |
 | [Package proxy](package-proxy.md) | The worker's updates | Orchestrator |
 | [Deployment identities and state](identities-and-state.md) | Who can change which side | Azure, Microsoft Entra ID |
 | [Repository and pipeline](pipeline.md) | The approval channel and its checks | GitHub |

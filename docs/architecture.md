@@ -109,7 +109,7 @@ No VM has a public address. The operator gets in over a mesh VPN: the orchestrat
 
 ### Egress
 
-The system has one way out: a NAT gateway on the orchestrator subnet. The orchestrator is the only machine that downloads anything. The worker and the targets are fed, and three controls keep them closed, because any one alone leaks: no outbound method, explicit deny rules, and Azure Policy assigned outside both roots.
+The system has one outbound path to the internet: a NAT gateway on the orchestrator subnet. The orchestrator is the only machine that downloads anything. The worker and the targets get their software from the orchestrator, and three controls block their outbound access, because any one alone leaves a path open: no outbound method, explicit deny rules, and Azure Policy assigned outside both roots.
 
 The worker has one exception: a proxy on the orchestrator that forwards package downloads to two hosts. The targets do not get it.
 
@@ -205,7 +205,7 @@ The method is in [ADR 0010](decisions/0010-threat-model-and-security-checks-per-
 
 The table above says who is trusted. The [threat model](security/threat-model.md) says what can go wrong at each boundary, what stops it, and where that gets tested. Its first pass was written before any VM existed.
 
-Everything else is attached to the milestone that builds the thing it checks. A practice with no gate behind it is a good intention.
+Everything else is attached to the milestone that builds the thing it checks. A practice without a gate has no check that it was done.
 
 | Practice | What it covers | Lands with | State |
 | --- | --- | --- | --- |
@@ -258,7 +258,7 @@ infra/modules/      Shared Terraform modules
 infra/platform/     Platform Terraform root
 infra/targets/      Target Terraform root
 platform/           K3s component configuration and workflow templates
-worker/             What the orchestrator feeds the AI worker: pins, build scripts, service units
+worker/             What the orchestrator copies to the AI worker: pins, build scripts, service units
 tool-service/       The MCP server that checks every tool call, its tests, and its pinned packages
 targets/netbox/     NetBox deployment definition, fixtures, consumer contract
 policies/           Target, tool, and change rules. Today: the tool service's

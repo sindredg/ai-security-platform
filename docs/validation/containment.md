@@ -25,7 +25,7 @@ A timeout proves a drop only when something listens at the far end. That holds f
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
-| `C.1` | No connection to the internet | A turned worker cannot call out or fetch a payload | TCP to `1.1.1.1:443` times out |
+| `C.1` | No connection to the internet | A compromised worker cannot connect out or download a payload | TCP to `1.1.1.1:443` times out |
 | `C.2`, `C.3` | No connection to the target network | The worker investigates through tool services, never directly | TCP to an address in two target subnets times out. No machine is there yet, so this would time out without the rule too. `Z.6` is the proof until targets exist |
 | `C.4` | No connection to the platform resolver | DNS is a way to pass data out, and a deny-all rule does not cover it | TCP to `168.63.129.16:53` times out |
 | `C.5` | A public name does not resolve | The same, tested end to end | `getent hosts example.com` has to fail |
@@ -70,7 +70,7 @@ Limit: service tags such as `Internet` are compared by name. The addresses a tag
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
 | `E.1` | The orchestrator reaches the internet on 443 | It is the one machine that downloads | TCP to `1.1.1.1:443` |
-| `E.2` | The orchestrator reaches the worker on 22 | Feeding and administration | TCP to the worker |
+| `E.2` | The orchestrator reaches the worker on 22 | Copying files to the worker, and administration | TCP to the worker |
 | `E.3` | The worker's rules drop the orchestrator on 80 | The allow is one port, not the subnet | TCP times out. Nothing listens on that port, so `refused` would mean the rules let the packet in |
 | `E.4` | The feed key logs in to the worker | The feed path works end to end | An SSH login from the orchestrator with the feed key |
 | `R.1` | The mesh VPN agent is active | The subnet router is the way in | `systemctl is-active` |

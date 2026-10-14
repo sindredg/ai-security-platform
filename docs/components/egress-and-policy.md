@@ -1,6 +1,6 @@
 # Egress and policy
 
-One way out for the whole system: a NAT gateway on the orchestrator subnet. Every other machine is closed three times over, because any one control alone leaks.
+One outbound path for the whole system: a NAT gateway on the orchestrator subnet. Every other machine has three controls that block outbound access, because any one control alone leaves a path open.
 
 | | |
 | --- | --- |
@@ -9,7 +9,7 @@ One way out for the whole system: a NAT gateway on the orchestrator subnet. Ever
 | Defined in | `infra/platform/egress.tf`, the rules in `infra/platform/main.tf` and `infra/targets/`, the policy in `infra/bootstrap/policy.tf` |
 | Decisions | [0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), [0008](../decisions/0008-deployment-identities-and-bootstrap-scope.md) |
 
-## The three controls on a fed machine
+## The three controls on the worker and target machines
 
 | Control | What it stops | What it does not |
 | --- | --- | --- |
