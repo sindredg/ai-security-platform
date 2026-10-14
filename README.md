@@ -4,21 +4,6 @@ Self-hosted AI workers investigate security findings on a target service they ca
 
 The split of work is strict. Ordinary tools collect evidence and establish facts. AI interprets the evidence and proposes a change within defined limits. Neither gets to approve anything.
 
-## Find your way around
-
-| To see | Go to |
-| --- | --- |
-| What exists today, and what each milestone has to prove | [Roadmap](docs/roadmap.md#status) |
-| How the system is built | [Architecture](docs/architecture.md), then the [components](docs/components/README.md), one page per part with every version pin |
-| Why each choice was made, and what it costs | [Decision records](docs/decisions/README.md) |
-| The check behind a claim about the running system | [Validation](docs/validation/README.md): one page per area, each claim with its check and the last run |
-| The commands and output behind a result | [Worklogs](docs/worklogs/README.md), one per milestone |
-| The security reasoning | [Security](docs/security/README.md): the threat model, AI-specific threats, credentials, hardening, and [accepted risks](docs/security/accepted-risks.md) |
-| How to rebuild it | [Runbooks](docs/runbooks/README.md), one per milestone |
-| Failures and what they showed | [Troubleshooting](docs/troubleshooting/README.md) |
-| Known defects and follow-up | [Open issues](https://github.com/sindredg/ai-security-platform/issues) |
-| The code | [Repository layout](#repository-layout), below |
-
 ## Target architecture
 
 This is what gets built. The networks, their rules, the peering, both platform VMs, the mesh VPN, a K3s cluster, and a model server and an agent runtime on the AI worker exist today. The cluster is there to run the trusted side: the workflow engine, the collectors, the tool services, and the pull request broker. None of those is deployed yet. They and the whole target side are planned. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
@@ -33,6 +18,21 @@ The blocked paths matter as much as the open ones:
 - **The targets reach nothing outside their own network.** They cannot open a connection into the platform, and they have no internet path. Rules in [`infra/targets/main.tf`](infra/targets/main.tf). No target VM exists yet, so no traffic check covers this side. The [Azure policy checks](docs/validation/azure-policy.md) show it has no public address and cannot get one.
 - **No VM has a public address.** The operator comes in over the mesh VPN. Outbound traffic leaves through one NAT gateway on the orchestrator subnet. The policy that refuses an address is in [`infra/bootstrap/policy.tf`](infra/bootstrap/policy.tf), and the [Azure policy checks](docs/validation/azure-policy.md) test it.
 - **The two sides cross only over network peering**, between separate Terraform roots, state, and deployment identities. Every crossing starts on the orchestrator. See [identities and state](docs/components/identities-and-state.md) and [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md).
+
+## Find your way around
+
+| To see | Go to |
+| --- | --- |
+| What exists today, and what each milestone has to prove | [Roadmap](docs/roadmap.md#status) |
+| How the system is built | [Architecture](docs/architecture.md), then the [components](docs/components/README.md), one page per part with every version pin |
+| Why each choice was made, and what it costs | [Decision records](docs/decisions/README.md) |
+| The check behind a claim about the running system | [Validation](docs/validation/README.md): one page per area, each claim with its check and the last run |
+| The commands and output behind a result | [Worklogs](docs/worklogs/README.md), one per milestone |
+| The security reasoning | [Security](docs/security/README.md): the threat model, AI-specific threats, credentials, hardening, and [accepted risks](docs/security/accepted-risks.md) |
+| How to rebuild it | [Runbooks](docs/runbooks/README.md), one per milestone |
+| Failures and what they showed | [Troubleshooting](docs/troubleshooting/README.md) |
+| Known defects and follow-up | [Open issues](https://github.com/sindredg/ai-security-platform/issues) |
+| The code | [Repository layout](#repository-layout), below |
 
 ## What can go wrong
 
@@ -70,6 +70,7 @@ The [roadmap](docs/roadmap.md#status) holds the state of every milestone and wha
 | [`infra/platform/`](infra/platform/) | Terraform for the platform side: network, security group rules, NAT gateway, both VMs, and their first-boot templates | [Egress and policy](docs/components/egress-and-policy.md), [orchestrator](docs/components/orchestrator.md), [AI worker](docs/components/ai-worker.md) |
 | [`infra/targets/`](infra/targets/) | Terraform for the target network. No VMs yet | [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md) |
 | [`infra/modules/network/`](infra/modules/network/) | The network module both sides use | [Architecture](docs/architecture.md) |
+| [`platform/tool-service/`](platform/tool-service/) | Kubernetes manifests and scripts that deploy the tool service to K3s: namespaces, network policies, the pod, the certificate, and job registration | [Tool service](docs/security/tool-service.md#deployment-controls), [checks](docs/validation/tool-service.md) |
 | [`worker/model-server/`](worker/model-server/) | Pins, download, build, and install scripts for the model server on the worker | [Runbook](docs/runbooks/model-server.md) |
 | [`worker/agent-runtime/`](worker/agent-runtime/) | Pins, install, and run scripts for the agent runtime, and the fixture tool | [Runbook](docs/runbooks/agent-runtime.md) |
 | [`tool-service/`](tool-service/) | The tool service: its code, tests, and Dockerfile | [Tool service](docs/security/tool-service.md) |
