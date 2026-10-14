@@ -368,10 +368,13 @@ def test_the_paths_goose_tries_after_a_refusal(two_jobs, lines, method, path):
     )
 
 
-def test_a_host_name_that_is_not_the_services(two_jobs, lines):
+@pytest.mark.parametrize(
+    "host", ["evil.example:8443", "tool-service.aisec.internal:8443", "10.40.0.4:30443"]
+)
+def test_a_host_name_that_is_not_the_services(two_jobs, lines, host):
     message = {"jsonrpc": "2.0", "id": 1, "method": "tools/call"}
     message["params"] = {"name": "get_evidence", "arguments": {"reference": "ev-0001"}}
-    response = two_jobs.post(TOKEN_A, message, headers={"Host": "evil.example:8443"})
+    response = two_jobs.post(TOKEN_A, message, headers={"Host": host})
     assert response.status_code >= 400
     assert MARKER not in response.text
     (line,) = lines()

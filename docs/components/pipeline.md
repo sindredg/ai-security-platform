@@ -14,14 +14,15 @@ The repository is the approval channel: a change reaches `main` only through a p
 | --- | --- |
 | Terraform format and validate | `terraform fmt -check` and `terraform validate` on every root |
 | Checkov | Terraform misconfigurations |
-| Trivy | Terraform misconfigurations, a second opinion |
+| Trivy | Terraform and Dockerfile misconfigurations. For Terraform, a second scanner beside Checkov |
 | Secret scan | gitleaks over the whole history |
 | ShellCheck | Every shell script under `worker/` and `validation/`. They run as root on the VMs |
 | Ruff | Lint and format check on all Python files under `worker/` and `tool-service/`. The tool service adds bugbear, the security rules, and import order |
 | Tool service tests | The line count against the limit of 300, then the tests, on the pinned Python image with every package installed by hash |
+| Tool service image | hadolint on the Dockerfile, a build from the pinned base image, and a Trivy scan of the image that blocks on any finding with a fix. On `main`, the job pushes the image to the repository's package registry and writes its digest to the run summary |
 | Dependency scan | Trivy over the converter's Python pins: reports, never blocks. Trivy over the tool service's pins: blocks |
 
-The first six are required by the ruleset on `main`. The tool service tests and the dependency scan run on every pull request and are not in the ruleset. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
+The first six are required by the ruleset on `main`. The tool service tests, the image job, and the dependency scan run on every pull request and are not in the ruleset. The image job is the only job with write permission. It can write packages to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
 
 ## Repository settings
 

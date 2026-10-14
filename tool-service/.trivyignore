@@ -1,0 +1,5 @@
+# DS-0026 asks for a HEALTHCHECK instruction. Kubernetes ignores it: the pod's
+# own probes decide whether the container is healthy, and the image is never
+# run outside the cluster. A health check here would also need an HTTPS client
+# in an image that has none.
+DS-0026

@@ -3,6 +3,7 @@
     "bind": "0.0.0.0",
     "tls_name": "tool-service.aisec.internal",
     "tool_port": 8443,
+    "advertised_port": 30443,
     "register_port": 8444
   },
   "registration_caller": {

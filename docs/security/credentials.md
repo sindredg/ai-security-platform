@@ -25,4 +25,4 @@ Every secret the project has or has planned. A credential not in this table shou
 | NetBox administrator, database, and consumer token | Target VMs | The target, and the orchestrator for seeding | Reseeded with each rebuild | Milestone 4 |
 | Repository app key | `change` namespace | PR broker | App key rotation | Open, milestone 5 |
 
-The cluster's public service account signing key is not a secret, but its copy in the tool service needs to stay current. The service uses it to verify the dispatch step's token. A stale copy after signing-key rotation causes registration to fail.
+The cluster's public service account signing keys are not secret, but the tool service's copy of them needs to stay current. The copy is the key set the API serves at `/openid/v1/jwks`. The service uses it to verify the dispatch step's token. A copy that is stale after a signing key rotation causes registration to fail.

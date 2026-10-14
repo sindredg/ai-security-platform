@@ -2,7 +2,7 @@
 
 It has its own port, which the worker cannot reach. The caller proves itself
 with its Kubernetes service account token. The token is checked offline, against
-the cluster's public signing key, so this pod holds no credential for the
+the cluster's public signing keys, so this pod holds no credential for the
 cluster and opens no connection to it.
 
     POST   /jobs        {"job", "target", "tools", "seconds", "token_sha256"}
@@ -13,8 +13,6 @@ import json
 
 import jsonschema
 import jwt
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from .audit import audit
 from .http import bearer, caller, read_body, reply
@@ -25,18 +23,21 @@ REQUIRED = {"require": ["exp", "iat", "iss", "aud", "sub"]}
 class CallerCheck:
     """Accepts one service account, for one audience, from one issuer."""
 
-    def __init__(self, public_key_pem, issuer, audience, subject):
-        # The type of the key picks the algorithm. The token's header does not.
-        self.key = load_pem_public_key(public_key_pem)
-        rsa_key = isinstance(self.key, rsa.RSAPublicKey)
-        self.checks = {"algorithms": ["RS256" if rsa_key else "ES256"]}
-        self.checks |= {"issuer": issuer, "audience": audience, "options": REQUIRED}
+    def __init__(self, jwks_json, issuer, audience, subject):
+        # The cluster's public signing keys, as its API publishes them. A token
+        # names its key by ID, and the key's type picks the algorithm. The
+        # token's own algorithm header is not used to choose it.
+        keys = jwt.PyJWKSet.from_json(jwks_json).keys
+        self.keys = {key.key_id: key for key in keys if key.key_id}
+        self.checks = {"issuer": issuer, "audience": audience, "options": REQUIRED}
         self.subject = subject
 
     def accepts(self, token):
         try:
-            claims = jwt.decode(token, self.key, **self.checks)
-        except (jwt.PyJWTError, TypeError):
+            key = self.keys[jwt.get_unverified_header(token).get("kid")]
+            algorithms = [key.algorithm_name]
+            claims = jwt.decode(token, key, algorithms, **self.checks)
+        except (jwt.PyJWTError, KeyError, TypeError):
             # TypeError is what PyJWT raises for a key it cannot use.
             return False
         return claims["sub"] == self.subject

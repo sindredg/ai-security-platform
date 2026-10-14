@@ -1,6 +1,6 @@
 # Tool service and job identity
 
-Status: **tested** in CI on 2026-10-13 with `python -m pytest -q`: 153 tests passed. The service has not been deployed. Live validation and deployment controls remain part of milestone 3. See the [roadmap](../roadmap.md#3-toolchain-integration) for milestone status.
+Status: **tested** in CI on 2026-10-14 with `python -m pytest -q`: 160 tests passed, on the image the service is built from. The service has not been deployed. Live validation and deployment controls remain part of milestone 3. See the [roadmap](../roadmap.md#3-toolchain-integration) for milestone status.
 
 The tool service will authorize tool calls from the AI worker on the orchestrator. This page explains how it identifies a job, rejects unauthorized requests, and records decisions. The decisions are in ADRs [0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), and [0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md). The code is in `tool-service/`, and its policy is in `policies/tool-service.json`.
 
@@ -10,12 +10,14 @@ The design assumes the worker can be compromised. The service identifies the job
 
 1. The dispatch step makes a random token for one job.
 2. It registers the job with the tool service: job ID, target, tools, lifetime, and the SHA-256 digest of the token. The token itself is not sent.
-3. The dispatch step authenticates with a Kubernetes service account token. The service verifies the token using a copy of the cluster's public signing key, without contacting the Kubernetes API.
+3. The dispatch step authenticates with a Kubernetes service account token. The service verifies the token using a copy of the cluster's public signing keys, without contacting the Kubernetes API. The copy is the key set the API serves at `/openid/v1/jwks`. The token names its key by ID, and the key's type determines the algorithm.
 4. The worker receives the job token and sends it with every tool request over TLS. It trusts only the server certificate copied to the worker and checks the server name.
 5. The tool service hashes the token and looks the job up. The scope comes from that lookup. Nothing in the call can name a job or a target.
 6. When the job ends, the dispatch step revokes it by job ID. The token also expires if revocation is missed.
 
 The service can register jobs, validate tokens, authorize calls, and revoke jobs. The dispatch step that issues tokens and connects these steps has not been built.
+
+ADR 0013 requires the service account token but does not say how the service verifies it. ADR 0014 gives the pod no credential and no outbound access, which rules out asking the API server. Offline verification satisfies both. [ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md) describes the two records as contradictory. They do not conflict: neither specifies the verification method, and ADR 0016 chooses it.
 
 ## What is checked, and where
 
@@ -82,7 +84,7 @@ CI enforces a 300-line limit on the server code and scans its pinned dependencie
 | Claim | Evidence | Source |
 | --- | --- | --- |
 | Rejection cases above | Tests in `tool-service/tests/`, grouped by the roadmap's [hostile-input table](../roadmap.md#hostile-input-tests-for-the-tool-service) | CI on every pull request; commands and results in the worklog |
-| Tests detect removed controls | Mutation testing detected 26 of 27 deliberate changes. One redundant check was not detected because another check rejected the request first | Local workstation; one recorded run |
+| Tests detect removed controls | Mutation testing detected 28 of 29 deliberate changes. One redundant check was not detected because another check rejected the request first | Local workstation; one recorded run |
 | Goose can call the service | TLS calls before and after token revocation | Local workstation with a stub model; commands and results in the worklog |
 | Deployment on the orchestrator | No evidence yet. The service has not been deployed | Not tested on the live system |
 
