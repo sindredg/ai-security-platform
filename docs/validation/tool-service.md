@@ -2,7 +2,7 @@
 
 The tool service runs in K3s on the orchestrator and is the one place the worker can send a tool call. These checks test the deployment: the pod, its namespaces, its network paths, and its certificate. The service's own rejection cases are unit tests in the pipeline. The design is [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) and [ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md). The controls are on the [tool service page](../security/tool-service.md#deployment-controls).
 
-Status: **configured, not tested.** The checks are in `validation/platform-checks.sh`. The service is not deployed, so none has run against the system, and none has been run against a broken input. Every expected value below is reasoned from the manifests and the tools, not observed.
+Status: **tested** on the live system on 2026-10-15. Every check below passed in the run from `main` at `131ba01`. Each one was also seen to fail, on a broken input or before its control existed, except that `T.1`, `T.3` to `T.5`, and `T.10` were seen to fail only on absence. The runs and the inputs are in the [worklog](../worklogs/0003-toolchain-integration.md#the-fail-side-of-each-new-check). The checks are in `validation/platform-checks.sh`.
 
 ## On the orchestrator
 
@@ -37,5 +37,5 @@ These check the same deployment and sit with their own groups:
 
 ## Not checked
 
-- **The round trip.** Registering a job, calling a tool with its token, and the refusal after revocation are steps in the deployment procedure, not checks in the script.
-- **The audit log.** The service prints audit lines. Nothing stores them yet.
+- **The round trip.** Registering a job, calling a tool with its token, the refusal after revocation or expiry, and the audit lines are steps 10 to 15 of the [runbook](../runbooks/tool-service.md#round-trip), not checks in the script. They change state, and the script changes nothing.
+- **The audit log.** The service prints audit lines. Nothing stores them yet, so there is nothing to check.

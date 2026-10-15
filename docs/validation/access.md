@@ -15,7 +15,7 @@ No VM has a public address. The only way in is the mesh VPN, then SSH with one k
 | `M.2` | The mesh policy allows the Kubernetes API | Cluster administration | A TCP connection to port 6443 |
 | `M.3` | The mesh policy drops the proxy port | A mesh device has no business on the worker's proxy | A TCP connection to port 3128 times out. Squid listens there, so `refused` would mean the packet arrived |
 | `M.4` | The mesh policy drops the kubelet port | The kubelet API is not an administration interface | A TCP connection to port 10250 times out |
-| `M.5` | The mesh policy drops the tool port | The tool port is for the worker | A TCP connection to the orchestrator's private address on port 30443 times out. Configured, not tested: see [tool service](tool-service.md) |
+| `M.5` | The mesh policy drops the tool port | The tool port is for the worker | A TCP connection to the orchestrator's private address on port 30443 times out. Not seen to fail: changing the mesh policy is not a read-only step. Port 22 on the same address is `open`, so the probe can see a connection |
 
 ## What these checks found
 
