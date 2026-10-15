@@ -154,7 +154,18 @@ echo "pod_security_admission=$(k get namespace tool-services orchestration -o js
 echo "default_deny=$({ k get networkpolicy default-deny -n tool-services -o name; k get networkpolicy default-deny -n orchestration -o name; } | tr "\n" " " | sed "s/ $//")"
 echo "tool_port_on_mesh=$(tcp "$(tailscale ip -4 2>/dev/null | head -n 1)" '"$TOOL_PORT"')"
 echo "tool_cert_14_days=$(openssl x509 -in /etc/aisec/tool-service/tls.crt -noout -checkend 1209600 >/dev/null 2>&1 && echo yes || echo no)"
-echo "tool_egress=$(k3s kubectl exec -n tool-services deployment/tool-service -- python -c "import socket; socket.create_connection((\"1.1.1.1\", 443), 5)" 2>&1 | grep -q -i "timed out" && echo timeout || echo other)"
+echo "tool_egress=$(k3s kubectl exec -n tool-services deployment/tool-service -- python -c "
+import socket
+try:
+    socket.create_connection((\"1.1.1.1\", 443), 5).close()
+    print(\"open\")
+except ConnectionRefusedError:
+    print(\"refused\")
+except TimeoutError:
+    print(\"timeout\")
+except OSError:
+    print(\"other\")
+" 2>&1 | tail -n 1)"
 '
 
 probe_worker="$probe_common"'
@@ -260,9 +271,11 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # Nothing listens: a reset, "refused", is the expected answer.
   check T.6 "The tool port does not answer on the mesh address" refused "$(value tool_port_on_mesh)"
   check T.7 "The tool service certificate has more than 14 days left" yes "$(value tool_cert_14_days)"
-  # From inside the pod. A timeout is the network policy. Any other end, a
-  # connection or an error, is a failure.
-  check T.8 "The tool service pod cannot reach the internet" timeout "$(value tool_egress)"
+  # From inside the pod. K3s enforces network policies with kube-router, which
+  # rejects with an ICMP port unreachable, so a blocked connection is
+  # "refused", observed on 2026-10-15. The orchestrator itself reaches 443
+  # (E.1), so without the policy this is "open". Any other end is a failure.
+  check T.8 "The tool service pod cannot reach the internet" refused "$(value tool_egress)"
   common_checks HO
 else
   check A.1 "Reachable over the mesh VPN with the operator key" yes no
