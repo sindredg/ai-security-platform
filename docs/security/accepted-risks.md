@@ -4,7 +4,7 @@
 
 These have no control and no gate. They are carried on purpose.
 
-- **T05:** a compromised orchestrator can send data to any internet host on TCP 443 or 80. Its UDP rules are removed in Terraform ([ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md)); `E.5` checks it after the apply. [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) plans default-deny egress for workload pods. This would restrict pod access while leaving host access unchanged. Closing port 80 prevented package downloads. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
+- **T05:** a compromised orchestrator can send data to any internet host on TCP 443 or 80. Its UDP rules are removed ([ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md)), checked by `E.5`. Pods are kept off the internet by network policies ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) and a host rule ([ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md)), checked by `T.8`, `E.6`, and `E.7`. So the risk is root on the orchestrator, not a compromised pod. Host access is unchanged. Closing port 80 prevented package downloads. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
 - **T15, T30:** a takeover of the operator's GitHub or Azure account defeats the design.
 - **Provider compromise:** Azure, GitHub, and the mesh VPN provider are trusted.
 - **Single approver:** nobody checks the operator.
@@ -13,7 +13,7 @@ These have no control and no gate. They are carried on purpose.
 - **Push protection is not tested.** Secret scanning with push protection is read as enabled on the repository. No secret was pushed to see it refused, because a real secret must not go to a public repository and a fake one proves little. The secret scan in the pipeline has been seen to fire once, on a false positive.
 - **Eight advisories in the converter's packages.** None is reachable in how the model build uses them. The reason for each is [below](#advisories-in-the-converters-packages).
 - **The workstation:** out of scope. A deployment key taken from it is covered by T29.
-- **The planned tool service uses a pinned self-signed certificate.** The worker will trust a local copy rather than a certificate authority ([ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md)). If the private key is stolen, the server certificate and the worker's trusted copy both need to be replaced.
+- **The tool service uses a pinned self-signed certificate.** The worker trusts a local copy rather than a certificate authority ([ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md)). If the private key is stolen, the server certificate and the worker's trusted copy both need to be replaced.
 
 ## Advisories in the converter's packages
 
@@ -56,7 +56,7 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 | Cloud identity for cluster workloads | T36 | Milestone 4 |
 | Operator sessions to targets in the audit log | T04 | Milestone 4 |
 | Evidence written for one job is readable by the next job on the same target. The tool service stores evidence per target | T16, T19 | Milestone 4, with the first collector |
-| Requests that reach the application without a valid token are rejected and logged, but are not rate-limited | T20 | Milestone 3, with the deployment |
+| Requests that reach the application without a valid token are rejected and logged, but are not rate-limited. The service is deployed without a limit | T20 | Milestone 3 |
 | How the targets get packages and stay current | T09 | Milestone 4 |
 | Log upload from the mesh agent to its vendor. On by default, [seen on the orchestrator](../components/mesh-vpn.md#limits) | No entry yet | Milestone 4 |
 | What the broker allows into a pull request | A5 | Milestone 5 |

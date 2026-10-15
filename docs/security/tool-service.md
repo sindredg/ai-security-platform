@@ -1,8 +1,8 @@
 # Tool service and job identity
 
-Status: **tested** in CI on 2026-10-14 with `python -m pytest -q`: 160 tests passed, on the image the service is built from. The service has not been deployed. Live validation and deployment controls remain part of milestone 3. See the [roadmap](../roadmap.md#3-toolchain-integration) for milestone status.
+Status: **tested** in CI on 2026-10-14 with `python -m pytest -q`: 160 tests passed, on the image the service is built from. Deployed on the orchestrator and **tested** on the live system on 2026-10-15: the [deployment checks](../validation/tool-service.md) and one round trip from the worker ([worklog](../worklogs/0003-toolchain-integration.md#the-deployment-on-the-orchestrator)). The dispatch step is not built. See the [roadmap](../roadmap.md#3-toolchain-integration) for milestone status.
 
-The tool service will authorize tool calls from the AI worker on the orchestrator. This page explains how it identifies a job, rejects unauthorized requests, and records decisions. The decisions are in ADRs [0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), and [0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md). The code is in `tool-service/`, and its policy is in `policies/tool-service.json`.
+The tool service authorizes tool calls from the AI worker, on the orchestrator. This page explains how it identifies a job, rejects unauthorized requests, and records decisions. The decisions are in ADRs [0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), and [0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md). The code is in `tool-service/`, and its policy is in `policies/tool-service.json`.
 
 ## How a call identifies its job
 
@@ -37,7 +37,7 @@ A request passes two stages. Before the Model Context Protocol (MCP) SDK parses 
 | Handler | The result is within the size limit | An error result |
 | Handler | The job has not expired or been revoked while the tool ran. A late result is discarded | An error result |
 
-Registration uses a separate listener. The planned network rules will block worker access to it. The listener checks the caller's token signature, issuer, audience, expiry, and service account. It then validates the registration schema, target, tools, and uniqueness of the job ID and token digest.
+Registration uses a separate listener. Its network policy admits only pods with the dispatch label in `orchestration`, and the worker's node port leads to the tool listener only. The listener checks the caller's token signature, issuer, audience, expiry, and service account. It then validates the registration schema, target, tools, and uniqueness of the job ID and token digest.
 
 Requests rejected by the application return an error without the tool's result. An audit entry records the decision and reason. Requests rejected by the SDK are also logged. Rejections before the application runs, such as the server's concurrency limit, do not produce these audit entries.
 
@@ -61,10 +61,10 @@ The service writes to standard output and opens no log file. A planned host serv
 
 ## Deployment controls
 
-The service parses untrusted input. These controls limit what a bug in it gives an attacker. They are decided in [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), written in `platform/tool-service/` and `infra/platform/main.tf`, and checked in the pipeline. They are not deployed. The [tool service checks](../validation/tool-service.md) test them once they are.
+The service parses untrusted input. These controls limit what a bug in it gives an attacker. They are decided in [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), written in `platform/tool-service/` and `infra/platform/main.tf`, and checked in the pipeline. They are deployed, and the [tool service checks](../validation/tool-service.md) test them on the live system.
 
 - The pod runs as user 65532, without a service account token, privilege escalation, capabilities, or a writable file system. Both namespaces enforce the restricted pod security level.
-- Both namespaces deny all traffic by default. The tool port admits the worker subnet, the registration port admits the dispatch pods, and the tool service pod has no egress.
+- Both namespaces deny all traffic by default. The tool port admits the worker subnet, the registration port admits the dispatch pods, and the tool service pod has no egress. A host rule also drops forwarded traffic from any pod to anything but pods ([ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md)).
 - The worker reaches the tool port through node port 30443, which keeps the caller's address for the network policy and the audit line. K3s answers node ports on the orchestrator's private address only.
 - A pair of network security group rules allows the worker subnet to reach TCP 30443 on the orchestrator.
 - The image is pulled by digest from the repository's package registry. The package is public, so the cluster needs no pull secret and the orchestrator holds no registry token. The image holds the code in this repository and no secret. The certificate, its key, the policy, and the cluster's key set are mounted when the pod starts.
@@ -88,6 +88,7 @@ CI enforces a 300-line limit on the server code and scans its pinned dependencie
 | Rejection cases above | Tests in `tool-service/tests/`, grouped by the roadmap's [hostile-input table](../roadmap.md#hostile-input-tests-for-the-tool-service) | CI on every pull request; commands and results in the worklog |
 | Tests detect removed controls | Mutation testing detected 28 of 29 deliberate changes. One redundant check was not detected because another check rejected the request first | Local workstation; one recorded run |
 | Goose can call the service | TLS calls before and after token revocation | Local workstation with a stub model; commands and results in the worklog |
-| Deployment on the orchestrator | No evidence yet. The service has not been deployed | Not tested on the live system |
+| Deployment on the orchestrator | The [tool service checks](../validation/tool-service.md) pass, and each was seen to fail first | Live system, 2026-10-15 |
+| The live service refuses a tool outside the job, a revoked or expired job token, and a registration with a wrong audience, another account, or an expired token | The round trip and the expiry runs | Live system, 2026-10-15; [runbook](../runbooks/tool-service.md#round-trip) and [worklog](../worklogs/0003-toolchain-integration.md#the-round-trip) |
 
 Commands and output are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-tool-service).

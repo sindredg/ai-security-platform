@@ -20,7 +20,7 @@ The machine that runs the agent and the model. It reads advisories, target evide
 | The target network | Nothing |
 | A name server | Nothing. It uses a hosts file |
 | The orchestrator, TCP 3128 | The package proxy |
-| The orchestrator, TCP 30443 | The [tool service](../security/tool-service.md). Written, not deployed |
+| The orchestrator, TCP 30443 | The [tool service](../security/tool-service.md). Deployed, reached by `T.9` and the [round trip](../worklogs/0003-toolchain-integration.md#the-round-trip) |
 | The orchestrator, any other port | Nothing |
 
 It is not part of the cluster. It installs nothing at first boot, because it has nothing to install from. The model server is pushed and built afterwards, from the orchestrator.
@@ -56,7 +56,7 @@ The diagram source is [`diagrams/agent-run.html`](../diagrams/agent-run.html). I
 | Tools | One, and only the ones named on the command line. `--no-profile` keeps Goose from loading its own, including the one that runs shell commands. That option also disables tools declared in a recipe. The planned tool service integration will omit it and use an empty configuration directory. This approach was tested on a workstation; it has not been tested on the worker |
 | Session | Goose writes a session database and a log of every prompt, even when told to keep no session. Both land in the unit's private `/tmp`, which systemd deletes when the unit stops |
 | One at a time | The unit's name is fixed. A second run is refused while one exists |
-| Today's tool | A fixture on the worker that returns one piece of synthetic evidence. The [tool service](../security/tool-service.md) on the orchestrator replaces it. It is written but not deployed. The current worker unit permits only localhost connections |
+| Today's tool | A fixture on the worker that returns one piece of synthetic evidence. The [tool service](../security/tool-service.md) on the orchestrator replaces it. The service is deployed. The job runner still starts Goose with the fixture, and the current worker unit permits only localhost connections |
 | Procedure | The [agent runtime runbook](../runbooks/agent-runtime.md) |
 
 ## Measured
@@ -89,10 +89,10 @@ The exchange and the full tables are in the [milestone 3 worklog](../worklogs/00
 
 | Role | Candidate | Has to prove |
 | --- | --- | --- |
-| Agent runtime | Goose, installed | A network tool call with a job token on this worker, and validation of the result against a schema. Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A TLS call to the tool service was tested on a workstation |
+| Agent runtime | Goose, installed | Goose's network tool call with a job token on this worker, and validation of the result against a schema. A `curl` call with a job token works from here. Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A TLS call to the tool service was tested on a workstation |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far |
 
-A workflow hands a job to this machine over SSH, with a key that can only run the job runner ([ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md)). Decided, not built. Today the worker cannot start a connection to anything on the orchestrator except the proxy. The tool service gets the second rule ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)).
+A workflow hands a job to this machine over SSH, with a key that can only run the job runner ([ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md)). Decided, not built. The worker can start a connection to two ports on the orchestrator: the proxy and the tool service ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)).
 
 ## Validation
 

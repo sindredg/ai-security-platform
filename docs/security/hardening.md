@@ -12,6 +12,7 @@ What has been tightened on the machines and the cluster, what was left alone on 
 | Kernel | SysRq off, pointers hidden, no redirects or source routing, hardened BPF JIT, five unused modules kept from loading | The same |
 | Files and packages | Cron and SSH configuration closed to group and world. No compiler, assembler, or linker. Unattended security upgrades | The same, and the [`U` checks](../validation/package-proxy.md) |
 | K3s | Secrets encryption, kernel default protection, audit log at metadata level, no anonymous API access, certificate files at `600`, no token on default service accounts | [`K` checks](../validation/cluster.md) |
+| Workloads | The tool service pod runs as user 65532 with no service account token, no privilege escalation, no capabilities, and a read-only root file system. Both workload namespaces enforce the restricted pod security level and deny by default. Node ports answer on the private address only. A host rule drops forwarded traffic from pods to anything but pods | [`T` checks](../validation/tool-service.md), `E.6` and `E.7` on [containment](../validation/containment.md) |
 | Package proxy | Two hosts, two methods, one port, one client subnet, in a systemd sandbox | [`P` checks](../validation/package-proxy.md) |
 
 ## Benchmarks
@@ -44,7 +45,6 @@ The orchestrator was rebuilt on 2026-10-13. kube-bench and Lynis have not been r
 | --- | --- | --- |
 | No `auditd`, no process accounting | Nothing records what ran on a machine | Milestone 6, with the drills ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) |
 | Logs stay on the machine they describe | A compromised machine can alter its own logs | Milestone 3 for the worker, whose journal the orchestrator will pull. Not built. The orchestrator's own logs stay where they are |
-| The tool service's pod limits and network policies are written in `platform/tool-service/` and not deployed | They limit the impact of a vulnerability in code that parses untrusted input | Milestone 3, with the deployment of the [tool service](tool-service.md) |
 | No file integrity monitoring | A changed binary or configuration file goes unnoticed | Milestone 6 |
 | No CIS result for the operating system | The audit that ran is not the benchmark the plan named | When a tool supports Ubuntu 26.04 |
 | The 50 kube-bench warnings are not reviewed one by one | Some are manual checks that could be real findings | Milestone 3, when the cluster has workloads |

@@ -49,7 +49,7 @@ The AI also has to earn its place. Each result is compared with the same workflo
 ## Status
 
 - **Done:** the network foundation and both platform VMs, deployed and checked. Evidence in worklogs [0001](docs/worklogs/0001-network-foundation.md) and [0002](docs/worklogs/0002-platform-compute.md).
-- **In progress:** toolchain integration, in worklog [0003](docs/worklogs/0003-toolchain-integration.md). A model server runs on the AI worker, and the agent runtime has completed fixture-based runs against it. The tool service is written and tested in the pipeline, and not deployed. No workflow or dispatch exists yet.
+- **In progress:** toolchain integration, in worklog [0003](docs/worklogs/0003-toolchain-integration.md). A model server runs on the AI worker, and the agent runtime has completed fixture-based runs against it. The tool service runs on the orchestrator and has answered tool calls from the worker. No workflow or dispatch exists yet.
 - **Planned:** the targets, the investigation and remediation workflow, and the drills.
 
 The [roadmap](docs/roadmap.md#status) holds the state of every milestone and what each has to prove.

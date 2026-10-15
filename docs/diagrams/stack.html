@@ -72,7 +72,7 @@
     <div class="diagram-container">
       <svg viewBox="0 0 960 564" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="stack-title stack-desc">
         <title id="stack-title">The stack on each VM</title>
-        <desc id="stack-desc">Layer stack diagram showing what the orchestrator and the AI worker share, from the private network up through the machine, Ubuntu 26.04, and host hardening, and where they differ: the orchestrator runs K3s, the mesh VPN, and the package proxy, and the worker runs nothing but apt through that proxy.</desc>
+        <desc id="stack-desc">Layer stack diagram showing what the orchestrator and the AI worker share, from the private network up through the machine, Ubuntu 26.04, and host hardening, and where they differ: the orchestrator runs K3s with the tool service, the mesh VPN, and the package proxy, and the worker runs the model server and the agent runtime and gets packages through that proxy.</desc>
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
           <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
@@ -92,12 +92,12 @@
         <text x="344" y="76" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">ORCHESTRATOR · TRUSTED</text>
         <text x="728" y="76" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">AI WORKER · UNTRUSTED</text>
         <!-- Bands -->
-        <rect x="152" y="88" width="768" height="64" fill="rgba(245,245,245,0.03)"/>
+        <rect x="152" y="88" width="768" height="64" fill="#393e53"/>
         <text x="40" y="124" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">L6 WORKLOADS</text>
-        <text x="344.0" y="116" fill="#bfc0c0" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Nothing deployed yet</text>
-        <text x="344.0" y="134" fill="#949eb2" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Argo · tool services, planned</text>
-        <text x="728.0" y="116" fill="#bfc0c0" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Nothing installed yet</text>
-        <text x="728.0" y="134" fill="#949eb2" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">agent · model server, planned</text>
+        <text x="344.0" y="116" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Tool service, in K3s</text>
+        <text x="344.0" y="134" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Argo Workflows, planned</text>
+        <text x="728.0" y="116" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Model server · agent runtime</text>
+        <text x="728.0" y="134" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">llama.cpp on loopback · Goose per job</text>
         <line x1="536" y1="88" x2="536" y2="152" stroke="rgba(245,245,245,0.12)" stroke-width="1"/>
         <rect x="152" y="152" width="768" height="64" fill="#393e53"/>
         <rect x="152" y="152" width="384" height="64" fill="#2d3142"/>
@@ -138,8 +138,6 @@
         <text x="60" y="540" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Runs only on the trusted VM</text>
         <rect x="208" y="532" width="14" height="10" rx="2" fill="#393e53" stroke="#bfc0c0" stroke-width="1"/>
         <text x="228" y="540" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Built. A full-width band is the same on both VMs</text>
-        <rect x="472" y="532" width="14" height="10" rx="2" fill="rgba(245,245,245,0.03)" stroke="rgba(245,245,245,0.30)" stroke-width="1"/>
-        <text x="492" y="540" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Planned, not built</text>
 
       </svg>
     </div>

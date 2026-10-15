@@ -4,7 +4,7 @@ The stack, one page per part. Each page says what the part does, where it is def
 
 The [architecture](../architecture.md) is the overview: trust, flows, and boundaries. This folder is the detail.
 
-![The stack on each VM: both share the private network, the machine type, Ubuntu 26.04, and host hardening, and only the orchestrator runs K3s, the mesh VPN, and the package proxy](../diagrams/stack.svg)
+![The stack on each VM: both share the private network, the machine type, Ubuntu 26.04, and host hardening. The orchestrator runs K3s with the tool service, the mesh VPN, and the package proxy. The worker runs the model server and the agent runtime](../diagrams/stack.svg)
 
 The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 
@@ -20,6 +20,7 @@ The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 | [Package proxy](package-proxy.md) | The worker's updates | Orchestrator |
 | [Deployment identities and state](identities-and-state.md) | Who can change which side | Azure, Microsoft Entra ID |
 | [Repository and pipeline](pipeline.md) | The approval channel and its checks | GitHub |
+| [Tool service](../security/tool-service.md) | A small MCP server written for this project. Authorizes every tool call from the worker | Orchestrator, in K3s |
 
 ## Planned
 
@@ -28,8 +29,7 @@ Candidates, not selections. Each has something to prove first.
 | Role | Candidate | Has to prove | Milestone |
 | --- | --- | --- | --- |
 | Workflow engine and UI | Argo Workflows | Dispatch to the worker VM, restart recovery, footprint | 3 |
-| Agent runtime | Goose 1.54.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A TLS tool call with a job token was tested on a workstation. Still to test: the same call on the worker and validation of the result against a schema | 3 |
-| Tool service | A small MCP server written for this project. The service, its image, and its deployment are written and checked in the pipeline. Not deployed ([security page](../security/tool-service.md)) | Image build, pod restrictions, network rules, and an authorized call from the live worker | 3 |
+| Agent runtime | Goose 1.54.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A TLS tool call with a job token was tested on a workstation. Still to test: Goose's call to the tool service on the worker, and validation of the result against a schema | 3 |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far | 3 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
