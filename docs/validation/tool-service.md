@@ -15,7 +15,7 @@ Status: **configured, not tested.** The checks are in `validation/platform-check
 | `T.5` | Both namespaces deny by default | A pod with no policy of its own gets no traffic | A `default-deny` network policy exists in each |
 | `T.6` | The tool port does not answer on the mesh address | Node ports are held to the private address. A mesh device has no business on the tool port | TCP to port 30443 on the orchestrator's mesh address is `refused`. Nothing listens there, and the mesh policy does not apply to a local address |
 | `T.7` | The certificate has more than 14 days left | An expired certificate stops every job | `openssl x509 -checkend` on the certificate the pod mounts |
-| `T.8` | The pod cannot reach the internet | The orchestrator's outbound access is not the pod's | A TCP connection from inside the pod to `1.1.1.1:443` times out. Any other end is a failure |
+| `T.8` | The pod cannot reach the internet | The orchestrator's outbound access is not the pod's | A TCP connection from inside the pod to `1.1.1.1:443` is `refused`. K3s enforces network policies with kube-router, which rejects instead of dropping. Without the policy the connection is `open`, because the orchestrator reaches 443 (`E.1`). Any other end is a failure |
 
 ## From the worker
 
