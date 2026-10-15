@@ -8,3 +8,4 @@ One operator procedure per milestone, or per slice of a milestone that is built 
 | [Platform compute](platform-compute.md) | 2 | Implemented on 2026-10-11. Built once. Each VM rebuilt once |
 | [Model server](model-server.md) | 3 | Implemented on 2026-10-11. Built once |
 | [Agent runtime](agent-runtime.md) | 3 | Implemented on 2026-10-12. Installed once |
+| [Tool service](tool-service.md) | 3 | Implemented on 2026-10-15. Deployed once |
