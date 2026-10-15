@@ -21,6 +21,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0015](0015-build-the-model-file-on-the-worker.md) | Build the model file on the worker, from the publisher's weights | Accepted |
 | [0016](0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md) | A pinned certificate, an offline caller check, and a line limit for the tool service. Replaces the private authority in 0013 | Accepted |
 | [0017](0017-no-udp-from-the-orchestrator.md) | No UDP from the orchestrator to the internet. Replaces the mesh agent's UDP rules in 0009 | Accepted |
+| [0018](0018-a-host-rule-keeps-pods-off-the-internet.md) | A host rule keeps pods off the internet, including the seconds before a pod's network policy is written. Adds to 0014 | Accepted |
 
 ## Format
 

@@ -52,7 +52,7 @@ For the log:
 - Its own namespace, `tool-services`. No service account token. Not root, read-only root filesystem, no capabilities, the default seccomp profile.
 - Ingress by network policy: the worker subnet on the tool port, the workflow's pods on the registration port.
 - Egress denied by default. In milestone 3 the service has nowhere to call.
-- The same default-deny egress goes on every workload namespace. A pod that is taken cannot use the orchestrator's open ports 443 and 80. That narrows [T05](../security/threat-model.md) from "anything on the orchestrator" to "root on the orchestrator".
+- The same default-deny egress goes on every workload namespace. A pod that is taken cannot use the orchestrator's open ports 443 and 80. That narrows [T05](../security/threat-model.md) from "anything on the orchestrator" to "root on the orchestrator". [0018](0018-a-host-rule-keeps-pods-off-the-internet.md) adds a host rule for the seconds before a new pod's policy is written, and for DNS.
 
 **The image is built by the repository's pipeline** on `main`, pushed to the repository's container registry, and pulled by digest. The pipeline gets permission to write packages, and still holds no cloud credential.
 
