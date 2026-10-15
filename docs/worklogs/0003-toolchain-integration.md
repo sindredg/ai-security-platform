@@ -5,20 +5,20 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices. Two are done on the system: the model server on the AI worker, and the agent runtime running headless against it with a fixture tool. A third is written and not deployed: the tool service, tested in the pipeline and on a workstation. Its image is published, and its deployment is written. The gate is not met.
+The milestone is built in slices. Three are on the system: the model server on the AI worker, the agent runtime running headless against it with a fixture tool, and the tool service in K3s on the orchestrator, called from the worker with a job token. No workflow or dispatch step exists, and the agent has not called the tool service on the worker. The gate is not met.
 
 | Gate | Result |
 | --- | --- |
-| A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back | Open |
-| A tool call for another job or target is refused by the tool service | Open on the system. Tested in the service's own tests, where nothing is deployed |
+| A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back | Open. No workflow or dispatch step exists |
+| A tool call for another job or target is refused by the tool service | Partly **tested** on the live system: a tool outside the job's scope and a revoked job's token are refused ([round trip](#the-round-trip), steps 3 and 8). Another job's evidence on the same target was not tried, and the service cannot refuse it ([issue #45](https://github.com/sindredg/ai-security-platform/issues/45)). Another target is refused in the service's own tests |
 | Cancelling a workflow stops the worker job and cleans up its session | Open |
-| Model memory use, latency per turn, and tokens per second are measured on the chosen size | Met for the model server alone, and for one agent run beside it on a fixture. Not measured with a tool over the network |
+| Model memory use, latency per turn, and tokens per second are measured on the chosen size | **Tested** for the model server alone, and for one agent run beside it on a fixture. Not measured with a tool over the network |
 | Component footprint on the orchestrator is measured | Open |
 | The threat model covers dispatch, workload identity, and the AI-specific threats | Open |
-| Every image and every model input is pinned by digest and verified on the orchestrator | Met for the model server (38 files and one commit) and for the agent runtime (one file). The tool service image is pinned by digest in its manifest. That the orchestrator runs that digest is check `T.2`, not yet run |
-| Every tool call is logged with caller, job, and decision, out of the worker's reach | Open. The service prints the line, tested. Nothing stores it yet |
-| A revoked or expired job token is refused | Open on the system. Tested in the service's own tests |
-| A pod in a workload namespace cannot open a connection to the internet | Open |
+| Every image and every model input is pinned by digest and verified on the orchestrator | **Tested** for the model server (38 files and one commit) and for the agent runtime (one file). **Tested** for the tool service image: `T.2` passes against the running pod and failed against a manifest with one digest character changed ([fail side](#the-fail-side-of-each-new-check)) |
+| Every tool call is logged with caller, job, and decision, out of the worker's reach | Partly **tested**: the live service printed one line per decision with caller, job, and decision, and no token ([round trip](#the-round-trip), step 10). Nothing stores the lines out of the worker's reach yet |
+| A revoked or expired job token is refused | **Tested** on the live system: [round trip](#the-round-trip) step 8, and [an expired job token](#an-expired-job-token) |
+| A pod in a workload namespace cannot open a connection to the internet | **Tested** on the live system: `T.8` from the tool service pod, `E.6` and `E.7` for the host rule, and a [probe in a new pod](#pods-and-the-internet) in `orchestration`. Not probed with a new pod in `tool-services` |
 | The worker's journal is copied to the orchestrator on a schedule | Open |
 
 ## Slice: the model server
@@ -509,7 +509,7 @@ The image's configuration, read the same way, names `amd64`, `linux`, and user `
 
 ### The deployment, written
 
-Status: **configured, not tested.** Nothing in this section is deployed.
+Status: **configured, not tested** when written on 2026-10-14. Deployed and **tested** on 2026-10-15: see [the deployment on the orchestrator](#the-deployment-on-the-orchestrator).
 
 | Change | Why |
 | --- | --- |
@@ -540,3 +540,137 @@ The first pipeline run of the manifest scans failed on one finding. Trivy's KSV-
 | `platform/` without the data file | KSV-0125, exit 1 | 1 |
 | `platform/` with the data file | Exit 0 | 0 |
 | A copy with the image moved to `quay.io`, with the data file | KSV-0125, exit 1 | 1 |
+
+### The deployment on the orchestrator
+
+Status: **tested** on the live system on 2026-10-15. The procedure is the [tool service runbook](../runbooks/tool-service.md). The run found three defects, each fixed in its own pull request before this record: a race in `deploy.sh` ([#60](https://github.com/sindredg/ai-security-platform/pull/60), [troubleshooting 04](../troubleshooting/04-default-service-account-already-exists.md)), a wrong expected value in `T.8` ([#59](https://github.com/sindredg/ai-security-platform/pull/59)), and a gap in the pod egress control ([#61](https://github.com/sindredg/ai-security-platform/pull/61), [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md)).
+
+The repository copy came from `main` at `c0a3e82`. The image is the one under [The push](#the-push).
+
+#### The apply
+
+Run as the platform identity with Terraform 1.16.5: 0 to add, 2 to change, 0 to destroy. The orchestrator's security group lost `allow-mesh-stun` and `allow-mesh-direct` and gained `allow-tool-service-from-worker`. The worker's gained `allow-tool-service-to-orchestrator`. Each group had two description changes. One was predicted for the worker, so the plan held one change more than expected for it. No VM changed.
+
+After the apply, `E.5` passed (`UDP: false`) and `Z.13` passed. `T.9` moved from `timeout` to `refused`: the rule let the packet in, and nothing listened yet. The mesh VPN kept working over its relay alone: `A.1`, `A.6`, and `R.1` passed.
+
+#### The certificate and the deployment
+
+`make-cert.sh` made a P-256 certificate, valid from 2026-10-15 14:45:01 UTC to 2027-01-13 14:45:01 UTC, not an authority, with the three DNS names. The copy on the worker has the same SHA-256 fingerprint.
+
+The first run of `deploy.sh` stopped on `AlreadyExists` for a default service account. The cause is in [troubleshooting 04](../troubleshooting/04-default-service-account-already-exists.md). The fix was tested by deleting both namespaces and deploying again, three times. Each round printed the matching claims, rolled out, ran the pinned digest, and left both default accounts with `automount=false`.
+
+The dispatch account's token, read by `deploy.sh` from the cluster:
+
+```text
+token issuer: https://kubernetes.default.svc.cluster.local
+token audience: aisec-tool-service
+token subject: system:serviceaccount:orchestration:dispatch
+```
+
+The token is signed with RS256. All three claims equal the values in `policies/tool-service.json`, which had been placeholders chosen by reasoning ([issue #47](https://github.com/sindredg/ai-security-platform/issues/47)).
+
+#### Changes made by hand on the running VMs
+
+The first-boot templates have each of these, so a rebuild needs none of them. Custom data does not reach a running VM, so the live machines got the same change by hand.
+
+| Machine | Change | Commands, as root |
+| --- | --- | --- |
+| Orchestrator | Node ports on the private address only | `printf 'kube-proxy-arg:\n  - nodeport-addresses=10.40.0.4/32\n' >> /etc/rancher/k3s/config.yaml`, after a check that the file had no `kube-proxy-arg` and ended with a newline. Then `systemctl restart k3s` and `k3s kubectl wait --for=condition=Ready node/aisec-orchestrator` |
+| Orchestrator | The pod egress rule from ADR 0018 | `/etc/aisec/pod-egress.nft` and `/etc/systemd/system/aisec-pod-egress.service` written with the content in `infra/platform/cloud-init/orchestrator.yaml.tftpl`. Then `nft -c -f /etc/aisec/pod-egress.nft`, `systemctl daemon-reload`, and `systemctl enable --now aisec-pod-egress.service` |
+| Worker | The name `tool-service.aisec.internal` | Added to the existing `10.40.0.4 aisec-orchestrator` line in `/etc/hosts` |
+| Worker | The certificate | Step 7 of the runbook. Not in the template: the certificate is made after the worker exists |
+
+#### The checks, run by run
+
+Every run from the workstation with `validation/platform-checks.sh`. The raw output was kept locally and is not in the repository.
+
+| Run | Passed | Failed |
+| --- | --- | --- |
+| Before the apply | 102 of 117 | `U.1`, `U.5`, `E.5`, `Z.13`, `T.1` to `T.5`, `T.7` to `T.10`, `T.12`, `T.13` |
+| After the apply | 104 of 117 | `U.1`, `U.5`, `T.1` to `T.5`, `T.7` to `T.10`, `T.12`, `T.13` |
+| After the deployment | 110 of 117 | `U.1`, `U.5`, `T.6`, `T.8`, `T.10`, `T.12`, `T.13` |
+| After the node port setting | 111 of 117 | `U.1`, `U.5`, `T.8`, `T.10`, `T.12`, `T.13` |
+| After the certificate and name on the worker | 114 of 117 | `U.1`, `U.5`, `T.8` |
+| After the pod egress rule, with `E.6` and `E.7` added | 116 of 119 | `U.1`, `U.5`, `T.8` |
+| From `main` at `131ba01`, with all three fixes | 117 of 119 | `U.1`, `U.5` |
+
+- `U.1` and `U.5`: security updates pending, nine on the orchestrator and one on the worker, published after the last unattended run. Not a deployment fault. Nine were still pending on the orchestrator when read again the same evening.
+- `T.6` after the deployment: the node port answered on the mesh address. The K3s setting fixed it. That is the fail side of `T.6`, seen on a real broken state.
+- `T.10`, `T.12`, and `T.13` until the worker had the certificate: `curl` had no file to trust, so the requests got no HTTP answer.
+- `T.8`: the check expected `timeout`. K3s enforces network policies with kube-router, which rejects with an ICMP port unreachable, so the connection ended `refused`. The REJECT counter in the pod's firewall chain went from 0 to 1 on one probe. The policy worked and the check was wrong. [#59](https://github.com/sindredg/ai-security-platform/pull/59) expects `refused`.
+
+#### The fail side of each new check
+
+A check that cannot fail proves nothing. Each new check was seen to fail once, on one of three kinds of input.
+
+| Check | Input that made it fail | Kind |
+| --- | --- | --- |
+| `E.5` | Before the apply: the UDP rules still there, `UDP: true` | A real broken state |
+| `T.6` | After the deployment, before the node port setting | A real broken state |
+| `T.9` | Before the apply: no rule, `timeout` | A real broken state |
+| `Z.13` | Before the apply: `deny-all-outbound` decided it | A real broken state |
+| `E.6`, `E.7` | Before the pod egress rule: no table, no unit | A real broken state |
+| `T.2` | A copy of the manifest with one digest character changed | A changed field |
+| `T.7` | `-checkend` with 400 days instead of 14: `no` | A changed field |
+| `T.11` | The same request with `CURL_CA_BUNDLE` set to the pinned certificate: 401, not `000` | A changed field |
+| `T.12` | The name instead of the address: 401 | A changed field |
+| `T.13` | `--tls-max 1.3` instead of 1.2: 401 | A changed field |
+| `T.10` | Before the deployment: no answer | Absence only |
+| `T.1`, `T.3` to `T.5` | Before the deployment: empty values | Absence only |
+| `M.5` | None. Only the comparison: port 22 on the same address is `open`. Changing the mesh policy is not a read-only step | Not seen |
+
+The changed-field runs were made on the workstation and the VMs by hand. Their output was not kept, only the result. A changed field for `T.3` to `T.5`, such as a namespace label set to `baseline` and back, needs a cluster write and was not run.
+
+#### The round trip
+
+Run on the workstation against both VMs. Every token was short-lived and printed nowhere. The job token's digest went to the orchestrator; the token itself went only to the worker.
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| 1. Register `check-1` with the dispatch account's projected token | 201 | `201 {"job": "check-1"}` |
+| 2. The worker calls `get_evidence` with the job token | HTTP 200, the synthetic evidence | HTTP 200, `ev-0001`, `"isError":false` |
+| 3. The worker calls `run_shell`, which the job does not have | A refusal, no evidence | HTTP 200, `refused: tool not in the job's scope`, `"isError":true` |
+| 4. Register with the job token instead of a cluster token | 401 | `401 {"error": "refused"}` |
+| 5. Register with a dispatch token for another audience | 401 | `401 {"error": "refused"}` |
+| 6. Register with the `default` account's token in `orchestration` | 401 | `401 {"error": "refused"}` |
+| 7. Revoke `check-1` | 200 | `200 {"job": "check-1"}` |
+| 8. The worker calls again with the revoked token | HTTP 401 | HTTP 401, `{"error": "refused"}` |
+| 9. Register with a dispatch token 30 seconds after its 10 minutes ended | 401 | `401 {"error": "refused"}` |
+| 10. Count each of the four tokens in the last 30 minutes of audit lines | 0 each | `0 0 0 0` |
+
+The audit lines for steps 1 to 8, in order: `register` allowed, `call` allowed with `result_bytes` 313, `call` refused with `tool not in the job's scope`, three `request` lines refused with `caller not accepted`, `revoke` allowed, and `request` refused with `revoked token`. The caller is the worker's address on calls and a pod address on registrations. The five lines before step 1 were requests from the worker without a token, refused with `no token, or a malformed one`.
+
+Steps 1, 4 to 6, and 9 answer [issue #47](https://github.com/sindredg/ai-security-platform/issues/47): a token the cluster issued is accepted, and one with the wrong audience, another account, or an expired lifetime is refused. The token came from a projected volume with the tool service as its audience and a 600-second lifetime, which is the shape the dispatch step will use. The dispatch step itself does not exist.
+
+#### An expired job token
+
+A job token is refused when its job's lifetime ends, with no revocation.
+
+| Run | Job lifetime | Call at once | Call after the end | Audit reason |
+| --- | --- | --- | --- | --- |
+| `expiry-1` | 600 s | HTTP 200 | HTTP 401, 630 s after registration | `expired token` |
+| `expiry-2`, after [#60](https://github.com/sindredg/ai-security-platform/pull/60) added the lifetime argument | 30 s | HTTP 200 | HTTP 401, 40 s after | `expired token` |
+
+The reason is `expired token`, not `revoked token`, so the refusal came from the lifetime.
+
+#### Pods and the internet
+
+`T.8` showed that the long-running tool service pod is refused. A probe in a new pod showed more. It ran in `orchestration` with the dispatch label, connected to `1.1.1.1:443` at 0, 5, and 20 seconds after start, and resolved a public name. The same probe on the host is the comparison.
+
+| Run | Pod | Host |
+| --- | --- | --- |
+| Before the rule | `open` at 0 s, `refused` at 5 s and 20 s, the name resolves | `open` three times, the name resolves |
+| After the rule | `refused` at 1 s, 5 s, and 20 s, the name does not resolve | Unchanged |
+
+A new pod has no network policy for its first seconds, and CoreDNS forwards names to Azure DNS from the host. Both reached the internet. [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md) adds a host rule that drops forwarded traffic from pods to anything but pods. Its drop counter read 31 packets after the second run. The run waited 35 seconds after the install, because CoreDNS caches an answer for 30.
+
+The first probe after the rule ended `refused` after 1.0 s, not at once. The reading is that the host rule dropped the first SYN and kube-router rejected the retransmission once the policy was in place. That is reasoned, not traced.
+
+#### Limits
+
+- The round trip used `register.sh` and `curl`, not a workflow and not Goose. The agent has not called the service on the worker.
+- The audit lines are the pod's standard output. Nothing stores them. They are gone when the pod is replaced.
+- The probe in a new pod ran in `orchestration` only. `tool-services` has the same host rule and the same kind of policy, and was not probed with a new pod.
+- `T.1` and `T.3` to `T.5` were seen to fail only on absence. `M.5` was not seen to fail.
+- The orchestrator was deployed once, on a machine that got two of its settings by hand. A deployment on a machine built from the current template has not been run.
+- Another job's evidence on the same target was not tried. Evidence is stored per target, so the service cannot refuse it ([issue #45](https://github.com/sindredg/ai-security-platform/issues/45)).
