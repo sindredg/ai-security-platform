@@ -131,6 +131,8 @@ echo "cert_modes_not_600=$(stat -c %a /var/lib/rancher/k3s/server/tls/*.crt | gr
 echo "default_sa_automount=$(k3s kubectl get sa -A --field-selector metadata.name=default -o jsonpath="{range .items[*]}{.automountServiceAccountToken}{\"\n\"}{end}" 2>/dev/null | grep -v -c "^false$")"
 echo "apiserver_anonymous=$(journalctl -u k3s --no-pager 2>/dev/null | grep "Running kube-apiserver" | tail -n 1 | grep -o -- "--anonymous-auth=[a-z]*")"
 echo "mss_rules=$(nft list table inet aisec_mss 2>/dev/null | grep -c maxseg)"
+echo "pod_egress=$(nft list chain inet aisec_pod_egress forward 2>/dev/null | sed -n "s/^\t\t//p" | sed "s/counter packets [0-9]* bytes [0-9]* /counter /" | tr "\n" "|")"
+echo "pod_egress_unit=$(systemctl is-enabled aisec-pod-egress 2>/dev/null)"
 echo "ip_forward=$(sysctl -n net.ipv4.ip_forward)"
 echo "squid_listen=$(ss -ltn | awk "{print \$4}" | grep ":3128$" | tr "\n" " " | sed "s/ $//")"
 echo "squid_no_new_privileges=$(systemctl show squid -p NoNewPrivileges --value)"
@@ -259,6 +261,12 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check U.2 "The mesh VPN agent is held at its pinned version" 1 "$(value tailscale_held)"
   # The mesh agent's UDP rules are gone, so it cannot reach a STUN server.
   check E.5 "The orchestrator sends no UDP to the internet" false "$(value mesh_udp)"
+  # The chain as nft lists it, with the counter's values taken out. It holds
+  # a pod from its first packet, before kube-router writes the pod's policy.
+  check E.6 "Forwarded traffic from pods goes only to pods" \
+    "type filter hook forward priority filter + 10; policy accept;|ip saddr 10.42.0.0/16 ct state established,related accept|ip saddr 10.42.0.0/16 ip daddr 10.42.0.0/16 accept|ip saddr 10.42.0.0/16 counter drop|" \
+    "$(value pod_egress)"
+  check E.7 "The pod egress rule loads at boot" enabled "$(value pod_egress_unit)"
   check T.1 "The tool service pod is ready" 1 "$(value tool_ready)"
   # The digest that runs, against the digest the reviewed manifest names. An
   # empty manifest digest is a failure, not a match.
