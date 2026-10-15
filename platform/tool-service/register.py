@@ -5,11 +5,13 @@ with that account's token projected for the tool service. Standard library
 only. It reads its arguments from the first line of standard input, so that
 nothing about the job is in the pod's spec.
 
-    register JOB TOKEN_SHA256
-    revoke JOB
+    register JOB TOKEN_SHA256 [TOKEN_OVERRIDE|-] [SECONDS]
+    revoke JOB [- TOKEN_OVERRIDE]
 
-TOKEN_OVERRIDE on the first line, after the arguments, replaces the projected
-token. The negative checks use it to present a token that should be refused.
+TOKEN_OVERRIDE replaces the projected token. The negative checks use it to
+present a token that should be refused. "-" keeps the projected token.
+SECONDS is the job's lifetime, 600 by default. The expiry check uses a short
+one so that it does not wait ten minutes.
 """
 
 import json
@@ -27,12 +29,14 @@ CERT = "/etc/aisec/tls.crt"
 def main():
     args = sys.stdin.readline().split()
     action, job = args[0], args[1]
-    token = args[3] if len(args) > 3 else Path(TOKEN).read_text().strip()
+    override = args[3] if len(args) > 3 and args[3] != "-" else None
+    token = override or Path(TOKEN).read_text().strip()
     context = ssl.create_default_context(cafile=CERT)
     headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
     if action == "register":
         body = {"job": job, "target": "synthetic", "tools": ["get_evidence"]}
-        body |= {"seconds": 600, "token_sha256": args[2]}
+        seconds = int(args[4]) if len(args) > 4 else 600
+        body |= {"seconds": seconds, "token_sha256": args[2]}
         data, method, url = json.dumps(body).encode(), "POST", URL
     else:
         data, method, url = None, "DELETE", URL + "/" + job
