@@ -6,7 +6,7 @@
 #
 # The arguments and the client go in on standard input, not in the pod's spec.
 #
-# Usage: register.sh register JOB TOKEN_SHA256 [TOKEN_OVERRIDE]
+# Usage: register.sh register JOB TOKEN_SHA256 [TOKEN_OVERRIDE|-] [SECONDS]
 #        register.sh revoke JOB [- TOKEN_OVERRIDE]
 set -euo pipefail
 

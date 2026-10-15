@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Runs on the orchestrator, as root. Deploys the tool service from a copy of
-# the repository: the namespaces, the network policies, the config maps, the
-# secret, and the pod. Safe to run again. It changes nothing outside the
-# tool-services and orchestration namespaces.
+# the repository: the namespaces, the service accounts, the network policies,
+# the config maps, the secret, and the pod. Safe to run again. It changes
+# nothing outside the tool-services and orchestration namespaces.
 #
 # Before it applies anything, it asks the cluster for a token of the dispatch
 # account and checks that the issuer, audience, and subject in it are the ones
@@ -28,6 +28,12 @@ if ! grep -Eq '^ *image: [^ ]+@sha256:[0-9a-f]{64}$' "$here/tool-service.yaml" |
 fi
 
 k apply -f "$here/namespaces.yaml"
+# Each namespace's default account comes from Kubernetes, moments after the
+# namespace. Ours goes on top of it, not in a race with it.
+for ns in tool-services orchestration; do
+  k wait --for=create serviceaccount/default -n "$ns" --timeout=60s
+done
+k apply -f "$here/service-accounts.yaml"
 k apply -f "$here/network-policies.yaml"
 
 # The claims a dispatch token carries, against the policy file.
