@@ -33,7 +33,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | [Package proxy](package-proxy.md) | `P`, `U` | The worker's one path out, and whether updates arrive |
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |
-| [Tool service](tool-service.md) | `T` | The deployed tool service: its pod, namespaces, network paths, and certificate. Configured, not tested |
+| [Tool service](tool-service.md) | `T` | The deployed tool service: its pod, namespaces, network paths, and certificate |
 | [Host hardening](host-hardening.md) | `HO`, `HW` | SSH daemon, kernel settings, file modes, on both VMs |
 | [Azure policy](azure-policy.md) | `Z.1` to `Z.3`, `Z.10` to `Z.12` | Public addresses and the policy that refuses them |
 
@@ -49,6 +49,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-12 | 100 of 101 passed | After the model server restart that turned thinking off. `U.1` failed: three security updates published that day were pending on the orchestrator, before the next unattended run. The seven `S` checks passed |
 | 2026-10-13 | 100 of 101 passed | Baseline before the orchestrator rebuild. `U.5` failed: two security updates were pending on the worker. `U.1` passed again after the unattended run |
 | 2026-10-13 | 101 of 101 passed | After the [orchestrator rebuild](../worklogs/0002-platform-compute.md#orchestrator-rebuild) and an update run on both VMs. `K.5` and `K.6` passed on settings that first boot applied |
+| 2026-10-15 | 102 of 117 to 116 of 119 | Six runs during the [tool service deployment](../worklogs/0003-toolchain-integration.md#the-checks-run-by-run), with the new `T` checks, `E.5` to `E.7`, `M.5`, and `Z.13` |
+| 2026-10-15 | 117 of 119 passed | From `main` at `131ba01`. `U.1` and `U.5` failed: security updates published after the last unattended run were pending on both VMs |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
@@ -72,6 +74,6 @@ The second run on 2026-10-12 adds the seven `S` checks, which brings the script 
 - **A rebuild of everything at once.** Each VM has been rebuilt from its template and passed every check, the worker on 2026-10-11 and the orchestrator on 2026-10-13. Both together, or from an empty subscription, has not been run.
 - **The target side.** No target exists yet.
 - **The agent runtime.** Its install and its cleanup were checked by hand and are not in the script.
-- **The tool service.** It is not deployed. Its rejection cases are tested in CI. The `T` checks, `E.5`, `M.5`, and `Z.13` are written for the deployment and have not run. The [tool service checks](tool-service.md) list them.
+- **The tool service's round trip and audit lines.** They are steps in the [runbook](../runbooks/tool-service.md#round-trip), because they register and revoke jobs. Its rejection cases are tested in CI. The deployment itself is checked by the [tool service checks](tool-service.md).
 - **Anything a benchmark tool finds.** kube-bench and Lynis results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). The checks here hold the fixes in place.
 - **Clean Terraform plans.** `terraform plan -detailed-exitcode` needs each root's own identity. The [runbook](../runbooks/platform-compute.md) has that step.

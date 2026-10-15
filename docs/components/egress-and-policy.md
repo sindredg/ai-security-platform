@@ -36,7 +36,7 @@ The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.
 | Worker | Outbound | Allow | TCP 3128 and 30443 to the orchestrator subnet | `allow-package-proxy-to-orchestrator`, `allow-tool-service-to-orchestrator` |
 | Both | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
 
-The table is read from `infra/platform/main.tf`. The rules for port 30443, and the removal of the mesh agent's UDP rules in [ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md), are written and not yet applied; `E.5` and `Z.13` check them after the apply.
+The table is read from `infra/platform/main.tf`. The rules for port 30443, and the removal of the mesh agent's UDP rules in [ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md), were applied on 2026-10-15. `Z.13` and `E.5` check them.
 
 The orchestrator has no inbound allow for administration. That arrives inside the mesh VPN tunnel, which the orchestrator opens outbound.
 

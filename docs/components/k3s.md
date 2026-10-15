@@ -1,10 +1,10 @@
 # K3s
 
-The cluster on the orchestrator. One server, no agents, nothing deployed yet.
+The cluster on the orchestrator. One server, no agents. The tool service is the one workload.
 
 | | |
 | --- | --- |
-| State | Built, empty |
+| State | Built. The tool service runs in `tool-services` |
 | Version | `v1.36.5+k3s1`, the release the project's `stable` channel points at |
 | Pinned in | `infra/platform/variables.tf`: the version, the binary's SHA-256, and the install script's SHA-256 |
 | Datastore | SQLite behind `kine`. No etcd |
@@ -20,12 +20,15 @@ The cluster on the orchestrator. One server, no agents, nothing deployed yet.
 | Audit log at metadata level | Who called what, without payloads. 30 days, 10 files of 100 MB |
 | `traefik` and `servicelb` disabled | No ingress and no load balancer until something needs one |
 | `write-kubeconfig-mode: "0600"` | The administrator kubeconfig is root only |
+| `kube-proxy-arg: nodeport-addresses=` the private address | Node ports answer on the private address only, not on the mesh address. Checked by `T.6` |
 | Default service accounts mount no token | Applied after install, per namespace |
 | Certificate files at `600` | Applied after install. K3s keeps the mode |
 
 The installer is not piped from the network into a shell. The script is fetched at the release tag and checked against its pinned checksum first, and so is the binary.
 
-## Planned namespaces
+## Namespaces
+
+`tool-services` and `orchestration` exist. Both enforce the restricted pod security level and deny traffic by default ([tool service checks](../validation/tool-service.md)). `orchestration` holds only the `dispatch` service account so far: Argo Workflows is not installed. The other three are planned.
 
 | Namespace | Workloads | Responsibility |
 | --- | --- | --- |

@@ -11,7 +11,7 @@ Security work has no milestone of its own. Each practice is part of the completi
 | 0. Documentation baseline and preflight | Done. [Worklog](worklogs/0000-azure-preflight.md) |
 | 1. Network foundation | Done, with one check carried to milestone 2. [Worklog](worklogs/0001-network-foundation.md) |
 | 2. Platform compute | Done, with three stated gaps. No CIS result for the operating system, because no tool supports the release yet. Push protection is configured and not tested. No dependency update has been proposed yet. [Worklog](worklogs/0002-platform-compute.md) |
-| 3. Toolchain integration | In progress. The model server runs on the worker, and the agent runtime runs headless against it with a fixture tool. The tool service is written and tested in the pipeline. Its image is published, and its deployment is written and not deployed. [Worklog](worklogs/0003-toolchain-integration.md) |
+| 3. Toolchain integration | In progress. The model server runs on the worker, and the agent runtime runs headless against it with a fixture tool. The tool service runs on the orchestrator and has answered tool calls from the worker with a job token. No workflow or dispatch step exists yet. [Worklog](worklogs/0003-toolchain-integration.md) |
 | 4. NetBox target and exercise 1 investigation | Planned |
 | 5. Remediation, pull requests, and delivery | Planned |
 | 6. Operational and containment drills | Planned |

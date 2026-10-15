@@ -17,9 +17,10 @@ The one trusted machine. It runs the cluster, routes for the mesh VPN, copies so
 
 | Service | Job | Page |
 | --- | --- | --- |
-| `k3s` | The cluster. One server, nothing deployed yet | [K3s](k3s.md) |
+| `k3s` | The cluster. One server. The tool service runs in it | [K3s](k3s.md) |
 | `tailscaled` | Mesh VPN agent and subnet router for both networks | [Mesh VPN](mesh-vpn.md) |
 | `aisec-mss-clamp` | Rewrites the TCP segment size on routed connections | [Mesh VPN](mesh-vpn.md) |
+| `aisec-pod-egress` | Loads the host rule that drops forwarded traffic from pods to anything but pods | [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md), [containment](../validation/containment.md#the-orchestrators-side) |
 | `squid` | Package proxy for the worker | [Package proxy](package-proxy.md) |
 | `ssh` | Administration, key only | [Validation: host hardening](../validation/host-hardening.md) |
 

@@ -44,7 +44,7 @@ A timeout proves a packet was dropped. It does not say which rule dropped it, an
 | `Z.7` | Worker to the internet is denied by `deny-to-internet` | IP flow verify |
 | `Z.8` | Worker to the proxy is allowed by `allow-package-proxy-to-orchestrator` | IP flow verify |
 | `Z.9` | Worker to the Kubernetes API is denied by `deny-all-outbound` | IP flow verify |
-| `Z.13` | Worker to the tool port is allowed by `allow-tool-service-to-orchestrator` | IP flow verify. Configured, not tested: see [tool service](tool-service.md) |
+| `Z.13` | Worker to the tool port is allowed by `allow-tool-service-to-orchestrator` | IP flow verify. See [tool service](tool-service.md) |
 
 ### What `Z.4` and `Z.5` compare
 
@@ -74,7 +74,7 @@ Limit: service tags such as `Internet` are compared by name. The addresses a tag
 | `E.2` | The orchestrator reaches the worker on 22 | Copying files to the worker, and administration | TCP to the worker |
 | `E.3` | The worker's rules drop the orchestrator on 80 | The allow is one port, not the subnet | TCP times out. Nothing listens on that port, so `refused` would mean the rules let the packet in |
 | `E.4` | The feed key logs in to the worker | The feed path works end to end | An SSH login from the orchestrator with the feed key |
-| `E.5` | The orchestrator sends no UDP to the internet | [ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md) removed the mesh agent's UDP rules | `tailscale netcheck` reports `UDP: false`. Configured, not tested: it passes only after the platform apply |
+| `E.5` | The orchestrator sends no UDP to the internet | [ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md) removed the mesh agent's UDP rules | `tailscale netcheck` reports `UDP: false` |
 | `E.6` | Forwarded traffic from pods goes only to pods | A new pod has no network policy for its first seconds, and CoreDNS forwards names to Azure DNS. [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md) | The `forward` chain of the `aisec_pod_egress` table, as `nft` lists it with the counter values removed, equals the three rules in the cloud-init file |
 | `E.7` | The pod egress rule loads at boot | Without it, a reboot brings the gap back | `systemctl is-enabled aisec-pod-egress` is `enabled` |
 | `R.1` | The mesh VPN agent is active | The subnet router is the way in | `systemctl is-active` |
