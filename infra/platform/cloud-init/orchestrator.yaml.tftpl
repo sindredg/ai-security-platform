@@ -45,6 +45,40 @@ write_files:
       [Install]
       WantedBy=multi-user.target
 
+  # Pods reach other pods, and nothing else through this host. A pod's network
+  # policy is written by kube-router after the pod starts, so this rule holds
+  # the first seconds, and CoreDNS's queries to Azure DNS (ADR 0018). It runs
+  # after the iptables FORWARD chain, where kube-router refuses first.
+  # 10.42.0.0/16 is K3s's default cluster network, which this cluster uses.
+  - path: /etc/aisec/pod-egress.nft
+    permissions: "0644"
+    content: |
+      table inet aisec_pod_egress
+      delete table inet aisec_pod_egress
+      table inet aisec_pod_egress {
+        chain forward {
+          type filter hook forward priority filter + 10; policy accept;
+          ip saddr 10.42.0.0/16 ct state established,related accept
+          ip saddr 10.42.0.0/16 ip daddr 10.42.0.0/16 accept
+          ip saddr 10.42.0.0/16 counter drop
+        }
+      }
+
+  - path: /etc/systemd/system/aisec-pod-egress.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Keep pods off the internet
+      Before=k3s.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/sbin/nft -f /etc/aisec/pod-egress.nft
+
+      [Install]
+      WantedBy=multi-user.target
+
   # Hardening that an audit asked for and nothing here needs otherwise. What was
   # left alone, and why, is in the milestone 2 worklog.
   - path: /etc/sysctl.d/90-aisec-hardening.conf
@@ -193,6 +227,7 @@ write_files:
       sysctl --system >/dev/null
       systemctl daemon-reload
       systemctl enable --now aisec-mss-clamp.service
+      systemctl enable --now aisec-pod-egress.service
 
       # Tighter modes on files an audit flagged, and no assembler or linker.
       chmod 600 /etc/crontab /etc/ssh/sshd_config

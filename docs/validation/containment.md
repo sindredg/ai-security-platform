@@ -75,6 +75,8 @@ Limit: service tags such as `Internet` are compared by name. The addresses a tag
 | `E.3` | The worker's rules drop the orchestrator on 80 | The allow is one port, not the subnet | TCP times out. Nothing listens on that port, so `refused` would mean the rules let the packet in |
 | `E.4` | The feed key logs in to the worker | The feed path works end to end | An SSH login from the orchestrator with the feed key |
 | `E.5` | The orchestrator sends no UDP to the internet | [ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md) removed the mesh agent's UDP rules | `tailscale netcheck` reports `UDP: false`. Configured, not tested: it passes only after the platform apply |
+| `E.6` | Forwarded traffic from pods goes only to pods | A new pod has no network policy for its first seconds, and CoreDNS forwards names to Azure DNS. [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md) | The `forward` chain of the `aisec_pod_egress` table, as `nft` lists it with the counter values removed, equals the three rules in the cloud-init file |
+| `E.7` | The pod egress rule loads at boot | Without it, a reboot brings the gap back | `systemctl is-enabled aisec-pod-egress` is `enabled` |
 | `R.1` | The mesh VPN agent is active | The subnet router is the way in | `systemctl is-active` |
 | `R.2` | The segment size clamp is loaded | Without it, connections through the router stall. See [troubleshooting 02](../troubleshooting/02-ssh-through-subnet-router-stalls.md) | Two rules in the `aisec_mss` table |
 | `R.3` | The orchestrator forwards packets | It routes for the mesh | `net.ipv4.ip_forward` is `1` |
