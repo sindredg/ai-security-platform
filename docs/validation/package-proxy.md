@@ -30,4 +30,4 @@ The worker's only outbound access: a proxy on the orchestrator that forwards pac
 ## Limits of these checks
 
 - `U.1` and `U.5` read the package lists on the machine. If the daily refresh has stopped, the lists are stale and the check still passes. Nothing alerts on a refresh that stopped.
-- `U.2` is also a gap: a held package gets no security fixes until someone moves the pin. The same is true of the pinned K3s release.
+- `U.2` is also a gap: a held package gets no security fixes until someone moves the pin. `U.7` catches that for the mesh agent. Nothing catches it for the pinned K3s release.

@@ -23,12 +23,14 @@ The cluster on the orchestrator. One server, no agents. The tool service is the 
 | `kube-proxy-arg: nodeport-addresses=` the private address | Node ports answer on the private address only, not on the mesh address. Checked by `T.6` |
 | Default service accounts mount no token | Applied after install, per namespace |
 | Certificate files at `600` | Applied after install. K3s keeps the mode |
+| `admission-control-config-file`, pod security defaults | A namespace without a label enforces `restricted`. No namespace is exempt. Checked by `K.9` |
+| `kube-system` labelled `enforce=baseline` | Its pods pass `baseline` and not `restricted`. Applied after install. Checked by `K.9` and `K.10` |
 
 The installer is not piped from the network into a shell. The script is fetched at the release tag and checked against its pinned checksum first, and so is the binary.
 
 ## Namespaces
 
-`tool-services` and `orchestration` exist. Both enforce the restricted pod security level and deny traffic by default ([tool service checks](../validation/tool-service.md)). `orchestration` holds only the `dispatch` service account so far: Argo Workflows is not installed. `collection` and `change` are planned. Monitoring runs in Azure Monitor, not in the cluster, from [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring). What runs in the two, and what reaches them, is in the [tool service diagram](../security/tool-service.md#deployment-controls).
+`tool-services` and `orchestration` exist. Both enforce the restricted pod security level by label and deny traffic by default ([tool service checks](../validation/tool-service.md)). `orchestration` holds only the `dispatch` service account so far: Argo Workflows is not installed. `collection` and `change` are planned. Monitoring runs in Azure Monitor, not in the cluster, from [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring). What runs in the two, and what reaches them, is in the [tool service diagram](../security/tool-service.md#deployment-controls).
 
 | Namespace | Workloads | Responsibility |
 | --- | --- | --- |

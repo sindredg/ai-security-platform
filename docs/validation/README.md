@@ -60,6 +60,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-16 | 136 of 136 passed | After the fix to `J.5`, at commit `0c1eba2`. See the [rollout](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies) |
 | 2026-10-16 | 137 of 138 passed | First run with `L.8` and `J.10`, from a checkout with the [copier fix](../worklogs/0003-toolchain-integration.md#fix-whole-lines-only). `L.8` failed: the copier before the fix is installed |
 | 2026-10-16 | 138 of 138 passed | After the [fixed copier](../worklogs/0003-toolchain-integration.md#rollout) was installed, from commit `9541326` |
+| 2026-10-16 | 123 of 125 passed | Without the Azure and workstation checks, before the [orchestrator hardening](../worklogs/0004-edge-network-and-monitoring.md#rollout). `E.8` and `K.9` failed: the input chain was not loaded, and four namespaces admitted a privileged pod |
+| 2026-10-16 | 143 of 143 passed | After the orchestrator hardening, at 20:18 UTC, from commit `7212a42` |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 

@@ -87,10 +87,10 @@ No dispatch step exists yet. `register.sh` stands in for it: it starts one short
 
    ```bash
    REPLACE_WITH_SSH aisec-orchestrator \
-     'systemctl is-enabled aisec-pod-egress; sudo nft list chain inet aisec_pod_egress forward'
+     'systemctl is-enabled aisec-pod-egress; sudo nft list table inet aisec_pod_egress'
    ```
 
-   Expected: `enabled`, then a `forward` chain at `priority filter + 10` with three rules for `10.42.0.0/16`: accept established, accept to pods, count and drop the rest. First boot writes it. Checks `E.6` and `E.7` compare it with the template.
+   Expected: `enabled`, then a `forward` chain at `priority filter + 10` with three rules for `10.42.0.0/16`: accept established, accept to pods, count and drop the rest. Then an `input` chain with three rules: accept established, accept TCP 6443 and 10250, count and drop the rest. First boot writes both. Checks `E.6` to `E.8` compare them with the template. An orchestrator without the `input` chain gets it from the [orchestrator hardening runbook](orchestrator-hardening.md).
 
    An orchestrator built before 2026-10-15 has neither the setting in step 5 nor this rule. Rebuild it from the current template, or apply both by hand as the [worklog](../worklogs/0003-toolchain-integration.md#the-deployment-on-the-orchestrator) records. Custom data does not reach a running VM.
 
@@ -122,7 +122,7 @@ No dispatch step exists yet. `register.sh` stands in for it: it starts one short
    validation/platform-checks.sh
    ```
 
-   Expected: `PASS` for every `T` check, `E.5` to `E.7`, `M.5`, and `Z.13`. A `U` check can fail on the day a security update is published and before the next unattended run. That is not a deployment fault. [Tool service checks](../validation/tool-service.md) say what each one proves.
+   Expected: `PASS` for every `T` check, `E.5` to `E.8`, `M.5`, and `Z.13`. A `U` check can fail on the day a security update is published and before the next unattended run. That is not a deployment fault. [Tool service checks](../validation/tool-service.md) say what each one proves.
 
 ## Round trip
 
