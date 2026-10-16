@@ -5,6 +5,8 @@
 
 # The operator's SSH public key, the one line from the .pub file.
 operator_ssh_public_key = "REPLACE_WITH_SSH_PUBLIC_KEY"
+# Public half of the SSH certificate authority that signs operator logins.
+operator_user_ca_public_key = "REPLACE_WITH_SSH_CA_PUBLIC_KEY"
 
 # The mesh VPN auth key does not go in this file. Export it for the one apply
 # that builds the orchestrator:

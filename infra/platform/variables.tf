@@ -65,8 +65,18 @@ variable "admin_username" {
 }
 
 variable "operator_ssh_public_key" {
-  description = "The operator's SSH public key, in OpenSSH format. The only key the VMs trust at first boot. A change does not reach running VMs: rotate on the VMs, then update this for the next rebuild."
+  description = "The operator's SSH public key, in OpenSSH format. Azure requires one and writes it to the administrator account's authorized_keys, which sshd ignores for that account: it takes only a certificate (ADR 0022). Certificates are signed for this key."
   type        = string
+}
+
+variable "operator_user_ca_public_key" {
+  description = "Public half of the operator's SSH certificate authority, in OpenSSH format (ADR 0022). The administrator account on each VM accepts only certificates it signed. A change does not reach running VMs: replace /etc/ssh/aisec-user-ca.pub on each, then update this for the next rebuild."
+  type        = string
+
+  validation {
+    condition     = can(regex("^ssh-ed25519 [A-Za-z0-9+/]+={0,2}( [A-Za-z0-9@._-]+)?$", var.operator_user_ca_public_key))
+    error_message = "One Ed25519 public key on one line, in OpenSSH format."
+  }
 }
 
 variable "tailscale_auth_key" {

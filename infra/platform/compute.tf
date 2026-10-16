@@ -18,16 +18,17 @@ locals {
       image_sku = "server"
       disk_gb   = 64
       cloud_init = templatefile("${path.module}/cloud-init/orchestrator.yaml.tftpl", {
-        admin_username     = var.admin_username
-        orchestrator_ip    = local.orchestrator_ip
-        worker_ip          = local.worker_ip
-        worker_prefix      = local.worker_prefix
-        advertised_routes  = "${var.address_space},${var.targets_address_space}"
-        tailscale_version  = var.tailscale_version
-        tailscale_auth_key = var.tailscale_auth_key
-        k3s_version        = var.k3s_version
-        k3s_sha256         = var.k3s_sha256
-        k3s_install_sha256 = var.k3s_install_sha256
+        admin_username              = var.admin_username
+        operator_user_ca_public_key = var.operator_user_ca_public_key
+        orchestrator_ip             = local.orchestrator_ip
+        worker_ip                   = local.worker_ip
+        worker_prefix               = local.worker_prefix
+        advertised_routes           = "${var.address_space},${var.targets_address_space}"
+        tailscale_version           = var.tailscale_version
+        tailscale_auth_key          = var.tailscale_auth_key
+        k3s_version                 = var.k3s_version
+        k3s_sha256                  = var.k3s_sha256
+        k3s_install_sha256          = var.k3s_install_sha256
         # The audit copier's files, as they are in the repository (ADR 0019).
         audit_copy_py        = filebase64("${path.module}/../../platform/logs/aisec_audit_copy.py")
         audit_copy_unit      = filebase64("${path.module}/../../platform/logs/aisec-audit-copy.service")
@@ -45,7 +46,9 @@ locals {
       image_sku = "server-arm64"
       disk_gb   = 64
       cloud_init = templatefile("${path.module}/cloud-init/worker.yaml.tftpl", {
-        orchestrator_ip = local.orchestrator_ip
+        admin_username              = var.admin_username
+        operator_user_ca_public_key = var.operator_user_ca_public_key
+        orchestrator_ip             = local.orchestrator_ip
         # The account the orchestrator pulls the journal through (ADR 0019).
         log_export_command = filebase64("${path.module}/../../worker/log-export/aisec-journal-export")
         log_export_install = filebase64("${path.module}/../../worker/log-export/install-log-export.sh")

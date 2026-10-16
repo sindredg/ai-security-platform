@@ -124,6 +124,29 @@ write_files:
       ClientAliveCountMax 2
       TCPKeepAlive no
       LogLevel VERBOSE
+      # The administrator account takes only a certificate signed by the
+      # operator's certificate authority, for the principal in the file (ADR
+      # 0022). A plain key, the operator's included, is refused. First boot
+      # writes the empty revocation list. Other accounts keep their keys.
+      Match User ${admin_username}
+        AuthorizedKeysFile none
+        TrustedUserCAKeys /etc/ssh/aisec-user-ca.pub
+        AuthorizedPrincipalsFile /etc/ssh/aisec-principals
+        RevokedKeys /etc/ssh/aisec-revoked.krl
+        # The one tunnel: kubectl from the operator to the API server on
+        # loopback. Every other account keeps AllowTcpForwarding no.
+        AllowTcpForwarding local
+        PermitOpen 127.0.0.1:6443
+
+  - path: /etc/ssh/aisec-user-ca.pub
+    permissions: "0644"
+    content: |
+      ${operator_user_ca_public_key}
+
+  - path: /etc/ssh/aisec-principals
+    permissions: "0644"
+    content: |
+      aisec-operator
 
   - path: /etc/modprobe.d/aisec-unused.conf
     permissions: "0644"
@@ -298,6 +321,12 @@ write_files:
       #!/bin/bash
       set -euo pipefail
 
+      # An empty revocation list. Without the file, sshd refuses every
+      # certificate for the administrator account. Azure wrote the operator key
+      # to the account's authorized_keys, which sshd ignores for it. The file
+      # goes, so a key line there is a change to look at (A.5).
+      ssh-keygen -q -k -f /etc/ssh/aisec-revoked.krl
+      rm -f /home/${admin_username}/.ssh/authorized_keys
       sysctl --system >/dev/null
       systemctl daemon-reload
       systemctl enable --now aisec-mss-clamp.service
