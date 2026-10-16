@@ -218,6 +218,24 @@ write_files:
     permissions: "0600"
     content: "${tailscale_auth_key}"
 
+  # The audit copier (ADR 0019): the files from platform/logs/ in the
+  # repository, in base64 so that nothing in them is read as YAML or template.
+  # First boot installs them once K3s has made /var/log/pods.
+  - path: /usr/local/lib/aisec/install/aisec_audit_copy.py
+    encoding: b64
+    permissions: "0644"
+    content: ${audit_copy_py}
+
+  - path: /usr/local/lib/aisec/install/aisec-audit-copy.service
+    encoding: b64
+    permissions: "0644"
+    content: ${audit_copy_unit}
+
+  - path: /usr/local/lib/aisec/install/install-audit-copy.sh
+    encoding: b64
+    permissions: "0700"
+    content: ${audit_copy_install}
+
   - path: /usr/local/sbin/aisec-first-boot
     permissions: "0700"
     content: |
@@ -288,6 +306,10 @@ write_files:
           -p '{"automountServiceAccountToken": false}'
       done
       chmod 600 /var/lib/rancher/k3s/server/tls/*.crt
+
+      # The audit copier reads the pod logs, which exist once the kubelet runs.
+      retry test -d /var/log/pods
+      /usr/local/lib/aisec/install/install-audit-copy.sh
 
       # The key the orchestrator uses to feed the other machines. It is made
       # here so the private half never passes through Terraform or its state.

@@ -28,6 +28,10 @@ locals {
         k3s_version        = var.k3s_version
         k3s_sha256         = var.k3s_sha256
         k3s_install_sha256 = var.k3s_install_sha256
+        # The audit copier's files, as they are in the repository (ADR 0019).
+        audit_copy_py      = filebase64("${path.module}/../../platform/logs/aisec_audit_copy.py")
+        audit_copy_unit    = filebase64("${path.module}/../../platform/logs/aisec-audit-copy.service")
+        audit_copy_install = filebase64("${path.module}/../../platform/logs/install-audit-copy.sh")
       })
     }
     worker = {
