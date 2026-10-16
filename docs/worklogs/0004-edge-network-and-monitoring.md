@@ -5,7 +5,7 @@ Milestone: 3a, edge network and monitoring
 
 ## Summary
 
-The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The rate limit for the tool service is written and tested in the pipeline, not deployed. The edge, the router, SSH certificates, the targets' move, and monitoring are not built. The gate is not met.
+The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The edge, the router, SSH certificates, the targets' move, and monitoring are not built. The gate is not met.
 
 | Criterion | Result |
 | --- | --- |
@@ -19,7 +19,7 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | Operator SSH logins use certificates that expire within a day | Open |
 | A pod reaches the host only on the ports the host rule lists, from its first packet | **Tested** on the live system: a new pod reached SSH before the change and timed out after it, while 6443 and 10250 stayed open, and `E.8` passes ([rollout](#rollout)). The rule loads before K3s, so it holds from the first packet. That ordering is read from the unit, not observed on a boot |
 | Every namespace rejects a privileged pod, whether or not it has a pod security label | **Tested** on the live system: `K.9` failed on `default`, `kube-node-lease`, `kube-public`, and `kube-system` before the change and passes after it ([rollout](#rollout)) |
-| Requests to the tool service without a valid token are rate-limited | **Tested** in the service's own tests, locally. Not deployed: the image is built from `main` after merge ([the rate limit](#the-rate-limit)) |
+| Requests to the tool service without a valid token are rate-limited | **Tested** on the live system: 33 requests without a token from the worker got 30 × 401 and 3 × 429, with 31 audit lines, one of them for the limit ([the rate limit](#on-the-live-system)) |
 | The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from | Open |
 | Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | Open |
 | Flow logs are recorded for the platform subnets | Open |
@@ -95,7 +95,20 @@ The server is at 298 lines of its limit of 300 ([ADR 0016](../decisions/0016-a-p
 | The minute never resets | 1 failed |
 | Ruff 0.17.1 on `worker`, `platform`, and `tool-service` | Clean |
 
-Not tested on the live system. The image is built and pushed only from `main`. After merge, a change moves the manifest's digest and the tool service is deployed again with `deploy.sh`.
+### On the live system
+
+The image is built and pushed only from `main`. The pipeline pushed `tool-service@sha256:28985261c3bf82a347f601e60a51582d26062822329aea817d1ab096ccbded68` from `b3cf4d9`, the same digest in the push job's log and in the registry. The manifest moved to it, and the tool service was deployed again with `deploy.sh` on 2026-10-16, through the steps of the [tool service runbook](../runbooks/tool-service.md). The policy file reaches the pod as a ConfigMap from the same checkout, so code and limit arrived together.
+
+Expected, written before the run: 30 × 401 and 3 × 429 for 33 requests within one minute, and 31 audit lines from the new process, one of them for the limit.
+
+| Step | Result |
+| --- | --- |
+| Deploy | The new pod runs the digest above |
+| 33 requests without a token from the worker, to `/mcp` with the pinned certificate | 30 × 401, 3 × 429 |
+| Audit lines of the new process | 31: 30 × `no token, or a malformed one`, 1 × `rate limit reached, no line until the next minute` |
+| Every check, more than a minute later | 143 of 143 at 20:39 UTC. `T.2` runs the new digest, `L.6` finds no line missing |
+
+The probes of the pod are TCP, so they do not reach the gate and do not count.
 
 ### Version moves
 
@@ -109,7 +122,7 @@ Read from the official sources on 2026-10-16. The Terraform checksum is from the
 | Trivy | 0.75.0 | 0.76.0 ([#56](https://github.com/sindredg/ai-security-platform/issues/56)) |
 | Ruff | 0.17.0 | 0.17.1 |
 
-`terraform validate` passes for all three roots with Terraform 1.16.6 and the read-only lock files, run locally on a copy of the tracked files. No plan has run against the live state with the new versions.
+`terraform validate` passes for all three roots with Terraform 1.16.6 and the read-only lock files, run locally on a copy of the tracked files. After merge, `terraform init -upgrade` and `terraform plan -lock=false -detailed-exitcode` ran in `bootstrap`, `platform`, and `targets` against the live state: `No changes` and exit 0 in each. The lock files did not change.
 
 The pipeline passed with every new version on the pull request. Each Trivy step, read from the job logs of the last `main` run with 0.75.0 and the pull request's run with 0.76.0:
 
