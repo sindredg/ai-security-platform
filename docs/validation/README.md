@@ -9,7 +9,8 @@ The [worklogs](../worklogs/README.md) are history: what was run on which day. Th
 From a workstation on the mesh VPN, signed in to Azure as the operator. The `Z` checks need `python3`:
 
 ```bash
-export AISEC_SSH="ssh -o UserKnownHostsFile=REPLACE_WITH_KNOWN_HOSTS_FILE -o StrictHostKeyChecking=yes -i REPLACE_WITH_OPERATOR_KEY -o IdentitiesOnly=yes"
+export AISEC_SSH="ssh -o UserKnownHostsFile=REPLACE_WITH_KNOWN_HOSTS_FILE -o StrictHostKeyChecking=yes -i REPLACE_WITH_OPERATOR_KEY -o CertificateFile=REPLACE_WITH_OPERATOR_KEY.aisec-cert.pub -o IdentitiesOnly=yes"
+export AISEC_USER_CA=REPLACE_WITH_CA_PUBLIC_KEY_FILE
 validation/platform-checks.sh
 ```
 
