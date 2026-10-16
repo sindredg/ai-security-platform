@@ -5,7 +5,7 @@ Date: 2026-10-16
 
 ## Context
 
-The operator logs in to every VM with one long-lived key. Its public half is in the administrator account's `authorized_keys` on the orchestrator and the worker (`A.5`, `A.7`), and will be on the edge and the targets. A copy of that key works until someone swaps it on every VM. The swap has been run once ([credential inventory](../security/credentials.md)).
+The operator logs in to every VM with one long-lived key. Its public half is in the administrator account's `authorized_keys` on the orchestrator and the worker (`A.5`, `A.7`), and will be on the edge, the router, and the targets. A copy of that key works until someone swaps it on every VM. The swap has been run once ([credential inventory](../security/credentials.md)).
 
 Two more gaps sit next to it:
 
@@ -39,7 +39,7 @@ The administrator account accepts only certificates signed by the operator's SSH
 **The certificates**
 
 - Signed for the operator's login key with `ssh-keygen -s`, for 12 hours, principal `aisec-operator`, and a key ID that names the day.
-- Critical option `source-address`: the edge subnet `10.45.0.0/27`, where routed sessions come from after 0020, and `100.64.0.0/10`, the tailnet range, for logins to the edge itself. A certificate copied to any other machine is refused.
+- Critical option `source-address`: the router subnet `10.45.0.32/27`, where routed sessions come from ([0025](0025-the-mesh-node-on-its-own-vm.md)), and `100.64.0.0/10`, the tailnet range, for logins to the router itself. A certificate copied to any other machine is refused.
 - Extensions: a terminal, and port forwarding. No agent forwarding, no X11.
 
 **The SSH daemon, on every VM**
@@ -63,7 +63,7 @@ On the orchestrator only, the administrator account gets `AllowTcpForwarding loc
 ## Trade-offs
 
 - **The certificate authority's key is the new prize.** Whoever holds it and the passphrase signs certificates until the public half is replaced on every VM. That is the same reach the static key has today, but the key is used once a day instead of on every login, and it can live on a different device from the daily key. Where it lives is the operator's choice, outside this project, as the workstation is.
-- **A stolen certificate works for up to 12 hours,** and only from the edge's subnet or the tailnet. Revoking it sooner means writing the revocation list on every VM, which is a procedure, not an instant action.
+- **A stolen certificate works for up to 12 hours,** and only from the router's subnet or the tailnet. Revoking it sooner means writing the revocation list on every VM, which is a procedure, not an instant action.
 - **One more step a day.** The operator signs a certificate before the first login. Forgetting it is a refused login, not an open door.
 - **Clock skew can refuse a valid certificate.** The VMs keep time from the host's clock device (`/dev/ptp_hyperv`, read on the orchestrator on 2026-10-16). A certificate signed on a fast workstation clock can be not yet valid for a minute.
 - **Break-glass does not use SSH.** If the authority's key is lost, the way back is Azure's run-command or serial console, which needs the Owner account (T03). The runbook writes a new CA file that way.
