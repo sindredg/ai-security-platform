@@ -49,6 +49,9 @@ locals {
         # The account the orchestrator pulls the journal through (ADR 0019).
         log_export_command = filebase64("${path.module}/../../worker/log-export/aisec-journal-export")
         log_export_install = filebase64("${path.module}/../../worker/log-export/install-log-export.sh")
+        # The account the feed key logs in to (ADR 0026).
+        feed_receive_command = filebase64("${path.module}/../../worker/feed/aisec-feed-receive")
+        feed_receive_install = filebase64("${path.module}/../../worker/feed/install-feed-account.sh")
       })
     }
   }

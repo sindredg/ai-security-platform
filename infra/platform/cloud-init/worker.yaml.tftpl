@@ -65,6 +65,18 @@ write_files:
     permissions: "0700"
     content: ${log_export_install}
 
+  # The account the orchestrator's feed key logs in to (ADR 0026). Its key is
+  # added in a runbook step, as the log export key is.
+  - path: /usr/local/lib/aisec/install/aisec-feed-receive
+    encoding: b64
+    permissions: "0755"
+    content: ${feed_receive_command}
+
+  - path: /usr/local/lib/aisec/install/install-feed-account.sh
+    encoding: b64
+    permissions: "0700"
+    content: ${feed_receive_install}
+
   - path: /etc/modprobe.d/aisec-unused.conf
     permissions: "0644"
     content: |
@@ -82,3 +94,4 @@ runcmd:
   - [chmod, "700", /etc/cron.d, /etc/cron.daily, /etc/cron.hourly, /etc/cron.weekly, /etc/cron.monthly]
   - [apt-get, remove, -y, -q, -o, "DPkg::Lock::Timeout=120", binutils]
   - [/usr/local/lib/aisec/install/install-log-export.sh]
+  - [/usr/local/lib/aisec/install/install-feed-account.sh]

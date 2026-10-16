@@ -1,0 +1,31 @@
+#!/bin/bash
+# The forced command of the orchestrator's feed key (ADR 0026). sshd runs it
+# instead of whatever the client asked for, and puts the request in
+# SSH_ORIGINAL_COMMAND. Two requests are accepted, each for one of two
+# components, matched whole:
+#
+#   receive COMPONENT   unpack a tar stream from standard input into
+#                       COMPONENT/stage, without the archive's owners or modes
+#   size COMPONENT      print the size of COMPONENT/stage
+#
+# The account owns nothing outside those directories, so a crafted archive
+# writes nowhere else that matters.
+set -euo pipefail
+
+root=/home/aisec-feed
+request=${SSH_ORIGINAL_COMMAND:-}
+
+if [[ $request =~ ^(receive|size)\ (model-server|agent-runtime)$ ]]; then
+  stage="$root/${BASH_REMATCH[2]}/stage"
+  case ${BASH_REMATCH[1]} in
+    receive)
+      mkdir -p "$stage"
+      exec tar -C "$stage" -xf - --no-same-owner --no-same-permissions
+      ;;
+    size)
+      exec du -sh "$stage"
+      ;;
+  esac
+fi
+echo "refused: not a feed request" >&2
+exit 2

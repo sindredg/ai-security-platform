@@ -1,6 +1,6 @@
 # Model server: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Steps 1 to 8 were run during that build. A second build from the same pins has not been run. The cleanup after a failed build and the `libgomp1` version line were added to the build script afterwards and have not been run on the worker. The unit was changed and installed again once, on 2026-10-12, to turn thinking off. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md).
+Status: Implemented on 2026-10-11. Built once. Steps 1 to 8 were run during that build. A second build from the same pins has not been run. The cleanup after a failed build and the `libgomp1` version line were added to the build script afterwards and have not been run on the worker. The unit was changed and installed again once, on 2026-10-12, to turn thinking off. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md). Steps 4, 5, and 10 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the scripts go to the worker from the checkout, the staged files to the feed account, and the build refuses a staged file that `artifacts.tsv` does not name. Not yet run in that form.
 
 Run these steps to put llama.cpp and the starting model on the AI worker: download and verify on the orchestrator, push, build the model file on the worker, start the server, and measure it. No cloud resource changes.
 
@@ -55,13 +55,16 @@ The download leaves through the NAT gateway and is billed per GB.
 
 ## Push to the worker
 
-4. Copy the scripts and the staged files with the feed key.
+4. Copy the scripts and the pin list from the checkout to the worker, then the staged files from the orchestrator with the feed key.
 
    ```bash
+   tar -C worker/model-server -cf - . |
+     REPLACE_WITH_SSH aisec-worker \
+     'rm -rf feed/model-server/scripts && mkdir -p feed/model-server/scripts && tar -C feed/model-server/scripts -xf -'
    REPLACE_WITH_SSH aisec-orchestrator 'cd feed/model-server && scripts/push.sh stage'
    ```
 
-   Expected: `9.0G	feed/model-server/stage`, after about two minutes.
+   Expected: no output from the first command. Then `9.0G	/home/aisec-feed/model-server/stage`, after about two minutes. The feed key can only unpack into that directory ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)).
 
 ## Build the model file on the worker
 
@@ -69,13 +72,13 @@ The download leaves through the NAT gateway and is billed per GB.
 
    ```bash
    REPLACE_WITH_SSH aisec-worker 'cd feed/model-server &&
-     sudo sh -c "nohup setsid scripts/build-model.sh stage > build.log 2>&1 < /dev/null &"'
+     sudo sh -c "nohup setsid scripts/build-model.sh /home/aisec-feed/model-server/stage > build.log 2>&1 < /dev/null &"'
    REPLACE_WITH_SSH aisec-worker 'tail -n 5 feed/model-server/build.log'
    ```
 
    Expected, in order in the log:
 
-   - `all files match artifacts.tsv`
+   - `all files match artifacts.tsv, and nothing else is staged`
    - `libgomp1` and the installed version
    - `version: 0.6.0-dev (build 11429, commit d81235049)`
    - `Model successfully exported to /var/lib/aisec-model-build/Qwen3.5-4B-F16.gguf`
@@ -84,7 +87,7 @@ The download leaves through the NAT gateway and is billed per GB.
 
    The script installs `libgomp1` through the package proxy if it is missing and prints its version. It converts in a sandboxed unit named `aisec-model-build`, and removes the build account and directory when it ends, also when it fails.
 
-   The first line proves the push arrived intact. The list it checks against came in the same push, so it says nothing about the orchestrator. Step 3 on the orchestrator is the check against the pins in the repository.
+   The first line proves that the staged files are the ones the repository pins, and that nothing else is staged. The list it checks against came from the checkout in step 4, not from the orchestrator. A file it does not name stops the build with `not in artifacts.tsv:` and the file's path.
 
 6. Read the result.
 
@@ -135,7 +138,7 @@ The download leaves through the NAT gateway and is billed per GB.
 10. Remove the staged inputs from the worker. Keep them on the orchestrator for the next rebuild.
 
     ```bash
-    REPLACE_WITH_SSH aisec-worker 'rm -rf feed/model-server/stage && df -h / | tail -1'
+    REPLACE_WITH_SSH aisec-worker 'sudo rm -rf /home/aisec-feed/model-server/stage && df -h / | tail -1'
     ```
 
     Expected: about 4.8 GB used on the worker's disk.

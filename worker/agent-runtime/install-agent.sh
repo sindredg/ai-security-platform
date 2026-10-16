@@ -11,8 +11,9 @@ stage=$(cd "${1:?usage: install-agent.sh STAGE_DIR}" && pwd)
 # shellcheck source=pins.env
 . "$here/pins.env"
 
-# The orchestrator checked this file. Check it again here, so that a file
-# changed on the way or on this disk does not get unpacked as root.
+# The orchestrator checked this file. Check it again here, against the pin
+# list from the operator's checkout (ADR 0026), so that a file changed on the
+# orchestrator, on the way, or on this disk does not get unpacked as root.
 sum=$(awk -F '\t' -v path="goose/$GOOSE_ARCHIVE" '$2 == path {print $1}' "$here/artifacts.tsv")
 if [[ -z $sum ]]; then
   echo "artifacts.tsv has no line for goose/$GOOSE_ARCHIVE" >&2

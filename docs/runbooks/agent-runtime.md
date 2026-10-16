@@ -1,6 +1,6 @@
 # Agent runtime: operator procedure
 
-Status: Implemented on 2026-10-12. Installed once. Every step below was run during that install. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-agent-runtime).
+Status: Implemented on 2026-10-12. Installed once. Every step below was run during that install. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-agent-runtime). Steps 2 to 4 and 7 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the worker gets the scripts from the checkout and the staged archive in the feed account's directory. Not yet run in that form.
 
 Run these steps to put Goose on the AI worker and prove one headless run against the local model server: download and verify on the orchestrator, push, install, run, and measure. No cloud resource changes. Nothing is left running: the agent is a program that runs once per job, not a service.
 
@@ -26,15 +26,18 @@ Run these steps to put Goose on the AI worker and prove one headless run against
 
 ## Download and push
 
-2. Copy the scripts to the orchestrator.
+2. Copy the scripts to the orchestrator, and the scripts and the pin list to the worker.
 
    ```bash
    tar -C worker/agent-runtime -cf - . |
      REPLACE_WITH_SSH aisec-orchestrator \
      'mkdir -p feed/agent-runtime/scripts feed/agent-runtime/stage && tar -C feed/agent-runtime/scripts -xf -'
+   tar -C worker/agent-runtime -cf - . |
+     REPLACE_WITH_SSH aisec-worker \
+     'rm -rf feed/agent-runtime/scripts && mkdir -p feed/agent-runtime/scripts && tar -C feed/agent-runtime/scripts -xf -'
    ```
 
-   Expected: no output.
+   Expected: no output. The worker's copy of the pin list comes from the checkout, not from the orchestrator ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)).
 
 3. Download and verify, then push to the worker.
 
@@ -42,14 +45,14 @@ Run these steps to put Goose on the AI worker and prove one headless run against
    REPLACE_WITH_SSH aisec-orchestrator 'cd feed/agent-runtime && scripts/fetch.sh stage && scripts/push.sh stage'
    ```
 
-   Expected: `ok    goose/goose-aarch64-unknown-linux-musl.tar.gz`, then `49M	feed/agent-runtime/stage`. A file that does not match its pin is removed and the script stops.
+   Expected: `ok    goose/goose-aarch64-unknown-linux-musl.tar.gz`, then `49M	/home/aisec-feed/agent-runtime/stage`. A file that does not match its pin is removed and the script stops.
 
 ## Install
 
 4. Install Goose and the fixture on the worker.
 
    ```bash
-   REPLACE_WITH_SSH aisec-worker 'cd feed/agent-runtime && sudo scripts/install-agent.sh stage'
+   REPLACE_WITH_SSH aisec-worker 'cd feed/agent-runtime && sudo scripts/install-agent.sh /home/aisec-feed/agent-runtime/stage'
    ```
 
    Expected: `the archive matches artifacts.tsv`, then one checksum line for `goose`. The script checks the archive again, takes the one file out of it, and does not run it.
@@ -91,7 +94,7 @@ Run these steps to put Goose on the AI worker and prove one headless run against
 7. Remove the staged archive from the worker. Keep it on the orchestrator for the next rebuild.
 
    ```bash
-   REPLACE_WITH_SSH aisec-worker 'rm -rf feed/agent-runtime/stage && df -h / | tail -1'
+   REPLACE_WITH_SSH aisec-worker 'sudo rm -rf /home/aisec-feed/agent-runtime/stage && df -h / | tail -1'
    ```
 
    Expected: about 5.0 GB used on the worker's disk.
