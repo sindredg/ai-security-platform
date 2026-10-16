@@ -29,7 +29,7 @@ A host rule on the orchestrator drops forwarded traffic from the pod network (`1
 
 The chain runs after the iptables `FORWARD` chain, at `filter + 10`. A pod with a policy is still refused by kube-router first, so `T.8` keeps testing the network policy. The host rule drops what kube-router let through: the first seconds of a pod, and CoreDNS's queries to Azure DNS. Its counter shows how often that happens.
 
-Network policies stay. They decide which pod talks to which inside the cluster. The host rule is the outer limit.
+Network policies stay. They decide which pod talks to which inside the cluster. The host rule is the outer limit. [0023](0023-the-host-rule-limits-what-pods-reach-on-the-host.md) adds a chain for traffic from pods to the host itself.
 
 Checks:
 
