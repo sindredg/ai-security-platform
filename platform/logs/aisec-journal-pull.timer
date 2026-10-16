@@ -1,0 +1,12 @@
+# Every five minutes. Whatever the worker writes in between can still be
+# erased by root on the worker before the next pull (ADR 0019).
+[Unit]
+Description=Pull the worker's journal every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target
