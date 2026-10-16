@@ -16,7 +16,7 @@ The milestone is built in slices. Three are on the system: the model server on t
 | Component footprint on the orchestrator is measured | Open |
 | The threat model covers dispatch, workload identity, and the AI-specific threats | Open |
 | Every image and every model input is pinned by digest and verified on the orchestrator | **Tested** for the model server (38 files and one commit) and for the agent runtime (one file). **Tested** for the tool service image: `T.2` passes against the running pod and failed against a manifest with one digest character changed ([fail side](#the-fail-side-of-each-new-check)) |
-| Every tool call is logged with caller, job, and decision, out of the worker's reach | Partly **tested**: the live service printed one line per decision with caller, job, and decision, and no token ([round trip](#the-round-trip), step 10). Nothing stores the lines out of the worker's reach yet |
+| Every tool call is logged with caller, job, and decision, out of the worker's reach | Partly **tested**: the live service printed one line per decision with caller, job, and decision, and no token ([round trip](#the-round-trip), step 10). Storage is written, not installed: the [audit copier](#slice-the-audit-copier) is tested in the pipeline, and its checks against stubs |
 | A revoked or expired job token is refused | **Tested** on the live system: [round trip](#the-round-trip) step 8, and [an expired job token](#an-expired-job-token) |
 | A pod in a workload namespace cannot open a connection to the internet | **Tested** on the live system: `T.8` from the tool service pod, `E.6` and `E.7` for the host rule, and a [probe in a new pod](#pods-and-the-internet) in `orchestration`. Not probed with a new pod in `tool-services` |
 | The worker's journal is copied to the orchestrator on a schedule | Open |
@@ -674,3 +674,67 @@ The first probe after the rule ended `refused` after 1.0 s, not at once. The rea
 - `T.1` and `T.3` to `T.5` were seen to fail only on absence. `M.5` was not seen to fail.
 - The orchestrator was deployed once, on a machine that got two of its settings by hand. A deployment on a machine built from the current template has not been run.
 - Another job's evidence on the same target was not tried. Evidence is stored per target, so the service cannot refuse it ([issue #45](https://github.com/sindredg/ai-security-platform/issues/45)).
+
+## Slice: the audit copier
+
+Date: 2026-10-16. Written and tested off the system. Not installed on the orchestrator. The design is [ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md), and the page is [audit log](../security/audit-log.md).
+
+### What was written
+
+| File | What it is |
+| --- | --- |
+| `platform/logs/aisec_audit_copy.py` | The copier. Standard library only. Reads the tool service's pod logs every two seconds and appends new lines to `/var/log/aisec/tool-audit.jsonl` |
+| `platform/logs/aisec-audit-copy.service` | Its unit: a fixed account, no network, no capability, a read-only system except its state folder and `/var/log/aisec` |
+| `platform/logs/install-audit-copy.sh` | Installs the `acl` package, the account, the default ACL on `/var/log/pods`, the file with its attribute, and the unit. Never replaces the file once it exists |
+| `infra/platform/cloud-init/orchestrator.yaml.tftpl` | Carries the three files in base64 and runs the install script once `/var/log/pods` exists |
+| `platform/tool-service/deploy.sh` | Refuses to deploy unless the copier runs, then waits for two copier passes that end after the moment it starts, so one whole pass started after the old pod's last line |
+| `validation/platform-checks.sh` | `L.1` to `L.7` |
+
+What the live orchestrator showed before any of it was written, read with `sudo` on 2026-10-16: `/var/log/pods` is `0750 root:root` and the log file `0640 root:root`, so the copier needs a way in. Every line is `<time> stdout F <line>`. The pod that started at 17:17 on 2026-10-15 holds 8 lines, and the round trip's lines from the pods before it are gone. `setfacl` is not installed.
+
+### Tests
+
+Fourteen unit tests in `platform/logs/tests/`, run with `python3 -m unittest discover -s tests` from `platform/logs`, on the workstation's Python 3.12. Result: `Ran 14 tests`, `OK`. The pipeline runs them in the same pinned Python image as the tool service tests. The orchestrator runs the copier with Ubuntu's Python 3.14.4.
+
+The first run found a defect: the copier refused a time stamp with no fraction. Go drops the fraction when it is zero, so the runtime writes `05:00:01Z` once in a billion lines. The copier now accepts it, and a test holds it.
+
+Each test was seen to fail on a broken copy of the copier, made by hand and put back:
+
+| Change to the copier | Result |
+| --- | --- |
+| No filter on lines already copied | 1 failure |
+| The output opened with `O_CREAT` | 2 failures |
+| No log file treated as a quiet pass | 1 failure |
+| Partial lines from the runtime accepted | 1 failure |
+| Lines not sorted by time | 2 failures |
+| No health file after a pass | 1 failure |
+| The skip of files not changed since the last pass removed | `OK`, as expected. The skip saves reading, and changes no result |
+
+Ruff 0.17.0 with the tool service's rule set, and ShellCheck 0.11.0 on every script, reported nothing. Both are the pipeline's versions, run as binaries on the workstation.
+
+### Cloud-init
+
+The template was rendered with `terraform console` in an empty folder, with placeholder values, and parsed as YAML. The three files decode to the same bytes as the repository's, with modes `0644`, `0644`, and `0700`. The custom data is 30,912 bytes after base64. Custom data is ignored after creation, so a plan shows no change to the running VM.
+
+### The checks against stubs
+
+The probe lines of `L.5` to `L.7` were run on the workstation against made-up files and mount lists. Results obtained with stubs, not on the system.
+
+| Input | `L.5` mounts | `L.6` holes | `L.7` markers |
+| --- | --- | --- | --- |
+| Two starts with no gap, a repeated line, an old line without a start, and unrelated host paths | 0 | 0 | 0 |
+| `seq` 1 then 3 | | 1 | |
+| A start that begins at `seq` 2 | | 1 | |
+| A line that is not JSON | | 1 | |
+| A marker line | | | 1 |
+| No file, and a pod with `/var/log` mounted | 1 | an error | empty |
+| Pods with `/var/log/aisec/x` and `/` mounted, and one with `/var/logs` | 2 | | |
+
+`L.1` to `L.4` read the unit and the file on the live machine. Their fail side is the state before the install, and a stopped unit, both for the live run.
+
+### Limits
+
+- Not installed. Nothing here was run on the orchestrator.
+- The default ACL reaching new pod folders and rotated files is reasoned. The install and the next deployment of the tool service test it.
+- The kubelet's rotation of 10 MiB and five files is the upstream default. It was not read from the running kubelet.
+- The pipeline's run of the tests is the first run on Python 3.15.

@@ -38,4 +38,4 @@ These check the same deployment and sit with their own groups:
 ## Not checked
 
 - **The round trip.** Registering a job, calling a tool with its token, the refusal after revocation or expiry, and the audit lines are steps 10 to 15 of the [runbook](../runbooks/tool-service.md#round-trip), not checks in the script. They change state, and the script changes nothing.
-- **The audit log.** The service prints audit lines. Nothing stores them yet, so there is nothing to check.
+- **The audit log.** Its copier and file have their own checks, `L`, on [audit log](audit-log.md).
