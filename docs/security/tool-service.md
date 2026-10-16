@@ -59,7 +59,7 @@ One JSON object per decision, on standard output. Standard output carries nothin
 | `reason` | Why, for a refusal |
 | `result_bytes` | The size of an allowed tool result. The result itself is not logged |
 
-The pod runs the image built with `start` and `seq`, from commit `d2dec08`, since 2026-10-16 (`T.2`).
+The pod runs the image with the rate limit, from commit `b3cf4d9`, since 2026-10-16 (`T.2`).
 
 The service writes to standard output and opens no log file. A host service, `aisec-audit-copy`, appends them to a file that no pod mounts. It runs on the orchestrator since 2026-10-16. Storage and who can change it are on the [audit log](audit-log.md) page.
 
@@ -84,7 +84,7 @@ CI enforces a 300-line limit on the server code and scans its pinned dependencie
 - **A bearer token can be reused if stolen.** Any process that reads it can make calls with the job's permissions until it is revoked or expires. Those permissions are limited to one target and the registered tools.
 - **Two jobs on one target read the same evidence.** Evidence is stored per target. That is enough while evidence is synthetic and fixed.
 - **Jobs live in memory.** A restart of the service ends every job. It fails closed.
-- **The rate limit is shared.** Requests without a valid token, from any caller, share one count per minute. Past it they get 429, and the rest of that minute leaves one audit line, not one per request. How many were refused in that minute is not recorded. A valid token is never limited. Written and tested in the pipeline, not deployed yet.
+- **The rate limit is shared.** Requests without a valid token, from any caller, share one count per minute. Past it they get 429, and the rest of that minute leaves one audit line, not one per request. How many were refused in that minute is not recorded. A valid token is never limited. Tested on the live system on 2026-10-16.
 - **An offline check cannot see a deleted pod.** The dispatch step's token stays valid until it expires.
 - **Schema validation checks structure, not meaning.** A read-only tool can still expose more data than a job needs.
 - **Tool results remain untrusted text.** The service checks their size and source. It does not detect misleading content or injected instructions.
