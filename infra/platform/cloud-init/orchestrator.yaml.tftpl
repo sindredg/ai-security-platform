@@ -251,6 +251,9 @@ write_files:
         --advertise-routes=${advertised_routes} \
         --accept-dns=false
       rm -f /run/aisec/tailscale-auth-key
+      # The hold stops apt, not the agent's own updater, and the tailnet turns
+      # that updater on by default. The version moves only with the pin (U.6).
+      tailscale set --auto-update=false
 
       # The package proxy for the worker. It keeps the configuration written
       # above. The archive drops old versions, so this one is not pinned.

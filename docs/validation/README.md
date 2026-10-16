@@ -51,6 +51,9 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-13 | 101 of 101 passed | After the [orchestrator rebuild](../worklogs/0002-platform-compute.md#orchestrator-rebuild) and an update run on both VMs. `K.5` and `K.6` passed on settings that first boot applied |
 | 2026-10-15 | 102 of 117 to 116 of 119 | Six runs during the [tool service deployment](../worklogs/0003-toolchain-integration.md#the-checks-run-by-run), with the new `T` checks, `E.5` to `E.7`, `M.5`, and `Z.13` |
 | 2026-10-15 | 117 of 119 passed | From `main` at `131ba01`. `U.1` and `U.5` failed: security updates published after the last unattended run were pending on both VMs |
+| 2026-10-16 | 119 of 119 passed | From `main` at `1e9a14f`, at 14:12 UTC. `U.1` and `U.5` passed after the unattended runs |
+| 2026-10-16 | 119 of 120 passed | First run with `U.6`. It failed: the mesh agent's own updater was on (`AutoUpdate.Apply` `true`) |
+| 2026-10-16 | 120 of 120 passed | After `tailscale set --auto-update=false` on the orchestrator, at 17:15 UTC |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
