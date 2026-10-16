@@ -140,6 +140,7 @@ echo "squid_from_orchestrator=$(curl -s -o /dev/null -w "%{http_code}" --max-tim
 echo "lock=$(tailscale lock status 2>/dev/null | head -n 1)"
 echo "lock_signed=$(tailscale lock status 2>/dev/null | grep -c "This node is accessible under Tailnet Lock")"
 echo "tailscale_held=$(apt-mark showhold | grep -c "^tailscale$")"
+echo "tailscale_auto_apply=$(tailscale debug prefs 2>/dev/null | tr -d " \n" | grep -o "\"AutoUpdate\":{[^}]*}" | grep -o "\"Apply\":[a-z]*" | cut -d: -f2)"
 echo "auth_key_file=$(ls /run/aisec 2>/dev/null | wc -l)"
 echo "egress_https=$(tcp 1.1.1.1 443)"
 echo "to_worker_ssh=$(tcp '"$WORK_IP"' 22)"
@@ -259,6 +260,8 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check S.1 "The worker's rules drop the orchestrator on the model server port" timeout "$(value to_worker_model)"
   check U.1 "No security update is pending on the orchestrator" 0 "$(value security_updates_pending)"
   check U.2 "The mesh VPN agent is held at its pinned version" 1 "$(value tailscale_held)"
+  # The hold stops apt. The agent has its own updater, which the hold does not stop.
+  check U.6 "The mesh VPN agent does not install updates itself" false "$(value tailscale_auto_apply)"
   # The mesh agent's UDP rules are gone, so it cannot reach a STUN server.
   check E.5 "The orchestrator sends no UDP to the internet" false "$(value mesh_udp)"
   # The chain as nft lists it, with the counter's values taken out. It holds

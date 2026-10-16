@@ -24,6 +24,7 @@ The worker's only outbound access: a proxy on the orchestrator that forwards pac
 | `U.3` | `apt` on the worker uses the proxy | Otherwise it hangs for minutes and fails | `apt-config dump` |
 | `U.4` | Unattended upgrades are enabled on the worker | Nobody has to remember | `systemctl is-enabled` |
 | `U.5` | No security update is pending on the worker | The whole path works, daily | `apt list --upgradable` has nothing from the security suite |
+| `U.6` | The mesh VPN agent does not install updates itself | The hold in `U.2` stops `apt`, not the agent's own updater. An update it applied would be code from the vendor running as root | `tailscale debug prefs`, `AutoUpdate.Apply` |
 
 ## Limits of these checks
 
