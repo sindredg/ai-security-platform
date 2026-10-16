@@ -45,14 +45,14 @@ Name resolution for the private endpoint.
 
 ## Decision
 
-Logs, metrics, and alerts go to Azure Monitor. The orchestrator and the edge ship them over Private Link. The worker ships nothing.
+Logs, metrics, and alerts go to Azure Monitor. The orchestrator, the edge, and the router ([0025](0025-the-mesh-node-on-its-own-vm.md)) ship them over Private Link. The worker ships nothing.
 
 **Where the data goes**
 
 - One Log Analytics workspace, in Sweden Central, in the platform resource group. Analytics plan for every table, 31 days of retention. Volume is small enough that the cheaper plans save little and lose alerting.
 - An Azure Monitor Private Link Scope with the workspace and one data collection endpoint. Ingestion access is private only. Query access stays open, so the operator reads it in the portal.
-- One private endpoint for the scope, in a new subnet of the platform network, `10.40.0.64/27`. The edge reaches it over the peering.
-- The orchestrator and the edge get hosts entries for the endpoint's names, from Terraform. No private DNS zone.
+- One private endpoint for the scope, in a new subnet of the platform network, `10.40.0.64/27`. The edge and the router reach it over the peering.
+- The orchestrator, the edge, and the router get hosts entries for the endpoint's names, from Terraform. No private DNS zone.
 - Their security groups allow TCP 443 to the private endpoint subnet, and nothing else new.
 
 **What is collected**
@@ -62,28 +62,28 @@ Logs, metrics, and alerts go to Azure Monitor. The orchestrator and the edge shi
 | Orchestrator | `/var/log/aisec/tool-audit.jsonl`, the audit copy | A custom table, one row per audit line |
 | Orchestrator | `/var/log/aisec/worker-journal.jsonl`, the worker's journal copy | A custom table |
 | Orchestrator | Syslog: `auth`, `authpriv`, `kern`, and `daemon` at warning and above | `Syslog` |
-| Orchestrator, edge | CPU, memory, and disk, every 60 seconds | `Perf` |
+| Orchestrator, edge, router | CPU, memory, and disk, every 60 seconds | `Perf` |
 | Edge | Squid's access log, both clients, and the fetch window's opens and closes | A custom table, and `Syslog` |
-| Edge | Syslog, the same facilities | `Syslog` |
+| Edge, router | Syslog, the same facilities. On the router this includes the mesh agent's own log | `Syslog` |
 | Both networks | Flow logs, to a storage account per region, with traffic analytics into the workspace | `NTANetAnalytics` |
 | Subscription | The Activity Log, where Azure keeps it | Not copied. Alert rules read it directly |
 
 **The worker gets no agent.** It is the untrusted side. It gets no managed identity and no path to Azure. Its journal arrives through the orchestrator's pull ([0019](0019-how-the-audit-lines-and-the-worker-journal-are-copied.md)) and leaves with the orchestrator's agent.
 
-**Identities.** The orchestrator and the edge each get a system-assigned managed identity, used by the agent and associated with the data collection rules. Neither gets a role on the workspace, so neither can read or delete what it sent. Pods cannot ask for the orchestrator's token: [0018](0018-a-host-rule-keeps-pods-off-the-internet.md)'s host rule drops forwarded traffic from pods to `169.254.169.254`, as to anything outside the pod network. A check proves it.
+**Identities.** The orchestrator, the edge, and the router each get a system-assigned managed identity, used by the agent and associated with the data collection rules. None of them gets a role on the workspace, so none can read or delete what it sent. Pods cannot ask for the orchestrator's token: [0018](0018-a-host-rule-keeps-pods-off-the-internet.md)'s host rule drops forwarded traffic from pods to `169.254.169.254`, as to anything outside the pod network. A check proves it.
 
 **Alerts.** Rules have no action group. A fired alert shows under **Monitor → Alerts** in the portal, with its severity and history. Nothing is sent.
 
 | Rule | Reads | Severity |
 | --- | --- | --- |
-| No heartbeat from the orchestrator or the edge for 10 minutes | `Heartbeat` | 1 |
+| No heartbeat from the orchestrator, the edge, or the router for 10 minutes | `Heartbeat` | 1 |
 | A hole in `seq`, or a `start` whose first line is not 1 | The audit table | 1 |
 | A marker line in either copy | Both custom tables | 1 |
 | No worker journal rows for 15 minutes | The journal table | 2 |
 | Squid refused a request from the orchestrator | Squid's table | 1 |
 | A fetch window opened | Syslog on the edge | 3 |
 | A denied flow from the orchestrator or worker subnet to the internet | `NTANetAnalytics` | 1 |
-| An SSH login, accepted or failed, on the orchestrator or the edge | `Syslog` | 3 for accepted, 2 for failed |
+| An SSH login, accepted or failed, on the orchestrator, the edge, or the router | `Syslog` | 3 for accepted, 2 for failed |
 | More than 20 tool service refusals in 5 minutes | The audit table | 2 |
 | The daily cap was reached | `_LogOperation` | 1 |
 | A disk over 85 percent, memory over 90 percent, or a failed unit | `Perf`, `Syslog` | 2 |
@@ -97,7 +97,7 @@ Log rules run every 5 minutes, except the cap and the disk, which run every 15. 
 
 **Checks**
 
-- The agent runs on the orchestrator and the edge, and reports a heartbeat in the last 10 minutes. Read from the workspace with the operator's Azure sign-in.
+- The agent runs on the orchestrator, the edge, and the router, and reports a heartbeat in the last 10 minutes. Read from the workspace with the operator's Azure sign-in.
 - The workspace refuses ingestion from the public network: the scope's ingestion mode is private only, read from Azure.
 - A pod's connection to `169.254.169.254:80` gets no answer. A procedure step, like the egress probe in 0018.
 - Each alert rule fires once on purpose before 3a is done: an agent stopped, a line removed from a test copy, a request for a host off the list, and so on. The runbook lists each trigger.
@@ -112,4 +112,4 @@ Log rules run every 5 minutes, except the cap and the disk, which run every 15. 
 - **Whether the agent needs Azure Resource Manager is not known.** Microsoft lists the `AzureResourceManager` service tag as required on the public path. On the private path the documentation says the agent uses only the private endpoints. The first install, with Resource Manager unreachable, settles it. If the agent needs it, that is a new record: Resource Manager accepts requests for any tenant, so allowing it is another way out.
 - **Flow logs cover what the security groups decide, not what the edge proxies.** A denied flow is recorded at its source. A refused proxy request is in Squid's table instead. Neither sees inside TLS.
 - **The workspace is one more thing in Sweden Central.** If the region is down, so is the record of it.
-- **The edge's agent crosses the peering** to the private endpoint. Its volume is small.
+- **The edge's and the router's agents cross the peering** to the private endpoint. Their volume is small.
