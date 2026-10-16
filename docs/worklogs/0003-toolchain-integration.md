@@ -738,3 +738,55 @@ The probe lines of `L.5` to `L.7` were run on the workstation against made-up fi
 - The default ACL reaching new pod folders and rotated files is reasoned. The install and the next deployment of the tool service test it.
 - The kubelet's rotation of 10 MiB and five files is the upstream default. It was not read from the running kubelet.
 - The pipeline's run of the tests is the first run on Python 3.15.
+
+## Slice: the journal pull
+
+Date: 2026-10-16. Written and tested off the system. Not installed on either VM. The design is [ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md), and the page is [audit log](../security/audit-log.md#the-workers-journal).
+
+### What was written
+
+| File | What it is |
+| --- | --- |
+| `worker/log-export/aisec-journal-export` | The forced command. Accepts nothing or one journal cursor, matched whole, and runs `journalctl --output=json` |
+| `worker/log-export/install-log-export.sh` | The `aisec-logexport` account in `systemd-journal`, the command, and, given the orchestrator's key, a root-owned `authorized_keys` line with `from=`, `restrict`, and `command=` |
+| `platform/logs/aisec_journal_pull.py` | The puller. Reads at most 16 MiB a pull and 64 KiB a line, does not read standard error, keeps only JSON objects with a cursor in the journal's format |
+| `platform/logs/aisec-journal-pull.service`, `.timer` | A oneshot unit every five minutes. One address allowed, the worker's. A start timeout of 180 seconds ends a pull the worker stalls |
+| `platform/logs/install-journal-pull.sh` | The account, its key, the pinned host key in a root-owned file, the journal file with its attribute, the unit and timer |
+| Both first-boot templates | Carry the files in base64 and run the install scripts. The orchestrator's custom data is 49,508 characters of base64, about 37 KB decoded, against Azure's limit of 65,535 bytes decoded |
+| `validation/platform-checks.sh` | `J.1` to `J.9` |
+
+### Tests
+
+Thirteen unit tests in `platform/logs/tests/test_journal_pull.py` against a fake worker: a small Python program in place of `ssh`. With the copier's fourteen: `Ran 27 tests`, `OK`, on the workstation's Python 3.12.
+
+The first runs found three defects in the draft, before any test passed:
+
+- The process was killed after every pull, also after a clean end, so every complete pull failed with status −9.
+- A pull could run past its 16 MiB by one line, because a line read did not know how much of the limit was left.
+- Standard error was read through a pipe. A worker that writes enough to it blocks both sides. It is now discarded, and the exit status tells SSH (255) from a refusal (2).
+
+A fake that closed its output without ending showed a fourth thing: a worker that stalls inside the stream blocks the read, and the puller's own wait never starts. The unit's start timeout is the bound, and the code says so.
+
+Each test was seen to fail on a broken copy of the puller:
+
+| Change to the puller | Result |
+| --- | --- |
+| Any string accepted as a cursor | 1 failure |
+| The saved cursor not checked before it is sent | 1 failure |
+| Standard error read through a pipe | 1 failure: "the pull is blocked" after 20 seconds |
+| The process killed after every pull | 7 errors |
+| A last line with no end kept | 6 failures |
+| The exit status ignored | 1 failure |
+| No limit on a line | 1 failure |
+
+The command's matcher was run on the workstation with a stub `journalctl`. Accepted: nothing, and a cursor read from the worker's journal. Refused, with status 2: the cursor followed by `; id`, by a newline, in upper case, `id`, `--since=yesterday`, and `s=x`.
+
+`J.7`'s comparison was run against stub key files. It passes on the line the install writes, and fails without `from=`, without `restrict`, without the forced command, and with a second key.
+
+Ruff 0.17.0 and ShellCheck 0.11.0 reported nothing.
+
+### Limits
+
+- Not installed. The live pull, the refusal of `J.6`, and the host key of `J.5` are for the rollout.
+- The worker's journal is not checked for completeness. A journal has no sequence the puller can trust: the worker writes it.
+- After the file is full, every pull writes one more marker line, about 100 bytes every five minutes, until it is archived.

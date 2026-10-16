@@ -16,6 +16,27 @@ Status: **configured, not tested** on the live system. The copier is not install
 | `L.6` | No audit line is missing | A hole in the sequence is a lost line ([ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md)) | For each `start`, the highest `seq` minus the count of distinct numbers, plus every line that is not JSON. Lines without a `start`, from the image before the sequence, are not counted |
 | `L.7` | The copier refused no line | A marker stands for a line that was not one JSON object on standard output, or for a full file | The count of lines with `"event":"copy"` |
 
+## The worker's journal
+
+Status: **configured, not tested** on the live system, like the `L` checks. Neither VM has the puller or the export account yet.
+
+| ID | Claim | Why it matters | How it is checked |
+| --- | --- | --- | --- |
+| `J.1` | The pull timer is active and starts at boot | No timer, no copy | `systemctl is-active` and `is-enabled` on `aisec-journal-pull.timer` |
+| `J.2` | The journal file is root's and append-only | The puller can add lines and cannot change them | Owner `root`, group `aisec-journal-pull`, mode `620`, and the `a` attribute |
+| `J.3` | A pull succeeded in the last 25 minutes | A puller that stopped looks like a quiet worker. 25 minutes is five intervals | The age of `/var/lib/aisec-journal-pull/ok` |
+| `J.4` | The puller refused no line | A marker is a line that was not a journal entry, or a full file | The count of lines with `"event":"copy"` |
+| `J.5` | The puller pins the worker's host key | Otherwise the first answer on the worker's address is trusted | The pinned key equals the key `ssh-keyscan` gets from the worker now. A missing pin is a failure |
+| `J.6` | The export key runs nothing but the export | The key lives on the trusted machine and logs in to the untrusted one. It must not give a shell either way | An SSH command `id` with the key, as the puller's account, ends with status 2, the export's refusal. 255 is SSH failing, 0 a command that ran |
+
+On the worker:
+
+| ID | Claim | Why it matters | How it is checked |
+| --- | --- | --- | --- |
+| `J.7` | The export key is restricted to the orchestrator and the export | `from=`, `restrict`, and the forced command are the whole limit on the key | One line in the account's `authorized_keys`, owned by root with mode `644`, with exactly those options |
+| `J.8` | The export account reads the journal and nothing more | `systemd-journal` is the group that reads it. `sudo` would undo the rest | `id -nG aisec-logexport` |
+| `J.9` | The worker runs the reviewed export command | The command is the boundary on the worker | Its SHA-256 equals the copy in this checkout |
+
 ## Not checked
 
 - **The ACL on the pod logs.** `L.4` fails if the copier cannot read a log file, which covers the effect. The entries themselves are not read.

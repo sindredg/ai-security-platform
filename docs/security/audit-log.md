@@ -4,7 +4,7 @@ Where the tool service's audit lines are stored, and who can change them. What a
 
 State: **Written.** The copier, its unit, and its install script are in `platform/logs/`, tested in the pipeline, and in the orchestrator's first-boot template. Not installed on the running orchestrator, so not tested there. The checks are `L.1` to `L.7` on [validation](../validation/audit-log.md).
 
-The worker's journal is the second log in ADR 0019. It is not written yet.
+The worker's journal is the second log in ADR 0019. See [the worker's journal](#the-workers-journal) below.
 
 ## The path of a line
 
@@ -37,6 +37,26 @@ A pass fails, and the copier's health file is not touched, when no log file of t
 | The copier stopped | `L.1`, `L.4`, and `HO.1` |
 | The pod was deleted between a line and the next pass | Nothing, unless it was the deploy. `deploy.sh` waits for a whole copier pass after the old pod's last line before it replaces the pod, and is run with no job active |
 | The file reached 2 GiB | A marker line, a failed unit (`L.1`, `HO.1`), and `L.7` |
+
+## The worker's journal
+
+State: **Written**, like the copier. The account and the command on the worker are in `worker/log-export/`, the puller in `platform/logs/`, and both in the first-boot templates. Not installed on either running VM. The checks are `J.1` to `J.9` on [validation](../validation/audit-log.md#the-workers-journal).
+
+Every five minutes, `aisec-journal-pull` on the orchestrator connects to the worker as `aisec-logexport` and appends what it gets to `/var/log/aisec/worker-journal.jsonl`.
+
+| Piece | What holds it |
+| --- | --- |
+| The key | Made on the orchestrator at first boot, readable by the puller's account only. On the worker its line carries `from=` the orchestrator's address, `restrict`, and a forced command, in a file root owns (`J.7`) |
+| The forced command | Accepts nothing, for the whole journal, or one cursor in the journal's format, for what came after it. Anything else is refused with exit status 2 (`J.6`). It must match the reviewed copy (`J.9`) |
+| The worker's host key | Pinned in a root-owned file outside the puller's folder, so the puller cannot pin another (`J.5`) |
+| The worker's answer | Read as hostile input: 16 MiB a pull, 64 KiB a line, standard error not read. A line is kept only as one JSON object with a cursor in the journal's format. Anything else is a marker (`J.4`) |
+| The file | `0620 root:aisec-journal-pull`, append-only (`J.2`), 2 GiB |
+
+What it does not do:
+
+- **It does not make the worker honest.** Root on the worker can forge entries, and erase what was written since the last pull, up to five minutes.
+- **A worker that stops sending stalls a pull** until the unit's start timeout of 180 seconds ends it. `J.3` fails after 25 minutes without a successful pull.
+- **The first pull copies the whole journal,** 16 MiB at a time, one pull every five minutes.
 
 ## Limits
 
