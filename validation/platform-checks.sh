@@ -164,6 +164,7 @@ echo "squid_from_orchestrator=$(curl -s -o /dev/null -w "%{http_code}" --max-tim
 echo "lock=$(tailscale lock status 2>/dev/null | head -n 1)"
 echo "lock_signed=$(tailscale lock status 2>/dev/null | grep -c "This node is accessible under Tailnet Lock")"
 echo "tailscale_held=$(apt-mark showhold | grep -c "^tailscale$")"
+echo "tailscale_installed=$(dpkg-query -W -f="\${Version}" tailscale 2>/dev/null)"
 echo "tailscale_auto_apply=$(tailscale debug prefs 2>/dev/null | tr -d " \n" | grep -o "\"AutoUpdate\":{[^}]*}" | grep -o "\"Apply\":[a-z]*" | cut -d: -f2)"
 echo "auth_key_file=$(ls /run/aisec 2>/dev/null | wc -l)"
 echo "egress_https=$(tcp 1.1.1.1 443)"
@@ -337,6 +338,12 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check U.2 "The mesh VPN agent is held at its pinned version" 1 "$(value tailscale_held)"
   # The hold stops apt. The agent has its own updater, which the hold does not stop.
   check U.6 "The mesh VPN agent does not install updates itself" false "$(value tailscale_auto_apply)"
+  # The hold means nothing moves the agent but the pin. This catches a pin left
+  # behind. The current stable version is read here, from the package site.
+  stable=$(curl -fsS --max-time 10 "https://pkgs.tailscale.com/stable/?mode=json" 2>/dev/null |
+    python3 -I -c "import json, sys; print(json.load(sys.stdin)[\"Version\"])" 2>/dev/null)
+  check U.7 "The mesh VPN agent is the current stable release" \
+    "${stable:-no answer from pkgs.tailscale.com}" "$(value tailscale_installed)"
   # The mesh agent's UDP rules are gone, so it cannot reach a STUN server.
   check E.5 "The orchestrator sends no UDP to the internet" false "$(value mesh_udp)"
   # The chain as nft lists it, with the counter's values taken out. It holds

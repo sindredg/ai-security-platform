@@ -122,6 +122,7 @@ The orchestrator holds every credential that matters and reaches any host on TCP
 - Only the edge resolves public names. The orchestrator's queries to Azure DNS are refused.
 - The orchestrator is not on the mesh VPN. The operator reaches the orchestrator, the worker, the edge, and the targets through the router.
 - The mesh agent runs only on the router, with its own updates and its log upload off. No subnet can open a connection to the router.
+- A check fails when the mesh agent is behind the current stable release.
 - The router cannot open a connection to an operator device. The mesh policy's own tests refuse a change that would allow it.
 - The Kubernetes API is not reachable over the mesh VPN.
 - Operator SSH logins use certificates that expire within a day. A key without a certificate is refused.
