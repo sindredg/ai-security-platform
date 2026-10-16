@@ -151,10 +151,12 @@ jobs:
 
       # These scripts run as root on the VMs, and nothing else reads them
       # before they do. The image has no shell, so the runner finds the files.
-      # -x follows the "source" of pins.env, which holds no secret.
+      # -x follows the "source" of pins.env, which holds no secret. The journal
+      # export has no extension: sshd runs it by that name as a forced command.
       - name: Lint the worker, platform, and validation scripts
         run: |
-          mapfile -t scripts < <(find worker platform validation -name '*.sh' | sort)
+          mapfile -t scripts < <(find worker platform validation \
+            \( -name '*.sh' -o -path worker/log-export/aisec-journal-export \) | sort)
           [ "${#scripts[@]}" -gt 0 ]
           docker run --rm --volume "${PWD}:/mnt:ro" --workdir /mnt "${SHELLCHECK_IMAGE}" \
             -x -P SCRIPTDIR "${scripts[@]}"
