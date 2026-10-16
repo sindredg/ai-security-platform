@@ -59,9 +59,9 @@ One JSON object per decision, on standard output. Standard output carries nothin
 | `reason` | Why, for a refusal |
 | `result_bytes` | The size of an allowed tool result. The result itself is not logged |
 
-The image running on the orchestrator predates `start` and `seq`. They arrive when the manifest's image digest moves.
+The pod runs the image built with `start` and `seq`, from commit `d2dec08`, since 2026-10-16 (`T.2`).
 
-The service writes to standard output and opens no log file. A planned host service will append the entries to a file that no pod mounts. Persistent log storage has not been implemented.
+The service writes to standard output and opens no log file. A host service, `aisec-audit-copy`, appends them to a file that no pod mounts. It runs on the orchestrator since 2026-10-16. Storage and who can change it are on the [audit log](audit-log.md) page.
 
 ## Deployment controls
 

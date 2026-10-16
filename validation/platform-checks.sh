@@ -34,6 +34,13 @@ TOOL_CERT=/etc/aisec/tool-service.crt
 here=$(cd "$(dirname "$0")" && pwd)
 # The digest the reviewed manifest names, read from this checkout.
 TOOL_IMAGE_DIGEST=$(sed -n 's/^ *image: ghcr.io[^@]*@\(sha256:[0-9a-f]*\)$/\1/p' "$here/../platform/tool-service/tool-service.yaml")
+# The journal export command the worker should run, from this checkout.
+EXPORT_SHA=$(sha256sum "$here/../worker/log-export/aisec-journal-export" | cut -d " " -f 1)
+# The copiers' programs and units, in install order, from this checkout.
+logs="$here/../platform/logs"
+COPY_SHA=$(cat "$logs/aisec_audit_copy.py" "$logs/aisec-audit-copy.service" | sha256sum | cut -d " " -f 1)
+PULL_SHA=$(cat "$logs/aisec_journal_pull.py" "$logs/aisec-journal-pull.service" "$logs/aisec-journal-pull.timer" |
+  sha256sum | cut -d " " -f 1)
 RG=rg-aisec-platform
 RG_TARGETS=rg-aisec-targets
 
@@ -140,6 +147,7 @@ echo "squid_from_orchestrator=$(curl -s -o /dev/null -w "%{http_code}" --max-tim
 echo "lock=$(tailscale lock status 2>/dev/null | head -n 1)"
 echo "lock_signed=$(tailscale lock status 2>/dev/null | grep -c "This node is accessible under Tailnet Lock")"
 echo "tailscale_held=$(apt-mark showhold | grep -c "^tailscale$")"
+echo "tailscale_auto_apply=$(tailscale debug prefs 2>/dev/null | tr -d " \n" | grep -o "\"AutoUpdate\":{[^}]*}" | grep -o "\"Apply\":[a-z]*" | cut -d: -f2)"
 echo "auth_key_file=$(ls /run/aisec 2>/dev/null | wc -l)"
 echo "egress_https=$(tcp 1.1.1.1 443)"
 echo "to_worker_ssh=$(tcp '"$WORK_IP"' 22)"
@@ -156,6 +164,44 @@ echo "pod_security_admission=$(k get namespace tool-services orchestration -o js
 echo "default_deny=$({ k get networkpolicy default-deny -n tool-services -o name; k get networkpolicy default-deny -n orchestration -o name; } | tr "\n" " " | sed "s/ $//")"
 echo "tool_port_on_mesh=$(tcp "$(tailscale ip -4 2>/dev/null | head -n 1)" '"$TOOL_PORT"')"
 echo "tool_cert_14_days=$(openssl x509 -in /etc/aisec/tool-service/tls.crt -noout -checkend 1209600 >/dev/null 2>&1 && echo yes || echo no)"
+audit=/var/log/aisec/tool-audit.jsonl
+echo "audit_copy_active=$(systemctl is-active aisec-audit-copy 2>/dev/null)"
+echo "audit_copy_enabled=$(systemctl is-enabled aisec-audit-copy 2>/dev/null)"
+echo "audit_copy_code=$(cat /usr/local/lib/aisec/aisec_audit_copy.py /etc/systemd/system/aisec-audit-copy.service 2>/dev/null | sha256sum | cut -d " " -f 1)"
+echo "audit_file=$(stat -c "%U %G %a" $audit 2>/dev/null) $(lsattr $audit 2>/dev/null | cut -d " " -f 1 | tr -cd a)"
+ok_time=$(stat -c %Y /var/lib/aisec-audit-copy/ok 2>/dev/null || echo 0)
+echo "audit_copy_recent=$([ $(( $(date +%s) - ok_time )) -le 10 ] && echo yes || echo no)"
+echo "audit_mounts=$(k get pods -A -o jsonpath="{range .items[*].spec.volumes[*]}{.hostPath.path}{\"\n\"}{end}" | grep -c -x -E "/|/var/?|/var/log/?|/var/log/aisec(/.*)?")"
+echo "audit_holes=$(python3 -I -c "
+import json, sys
+seen = {}
+bad = 0
+for raw in open(sys.argv[1], \"rb\"):
+    try:
+        line = json.loads(raw)
+    except ValueError:
+        bad += 1
+        continue
+    if isinstance(line, dict) and \"start\" in line:
+        seen.setdefault(line[\"start\"], set()).add(line[\"seq\"])
+print(bad + sum(max(numbers) - len(numbers) for numbers in seen.values()))
+" $audit 2>&1 | tail -n 1)"
+echo "audit_markers=$(grep -c "\"event\":\"copy\"" $audit 2>/dev/null)"
+journal=/var/log/aisec/worker-journal.jsonl
+echo "journal_timer=$(systemctl is-active aisec-journal-pull.timer 2>/dev/null) $(systemctl is-enabled aisec-journal-pull.timer 2>/dev/null)"
+echo "journal_file=$(stat -c "%U %G %a" $journal 2>/dev/null) $(lsattr $journal 2>/dev/null | cut -d " " -f 1 | tr -cd a)"
+ok_time=$(stat -c %Y /var/lib/aisec-journal-pull/ok 2>/dev/null || echo 0)
+echo "journal_pull_recent=$([ $(( $(date +%s) - ok_time )) -le 1500 ] && echo yes || echo no)"
+echo "journal_markers=$(grep -c "\"event\":\"copy\"" $journal 2>/dev/null)"
+echo "journal_pull_code=$(cat /usr/local/lib/aisec/aisec_journal_pull.py /etc/systemd/system/aisec-journal-pull.service /etc/systemd/system/aisec-journal-pull.timer 2>/dev/null | sha256sum | cut -d " " -f 1)"
+pinned=$(cut -d " " -f 2- /etc/aisec/journal-pull-known-hosts 2>/dev/null)
+# OpenSSH 10 prints its banner as a comment on standard output. Only the key line counts.
+offered=$(ssh-keyscan -T 8 -t ed25519 '"$WORK_IP"' 2>/dev/null | grep -v "^#" | cut -d " " -f 2-)
+echo "journal_host_key=$([ -n "$pinned" ] && [ "$pinned" = "$offered" ] && echo match || echo differ)"
+runuser -u aisec-journal-pull -- ssh -T -n -i /var/lib/aisec-journal-pull/id_ed25519 -o IdentitiesOnly=yes \
+  -o UserKnownHostsFile=/etc/aisec/journal-pull-known-hosts -o GlobalKnownHostsFile=none \
+  -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=8 aisec-logexport@'"$WORK_IP"' id >/dev/null 2>&1
+echo "journal_export_refuses=$?"
 echo "tool_egress=$(k3s kubectl exec -n tool-services deployment/tool-service -- python -c "
 import socket
 try:
@@ -204,6 +250,10 @@ echo "tool_no_token=$(tool --cacert '"$TOOL_CERT"' https://'"$TOOL_NAME"':'"$TOO
 echo "tool_untrusted=$(tool https://'"$TOOL_NAME"':'"$TOOL_PORT"'/mcp)"
 echo "tool_wrong_name=$(tool --cacert '"$TOOL_CERT"' https://'"$ORCH_IP"':'"$TOOL_PORT"'/mcp)"
 echo "tool_tls12=$(tool --cacert '"$TOOL_CERT"' --tls-max 1.2 https://'"$TOOL_NAME"':'"$TOOL_PORT"'/mcp)"
+keys=/home/aisec-logexport/.ssh/authorized_keys
+echo "export_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
+echo "export_groups=$(id -nG aisec-logexport 2>/dev/null)"
+echo "export_command=$(sha256sum /usr/local/sbin/aisec-journal-export 2>/dev/null | cut -d " " -f 1)"
 '
 
 common_checks() { # prefix
@@ -259,6 +309,8 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check S.1 "The worker's rules drop the orchestrator on the model server port" timeout "$(value to_worker_model)"
   check U.1 "No security update is pending on the orchestrator" 0 "$(value security_updates_pending)"
   check U.2 "The mesh VPN agent is held at its pinned version" 1 "$(value tailscale_held)"
+  # The hold stops apt. The agent has its own updater, which the hold does not stop.
+  check U.6 "The mesh VPN agent does not install updates itself" false "$(value tailscale_auto_apply)"
   # The mesh agent's UDP rules are gone, so it cannot reach a STUN server.
   check E.5 "The orchestrator sends no UDP to the internet" false "$(value mesh_udp)"
   # The chain as nft lists it, with the counter's values taken out. It holds
@@ -284,6 +336,36 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # "refused", observed on 2026-10-15. The orchestrator itself reaches 443
   # (E.1), so without the policy this is "open". Any other end is a failure.
   check T.8 "The tool service pod cannot reach the internet" refused "$(value tool_egress)"
+  check L.1 "The audit copier is active" active "$(value audit_copy_active)"
+  check L.2 "The audit copier starts at boot" enabled "$(value audit_copy_enabled)"
+  # Owner, group, mode, and the append-only attribute. The copier's group can
+  # append, and nobody but root can remove the attribute.
+  check L.3 "The audit file is root's and append-only" "root aisec-audit-copy 620 a" "$(value audit_file)"
+  # Five times the copier's interval. A pass with nothing new still counts, and
+  # a pass that finds no log file of the tool service does not (ADR 0019).
+  check L.4 "The audit copier succeeded in the last 10 seconds" yes "$(value audit_copy_recent)"
+  # A hostPath of the folder or anything above it would expose the file.
+  check L.5 "No pod mounts the audit folder" 0 "$(value audit_mounts)"
+  # Missing numbers within each start, plus lines that are not JSON. Lines
+  # without a start, from the image before ADR 0019, are not counted.
+  check L.6 "No audit line is missing" 0 "$(value audit_holes)"
+  # A marker stands for a line the copier refused or a full file.
+  check L.7 "The audit copier refused no line" 0 "$(value audit_markers)"
+  # The program and unit installed, against this checkout. A missing file
+  # changes the hash, so it fails too.
+  check L.8 "The audit copier installed is the one in this checkout" "$COPY_SHA" "$(value audit_copy_code)"
+  check J.1 "The journal pull timer is active and starts at boot" "active enabled" "$(value journal_timer)"
+  check J.2 "The worker's journal file is root's and append-only" "root aisec-journal-pull 620 a" "$(value journal_file)"
+  # Five times the timer's interval of five minutes.
+  check J.3 "The journal pull succeeded in the last 25 minutes" yes "$(value journal_pull_recent)"
+  check J.4 "The journal puller refused no line" 0 "$(value journal_markers)"
+  # The key the puller pins, against the key the worker offers now. A missing
+  # pin is a difference, not a match.
+  check J.5 "The puller pins the worker's host key" match "$(value journal_host_key)"
+  # Exit status 2 is the export refusing. 255 would be SSH failing, and 0 that
+  # the key ran a command it should not.
+  check J.6 "The export key runs nothing but the export" 2 "$(value journal_export_refuses)"
+  check J.10 "The journal puller installed is the one in this checkout" "$PULL_SHA" "$(value journal_pull_code)"
   common_checks HO
 else
   check A.1 "Reachable over the mesh VPN with the operator key" yes no
@@ -334,6 +416,14 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check T.11 "The system's trust store does not trust the tool service" 000 "$(value tool_untrusted)"
   check T.12 "The certificate does not cover the bare address" 000 "$(value tool_wrong_name)"
   check T.13 "The tool service refuses TLS 1.2" 000 "$(value tool_tls12)"
+  # One key, root's file, and the options that tie it to the orchestrator's
+  # address and the export command.
+  check J.7 "The export key is restricted to the orchestrator and the export" \
+    "1 root root 644 from=\"$ORCH_IP\",restrict,command=\"/usr/local/sbin/aisec-journal-export\"" "$(value export_key)"
+  check J.8 "The export account reads the journal and nothing more" "aisec-logexport systemd-journal" "$(value export_groups)"
+  # The export command is the boundary on the worker. It has to be the
+  # reviewed one.
+  check J.9 "The worker runs the export command in this checkout" "$EXPORT_SHA" "$(value export_command)"
   check U.3 "apt on the worker uses the proxy" 1 "$(value apt_proxy)"
   check U.4 "Unattended upgrades are enabled on the worker" enabled "$(value unattended_upgrades)"
   check U.5 "No security update is pending on the worker" 0 "$(value security_updates_pending)"

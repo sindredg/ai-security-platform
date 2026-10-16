@@ -5,7 +5,7 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices. Three are on the system: the model server on the AI worker, the agent runtime running headless against it with a fixture tool, and the tool service in K3s on the orchestrator, called from the worker with a job token. No workflow or dispatch step exists, and the agent has not called the tool service on the worker. The gate is not met.
+The milestone is built in slices. Five are on the system: the model server on the AI worker, the agent runtime running headless against it with a fixture tool, the tool service in K3s on the orchestrator, called from the worker with a job token, the audit copier, and the journal pull. No workflow or dispatch step exists, and the agent has not called the tool service on the worker. The gate is not met.
 
 | Gate | Result |
 | --- | --- |
@@ -16,10 +16,10 @@ The milestone is built in slices. Three are on the system: the model server on t
 | Component footprint on the orchestrator is measured | Open |
 | The threat model covers dispatch, workload identity, and the AI-specific threats | Open |
 | Every image and every model input is pinned by digest and verified on the orchestrator | **Tested** for the model server (38 files and one commit) and for the agent runtime (one file). **Tested** for the tool service image: `T.2` passes against the running pod and failed against a manifest with one digest character changed ([fail side](#the-fail-side-of-each-new-check)) |
-| Every tool call is logged with caller, job, and decision, out of the worker's reach | Partly **tested**: the live service printed one line per decision with caller, job, and decision, and no token ([round trip](#the-round-trip), step 10). Nothing stores the lines out of the worker's reach yet |
+| Every tool call is logged with caller, job, and decision, out of the worker's reach | Partly **tested**: the live service printed one line per decision with caller, job, and decision, and no token ([round trip](#the-round-trip), step 10). **Tested** for storage on the live system: the [audit copier](#slice-the-audit-copier) copies every line into an append-only file that no pod mounts, `L.1` to `L.7` pass, and each was seen to fail, on a broken condition or before the install ([rollout](#rollout-of-the-log-copies)). Root on the orchestrator can edit it |
 | A revoked or expired job token is refused | **Tested** on the live system: [round trip](#the-round-trip) step 8, and [an expired job token](#an-expired-job-token) |
 | A pod in a workload namespace cannot open a connection to the internet | **Tested** on the live system: `T.8` from the tool service pod, `E.6` and `E.7` for the host rule, and a [probe in a new pod](#pods-and-the-internet) in `orchestration`. Not probed with a new pod in `tool-services` |
-| The worker's journal is copied to the orchestrator on a schedule | Open |
+| The worker's journal is copied to the orchestrator on a schedule | **Tested** on the live system: a pull every five minutes into an append-only file, `J.1` to `J.9` pass, and each was seen to fail, on a broken condition or before the install ([rollout](#rollout-of-the-log-copies)) |
 
 ## Slice: the model server
 
@@ -674,3 +674,242 @@ The first probe after the rule ended `refused` after 1.0 s, not at once. The rea
 - `T.1` and `T.3` to `T.5` were seen to fail only on absence. `M.5` was not seen to fail.
 - The orchestrator was deployed once, on a machine that got two of its settings by hand. A deployment on a machine built from the current template has not been run.
 - Another job's evidence on the same target was not tried. Evidence is stored per target, so the service cannot refuse it ([issue #45](https://github.com/sindredg/ai-security-platform/issues/45)).
+
+## Slice: the audit copier
+
+Date: 2026-10-16. Written and tested off the system, then installed the same day: see [the rollout](#rollout-of-the-log-copies). The design is [ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md), and the page is [audit log](../security/audit-log.md).
+
+### What was written
+
+| File | What it is |
+| --- | --- |
+| `platform/logs/aisec_audit_copy.py` | The copier. Standard library only. Reads the tool service's pod logs every two seconds and appends new lines to `/var/log/aisec/tool-audit.jsonl` |
+| `platform/logs/aisec-audit-copy.service` | Its unit: a fixed account, no network, no capability, a read-only system except its state folder and `/var/log/aisec` |
+| `platform/logs/install-audit-copy.sh` | Installs the `acl` package, the account, the default ACL on `/var/log/pods`, the file with its attribute, and the unit. Never replaces the file once it exists |
+| `infra/platform/cloud-init/orchestrator.yaml.tftpl` | Carries the three files in base64 and runs the install script once `/var/log/pods` exists |
+| `platform/tool-service/deploy.sh` | Refuses to deploy unless the copier runs, then waits for two copier passes that end after the moment it starts, so one whole pass started after the old pod's last line |
+| `validation/platform-checks.sh` | `L.1` to `L.7` |
+
+What the live orchestrator showed before any of it was written, read with `sudo` on 2026-10-16: `/var/log/pods` is `0750 root:root` and the log file `0640 root:root`, so the copier needs a way in. Every line is `<time> stdout F <line>`. The pod that started at 17:17 on 2026-10-15 holds 8 lines, and the round trip's lines from the pods before it are gone. `setfacl` is not installed.
+
+### Tests
+
+Fourteen unit tests in `platform/logs/tests/`, run with `python3 -m unittest discover -s tests` from `platform/logs`, on the workstation's Python 3.12. Result: `Ran 14 tests`, `OK`. The pipeline runs them in the same pinned Python image as the tool service tests. The orchestrator runs the copier with Ubuntu's Python 3.14.4.
+
+The first run found a defect: the copier refused a time stamp with no fraction. Go drops the fraction when it is zero, so the runtime writes `05:00:01Z` once in a billion lines. The copier now accepts it, and a test holds it.
+
+Each test was seen to fail on a broken copy of the copier, made by hand and put back:
+
+| Change to the copier | Result |
+| --- | --- |
+| No filter on lines already copied | 1 failure |
+| The output opened with `O_CREAT` | 2 failures |
+| No log file treated as a quiet pass | 1 failure |
+| Partial lines from the runtime accepted | 1 failure |
+| Lines not sorted by time | 2 failures |
+| No health file after a pass | 1 failure |
+| The skip of files not changed since the last pass removed | `OK`, as expected. The skip saves reading, and changes no result |
+
+Ruff 0.17.0 with the tool service's rule set, and ShellCheck 0.11.0 on every script, reported nothing. Both are the pipeline's versions, run as binaries on the workstation.
+
+### Cloud-init
+
+The template was rendered with `terraform console` in an empty folder, with placeholder values, and parsed as YAML. The three files decode to the same bytes as the repository's, with modes `0644`, `0644`, and `0700`. The custom data is 30,912 bytes after base64. Custom data is ignored after creation, so a plan shows no change to the running VM.
+
+### The checks against stubs
+
+The probe lines of `L.5` to `L.7` were run on the workstation against made-up files and mount lists. Results obtained with stubs, not on the system.
+
+| Input | `L.5` mounts | `L.6` holes | `L.7` markers |
+| --- | --- | --- | --- |
+| Two starts with no gap, a repeated line, an old line without a start, and unrelated host paths | 0 | 0 | 0 |
+| `seq` 1 then 3 | | 1 | |
+| A start that begins at `seq` 2 | | 1 | |
+| A line that is not JSON | | 1 | |
+| A marker line | | | 1 |
+| No file, and a pod with `/var/log` mounted | 1 | an error | empty |
+| Pods with `/var/log/aisec/x` and `/` mounted, and one with `/var/logs` | 2 | | |
+
+`L.1` to `L.4` read the unit and the file on the live machine. Their fail side is the state before the install, and a stopped unit, both for the live run.
+
+### Limits
+
+- Not installed. Nothing here was run on the orchestrator.
+- The default ACL reaching new pod folders and rotated files is reasoned. The install and the next deployment of the tool service test it.
+- The kubelet's rotation of 10 MiB and five files is the upstream default. It was not read from the running kubelet.
+- The pipeline's run of the tests is the first run on Python 3.15.
+
+## Slice: the journal pull
+
+Date: 2026-10-16. Written and tested off the system, then installed the same day: see [the rollout](#rollout-of-the-log-copies). The design is [ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md), and the page is [audit log](../security/audit-log.md#the-workers-journal).
+
+### What was written
+
+| File | What it is |
+| --- | --- |
+| `worker/log-export/aisec-journal-export` | The forced command. Accepts nothing or one journal cursor, matched whole, and runs `journalctl --output=json` |
+| `worker/log-export/install-log-export.sh` | The `aisec-logexport` account in `systemd-journal`, the command, and, given the orchestrator's key, a root-owned `authorized_keys` line with `from=`, `restrict`, and `command=` |
+| `platform/logs/aisec_journal_pull.py` | The puller. Reads at most 16 MiB a pull and 64 KiB a line, does not read standard error, keeps only JSON objects with a cursor in the journal's format |
+| `platform/logs/aisec-journal-pull.service`, `.timer` | A oneshot unit every five minutes. One address allowed, the worker's. A start timeout of 180 seconds ends a pull the worker stalls |
+| `platform/logs/install-journal-pull.sh` | The account, its key, the pinned host key in a root-owned file, the journal file with its attribute, the unit and timer |
+| Both first-boot templates | Carry the files in base64 and run the install scripts. The orchestrator's custom data is 49,508 characters of base64, about 37 KB decoded, against Azure's limit of 65,535 bytes decoded |
+| `validation/platform-checks.sh` | `J.1` to `J.9` |
+
+### Tests
+
+Thirteen unit tests in `platform/logs/tests/test_journal_pull.py` against a fake worker: a small Python program in place of `ssh`. With the copier's fourteen: `Ran 27 tests`, `OK`, on the workstation's Python 3.12.
+
+The first runs found three defects in the draft, before any test passed:
+
+- The process was killed after every pull, also after a clean end, so every complete pull failed with status −9.
+- A pull could run past its 16 MiB by one line, because a line read did not know how much of the limit was left.
+- Standard error was read through a pipe. A worker that writes enough to it blocks both sides. It is now discarded, and the exit status tells SSH (255) from a refusal (2).
+
+A fake that closed its output without ending showed a fourth thing: a worker that stalls inside the stream blocks the read, and the puller's own wait never starts. The unit's start timeout is the bound, and the code says so.
+
+Each test was seen to fail on a broken copy of the puller:
+
+| Change to the puller | Result |
+| --- | --- |
+| Any string accepted as a cursor | 1 failure |
+| The saved cursor not checked before it is sent | 1 failure |
+| Standard error read through a pipe | 1 failure: "the pull is blocked" after 20 seconds |
+| The process killed after every pull | 7 errors |
+| A last line with no end kept | 6 failures |
+| The exit status ignored | 1 failure |
+| No limit on a line | 1 failure |
+
+The command's matcher was run on the workstation with a stub `journalctl`. Accepted: nothing, and a cursor read from the worker's journal. Refused, with status 2: the cursor followed by `; id`, by a newline, in upper case, `id`, `--since=yesterday`, and `s=x`.
+
+`J.7`'s comparison was run against stub key files. It passes on the line the install writes, and fails without `from=`, without `restrict`, without the forced command, and with a second key.
+
+Ruff 0.17.0 and ShellCheck 0.11.0 reported nothing.
+
+### Limits
+
+- Not installed. The live pull, the refusal of `J.6`, and the host key of `J.5` are for the rollout.
+- The worker's journal is not checked for completeness. A journal has no sequence the puller can trust: the worker writes it.
+- After the file is full, every pull writes one more marker line, about 100 bytes every five minutes, until it is archived.
+
+## Rollout of the log copies
+
+Date: 2026-10-16, from 17:30 UTC. The audit copier, the journal pull, and the tool service image with `start` and `seq`, installed on the live VMs from commit `4218b0a`, before merge. The commands are in the [runbook](../runbooks/audit-log.md).
+
+Every step printed its expected result before running. The fail sides break one thing at a time and put it back.
+
+### The audit copier
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| `L` checks before the install | `L.1` to `L.4`, `L.6`, `L.7` fail, `L.5` passes | As expected. `L.6` failed on the missing file |
+| Install | The unit starts | `aisec-audit-copy` active, enabled at boot |
+| What the install made | `root aisec-audit-copy 620`, append-only, default ACL for the copier's group | `root aisec-audit-copy 620`, `-----a--------e-------`, `default:group:aisec-audit-copy:r-x` on `/var/log/pods`, `group:aisec-audit-copy:r--` on the pod's log |
+| Lines copied | The pod's count | 14 in the file, 14 in the pod's log |
+| `L` checks after | All pass | `L.1` to `L.7` pass |
+| The file against the copier's account and root: truncate, `chattr -a`, delete, open for writing | Each refused | Each refused, with "Permission denied" or "Operation not permitted" |
+| `L.1`, `L.4` with the copier stopped | Both fail | `inactive`, `no` |
+| `L.3` without the attribute | Fails, then passes with it back | `root aisec-audit-copy 620`, then pass |
+| `L.5` with a pod that mounts `/var/log/aisec` | Fails with 1, then passes | `1`, then pass after the namespace was deleted |
+| A refused request, then a deploy | HTTP 401, the deploy waits, a new pod | HTTP 401. The new pod runs `tool-service@sha256:c582788a1366e620f992c7739c769ef4c26e5dafbeaca644e6c5e7c526357bee` |
+| The old pod's last line, and the new pod's first | Both in the file | The old pod's line at 17:42:00 is in the file. The new pod's first line carries `"start":"d5da747f4ab31350","seq":1` |
+| The new pod's log file | The default ACL reached it | `group:aisec-audit-copy:r-x #effective:r--` |
+| Every check | Only `J.1` to `J.9` fail, before the journal pull | `127 passed, 9 failed`, the nine `J` checks |
+
+The last two rows settle the ACL limit in [the audit copier slice](#slice-the-audit-copier): the default entry reached a log file the runtime created after the install, and the copier read it.
+
+The step that tried to change the file meant to print the line count before and after. It ran `wc -l < file` with the redirection outside `sudo`, so the shell, not root, opened the file, and both counts were refused. The file is intact by other evidence: 41 lines afterwards, against 14 at the install, and its first line is still the oldest, from 17:17:55 on 2026-10-15.
+
+### The journal pull
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| `J` checks before the install | All fail | All nine fail |
+| Install on the orchestrator, with the worker's host key from the operator's pinned file | The timer enabled, a public key | As expected |
+| Install on the worker | No output | No output |
+| One pull | Lines copied | 14,331 lines in `/var/log/aisec/worker-journal.jsonl`, 1.4 s, a 75 MB memory peak |
+| `J` checks after | All pass | All pass except `J.5`, see below |
+| A read from the saved cursor, as the puller's account | Lines, status 0 | 85 lines, status 0 |
+| `J.1` with the timer stopped | Fails, then passes | `inactive enabled`, then pass |
+| `J.2` without the attribute | Fails, then passes | As expected |
+| `J.3` with the last success set 30 minutes back | Fails, then passes after a pull | As expected |
+| Another host key pinned | The pull fails | The pull failed: the unit exited with an error |
+| `J.7` without `restrict` | Fails, then passes after the install runs again | As expected |
+| `J.8` with an extra group | Fails, then passes | `aisec-logexport adm systemd-journal`, then pass |
+| `J.9` with the command changed | Fails, then passes after the install runs again | A different SHA-256, then pass |
+
+The first read from the cursor reported status 255. It was piped through `head -c 200`, which closed the pipe while the export was still writing. Read again without it: 85 lines, status 0. Later pulls by the timer succeeded, the first after the pin was restored copying 312 lines.
+
+### `J.5` was wrong
+
+`J.5` reported `differ` with the correct key pinned. The pulls, which check the same pin with `StrictHostKeyChecking=yes`, succeeded, so the pin was right and the check was not. On the worker, `ssh-keyscan` from OpenSSH 10.2 prints its banner, `# 10.40.0.36:22 SSH-2.0-OpenSSH_10.2p1 …`, as a comment on standard output, so the value the check compared was two lines. Commit `0c1eba2` drops comment lines before the comparison.
+
+The corrected check, against the live worker:
+
+| Pin | Expected | Result |
+| --- | --- | --- |
+| As installed | Pass | Pass |
+| Another key | Fail, `differ` | Fail, `differ` |
+| Restored, and compared with the backup | Pass, files equal | Files equal, pass |
+
+### Every check
+
+`validation/platform-checks.sh` after the fix: `136 passed, 0 failed`, exit 0. `T.2` passes: the pod runs the image the manifest names.
+
+### Limits
+
+- The first-boot path of both installs has not run. It runs on the next rebuild of either VM.
+- The kubelet's rotation of the pod's log has not happened yet, so a rotated file has not been read by the copier.
+- The worker's journal copy is complete only back to what the worker kept. The first pull took the whole journal, 14,331 lines.
+
+
+## Fix: whole lines only
+
+Date: 2026-10-16, after the rollout. A review of the copier before merge found that it read the last line of a log file even when that line had no newline yet.
+
+### The defect
+
+The container runtime writes each line with one `write` call, but a reader can still see part of it. `read()` kept that part. A part cut inside the JSON parsed as a whole line with a valid time stamp, so the copier wrote a "not a JSON object" marker and saved the line's time stamp as its position. The whole line, once written, carried the same time stamp and was never copied. `L.6` and `L.7` would show it, so the loss is not silent.
+
+Reproduced with stubs on the workstation: a line cut to 45 bytes, one pass, then the whole line and a second pass. The output held only the marker. How often a pass meets a write halfway is reasoned, not measured. It was not seen on the live system.
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| `platform/logs/aisec_audit_copy.py` | `read()` returns whole lines only. A last line without its newline waits for the next pass |
+| `platform/logs/tests/test_audit_copy.py` | A line cut inside its JSON, then completed: no copy on the first pass, the line on the second |
+| `validation/platform-checks.sh` | `L.8` and `J.10`: the installed program and unit (and timer, for the puller) equal the files in the checkout |
+| `.github/workflows/checks.yml` | ShellCheck also reads `worker/log-export/aisec-journal-export`, which has no `.sh` extension and was skipped |
+
+### Tests
+
+| Run | Expected | Result |
+| --- | --- | --- |
+| `python3 -m unittest discover -s tests` in `platform/logs`, with the fix | All pass | `Ran 28 tests`, `OK` |
+| The same against the copier before the fix | The new test fails | `FAILED (failures=1)`, `AssertionError: 1 != 0`: the marker was copied on the first pass |
+| Ruff 0.17.0, `check` and `format --check` on `worker platform tool-service` | Clean | `All checks passed!`, `26 files already formatted` |
+| ShellCheck 0.11.0 on the pipeline's new file list | 18 files, clean | 18 files, exit 0. A copy of the export with an unquoted variable added: exit 1 |
+
+### `L.8` and `J.10` on the live system
+
+Both are read-only checks, run from the workstation against the live VMs with `validation/platform-checks.sh`. Nothing under `platform/logs/` changed between the installed commit `4218b0a` and the fix, so the installed files are those of `4218b0a`.
+
+| Checkout | Expected | Result |
+| --- | --- | --- |
+| With the fix | `L.8` fails, `J.10` passes, the rest pass | `137 passed, 1 failed`: `L.8` |
+| The copier before the fix, and one line added to the puller's timer | `L.8` passes, `J.10` fails | `137 passed, 1 failed`: `J.10` |
+
+### Rollout
+
+Installed on the live orchestrator from commit `9541326` at 19:07 UTC, with the runbook's steps 1 and 2: copy the files, run `install-audit-copy.sh` again. It kept the file and the position and restarted the unit.
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| `L` checks before | `L.1` to `L.7` pass, `L.8` fails | As expected |
+| Line count and position before | A count and a position | 47 lines, position `1792177196654002381` |
+| Install again | `acl` already installed, the unit restarts | `0 newly installed`. The unit restarted at 19:07:47 |
+| The installed program | Active, with the whole-line `read()` | `active`, the docstring found once |
+| One refused request from the worker | HTTP 401, the line in the file with the next `seq` | HTTP 401. The file's last line: `"seq":28`, `"reason":"no token, or a malformed one"` |
+| Every check | All pass | `138 passed, 0 failed`, `L.8` included |
+
+The count after the request was 49, not 48. The extra line is `seq` 27 at 19:07:41, the `T.10` request of the check run in the first step: the count was read before the next pass copied it. Read afterwards, `seq` 26 to 29 are in the file with no gap, and `L.6` passes.

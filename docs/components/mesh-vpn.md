@@ -5,7 +5,7 @@ The only way in. No VM has a public address and no firewall rule names an operat
 | | |
 | --- | --- |
 | State | Built |
-| Agent version | 1.104.1, from the vendor's signed package repository, held at that version |
+| Agent version | 1.104.1, from the vendor's signed package repository, held at that version. Its own updater is off since 2026-10-16 (`U.6`) |
 | Pinned in | `infra/platform/variables.tf` |
 | Runs on | The orchestrator and the operator's devices. Nowhere else |
 | Routes advertised | `10.40.0.0/20` and `10.50.0.0/20` |
@@ -76,6 +76,7 @@ The provider's default policy allows everything, and that default was in place u
 - **Connections are relayed.** A NAT gateway prevents direct connections. Fine for a shell, slow for bulk.
 - **The access policy and the signing setup are console settings.** Nothing in the repository can rebuild them.
 - **The agent version is held.** It gets no security fix until someone moves the pin.
+- **The agent's own updater was on until 2026-10-16.** The hold stopped `apt`, not the agent, which had `AutoUpdate.Apply` set and would have installed the vendor's next release as root. `U.6` failed on it, and passed after `tailscale set --auto-update=false`. No newer release had been published, so the held version was still the running one.
 - **Signing a node after it joins has not been run.** The orchestrator rebuild on 2026-10-13 joined on a signed auth key, which needs no step afterwards.
 - **The agent uploads its own logs to the vendor.** On 2026-10-12 `tailscaled` held a connection to the vendor's log host on port 443. The agent runs with no extra flags, so the upload is on. Whether to turn it off is not decided.
 

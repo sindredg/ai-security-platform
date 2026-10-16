@@ -151,10 +151,12 @@ jobs:
 
       # These scripts run as root on the VMs, and nothing else reads them
       # before they do. The image has no shell, so the runner finds the files.
-      # -x follows the "source" of pins.env, which holds no secret.
+      # -x follows the "source" of pins.env, which holds no secret. The journal
+      # export has no extension: sshd runs it by that name as a forced command.
       - name: Lint the worker, platform, and validation scripts
         run: |
-          mapfile -t scripts < <(find worker platform validation -name '*.sh' | sort)
+          mapfile -t scripts < <(find worker platform validation \
+            \( -name '*.sh' -o -path worker/log-export/aisec-journal-export \) | sort)
           [ "${#scripts[@]}" -gt 0 ]
           docker run --rm --volume "${PWD}:/mnt:ro" --workdir /mnt "${SHELLCHECK_IMAGE}" \
             -x -P SCRIPTDIR "${scripts[@]}"
@@ -236,6 +238,24 @@ jobs:
                 --require-hashes -r requirements.txt -r requirements-dev.txt
               /tmp/venv/bin/python -m pytest -q
             '
+
+  log-copier-tests:
+    name: Log copier tests
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The copiers use the standard library only, so nothing is installed.
+      # The orchestrator runs them with Ubuntu's Python, 3.14 on 26.04, and
+      # this image is 3.15. The tests use nothing that differs between them.
+      - name: Run the tests
+        run: |
+          docker run --rm --volume "${PWD}:/src:ro" --workdir /src/platform/logs \
+            --env PYTHONDONTWRITEBYTECODE=1 "${PYTHON_IMAGE}" \
+            python -m unittest discover -s tests -v
 
   tool-service-image:
     name: Tool service image

@@ -34,6 +34,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |
 | [Tool service](tool-service.md) | `T` | The deployed tool service: its pod, namespaces, network paths, and certificate |
+| [Audit log](audit-log.md) | `L`, `J` | The copier that stores the tool service's audit lines, the pull of the worker's journal, and the append-only files they write |
 | [Host hardening](host-hardening.md) | `HO`, `HW` | SSH daemon, kernel settings, file modes, on both VMs |
 | [Azure policy](azure-policy.md) | `Z.1` to `Z.3`, `Z.10` to `Z.12` | Public addresses and the policy that refuses them |
 
@@ -51,6 +52,14 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-13 | 101 of 101 passed | After the [orchestrator rebuild](../worklogs/0002-platform-compute.md#orchestrator-rebuild) and an update run on both VMs. `K.5` and `K.6` passed on settings that first boot applied |
 | 2026-10-15 | 102 of 117 to 116 of 119 | Six runs during the [tool service deployment](../worklogs/0003-toolchain-integration.md#the-checks-run-by-run), with the new `T` checks, `E.5` to `E.7`, `M.5`, and `Z.13` |
 | 2026-10-15 | 117 of 119 passed | From `main` at `131ba01`. `U.1` and `U.5` failed: security updates published after the last unattended run were pending on both VMs |
+| 2026-10-16 | 119 of 119 passed | From `main` at `1e9a14f`, at 14:12 UTC. `U.1` and `U.5` passed after the unattended runs |
+| 2026-10-16 | 119 of 120 passed | First run with `U.6`. It failed: the mesh agent's own updater was on (`AutoUpdate.Apply` `true`) |
+| 2026-10-16 | 120 of 120 passed | After `tailscale set --auto-update=false` on the orchestrator, at 17:15 UTC |
+| 2026-10-16 | 127 of 136 passed | After the audit copier and the new tool service image were installed, with the `L` and `J` checks. The nine `J` checks failed: the journal pull was not installed yet |
+| 2026-10-16 | 135 of 136 passed | After the journal pull was installed. `J.5` failed on a correct pin: the check compared the scanner's banner too |
+| 2026-10-16 | 136 of 136 passed | After the fix to `J.5`, at commit `0c1eba2`. See the [rollout](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies) |
+| 2026-10-16 | 137 of 138 passed | First run with `L.8` and `J.10`, from a checkout with the [copier fix](../worklogs/0003-toolchain-integration.md#fix-whole-lines-only). `L.8` failed: the copier before the fix is installed |
+| 2026-10-16 | 138 of 138 passed | After the [fixed copier](../worklogs/0003-toolchain-integration.md#rollout) was installed, from commit `9541326` |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 

@@ -9,7 +9,7 @@ The machine that runs the agent and the model. It reads advisories, target evide
 | Size | `Standard_D2ps_v6`: 2 vCPUs, 8 GiB, Arm64. Two physical cores for the same quota as one x64 core pair |
 | Image | Ubuntu 26.04 LTS, `Canonical:ubuntu-26_04-lts:server-arm64` |
 | Disk | 64 GB, Standard SSD |
-| Defined in | `infra/platform/compute.tf`, `infra/platform/cloud-init/worker.yaml.tftpl`, `worker/model-server/`, `worker/agent-runtime/` |
+| Defined in | `infra/platform/compute.tf`, `infra/platform/cloud-init/worker.yaml.tftpl`, `worker/model-server/`, `worker/agent-runtime/`, `worker/log-export/` |
 | Decisions | [0005](../decisions/0005-ai-workers-on-a-separate-vm.md), [0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), [0011](../decisions/0011-package-proxy-for-the-worker.md), [0015](../decisions/0015-build-the-model-file-on-the-worker.md) |
 
 ## What it can reach
@@ -23,11 +23,11 @@ The machine that runs the agent and the model. It reads advisories, target evide
 | The orchestrator, TCP 30443 | The [tool service](../security/tool-service.md). Deployed, reached by `T.9` and the [round trip](../worklogs/0003-toolchain-integration.md#the-round-trip) |
 | The orchestrator, any other port | Nothing |
 
-It is not part of the cluster. It installs nothing at first boot, because it has nothing to install from. The model server is pushed and built afterwards, from the orchestrator.
+It is not part of the cluster. It downloads nothing at first boot, because it has nothing to download from. First boot sets up only what cloud-init carries: the account the orchestrator pulls the journal through. The model server is pushed and built afterwards, from the orchestrator.
 
 ## What reaches it
 
-SSH from the orchestrator subnet, and nothing else. Two keys are authorized: the operator's and the orchestrator's feed key.
+SSH from the orchestrator subnet, and nothing else. Two keys are authorized for the administrator account: the operator's and the orchestrator's feed key. A third, the orchestrator's log export key, goes on the `aisec-logexport` account and can run only the journal export ([audit log](../security/audit-log.md#the-workers-journal)). In place since 2026-10-16 (`J.7`).
 
 ## The model server
 
@@ -96,7 +96,7 @@ A workflow hands a job to this machine over SSH, with a key that can only run th
 
 ## Validation
 
-`C`, `P.5` to `P.11`, `U.3` to `U.5`, `S`, and `HW` in the [validation pages](../validation/README.md). No check covers the agent runtime yet.
+`C`, `P.5` to `P.11`, `U.3` to `U.5`, `S`, `T.9` to `T.13`, `J.7` to `J.9`, and `HW` in the [validation pages](../validation/README.md). No check covers the agent runtime yet.
 
 ## Limits
 

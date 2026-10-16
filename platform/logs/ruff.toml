@@ -1,0 +1,10 @@
+# The copiers read text a compromised worker shapes, on the trusted machine, so
+# they get the tool service's rules: bugbear, the security rules, and import
+# order.
+extend = "../../ruff.toml"
+
+[lint]
+extend-select = ["B", "S", "I", "UP"]
+
+[lint.per-file-ignores]
+"tests/*" = ["S101"]

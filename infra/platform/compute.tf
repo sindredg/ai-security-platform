@@ -28,6 +28,14 @@ locals {
         k3s_version        = var.k3s_version
         k3s_sha256         = var.k3s_sha256
         k3s_install_sha256 = var.k3s_install_sha256
+        # The audit copier's files, as they are in the repository (ADR 0019).
+        audit_copy_py        = filebase64("${path.module}/../../platform/logs/aisec_audit_copy.py")
+        audit_copy_unit      = filebase64("${path.module}/../../platform/logs/aisec-audit-copy.service")
+        audit_copy_install   = filebase64("${path.module}/../../platform/logs/install-audit-copy.sh")
+        journal_pull_py      = filebase64("${path.module}/../../platform/logs/aisec_journal_pull.py")
+        journal_pull_unit    = filebase64("${path.module}/../../platform/logs/aisec-journal-pull.service")
+        journal_pull_timer   = filebase64("${path.module}/../../platform/logs/aisec-journal-pull.timer")
+        journal_pull_install = filebase64("${path.module}/../../platform/logs/install-journal-pull.sh")
       })
     }
     worker = {
@@ -38,6 +46,9 @@ locals {
       disk_gb   = 64
       cloud_init = templatefile("${path.module}/cloud-init/worker.yaml.tftpl", {
         orchestrator_ip = local.orchestrator_ip
+        # The account the orchestrator pulls the journal through (ADR 0019).
+        log_export_command = filebase64("${path.module}/../../worker/log-export/aisec-journal-export")
+        log_export_install = filebase64("${path.module}/../../worker/log-export/install-log-export.sh")
       })
     }
   }

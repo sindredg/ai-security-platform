@@ -1,6 +1,6 @@
 # 0020. An edge VM for the way out and the mesh, and the targets to Poland Central
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-16
 
 Supersedes parts of four records. From [0009](0009-one-egress-point-on-the-orchestrator-subnet.md): where the one way out sits. From [0007](0007-mesh-vpn-for-administrative-access.md): which machine is the subnet router. From [0011](0011-package-proxy-for-the-worker.md): which machine runs the package proxy. From [0003](0003-region-pair.md): the target region. The rest of each record stands.
@@ -78,7 +78,7 @@ An edge VM in Denmark East takes the way out, the mesh VPN node, and the package
 - Its own virtual network, `10.45.0.0/24`, with one subnet, `10.45.0.0/27`, and the VM at `10.45.0.4`. It belongs to the platform root and the platform resource group. Resource group location does not bind resource location, and the policy assignments are per resource group, so 0002's separation holds.
 - Peerings: platform to edge, and edge to targets. Platform to targets stays, for the orchestrator's collectors. Peering is not transitive, so each pair has its own.
 - The NAT gateway and its public address move from the orchestrator subnet to the edge subnet. No other subnet has an outbound method.
-- It runs the mesh agent, Squid, and nothing else. No K3s, no workloads, no job credential.
+- It runs the mesh agent, Squid, and nothing else. No K3s, no workloads, no job credential. [0025](0025-the-mesh-node-on-its-own-vm.md) moves the mesh agent to a router VM of its own.
 
 **The mesh**
 

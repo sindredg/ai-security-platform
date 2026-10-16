@@ -52,6 +52,19 @@ write_files:
       TCPKeepAlive no
       LogLevel VERBOSE
 
+  # The account the orchestrator pulls this machine's journal through (ADR
+  # 0019): the files from worker/log-export/ in the repository, in base64. The
+  # orchestrator's key is added in a runbook step, once that key exists.
+  - path: /usr/local/lib/aisec/install/aisec-journal-export
+    encoding: b64
+    permissions: "0755"
+    content: ${log_export_command}
+
+  - path: /usr/local/lib/aisec/install/install-log-export.sh
+    encoding: b64
+    permissions: "0700"
+    content: ${log_export_install}
+
   - path: /etc/modprobe.d/aisec-unused.conf
     permissions: "0644"
     content: |
@@ -68,3 +81,4 @@ runcmd:
   - [chmod, "600", /etc/crontab, /etc/ssh/sshd_config]
   - [chmod, "700", /etc/cron.d, /etc/cron.daily, /etc/cron.hourly, /etc/cron.weekly, /etc/cron.monthly]
   - [apt-get, remove, -y, -q, -o, "DPkg::Lock::Timeout=120", binutils]
+  - [/usr/local/lib/aisec/install/install-log-export.sh]

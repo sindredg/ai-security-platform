@@ -1,0 +1,19 @@
+#!/bin/bash
+# The forced command of the orchestrator's log export key (ADR 0019). sshd runs
+# it instead of whatever the client asked for, and puts the request in
+# SSH_ORIGINAL_COMMAND. The only request it accepts is nothing, for the whole
+# journal, or one journal cursor, for what came after it. The cursor is matched
+# whole against the format journalctl prints, so nothing else reaches the
+# command line.
+set -euo pipefail
+
+cursor=${SSH_ORIGINAL_COMMAND:-}
+format='^s=[0-9a-f]{32};i=[0-9a-f]{1,16};b=[0-9a-f]{32};m=[0-9a-f]{1,16};t=[0-9a-f]{1,16};x=[0-9a-f]{1,16}$'
+
+if [ -z "$cursor" ]; then
+  exec journalctl --output=json --no-pager --quiet
+elif [[ $cursor =~ $format ]]; then
+  exec journalctl --output=json --no-pager --quiet --after-cursor="$cursor"
+fi
+echo "refused: not a journal cursor" >&2
+exit 2

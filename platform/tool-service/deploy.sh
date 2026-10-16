@@ -68,6 +68,27 @@ apply_from k create secret tls tool-service-tls -n tool-services --cert="$tls/tl
 # The dispatch pods check the server against the same certificate.
 apply_from k create configmap tool-service-cert -n orchestration --from-file=tls.crt="$tls/tls.crt"
 
+# The old pod's log goes with the pod. Before it is replaced, the audit copier
+# has to make a whole pass that starts after the log's last write (ADR 0019).
+# Run this with no job active, so the old pod writes nothing after now. Two
+# passes ending after now: the second one started after the first ended.
+if ! systemctl is-active --quiet aisec-audit-copy; then
+  echo "the audit copier is not running" >&2
+  exit 1
+fi
+now=$(mktemp)
+trap 'rm -f "$now"' EXIT
+for pass in 1 2; do
+  for _ in $(seq 1 15); do
+    [ -n "$(find /var/lib/aisec-audit-copy/ok -newer "$now" 2>/dev/null)" ] && break
+    sleep 1
+  done
+  [ -n "$(find /var/lib/aisec-audit-copy/ok -newer "$now" 2>/dev/null)" ] ||
+    { echo "the audit copier made no pass in 15 seconds" >&2; exit 1; }
+  touch "$now"
+  echo "audit copier pass $pass after the last line: done"
+done
+
 k apply -f "$here/tool-service.yaml"
 # Config maps and secrets do not restart a pod. This does.
 k rollout restart deployment/tool-service -n tool-services

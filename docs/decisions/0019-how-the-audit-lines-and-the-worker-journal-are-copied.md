@@ -47,7 +47,7 @@ How the journal is stored on the orchestrator:
 
 **The audit line gets a sequence.** Each line carries `start`, a random identifier made when the service starts, and `seq`, which counts from 1 within that start. A hole in `seq` within one `start` is a lost line, and a check looks for it.
 
-**A follower copies the audit lines.** A Python script that uses only the standard library, run by a systemd unit on the orchestrator.
+**A follower copies the audit lines.** A Python script that uses only the standard library, run by a systemd unit on the orchestrator. [0021](0021-monitoring-in-azure-monitor-over-private-link.md) sends both copies on to Azure Monitor.
 
 - Every two seconds it reads the tool service's log files under `/var/log/pods/tool-services_*`, current and rotated, and appends each new line to `/var/log/aisec/tool-audit.jsonl`. "New" is decided by the runtime's own nanosecond timestamp, kept in a state file.
 - It keeps the service's line as it is. A line that is not a complete JSON object on standard output, including one the runtime split because it was too long, is not copied. A marker line with its size and timestamp is copied in its place, so nothing disappears without a trace.

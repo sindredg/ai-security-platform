@@ -51,6 +51,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | Mesh VPN agent | 1.104.1 | `infra/platform/variables.tf`, held on the VM | By hand | 2026-10-13 |
 | K3s | `v1.36.5+k3s1` | `infra/platform/variables.tf`, with two checksums | By hand | 2026-10-13 |
 | Squid | 7.2 | Not pinned, see [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) | Unattended upgrades | 2026-10-11 |
+| `acl` package | Whatever the archive serves. Sets the default ACL on the pod logs for the audit copier | Not pinned. The archive drops old versions, as for Squid | Unattended upgrades | |
 | kube-bench | 0.16.0 | The [runbook](../runbooks/platform-compute.md) | By hand, at each run | 2026-10-11 |
 | Lynis | 3.1.7 | The runbook | By hand, at each run | 2026-10-11 |
 | llama.cpp | Build `b11429` | `worker/model-server/pins.env` and `artifacts.tsv`, with a checksum | By hand | 2026-10-11 |
