@@ -36,6 +36,11 @@ here=$(cd "$(dirname "$0")" && pwd)
 TOOL_IMAGE_DIGEST=$(sed -n 's/^ *image: ghcr.io[^@]*@\(sha256:[0-9a-f]*\)$/\1/p' "$here/../platform/tool-service/tool-service.yaml")
 # The journal export command the worker should run, from this checkout.
 EXPORT_SHA=$(sha256sum "$here/../worker/log-export/aisec-journal-export" | cut -d " " -f 1)
+# The copiers' programs and units, in install order, from this checkout.
+logs="$here/../platform/logs"
+COPY_SHA=$(cat "$logs/aisec_audit_copy.py" "$logs/aisec-audit-copy.service" | sha256sum | cut -d " " -f 1)
+PULL_SHA=$(cat "$logs/aisec_journal_pull.py" "$logs/aisec-journal-pull.service" "$logs/aisec-journal-pull.timer" |
+  sha256sum | cut -d " " -f 1)
 RG=rg-aisec-platform
 RG_TARGETS=rg-aisec-targets
 
@@ -162,6 +167,7 @@ echo "tool_cert_14_days=$(openssl x509 -in /etc/aisec/tool-service/tls.crt -noou
 audit=/var/log/aisec/tool-audit.jsonl
 echo "audit_copy_active=$(systemctl is-active aisec-audit-copy 2>/dev/null)"
 echo "audit_copy_enabled=$(systemctl is-enabled aisec-audit-copy 2>/dev/null)"
+echo "audit_copy_code=$(cat /usr/local/lib/aisec/aisec_audit_copy.py /etc/systemd/system/aisec-audit-copy.service 2>/dev/null | sha256sum | cut -d " " -f 1)"
 echo "audit_file=$(stat -c "%U %G %a" $audit 2>/dev/null) $(lsattr $audit 2>/dev/null | cut -d " " -f 1 | tr -cd a)"
 ok_time=$(stat -c %Y /var/lib/aisec-audit-copy/ok 2>/dev/null || echo 0)
 echo "audit_copy_recent=$([ $(( $(date +%s) - ok_time )) -le 10 ] && echo yes || echo no)"
@@ -187,6 +193,7 @@ echo "journal_file=$(stat -c "%U %G %a" $journal 2>/dev/null) $(lsattr $journal 
 ok_time=$(stat -c %Y /var/lib/aisec-journal-pull/ok 2>/dev/null || echo 0)
 echo "journal_pull_recent=$([ $(( $(date +%s) - ok_time )) -le 1500 ] && echo yes || echo no)"
 echo "journal_markers=$(grep -c "\"event\":\"copy\"" $journal 2>/dev/null)"
+echo "journal_pull_code=$(cat /usr/local/lib/aisec/aisec_journal_pull.py /etc/systemd/system/aisec-journal-pull.service /etc/systemd/system/aisec-journal-pull.timer 2>/dev/null | sha256sum | cut -d " " -f 1)"
 pinned=$(cut -d " " -f 2- /etc/aisec/journal-pull-known-hosts 2>/dev/null)
 # OpenSSH 10 prints its banner as a comment on standard output. Only the key line counts.
 offered=$(ssh-keyscan -T 8 -t ed25519 '"$WORK_IP"' 2>/dev/null | grep -v "^#" | cut -d " " -f 2-)
@@ -344,6 +351,9 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check L.6 "No audit line is missing" 0 "$(value audit_holes)"
   # A marker stands for a line the copier refused or a full file.
   check L.7 "The audit copier refused no line" 0 "$(value audit_markers)"
+  # The program and unit installed, against this checkout. A missing file
+  # changes the hash, so it fails too.
+  check L.8 "The audit copier installed is the one in this checkout" "$COPY_SHA" "$(value audit_copy_code)"
   check J.1 "The journal pull timer is active and starts at boot" "active enabled" "$(value journal_timer)"
   check J.2 "The worker's journal file is root's and append-only" "root aisec-journal-pull 620 a" "$(value journal_file)"
   # Five times the timer's interval of five minutes.
@@ -355,6 +365,7 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # Exit status 2 is the export refusing. 255 would be SSH failing, and 0 that
   # the key ran a command it should not.
   check J.6 "The export key runs nothing but the export" 2 "$(value journal_export_refuses)"
+  check J.10 "The journal puller installed is the one in this checkout" "$PULL_SHA" "$(value journal_pull_code)"
   common_checks HO
 else
   check A.1 "Reachable over the mesh VPN with the operator key" yes no

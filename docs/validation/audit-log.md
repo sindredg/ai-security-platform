@@ -2,7 +2,7 @@
 
 The tool service prints one audit line per decision. A host unit on the orchestrator copies the lines into an append-only file that no pod mounts. These checks test the copier and the file. The design is [ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md). What the file holds and who can change it is on the [audit log page](../security/audit-log.md).
 
-Status: **tested** on the live system on 2026-10-16: every check below passes. `L.1`, `L.3`, `L.4`, and `L.5` failed when their condition was broken, and `L.2`, `L.6`, and `L.7` before the install ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). The fail side of `L.6` and `L.7` was also seen with stubs: the probe's own lines, run on a workstation against made-up files and mount lists ([worklog](../worklogs/0003-toolchain-integration.md#the-checks-against-stubs)). The checks are in `validation/platform-checks.sh`.
+Status: **tested** on the live system on 2026-10-16: `L.1` to `L.7` pass. `L.1`, `L.3`, `L.4`, and `L.5` failed when their condition was broken, and `L.2`, `L.6`, and `L.7` before the install ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). `L.8` was added after the rollout, with a fix to the copier. On the live system it failed with the fix in the checkout and the earlier copier installed, and passed with the earlier copier in the checkout ([worklog](../worklogs/0003-toolchain-integration.md#fix-whole-lines-only)). It fails until the fix is installed. The fail side of `L.6` and `L.7` was also seen with stubs: the probe's own lines, run on a workstation against made-up files and mount lists ([worklog](../worklogs/0003-toolchain-integration.md#the-checks-against-stubs)). The checks are in `validation/platform-checks.sh`.
 
 ## On the orchestrator
 
@@ -15,10 +15,11 @@ Status: **tested** on the live system on 2026-10-16: every check below passes. `
 | `L.5` | No pod mounts the audit folder | A pod with the folder mounted can read the record. A pod is the worker's way onto this machine ([T22](../security/threat-model.md)) | No `hostPath` volume in any namespace is `/`, `/var`, `/var/log`, or `/var/log/aisec` or below it |
 | `L.6` | No audit line is missing | A hole in the sequence is a lost line ([ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md)) | For each `start`, the highest `seq` minus the count of distinct numbers, plus every line that is not JSON. Lines without a `start`, from the image before the sequence, are not counted |
 | `L.7` | The copier refused no line | A marker stands for a line that was not one JSON object on standard output, or for a full file | The count of lines with `"event":"copy"` |
+| `L.8` | The audit copier installed is the one in this checkout | A fix to the copier protects nothing until it is installed, and nothing else shows the difference | The SHA-256 of the installed program and unit, read in that order, equals the same files in this checkout. A missing file changes the hash |
 
 ## The worker's journal
 
-Status: **tested** on the live system on 2026-10-16: every check below passes. `J.1`, `J.2`, `J.3`, `J.5`, `J.7`, `J.8`, and `J.9` failed when their condition was broken, and all nine before the install ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). `J.5` was wrong on its first run and is fixed in commit `0c1eba2`. `J.4` and `J.6` were not broken on purpose: `J.4` fails on a marker line, which the puller's tests cover, and the other side of `J.6`, an answer to a cursor, was seen.
+Status: **tested** on the live system on 2026-10-16: every check below passes. `J.1`, `J.2`, `J.3`, `J.5`, `J.7`, `J.8`, and `J.9` failed when their condition was broken, and all nine before the install ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). `J.5` was wrong on its first run and is fixed in commit `0c1eba2`. `J.4` and `J.6` were not broken on purpose: `J.4` fails on a marker line, which the puller's tests cover, and the other side of `J.6`, an answer to a cursor, was seen. `J.10` was added later: it passed on the live system, and failed with one line added to the timer in the checkout.
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
@@ -28,6 +29,7 @@ Status: **tested** on the live system on 2026-10-16: every check below passes. `
 | `J.4` | The puller refused no line | A marker is a line that was not a journal entry, or a full file | The count of lines with `"event":"copy"` |
 | `J.5` | The puller pins the worker's host key | Otherwise the first answer on the worker's address is trusted | The pinned key equals the key `ssh-keyscan` gets from the worker now. A missing pin is a failure |
 | `J.6` | The export key runs nothing but the export | The key lives on the trusted machine and logs in to the untrusted one. It must not give a shell either way | An SSH command `id` with the key, as the puller's account, ends with status 2, the export's refusal. 255 is SSH failing, 0 a command that ran |
+| `J.10` | The journal puller installed is the one in this checkout | As for `L.8` | The SHA-256 of the installed program, unit, and timer equals the same files in this checkout |
 
 On the worker:
 

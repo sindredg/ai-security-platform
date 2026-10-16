@@ -113,7 +113,7 @@ Run these steps to copy the tool service's audit lines into an append-only file 
     validation/platform-checks.sh
     ```
 
-    Expected: `copied N lines` and a line count. Every check passes, including `L.1` to `L.7`, `J.1` to `J.9`, and `T.2`. `U.1` or `U.5` can fail if security updates are pending.
+    Expected: `copied N lines` and a line count. Every check passes, including `L.1` to `L.8`, `J.1` to `J.10`, and `T.2`. `U.1` or `U.5` can fail if security updates are pending.
 
 ## Archive before a rebuild
 
