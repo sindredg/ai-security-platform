@@ -111,6 +111,14 @@ Read from the official sources on 2026-10-16. The Terraform checksum is from the
 
 `terraform validate` passes for all three roots with Terraform 1.16.6 and the read-only lock files, run locally on a copy of the tracked files. No plan has run against the live state with the new versions.
 
+The pipeline passed with every new version on the pull request. Each Trivy step, read from the job logs of the last `main` run with 0.75.0 and the pull request's run with 0.76.0:
+
+| Step | 0.75.0 | 0.76.0 |
+| --- | --- | --- |
+| Configuration: Terraform, manifests, Dockerfile | No finding in any file. Six suppressed findings on the state storage accounts | The same, in another order |
+| Dependency scan | 8 advisories on the converter's packages, report only. None on the tool service's | The same 8 advisory IDs |
+| Image scan | 0 in the Alpine packages and in each of 55 Python packages | The same |
+
 ### Limits
 
 - First boot from the template with these changes has not run. The running orchestrator got them by hand, through the runbook's steps.
