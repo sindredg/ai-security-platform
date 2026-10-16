@@ -61,6 +61,7 @@ For the log:
 - The service prints one JSON line per call: time, job, caller address, tool, a digest of the arguments, the decision, the reason for a refusal, and the result size. Allowed and refused calls both.
 - The container runtime captures the lines. A unit on the orchestrator appends them to a root-owned file that has the append-only attribute. No pod mounts that file.
 - No payloads. Arguments are logged as a digest, results as a size.
+- [0019](0019-how-the-audit-lines-and-the-worker-journal-are-copied.md) sets how the lines and the worker's journal are copied, and adds a sequence to the line.
 
 **Host logging is split.**
 
