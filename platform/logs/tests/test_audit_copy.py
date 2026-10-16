@@ -62,6 +62,14 @@ class Copier(unittest.TestCase):
         self.assertEqual(copier.one_pass(), 1)
         self.assertEqual(self.copied(), [LINE_1])
 
+    def test_a_line_still_being_written_is_copied_once_it_is_whole(self):
+        line = runtime("2026-10-16T05:00:01.5Z", LINE_1)
+        self.write("0.log", line[:45])
+        self.assertEqual(copier.one_pass(), 0)
+        self.write("0.log", line)
+        self.assertEqual(copier.one_pass(), 1)
+        self.assertEqual(self.copied(), [LINE_1])
+
     def test_a_line_the_service_did_not_write_whole_becomes_a_marker(self):
         self.write(
             "0.log",

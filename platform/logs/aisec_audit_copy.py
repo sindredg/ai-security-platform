@@ -80,12 +80,15 @@ def parse(raw):
 
 
 def read(path):
+    """Whole lines only. The runtime may be halfway through writing the last
+    one, and a pass that took it would move past its timestamp for good."""
     opener = gzip.open if path.endswith(".gz") else open
     try:
         with opener(path, "rb") as source:
-            return source.read().splitlines()
+            data = source.read()
     except (OSError, EOFError) as error:
         raise Failed(f"cannot read {path}: {error}") from error
+    return data.split(b"\n")[:-1]
 
 
 def collect(after):
