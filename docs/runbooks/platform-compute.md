@@ -9,7 +9,7 @@ Run these steps to build milestone 2: the public address policy, the NAT gateway
 | Input | Notes |
 | --- | --- |
 | Milestone 1, built | The [network foundation runbook](network-foundation.md), with `$CRED_DIR` holding `platform.env` and `targets.env` |
-| `terraform` 1.16.5, first on `PATH` | The roots refuse any other version. A distribution package can be older |
+| `terraform` 1.16.6, first on `PATH` | The roots refuse any other version. A distribution package can be older |
 | `az` 2.88 or later, `ssh`, `jq` | Applies, checks, and logins |
 | A mesh VPN account with administrator access | To create a tag and an auth key, and to approve routes |
 | The mesh VPN client on the workstation, signed in | The VMs have no other way in |
@@ -27,11 +27,11 @@ The addresses below are the ones the configuration assigns: `10.40.0.4` for the 
 1. Put the pinned Terraform first on `PATH`.
 
    ```bash
-   export PATH="REPLACE_WITH_TERRAFORM_1.16.5_DIRECTORY:$PATH"
+   export PATH="REPLACE_WITH_TERRAFORM_1.16.6_DIRECTORY:$PATH"
    terraform version
    ```
 
-   Expected: `Terraform v1.16.5`. With another version, every command below stops with `Unsupported Terraform Core version`.
+   Expected: `Terraform v1.16.6`. With another version, every command below stops with `Unsupported Terraform Core version`.
 
 2. Confirm that the pinned image version exists in the release offer for both architectures. The filter has to be exact. See [troubleshooting 01](../troubleshooting/01-image-version-only-in-daily-offer.md).
 
