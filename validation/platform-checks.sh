@@ -157,6 +157,28 @@ echo "pod_security_admission=$(k get namespace tool-services orchestration -o js
 echo "default_deny=$({ k get networkpolicy default-deny -n tool-services -o name; k get networkpolicy default-deny -n orchestration -o name; } | tr "\n" " " | sed "s/ $//")"
 echo "tool_port_on_mesh=$(tcp "$(tailscale ip -4 2>/dev/null | head -n 1)" '"$TOOL_PORT"')"
 echo "tool_cert_14_days=$(openssl x509 -in /etc/aisec/tool-service/tls.crt -noout -checkend 1209600 >/dev/null 2>&1 && echo yes || echo no)"
+audit=/var/log/aisec/tool-audit.jsonl
+echo "audit_copy_active=$(systemctl is-active aisec-audit-copy 2>/dev/null)"
+echo "audit_copy_enabled=$(systemctl is-enabled aisec-audit-copy 2>/dev/null)"
+echo "audit_file=$(stat -c "%U %G %a" $audit 2>/dev/null) $(lsattr $audit 2>/dev/null | cut -d " " -f 1 | tr -cd a)"
+ok_time=$(stat -c %Y /var/lib/aisec-audit-copy/ok 2>/dev/null || echo 0)
+echo "audit_copy_recent=$([ $(( $(date +%s) - ok_time )) -le 10 ] && echo yes || echo no)"
+echo "audit_mounts=$(k get pods -A -o jsonpath="{range .items[*].spec.volumes[*]}{.hostPath.path}{\"\n\"}{end}" | grep -c -x -E "/|/var/?|/var/log/?|/var/log/aisec(/.*)?")"
+echo "audit_holes=$(python3 -I -c "
+import json, sys
+seen = {}
+bad = 0
+for raw in open(sys.argv[1], \"rb\"):
+    try:
+        line = json.loads(raw)
+    except ValueError:
+        bad += 1
+        continue
+    if isinstance(line, dict) and \"start\" in line:
+        seen.setdefault(line[\"start\"], set()).add(line[\"seq\"])
+print(bad + sum(max(numbers) - len(numbers) for numbers in seen.values()))
+" $audit 2>&1 | tail -n 1)"
+echo "audit_markers=$(grep -c "\"event\":\"copy\"" $audit 2>/dev/null)"
 echo "tool_egress=$(k3s kubectl exec -n tool-services deployment/tool-service -- python -c "
 import socket
 try:
@@ -287,6 +309,21 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # "refused", observed on 2026-10-15. The orchestrator itself reaches 443
   # (E.1), so without the policy this is "open". Any other end is a failure.
   check T.8 "The tool service pod cannot reach the internet" refused "$(value tool_egress)"
+  check L.1 "The audit copier is active" active "$(value audit_copy_active)"
+  check L.2 "The audit copier starts at boot" enabled "$(value audit_copy_enabled)"
+  # Owner, group, mode, and the append-only attribute. The copier's group can
+  # append, and nobody but root can remove the attribute.
+  check L.3 "The audit file is root's and append-only" "root aisec-audit-copy 620 a" "$(value audit_file)"
+  # Five times the copier's interval. A pass with nothing new still counts, and
+  # a pass that finds no log file of the tool service does not (ADR 0019).
+  check L.4 "The audit copier succeeded in the last 10 seconds" yes "$(value audit_copy_recent)"
+  # A hostPath of the folder or anything above it would expose the file.
+  check L.5 "No pod mounts the audit folder" 0 "$(value audit_mounts)"
+  # Missing numbers within each start, plus lines that are not JSON. Lines
+  # without a start, from the image before ADR 0019, are not counted.
+  check L.6 "No audit line is missing" 0 "$(value audit_holes)"
+  # A marker stands for a line the copier refused or a full file.
+  check L.7 "The audit copier refused no line" 0 "$(value audit_markers)"
   common_checks HO
 else
   check A.1 "Reachable over the mesh VPN with the operator key" yes no
