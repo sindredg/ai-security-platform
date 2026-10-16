@@ -283,7 +283,7 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
 
     Expected: the checksum line ends in `OK`, then the test count, the hardening index, and any warnings. On this build the orchestrator scored 60 with two warnings, both about packages, before the hardening that cloud-init now applies, and 76 after it.
 
-    Run the same on the worker, with the archive copied through the workstation: `ssh $SSH_OPTS aisec@10.40.0.4 'cat REPLACE_WITH_ARCHIVE' | ssh $SSH_OPTS aisec@10.40.0.36 'cat > /tmp/lynis-3.1.7.tar.gz'`, and the same checksum check before unpacking. Expected: the run stalls for about six minutes at the package update test, because the worker cannot reach a repository, and then finishes. On this build it scored 66 with no warnings before the hardening and 77 after. To skip the stall, put `skip-test=PKGS-7392` in a `custom.prf` file next to the `lynis` script.
+    Run the same on the worker. It has no way to the download site and the feed key can no longer write there, so the archive goes through the workstation: `ssh $SSH_OPTS aisec@10.40.0.4 'curl -fsSL https://downloads.cisofy.com/lynis/lynis-3.1.7.tar.gz' | ssh $SSH_OPTS aisec@10.40.0.36 'cat > /tmp/lynis-3.1.7.tar.gz'`. Check the checksum on the worker before unpacking, as above. Expected: the run stalls for about six minutes at the package update test, because the worker cannot reach a repository, and then finishes. On this build it scored 66 with no warnings before the hardening and 77 after. To skip the stall, put `skip-test=PKGS-7392` in a `custom.prf` file next to the `lynis` script.
 
 20. Install pending security updates on the orchestrator.
 

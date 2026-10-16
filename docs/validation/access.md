@@ -4,7 +4,7 @@ No VM has a public address. The only way in is the mesh VPN, then SSH with a cer
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
-| `A.1` | The orchestrator is reachable over the mesh VPN with the operator key | Without this there is no administration at all | An SSH login from the workstation |
+| `A.1` | The orchestrator is reachable over the mesh VPN with the operator certificate | Without this there is no administration at all | An SSH login from the workstation |
 | `A.2` | Node signing is enabled on the mesh | The coordination service cannot add a device by itself | `tailscale lock status` on the orchestrator |
 | `A.3` | The orchestrator's node key is signed | An unsigned node is on the network but cannot reach any other node | The same command |
 | `A.4` | The spent auth key file is gone | The key is single use, and the file should not outlive first boot | `/run/aisec` is empty |

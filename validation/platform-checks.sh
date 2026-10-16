@@ -326,7 +326,7 @@ common_checks() { # prefix
 
 echo "== Orchestrator ($ORCH)"
 if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && [ -n "$probe" ]; then
-  check A.1 "Reachable over the mesh VPN with the operator key" yes yes
+  check A.1 "Reachable over the mesh VPN with the operator certificate" yes yes
   check A.2 "Mesh VPN node signing is enabled" "Tailnet Lock is ENABLED." "$(value lock)"
   check A.3 "The orchestrator's node key is signed" 1 "$(value lock_signed)"
   check A.4 "The spent auth key file is gone" 0 "$(value auth_key_file)"
@@ -439,13 +439,13 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check J.10 "The journal puller installed is the one in this checkout" "$PULL_SHA" "$(value journal_pull_code)"
   common_checks HO
 else
-  check A.1 "Reachable over the mesh VPN with the operator key" yes no
+  check A.1 "Reachable over the mesh VPN with the operator certificate" yes no
 fi
 
 echo
 echo "== Worker ($WORK)"
 if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "$probe" ]; then
-  check A.6 "Reachable through the subnet router with the operator key" yes yes
+  check A.6 "Reachable through the subnet router with the operator certificate" yes yes
   check A.7 "No plain key is authorized for the administrator" 0 "$(value authorized_keys)"
   check A.10 "The administrator forwards nothing on the worker" "no any" "$(value sshd_admin_forwarding)"
   # C.1 and C.4 aim at ports that are known to listen, so a timeout is a drop.
@@ -506,7 +506,7 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check U.5 "No security update is pending on the worker" 0 "$(value security_updates_pending)"
   common_checks HW
 else
-  check A.6 "Reachable through the subnet router with the operator key" yes no
+  check A.6 "Reachable through the subnet router with the operator certificate" yes no
 fi
 
 if [ "$workstation" = 1 ]; then
