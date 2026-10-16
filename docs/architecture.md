@@ -217,6 +217,7 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current. Each long-lived credential on the VMs rotated once. The dispatch SSH key and the worker log export key are planned and have not been created |
 | Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Verified for audit output: the live tool service printed one JSON entry per decision, with no token ([worklog](worklogs/0003-toolchain-integration.md#the-round-trip)). Persistent storage is not implemented ([ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) |
 | Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Built for the model server: 38 inputs pinned by checksum and verified on the orchestrator ([worklog](worklogs/0003-toolchain-integration.md#download-and-verify)). Built for the agent runtime the same way, and for the tool service's 28 packages, which install by hash. The tool service image is pulled by digest, checked by `T.2`. No signature is checked, and there is no SBOM |
+| Monitoring | Logs and alerts kept outside the machines they describe | Edge network and monitoring | Planned |
 | Incident response runbook | A compromised worker or target, a leaked credential | Operational drills | Planned |
 
 There is no compliance framework here. ISO 27001 and SOC 2 describe an organisation, and this one has a single operator.
@@ -232,7 +233,7 @@ There is no compliance framework here. ISO 27001 and SOC 2 describe an organisat
 
 The subscription allows 4 vCPUs per region and has no GPU quota. Both are treated as fixed. Quota counts VMs that exist, not VMs that run, so deallocating a VM frees nothing. Evidence is in the [preflight worklog](worklogs/0000-azure-preflight.md).
 
-That gives two VMs per region, with nothing to spare.
+That gives two VMs per region, with nothing to spare. [Milestone 3a](roadmap.md#3a-edge-network-and-monitoring) adds a third VM in Sweden Central, the edge, which needs the regional limit raised to 6. Until then the limit is 4.
 
 | Region | VM | vCPUs | Size | State |
 | --- | --- | --- | --- | --- |
@@ -244,7 +245,7 @@ That gives two VMs per region, with nothing to spare.
 Idle use of the two built VMs is on their [component pages](components/README.md). Where it will hurt:
 
 - **Inference.** Two x64 vCPUs are one physical core. Arm sizes give two real cores for the same quota, at the price of arm64 builds for everything on the worker.
-- **The orchestrator.** It carries K3s, Argo, collectors, tool services, and the change components. Observability and the model gateway go in only if measurement shows room.
+- **The orchestrator.** It carries K3s, Argo, collectors, tool services, and the change components. The model gateway goes in only if measurement shows room. Planned for [milestone 3a](roadmap.md#3a-edge-network-and-monitoring): monitoring in Azure Monitor, so the orchestrator carries only a log agent.
 - **Concurrency.** One investigation at a time, one loaded model.
 
 ## Repository layout

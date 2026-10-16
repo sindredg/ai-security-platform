@@ -33,7 +33,7 @@ Candidates, not selections. Each has something to prove first.
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far | 3 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
-| Metrics and dashboards | Prometheus, Grafana | That they fit on the orchestrator | 3 |
+| Monitoring | Azure Monitor, with a log agent on the orchestrator and the edge | That logs and alerts stay out of reach of the machines they describe, and the agent's footprint | 3a |
 | First target | NetBox | See [ADR 0004](../decisions/0004-netbox-as-first-target.md) | 4 |
 
 ## Versions
