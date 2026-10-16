@@ -78,7 +78,7 @@ An edge VM in Denmark East takes the way out, the mesh VPN node, and the package
 - Its own virtual network, `10.45.0.0/24`, with one subnet, `10.45.0.0/27`, and the VM at `10.45.0.4`. It belongs to the platform root and the platform resource group. Resource group location does not bind resource location, and the policy assignments are per resource group, so 0002's separation holds.
 - Peerings: platform to edge, and edge to targets. Platform to targets stays, for the orchestrator's collectors. Peering is not transitive, so each pair has its own.
 - The NAT gateway and its public address move from the orchestrator subnet to the edge subnet. No other subnet has an outbound method.
-- It runs the mesh agent, Squid, and nothing else. No K3s, no workloads, no job credential.
+- It runs the mesh agent, Squid, and nothing else. No K3s, no workloads, no job credential. [0025](0025-the-mesh-node-on-its-own-vm.md) moves the mesh agent to a router VM of its own.
 
 **The mesh**
 
