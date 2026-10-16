@@ -59,7 +59,7 @@ One JSON object per decision, on standard output. Standard output carries nothin
 | `reason` | Why, for a refusal |
 | `result_bytes` | The size of an allowed tool result. The result itself is not logged |
 
-The image running on the orchestrator predates `start` and `seq`. They arrive when the manifest's image digest moves.
+The manifest names an image built with `start` and `seq`, from commit `d2dec08`. The pod running on the orchestrator predates them until the next deploy, and `T.2` fails until then.
 
 The service writes to standard output and opens no log file. A planned host service will append the entries to a file that no pod mounts. Persistent log storage has not been implemented.
 
