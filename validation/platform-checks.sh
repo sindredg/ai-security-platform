@@ -188,7 +188,8 @@ ok_time=$(stat -c %Y /var/lib/aisec-journal-pull/ok 2>/dev/null || echo 0)
 echo "journal_pull_recent=$([ $(( $(date +%s) - ok_time )) -le 1500 ] && echo yes || echo no)"
 echo "journal_markers=$(grep -c "\"event\":\"copy\"" $journal 2>/dev/null)"
 pinned=$(cut -d " " -f 2- /etc/aisec/journal-pull-known-hosts 2>/dev/null)
-offered=$(ssh-keyscan -T 8 -t ed25519 '"$WORK_IP"' 2>/dev/null | cut -d " " -f 2-)
+# OpenSSH 10 prints its banner as a comment on standard output. Only the key line counts.
+offered=$(ssh-keyscan -T 8 -t ed25519 '"$WORK_IP"' 2>/dev/null | grep -v "^#" | cut -d " " -f 2-)
 echo "journal_host_key=$([ -n "$pinned" ] && [ "$pinned" = "$offered" ] && echo match || echo differ)"
 runuser -u aisec-journal-pull -- ssh -T -n -i /var/lib/aisec-journal-pull/id_ed25519 -o IdentitiesOnly=yes \
   -o UserKnownHostsFile=/etc/aisec/journal-pull-known-hosts -o GlobalKnownHostsFile=none \
