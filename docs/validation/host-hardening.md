@@ -24,5 +24,5 @@ The same settings on both VMs, from cloud-init. They came out of the Lynis audit
 These are settings the audit asked for that stay as they are. The reasons are in the worklog.
 
 - IP forwarding on the orchestrator, loose reverse path filtering, and module loading after boot.
-- No `auditd`, no remote logging, and no file integrity monitoring yet. Milestone 3.
+- No `auditd`, no remote logging, and no file integrity monitoring yet. Remote logging is planned for [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring), the other two for milestone 6.
 - `k3s`, `tailscaled`, and `ssh` run without a systemd sandbox.
