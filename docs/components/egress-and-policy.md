@@ -47,7 +47,7 @@ The orchestrator has no inbound allow for administration. That arrives inside th
 ## Limits
 
 - **The gateway bills by the hour whether or not a VM runs.**
-- **The orchestrator's egress is not filtered by hostname.** That takes a firewall that costs more than the VMs.
+- **The orchestrator's egress is not filtered by hostname.** [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) moves the NAT gateway to an edge VM and sends the orchestrator through a proxy there, in milestone 3a. Not built.
 - **Port 80 is open as well as 443.** Only the package mirrors need it. Closing it was tried and failed. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
 - **Platform endpoints are not the internet and stay reachable.**
 

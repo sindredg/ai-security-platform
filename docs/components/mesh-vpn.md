@@ -9,7 +9,7 @@ The only way in. No VM has a public address and no firewall rule names an operat
 | Pinned in | `infra/platform/variables.tf` |
 | Runs on | The orchestrator and the operator's devices. Nowhere else |
 | Routes advertised | `10.40.0.0/20` and `10.50.0.0/20` |
-| Decision | [0007](../decisions/0007-mesh-vpn-for-administrative-access.md) |
+| Decision | [0007](../decisions/0007-mesh-vpn-for-administrative-access.md). [0025](../decisions/0025-the-mesh-node-on-its-own-vm.md) moves the agent to a router VM in milestone 3a, not built |
 
 ## The path
 
@@ -78,7 +78,7 @@ The provider's default policy allows everything, and that default was in place u
 - **The agent version is held.** It gets no security fix until someone moves the pin.
 - **The agent's own updater was on until 2026-10-16.** The hold stopped `apt`, not the agent, which had `AutoUpdate.Apply` set and would have installed the vendor's next release as root. `U.6` failed on it, and passed after `tailscale set --auto-update=false`. No newer release had been published, so the held version was still the running one.
 - **Signing a node after it joins has not been run.** The orchestrator rebuild on 2026-10-13 joined on a signed auth key, which needs no step afterwards.
-- **The agent uploads its own logs to the vendor.** On 2026-10-12 `tailscaled` held a connection to the vendor's log host on port 443. The agent runs with no extra flags, so the upload is on. Whether to turn it off is not decided.
+- **The agent uploads its own logs to the vendor.** On 2026-10-12 `tailscaled` held a connection to the vendor's log host on port 443. The agent runs with no extra flags, so the upload is on. [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md) turns it off on the router, which replaces the orchestrator as the mesh node.
 
 ## Official documentation
 

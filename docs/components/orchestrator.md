@@ -45,7 +45,7 @@ About 20 minutes after boot, with an empty cluster: 1.0 of 7.9 GiB memory used, 
 ## Limits
 
 - **It is the supply chain.** What it copies to the worker and the targets is what runs there.
-- **A compromise of it is not contained.** It holds every credential that matters and reaches any host on TCP 443 and 80.
+- **A compromise of it is not contained.** It holds every credential that matters and reaches any host on TCP 443 and 80. Milestone 3a takes away its way out and its mesh node ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)). Not built.
 - **No encryption at host.** The subscription feature is not registered.
 - **Rebuilt once, with an empty cluster.** The [rebuild](../worklogs/0002-platform-compute.md#orchestrator-rebuild) on 2026-10-13 proves the template. It says nothing about bringing workloads back.
 

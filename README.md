@@ -6,7 +6,7 @@ The split of work is strict. Ordinary tools collect evidence and establish facts
 
 ## Target architecture
 
-This is what gets built. The networks, their rules, the peering, both platform VMs, the mesh VPN, a K3s cluster, and a model server and an agent runtime on the AI worker exist today. The cluster is there to run the trusted side: the workflow engine, the collectors, the tool services, and the pull request broker. None of those is deployed yet. They and the whole target side are planned. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
+This is what gets built. The networks, their rules, the peering, both platform VMs, the mesh VPN, a K3s cluster, and a model server and an agent runtime on the AI worker exist today. The cluster is there to run the trusted side: the workflow engine, the collectors, the tool services, and the pull request broker. The tool service runs there. The others and the whole target side are planned. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
 
 ![Target architecture: a trusted orchestrator VM is the only link between the AI worker, the targets, and the outside world. The operator reaches it through a mesh VPN service outside Azure](docs/diagrams/target-architecture.svg)
 
@@ -49,7 +49,7 @@ The AI also has to earn its place. Each result is compared with the same workflo
 ## Status
 
 - **Done:** the network foundation and both platform VMs, deployed and checked. Evidence in worklogs [0001](docs/worklogs/0001-network-foundation.md) and [0002](docs/worklogs/0002-platform-compute.md).
-- **In progress:** toolchain integration, in worklog [0003](docs/worklogs/0003-toolchain-integration.md). A model server runs on the AI worker, and the agent runtime has completed fixture-based runs against it. The tool service runs on the orchestrator and has answered tool calls from the worker. No workflow or dispatch exists yet.
+- **In progress:** toolchain integration, in worklog [0003](docs/worklogs/0003-toolchain-integration.md). A model server runs on the AI worker, and the agent runtime has completed fixture-based runs against it. The tool service runs on the orchestrator and has answered tool calls from the worker. No workflow or dispatch exists yet. Paused for [milestone 3a](docs/roadmap.md#3a-edge-network-and-monitoring), the edge network and monitoring.
 - **Planned:** the targets, the investigation and remediation workflow, and the drills.
 
 The [roadmap](docs/roadmap.md#status) holds the state of every milestone and what each has to prove.
@@ -57,7 +57,7 @@ The [roadmap](docs/roadmap.md#status) holds the state of every milestone and wha
 ## Design in brief
 
 - **Platform:** a small K3s cluster for trusted orchestration, plus a separate VM for AI workers and model inference. Sweden Central.
-- **Target:** a NetBox inventory service with a real API consumer that must keep working. Denmark East, on its own network.
+- **Target:** a NetBox inventory service with a real API consumer that must keep working. Denmark East, on its own network, moving to Poland Central in milestone 3a.
 - **Separation:** platform and targets share an Azure subscription, with separate Terraform roots, state, resource groups, networks, and deployment identities.
 - **Workflow:** collect evidence, investigate, propose, rehearse on a disposable copy, open a pull request, wait for approval, deliver, verify.
 - **Inference:** open-weight models on CPU, inside the platform. No external model API.
@@ -70,8 +70,10 @@ The [roadmap](docs/roadmap.md#status) holds the state of every milestone and wha
 | [`infra/platform/`](infra/platform/) | Terraform for the platform side: network, security group rules, NAT gateway, both VMs, and their first-boot templates | [Egress and policy](docs/components/egress-and-policy.md), [orchestrator](docs/components/orchestrator.md), [AI worker](docs/components/ai-worker.md) |
 | [`infra/targets/`](infra/targets/) | Terraform for the target network. No VMs yet | [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md) |
 | [`infra/modules/network/`](infra/modules/network/) | The network module both sides use | [Architecture](docs/architecture.md) |
+| [`platform/logs/`](platform/logs/) | Host units and scripts on the orchestrator that copy the tool service's audit lines and pull the worker's journal into append-only files, and their tests | [Audit log](docs/security/audit-log.md) |
 | [`platform/tool-service/`](platform/tool-service/) | Kubernetes manifests and scripts that deploy the tool service to K3s: namespaces, network policies, the pod, the certificate, and job registration | [Tool service](docs/security/tool-service.md#deployment-controls), [checks](docs/validation/tool-service.md) |
 | [`worker/model-server/`](worker/model-server/) | Pins, download, build, and install scripts for the model server on the worker | [Runbook](docs/runbooks/model-server.md) |
+| [`worker/log-export/`](worker/log-export/) | The forced command on the worker that hands its journal to the orchestrator's pull, and its install script | [Audit log](docs/security/audit-log.md#the-workers-journal) |
 | [`worker/agent-runtime/`](worker/agent-runtime/) | Pins, install, and run scripts for the agent runtime, and the fixture tool | [Runbook](docs/runbooks/agent-runtime.md) |
 | [`tool-service/`](tool-service/) | The tool service: its code, tests, and Dockerfile | [Tool service](docs/security/tool-service.md) |
 | [`policies/`](policies/) | The tool service policy: the tools and arguments each job may use | [Tool service](docs/security/tool-service.md) |

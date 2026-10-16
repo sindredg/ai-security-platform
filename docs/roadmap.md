@@ -12,7 +12,7 @@ Security work has no milestone of its own. Each practice is part of the completi
 | 1. Network foundation | Done, with one check carried to milestone 2. [Worklog](worklogs/0001-network-foundation.md) |
 | 2. Platform compute | Done, with three stated gaps. No CIS result for the operating system, because no tool supports the release yet. Push protection is configured and not tested. No dependency update has been proposed yet. [Worklog](worklogs/0002-platform-compute.md) |
 | 3. Toolchain integration | In progress. The model server runs on the worker, and the agent runtime runs headless against it with a fixture tool. The tool service runs on the orchestrator and has answered tool calls from the worker with a job token. The audit lines and the worker's journal are copied to append-only files on the orchestrator. No workflow or dispatch step exists yet. Paused for milestone 3a. [Worklog](worklogs/0003-toolchain-integration.md) |
-| 3a. Edge network and monitoring | Planned. Starts when milestone 3 pauses |
+| 3a. Edge network and monitoring | In progress since 2026-10-16. No completion criterion is met yet |
 | 4. NetBox target and exercise 1 investigation | Planned |
 | 5. Remediation, pull requests, and delivery | Planned |
 | 6. Operational and containment drills | Planned |
@@ -114,22 +114,24 @@ Move the platform's way out and its mesh VPN node off the orchestrator, and send
 
 The orchestrator holds every credential that matters and reaches any host on TCP 443 and 80 (T05). It is also the mesh VPN node, beside the operator's devices. Running exercises on top of that, with nothing recording what happens, would test a platform that cannot show what an agent did. Milestone 3 resumes with dispatch once this is done.
 
-**Depends on:** decisions about the edge VM and its rules, monitoring in Azure Monitor, SSH certificates for the operator, and a host rule for pod traffic to the host. A regional limit of 6 vCPUs in Sweden Central, for the edge VM.
+**Depends on:** the decisions in ADRs [0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) to [0025](decisions/0025-the-mesh-node-on-its-own-vm.md): the edge VM and its rules, monitoring in Azure Monitor, SSH certificates for the operator, a host rule for pod traffic to the host, the targets in their own repository, and the mesh node on a router VM. The subscription's quota cannot be raised, so the edge and the router take Denmark East's 4 vCPUs, and the targets move to Poland Central.
 
 **Completion criteria:**
 
 - The orchestrator reaches the internet only through the edge proxy, and only the hosts on its list. A request for another host is refused and logged.
 - Only the edge resolves public names. The orchestrator's queries to Azure DNS are refused.
-- The orchestrator is not on the mesh VPN. The operator reaches the orchestrator, the worker, and the targets through the edge.
-- Neither the orchestrator nor the edge can open a connection to an operator device. The mesh policy's own tests refuse a change that would allow it.
+- The orchestrator is not on the mesh VPN. The operator reaches the orchestrator, the worker, the edge, and the targets through the router.
+- The mesh agent runs only on the router, with its own updates and its log upload off. No subnet can open a connection to the router.
+- The router cannot open a connection to an operator device. The mesh policy's own tests refuse a change that would allow it.
 - The Kubernetes API is not reachable over the mesh VPN.
 - Operator SSH logins use certificates that expire within a day. A key without a certificate is refused.
 - A pod reaches the host only on the ports the host rule lists, from its first packet.
 - Every namespace rejects a privileged pod, whether or not it has a pod security label.
 - Requests to the tool service without a valid token are rate-limited.
-- The audit lines, the worker's journal, and the edge's logs reach a log store that no VM can delete from, without passing through the internet.
+- The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from, without passing through the internet.
 - A stopped log agent, a gap in the audit sequence, a missed journal pull, a refused outbound request, and a change to a security group or role assignment each raise an alert in the Azure portal. Each was triggered once on purpose.
 - Flow logs are recorded for the platform subnets.
+- The target network is in Poland Central, defined in its own repository. A commit to the platform repository that the operator's key did not sign fails a required check.
 - Log volume per day is measured, and a daily cap is set from it.
 - The orchestrator's memory and CPU use with the log agent are measured.
 

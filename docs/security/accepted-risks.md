@@ -4,7 +4,7 @@
 
 These have no control and no gate. They are carried on purpose.
 
-- **T05:** a compromised orchestrator can send data to any internet host on TCP 443 or 80. Its UDP rules are removed ([ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md)), checked by `E.5`. Pods are kept off the internet by network policies ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) and a host rule ([ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md)), checked by `T.8`, `E.6`, and `E.7`. So the risk is root on the orchestrator, not a compromised pod. Host access is unchanged. Closing port 80 prevented package downloads. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
+- **T05:** a compromised orchestrator can send data to any internet host on TCP 443 or 80. Its UDP rules are removed ([ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md)), checked by `E.5`. Pods are kept off the internet by network policies ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) and a host rule ([ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md)), checked by `T.8`, `E.6`, and `E.7`. So the risk is root on the orchestrator, not a compromised pod. Host access is unchanged. Closing port 80 prevented package downloads. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md). Carried until milestone 3a builds the edge proxy of [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md). This entry goes when the 3a criteria for the orchestrator's way out are tested.
 - **T15, T30:** a takeover of the operator's GitHub or Azure account defeats the design.
 - **Provider compromise:** Azure, GitHub, and the mesh VPN provider are trusted.
 - **Single approver:** nobody checks the operator.
@@ -56,9 +56,9 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 | Cloud identity for cluster workloads | T36 | Milestone 4 |
 | Operator sessions to targets in the audit log | T04 | Milestone 4 |
 | Evidence written for one job is readable by the next job on the same target. The tool service stores evidence per target | T16, T19 | Milestone 4, with the first collector |
-| Requests that reach the application without a valid token are rejected and logged, but are not rate-limited. The service is deployed without a limit | T20 | Milestone 3a |
 | How the targets get packages and stay current | T09 | Milestone 4 |
-| Log upload from the mesh agent to its vendor. On by default, [seen on the orchestrator](../components/mesh-vpn.md#limits) | No entry yet | Milestone 3a |
 | What the broker allows into a pull request | A5 | Milestone 5 |
 | Repository app permissions | T12 | Milestone 5 |
 | Sign-in strength on the operator's accounts cannot be shown by a gate | T15, T30 | Not planned |
+
+Two items left this table on 2026-10-16. A rate limit for requests without a valid token is now a [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring) criterion. The mesh agent's log upload is turned off on the router by [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md).
