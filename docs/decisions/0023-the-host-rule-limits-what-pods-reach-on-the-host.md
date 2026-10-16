@@ -1,6 +1,6 @@
 # 0023. The host rule also limits what pods reach on the host
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-16
 
 Adds to [0018](0018-a-host-rule-keeps-pods-off-the-internet.md).

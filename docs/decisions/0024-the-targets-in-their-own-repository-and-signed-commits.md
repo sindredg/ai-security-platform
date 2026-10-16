@@ -1,6 +1,6 @@
 # 0024. The targets in their own repository, and signed commits from the operator's machine
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-16
 
 Extends [0002](0002-separate-platform-and-target-infrastructure.md) to the repository. 0002 separates the two sides at every layer the project controls, and the repository is a layer it did not name.

@@ -1,6 +1,6 @@
 # 0022. Short-lived SSH certificates for the operator
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-16
 
 ## Context

@@ -1,6 +1,6 @@
 # 0021. Monitoring in Azure Monitor, over Private Link, with alerts in the portal
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-16
 
 Adds to [0019](0019-how-the-audit-lines-and-the-worker-journal-are-copied.md): where the copies go after the orchestrator. Builds on [0020](0020-an-edge-vm-for-the-way-out-and-the-mesh.md), which removes the orchestrator's way out.

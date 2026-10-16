@@ -1,6 +1,6 @@
 # 0025. The mesh node on its own VM, out of the worker's reach
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-16
 
 Supersedes one part of [0020](0020-an-edge-vm-for-the-way-out-and-the-mesh.md): which VM is the mesh node. The rest of 0020 stands.
