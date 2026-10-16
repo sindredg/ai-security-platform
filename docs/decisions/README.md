@@ -23,7 +23,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0017](0017-no-udp-from-the-orchestrator.md) | No UDP from the orchestrator to the internet. Replaces the mesh agent's UDP rules in 0009 | Accepted |
 | [0018](0018-a-host-rule-keeps-pods-off-the-internet.md) | A host rule keeps pods off the internet, including the seconds before a pod's network policy is written. Adds to 0014 | Accepted |
 | [0019](0019-how-the-audit-lines-and-the-worker-journal-are-copied.md) | How the audit lines and the worker's journal are copied: a follower and a pull, each as its own user, into capped append-only files, with a sequence in every audit line. Adds to 0014 | Accepted |
-| [0020](0020-an-edge-vm-for-the-way-out-and-the-mesh.md) | An edge VM in Denmark East for the way out, the mesh VPN node, and the package proxy, with a fetch window for upload hosts. The targets move to Poland Central. Replaces parts of 0003, 0007, 0009, and 0011 | Proposed |
+| [0020](0020-an-edge-vm-for-the-way-out-and-the-mesh.md) | An edge VM in Denmark East for the way out, the mesh VPN node, and the package proxy, with a fetch window for upload hosts. The targets move to Poland Central. Replaces parts of 0003, 0007, 0009, and 0011 | Accepted |
 
 ## Format
 
