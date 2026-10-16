@@ -2,7 +2,7 @@
 
 The tool service prints one audit line per decision. A host unit on the orchestrator copies the lines into an append-only file that no pod mounts. These checks test the copier and the file. The design is [ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md). What the file holds and who can change it is on the [audit log page](../security/audit-log.md).
 
-Status: **configured, not tested** on the live system. The copier is not installed on the orchestrator yet, so every check below fails there today. The fail side of `L.5` to `L.7` was seen with stubs: the probe's own lines, run on a workstation against made-up files and mount lists ([worklog](../worklogs/0003-toolchain-integration.md#the-checks-against-stubs)). The checks are in `validation/platform-checks.sh`.
+Status: **tested** on the live system on 2026-10-16: every check below passes. `L.1`, `L.3`, `L.4`, and `L.5` failed when their condition was broken, and `L.2`, `L.6`, and `L.7` before the install ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). The fail side of `L.6` and `L.7` was also seen with stubs: the probe's own lines, run on a workstation against made-up files and mount lists ([worklog](../worklogs/0003-toolchain-integration.md#the-checks-against-stubs)). The checks are in `validation/platform-checks.sh`.
 
 ## On the orchestrator
 
@@ -18,7 +18,7 @@ Status: **configured, not tested** on the live system. The copier is not install
 
 ## The worker's journal
 
-Status: **configured, not tested** on the live system, like the `L` checks. Neither VM has the puller or the export account yet.
+Status: **tested** on the live system on 2026-10-16: every check below passes. `J.1`, `J.2`, `J.3`, `J.5`, `J.7`, `J.8`, and `J.9` failed when their condition was broken, and all nine before the install ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). `J.5` was wrong on its first run and is fixed in commit `0c1eba2`. `J.4` and `J.6` were not broken on purpose: `J.4` fails on a marker line, which the puller's tests cover, and the other side of `J.6`, an answer to a cursor, was seen.
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |

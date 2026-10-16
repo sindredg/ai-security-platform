@@ -55,6 +55,9 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-16 | 119 of 119 passed | From `main` at `1e9a14f`, at 14:12 UTC. `U.1` and `U.5` passed after the unattended runs |
 | 2026-10-16 | 119 of 120 passed | First run with `U.6`. It failed: the mesh agent's own updater was on (`AutoUpdate.Apply` `true`) |
 | 2026-10-16 | 120 of 120 passed | After `tailscale set --auto-update=false` on the orchestrator, at 17:15 UTC |
+| 2026-10-16 | 127 of 136 passed | After the audit copier and the new tool service image were installed, with the `L` and `J` checks. The nine `J` checks failed: the journal pull was not installed yet |
+| 2026-10-16 | 135 of 136 passed | After the journal pull was installed. `J.5` failed on a correct pin: the check compared the scanner's banner too |
+| 2026-10-16 | 136 of 136 passed | After the fix to `J.5`, at commit `0c1eba2`. See the [rollout](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies) |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 

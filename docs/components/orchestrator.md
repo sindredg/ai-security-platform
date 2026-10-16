@@ -22,8 +22,8 @@ The one trusted machine. It runs the cluster, routes for the mesh VPN, copies so
 | `aisec-mss-clamp` | Rewrites the TCP segment size on routed connections | [Mesh VPN](mesh-vpn.md) |
 | `aisec-pod-egress` | Loads the host rule that drops forwarded traffic from pods to anything but pods | [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md), [containment](../validation/containment.md#the-orchestrators-side) |
 | `squid` | Package proxy for the worker | [Package proxy](package-proxy.md) |
-| `aisec-audit-copy` | Copies the tool service's audit lines into an append-only file. Written, not installed on the running VM | [Audit log](../security/audit-log.md) |
-| `aisec-journal-pull.timer` | Pulls the worker's journal every five minutes into an append-only file. Written, not installed on the running VM | [Audit log](../security/audit-log.md#the-workers-journal) |
+| `aisec-audit-copy` | Copies the tool service's audit lines into an append-only file. Running since 2026-10-16 (`L.1`) | [Audit log](../security/audit-log.md) |
+| `aisec-journal-pull.timer` | Pulls the worker's journal every five minutes into an append-only file. Running since 2026-10-16 (`J.1`) | [Audit log](../security/audit-log.md#the-workers-journal) |
 | `ssh` | Administration, key only | [Validation: host hardening](../validation/host-hardening.md) |
 
 ## First boot

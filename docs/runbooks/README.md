@@ -9,3 +9,4 @@ One operator procedure per milestone, or per slice of a milestone that is built 
 | [Model server](model-server.md) | 3 | Implemented on 2026-10-11. Built once |
 | [Agent runtime](agent-runtime.md) | 3 | Implemented on 2026-10-12. Installed once |
 | [Tool service](tool-service.md) | 3 | Implemented on 2026-10-15. Deployed once |
+| [Audit log and journal copies](audit-log.md) | 3 | Implemented on 2026-10-16. Installed once. Archive not run |

@@ -2,9 +2,13 @@
 
 Where the tool service's audit lines are stored, and who can change them. What a line holds is on the [tool service](tool-service.md#the-audit-line) page. The design is ADRs [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) and [0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md).
 
-State: **Written.** The copier, its unit, and its install script are in `platform/logs/`, tested in the pipeline, and in the orchestrator's first-boot template. Not installed on the running orchestrator, so not tested there. The checks are `L.1` to `L.7` on [validation](../validation/audit-log.md).
+State: **Verified** on 2026-10-16. The copier, its unit, and its install script are in `platform/logs/` and the orchestrator's first-boot template. It runs on the orchestrator, and each check was seen to fail, on a broken condition or before the install ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). The checks are `L.1` to `L.7` on [validation](../validation/audit-log.md).
 
 The worker's journal is the second log in ADR 0019. See [the worker's journal](#the-workers-journal) below.
+
+![The two copies on the orchestrator: the tool service pod writes audit lines to standard output, the container runtime keeps them in the pod log, and the audit copier reads that log every two seconds and appends each line to an append-only audit file. The journal pull asks the worker's forced export command for journal lines after a saved cursor, over SSH every five minutes, and appends them to an append-only journal file](../diagrams/log-copies.svg)
+
+The diagram source is [`diagrams/log-copies.html`](../diagrams/log-copies.html).
 
 ## The path of a line
 
@@ -40,7 +44,7 @@ A pass fails, and the copier's health file is not touched, when no log file of t
 
 ## The worker's journal
 
-State: **Written**, like the copier. The account and the command on the worker are in `worker/log-export/`, the puller in `platform/logs/`, and both in the first-boot templates. Not installed on either running VM. The checks are `J.1` to `J.9` on [validation](../validation/audit-log.md#the-workers-journal).
+State: **Verified** on 2026-10-16. The account and the command on the worker are in `worker/log-export/`, the puller in `platform/logs/`, and both in the first-boot templates. Both ends run on the live VMs ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). The checks are `J.1` to `J.9` on [validation](../validation/audit-log.md#the-workers-journal).
 
 Every five minutes, `aisec-journal-pull` on the orchestrator connects to the worker as `aisec-logexport` and appends what it gets to `/var/log/aisec/worker-journal.jsonl`.
 

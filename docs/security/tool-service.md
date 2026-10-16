@@ -59,9 +59,9 @@ One JSON object per decision, on standard output. Standard output carries nothin
 | `reason` | Why, for a refusal |
 | `result_bytes` | The size of an allowed tool result. The result itself is not logged |
 
-The manifest names an image built with `start` and `seq`, from commit `d2dec08`. The pod running on the orchestrator predates them until the next deploy, and `T.2` fails until then.
+The pod runs the image built with `start` and `seq`, from commit `d2dec08`, since 2026-10-16 (`T.2`).
 
-The service writes to standard output and opens no log file. A host service, `aisec-audit-copy`, appends them to a file that no pod mounts. It is written and not yet installed on the running orchestrator. Storage and who can change it are on the [audit log](audit-log.md) page.
+The service writes to standard output and opens no log file. A host service, `aisec-audit-copy`, appends them to a file that no pod mounts. It runs on the orchestrator since 2026-10-16. Storage and who can change it are on the [audit log](audit-log.md) page.
 
 ## Deployment controls
 

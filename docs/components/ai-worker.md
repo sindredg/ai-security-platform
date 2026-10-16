@@ -27,7 +27,7 @@ It is not part of the cluster. It downloads nothing at first boot, because it ha
 
 ## What reaches it
 
-SSH from the orchestrator subnet, and nothing else. Two keys are authorized for the administrator account: the operator's and the orchestrator's feed key. A third, the orchestrator's log export key, goes on the `aisec-logexport` account and can run only the journal export ([audit log](../security/audit-log.md#the-workers-journal)). Written, not installed on the running VM.
+SSH from the orchestrator subnet, and nothing else. Two keys are authorized for the administrator account: the operator's and the orchestrator's feed key. A third, the orchestrator's log export key, goes on the `aisec-logexport` account and can run only the journal export ([audit log](../security/audit-log.md#the-workers-journal)). In place since 2026-10-16 (`J.7`).
 
 ## The model server
 

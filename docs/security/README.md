@@ -8,13 +8,13 @@ The method is in [ADR 0010](../decisions/0010-threat-model-and-security-checks-p
 
 | Topic | What it holds | State |
 | --- | --- | --- |
-| [Threat model](threat-model.md) | Scope, assets, attackers, six trust boundaries, and 36 threats with the control and the gate for each | First pass. States reviewed on 2026-10-15 |
+| [Threat model](threat-model.md) | Scope, assets, attackers, six trust boundaries, and 36 threats with the control and the gate for each | First pass. States reviewed on 2026-10-15. T21 moved on 2026-10-16 |
 | [AI-specific threats](ai-threats.md) | Eight threats that exist because a model reads untrusted text and can act on it | First pass. States reviewed on 2026-10-15 |
-| [Tool service and job identity](tool-service.md) | Job authentication, tool authorization, and audit fields | Deployed on 2026-10-15. The deployment and one round trip from the worker are tested on the running system |
-| [Credential inventory](credentials.md) | Every secret: where it lives, who can read it, how it is rotated | Current on 2026-10-15. Two milestone 3 credentials are planned and have not been created |
+| [Tool service and job identity](tool-service.md) | Job authentication, tool authorization, and audit fields | Deployed on 2026-10-15, redeployed on 2026-10-16 with numbered audit lines. The deployment and one round trip from the worker are tested on the running system |
+| [Credential inventory](credentials.md) | Every secret: where it lives, who can read it, how it is rotated | Current on 2026-10-16. One milestone 3 credential, the dispatch key, is planned and has not been created |
 | [Hardening](hardening.md) | The baseline on the VMs and the cluster, benchmark results, what was left alone, and what is open | Current on 2026-10-16. The benchmark results predate the orchestrator rebuild |
 | [Accepted risks and open items](accepted-risks.md) | Risks carried on purpose, and threats that no decision covers yet | Current on 2026-10-16 |
-| [Audit log](audit-log.md) | Where the tool service's audit lines are stored, and who can change them | Written on 2026-10-16. Not installed on the running orchestrator |
+| [Audit log](audit-log.md) | Where the tool service's audit lines are stored, and who can change them | Verified on 2026-10-16: both copies run on the live VMs ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)) |
 | [Lab against production](lab-vs-production.md) | Controls to retain, lab limitations, and risks that production infrastructure cannot remove | Rewritten on 2026-10-14. States moved on 2026-10-16 |
 
 ## Planned topics
@@ -43,5 +43,5 @@ The short list, for a reader who opens only this page. Detail is in the topic pa
 1. **A compromised orchestrator can control the platform.** It holds every credential that matters and reaches any host on TCP 443 and 80. Accepted.
 2. **One operator.** One Azure account owns both sides and one GitHub account approves every change. Accepted.
 3. **Tool authorization relies on custom code.** The service is implemented, its rejection cases are tested in CI, and it is deployed. One round trip from the worker is tested on the running platform. Dispatch is not built. See [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md).
-4. **Monitoring is incomplete.** No audit daemon, remote log collection, or alerting is configured. The tool service writes audit entries, but persistent storage is not implemented. Log storage outside the VMs and alerts are planned for [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring).
+4. **Monitoring is incomplete.** No audit daemon, remote log collection, or alerting is configured. The audit lines and the worker's journal are copied to append-only files on the orchestrator, where root can still edit them. Log storage outside the VMs and alerts are planned for [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring).
 5. **Each VM has been rebuilt once, and never both together.** The worker and the orchestrator were each rebuilt from their templates and passed every check. A full rebuild from an empty subscription has not been tested. Accepted.
