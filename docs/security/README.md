@@ -8,7 +8,7 @@ The method is in [ADR 0010](../decisions/0010-threat-model-and-security-checks-p
 
 | Topic | What it holds | State |
 | --- | --- | --- |
-| [Threat model](threat-model.md) | Scope, assets, attackers, six trust boundaries, and 36 threats with the control and the gate for each | First pass. States reviewed on 2026-10-15. Rows decided by ADRs 0020 to 0025 moved on 2026-10-16 |
+| [Threat model](threat-model.md) | Scope, assets, attackers, six trust boundaries, and 43 threats with the control and the gate for each | First pass. States reviewed on 2026-10-15. Rows decided by ADRs 0020 to 0025 moved, and T37 to T43 added, on 2026-10-16 |
 | [AI-specific threats](ai-threats.md) | Eight threats that exist because a model reads untrusted text and can act on it | First pass. States reviewed on 2026-10-15 |
 | [Tool service and job identity](tool-service.md) | Job authentication, tool authorization, and audit fields | Deployed on 2026-10-15, redeployed on 2026-10-16 with numbered audit lines. The deployment and one round trip from the worker are tested on the running system |
 | [Credential inventory](credentials.md) | Every secret: where it lives, who can read it, how it is rotated | Current on 2026-10-16. The dispatch key and the milestone 3a credentials are decided and have not been created |
