@@ -13,6 +13,7 @@ What has been tightened on the machines and the cluster, what was left alone on 
 | Files and packages | Cron and SSH configuration closed to group and world. No compiler, assembler, or linker. Unattended security upgrades | The same, and the [`U` checks](../validation/package-proxy.md) |
 | K3s | Secrets encryption, kernel default protection, audit log at metadata level, no anonymous API access, certificate files at `600`, no token on default service accounts | [`K` checks](../validation/cluster.md) |
 | Workloads | The tool service pod runs as user 65532 with no service account token, no privilege escalation, no capabilities, and a read-only root file system. Both workload namespaces enforce the restricted pod security level and deny by default. Node ports answer on the private address only. A host rule drops forwarded traffic from pods to anything but pods | [`T` checks](../validation/tool-service.md), `E.6` and `E.7` on [containment](../validation/containment.md) |
+| Audit copier | Its own user, no network, no capabilities, a read-only view of the system except its state folder and `/var/log/aisec`, and 256 MiB of memory. It appends to a file with the append-only attribute. Written, not installed | [`L` checks](../validation/audit-log.md) |
 | Package proxy | Two hosts, two methods, one port, one client subnet, in a systemd sandbox | [`P` checks](../validation/package-proxy.md) |
 
 ## Benchmarks

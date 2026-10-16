@@ -14,6 +14,7 @@ The method is in [ADR 0010](../decisions/0010-threat-model-and-security-checks-p
 | [Credential inventory](credentials.md) | Every secret: where it lives, who can read it, how it is rotated | Current on 2026-10-15. Two milestone 3 credentials are planned and have not been created |
 | [Hardening](hardening.md) | The baseline on the VMs and the cluster, benchmark results, what was left alone, and what is open | Current on 2026-10-16. The benchmark results predate the orchestrator rebuild |
 | [Accepted risks and open items](accepted-risks.md) | Risks carried on purpose, and threats that no decision covers yet | Current on 2026-10-16 |
+| [Audit log](audit-log.md) | Where the tool service's audit lines are stored, and who can change them | Written on 2026-10-16. Not installed on the running orchestrator |
 | [Lab against production](lab-vs-production.md) | Controls to retain, lab limitations, and risks that production infrastructure cannot remove | Rewritten on 2026-10-14. States moved on 2026-10-16 |
 
 ## Planned topics
@@ -22,7 +23,6 @@ No page yet. Each gets one when the milestone that builds it starts.
 
 | Topic | Question it answers | Milestone |
 | --- | --- | --- |
-| Audit log | Where the lines are stored, and who can delete them. What is recorded is on the [tool service](tool-service.md#the-audit-line) page | 3 |
 | Supply chain | Which artifacts are pinned by digest, which signatures are checked, and where an SBOM is needed | 3, 4, 8 |
 | Pull request content | What the broker allows a worker's proposal to carry into a public page | 5 |
 | Incident response | What to do about a compromised worker, a compromised target, or a leaked credential | 6 |

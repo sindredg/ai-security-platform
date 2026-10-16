@@ -41,8 +41,8 @@ A pass fails, and the copier's health file is not touched, when no log file of t
 ## Limits
 
 - **The last lines of a start can be lost without a trace.** A pod that crashes, or a deploy during a job, can take up to two seconds of lines with it, and a missing tail leaves no hole.
-- **A full file stops the record.** The cap protects the disk K3s needs. Requests without a token are not rate-limited yet ([open item](accepted-risks.md#open-items), T20), so a flood of refusals can fill it. Archiving is a manual procedure.
+- **A full file stops the record.** The cap protects the disk K3s needs. Requests without a token are not rate-limited yet ([open item](accepted-risks.md#open-items), T20, milestone 3a), so a flood of refusals can fill it. Archiving is a manual procedure.
 - **A rebuild of the orchestrator deletes the file.** Archive it first. See [lab against production](lab-vs-production.md#detection-and-response).
 - **The copier depends on the runtime's file layout.** A K3s release that changes the path, the line prefix, or the file mode makes the copier fail, and `L.4` with it. That is by design, and it also means an upgrade can stop the record until the copier is fixed.
 - **The ACL is reasoned, not observed.** That the default entries reach every new pod folder and rotated file is tested on the first deployment.
-- **Nothing alerts.** A failure shows when someone runs the checks.
+- **Nothing alerts.** A failure shows when someone runs the checks. Alerting is planned for [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring).
