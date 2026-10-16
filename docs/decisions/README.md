@@ -29,6 +29,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0025](0025-the-mesh-node-on-its-own-vm.md) | The mesh node on its own router VM, which no subnet can reach, with the agent's updates and log upload off. Replaces the mesh node in 0020 | Proposed |
 | [0022](0022-short-lived-ssh-certificates-for-the-operator.md) | Short-lived SSH certificates for the operator, signed by an OpenSSH certificate authority the operator keeps, and a tunnel to the Kubernetes API for that account only | Proposed |
 | [0023](0023-the-host-rule-limits-what-pods-reach-on-the-host.md) | The host rule also limits what pods reach on the host: the API server and the kubelet, nothing else. Adds to 0018 | Proposed |
+| [0024](0024-the-targets-in-their-own-repository-and-signed-commits.md) | The targets in their own public repository, where the broker writes, and commits to the platform repository signed by the operator's key, checked in the pipeline. Extends 0002 | Proposed |
 
 ## Format
 
