@@ -202,6 +202,7 @@ Run on 2026-10-16 between 21:24 and 21:32 UTC on both live VMs, from commit `53c
 | `-W 127.0.0.1:22`, and on the orchestrator `-W 127.0.0.1:6443` | `administratively prohibited` for 22 on each VM. The forward to 6443 opened |
 | Timer stopped, the ignored key file and the backup removed | Timer `inactive`, no line in the administrator's `authorized_keys` |
 | Every check without Azure | 144 of 144 |
+| Every check, the Azure ones included, at 21:44 UTC | 157 of 157 |
 
 The first run stopped at the worker's step 8. After the four refused logins, sshd's per-source penalty dropped every connection from `10.40.0.4` for 17 seconds, and the step's `sshd -T` got no answer. Every routed login reaches the worker from that address. [Troubleshooting 05](../troubleshooting/05-failed-logins-block-every-routed-session.md) has the detail. The worker's step 8 was then done read-only: the settings before were rebuilt from the kept drop-in and the other files sshd reads, given to `sshd -T` on standard input. On the orchestrator, which still had its old settings, the same rebuild gave output identical to the real `sshd -T`. On the worker, the rebuilt settings before and the real ones after are identical for another account and globally. The run then resumed at the worker's step 9, inside the revert timer's 15 minutes. The script waits for the penalty now, about 25 seconds on the orchestrator.
 
@@ -214,6 +215,5 @@ The orchestrator's log has the valid certificate refused before its reload at 21
 - No certificate was revoked, and the authority was not replaced. Steps 14 and 15 of the runbook have not run.
 - No staged file has gone through the feed account yet. The model server and agent runtime runbooks' changed steps have not run.
 - The orchestrator's address stays in every certificate until the router slice. A certificate copied to the orchestrator works on the worker from there.
-- The Azure checks did not run after the rollout. Nothing in Azure changed.
 - `operator_user_ca_public_key` has to be in the local `terraform.tfvars` before the next plan.
 
