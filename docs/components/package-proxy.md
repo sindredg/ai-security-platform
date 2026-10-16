@@ -9,7 +9,7 @@ How the worker gets security updates without getting the internet. Squid on the 
 | Version | Not pinned. The archive drops superseded versions, and a pin would hold back security fixes |
 | Listens on | `10.40.0.4:3128` only |
 | Configuration | `/etc/squid/squid.conf` and a systemd sandbox, both from cloud-init |
-| Decision | [0011](../decisions/0011-package-proxy-for-the-worker.md) |
+| Decision | [0011](../decisions/0011-package-proxy-for-the-worker.md). [0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) moves it to an edge VM in milestone 3a, with the same rules for the worker. Not built |
 
 ![How a package reaches the worker: from apt on the worker to Squid on the orchestrator over TCP 3128, through the NAT gateway to two Ubuntu package hosts, with every other request refused](../diagrams/update-path.svg)
 

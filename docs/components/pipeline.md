@@ -20,6 +20,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Ruff | Lint and format check on all Python files under `worker/`, `platform/`, and `tool-service/`. The tool service adds bugbear, the security rules, and import order |
 | Kubernetes manifests | kubeconform over every manifest under `platform/`, strict, against the cluster's Kubernetes release. Then every image line has to name a digest that is not the placeholder of zeros |
 | Tool service tests | The line count against the limit of 300, then the tests, on the pinned Python image with every package installed by hash |
+| Log copier tests | The unit tests of the audit copier and the journal puller under `platform/logs/`, on the pinned Python image. They use the standard library only, so nothing is installed |
 | Tool service image | hadolint on the Dockerfile, a build from the pinned base image, and a Trivy scan of the image that blocks on any finding with a fix. On `main`, the job pushes the image to the repository's package registry and writes its digest to the run summary |
 | Dependency scan | Trivy over the converter's Python pins: reports, never blocks. Trivy over the tool service's pins: blocks |
 
@@ -27,7 +28,7 @@ All but the dependency scan are required by the ruleset on `main`. The dependenc
 
 ## Repository settings
 
-Secret scanning with push protection is on. The ruleset `protect-main` refuses deletion and force pushes, and requires a pull request with every check above except the dependency scan. Read from the ruleset on 2026-10-14.
+Secret scanning with push protection is on. The ruleset `protect-main` refuses deletion and force pushes, and requires a pull request with every check above except the dependency scan. Read from the ruleset on 2026-10-16.
 
 ## Limits
 

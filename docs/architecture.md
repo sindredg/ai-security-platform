@@ -37,7 +37,7 @@ They share an Azure subscription, with separate Terraform roots, state, resource
 | Aspect | Platform | Targets |
 | --- | --- | --- |
 | Purpose | Orchestration, tools, AI workers, inference | The service under investigation and its lab fixtures |
-| Region | Sweden Central | Denmark East |
+| Region | Sweden Central | Denmark East. Moves to Poland Central in [milestone 3a](roadmap.md#3a-edge-network-and-monitoring) ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)) |
 | Terraform root | `infra/platform/` | `infra/targets/` |
 | Terraform state | Own storage account, own access scope | Own storage account, own access scope |
 | Resource groups | `rg-aisec-platform`, `rg-aisec-platform-state` | `rg-aisec-targets`, `rg-aisec-targets-state` |
@@ -79,6 +79,8 @@ Deployed. Every subnet has its own network security group and no default outboun
 | `10.50.1.0/27` | Denmark East | Rehearsal copy |
 | `10.42.0.0/16`, `10.43.0.0/16` | In cluster | K3s default pod and service ranges, never routed between networks |
 
+Decided for [milestone 3a](roadmap.md#3a-edge-network-and-monitoring), not built: an edge network, `10.45.0.0/24` in Denmark East, with the edge at `10.45.0.4` and the router at `10.45.0.36` ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). A private endpoint subnet for monitoring, `10.40.0.64/27` ([ADR 0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md)). The target network keeps its ranges and moves to Poland Central.
+
 ### Connectivity
 
 Global virtual network peering joins the two networks. Peering is plumbing, not a filter: once it exists, everything can route to everything. Network security groups on both sides deny by default and allow only what is listed here.
@@ -107,6 +109,8 @@ An allowed route is not authorization. Every allowed flow still needs applicatio
 
 No VM has a public address. The operator gets in over a mesh VPN: the orchestrator runs the agent and routes to both networks. No firewall rule names an operator address, because none is needed. Detail: [mesh VPN](components/mesh-vpn.md).
 
+Decided for milestone 3a, not built: the agent moves to a router VM that no subnet can reach ([ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md)), and operator logins use SSH certificates that expire after 12 hours ([ADR 0022](decisions/0022-short-lived-ssh-certificates-for-the-operator.md)).
+
 ### Egress
 
 The system has one outbound path to the internet: a NAT gateway on the orchestrator subnet. The orchestrator is the only machine that downloads anything. The worker and the targets get their software from the orchestrator, and three controls block their outbound access, because any one alone leaves a path open: no outbound method, explicit deny rules, and Azure Policy assigned outside both roots.
@@ -114,6 +118,8 @@ The system has one outbound path to the internet: a NAT gateway on the orchestra
 The worker has one exception: a proxy on the orchestrator that forwards package downloads to two hosts. The targets do not get it.
 
 Detail: [egress and policy](components/egress-and-policy.md), [package proxy](components/package-proxy.md).
+
+Decided for milestone 3a, not built: the NAT gateway and the package proxy move to an edge VM, and the orchestrator reaches the internet only through that proxy, with a short list of hosts and a fetch window the operator opens for builds ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)).
 
 ## Platform
 
@@ -209,7 +215,7 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 
 | Practice | What it covers | Lands with | State |
 | --- | --- | --- | --- |
-| Threat model | Threats per trust boundary, AI-specific threats, the control for each, residual risk, and the gap between this lab and production | Before platform compute, then updated with each decision | First pass written. States reviewed on 2026-10-14 and 2026-10-15 against the validation checks and repository settings |
+| Threat model | Threats per trust boundary, AI-specific threats, the control for each, residual risk, and the gap between this lab and production | Before platform compute, then updated with each decision | First pass written. States reviewed on 2026-10-14 and 2026-10-15 against the validation checks and repository settings, and moved on 2026-10-16 for ADRs 0020 to 0025 |
 | Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Built. Secret scanning, push protection, and a ruleset on `main`. Required checks are documented in the [pipeline page](components/pipeline.md#repository-settings) |
 | Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Built. The [pipeline page](components/pipeline.md#checks-on-every-pull-request) lists the checks and which are required |
 | Dependency updates | Automated pull requests that move the version pins | Platform compute | Configured. No update has been proposed yet |
@@ -217,7 +223,7 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current. Each long-lived credential on the VMs rotated once, except the worker log export key, made on 2026-10-16. The dispatch SSH key is planned and has not been created. The worker log export key is in use since 2026-10-16 |
 | Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Verified for audit output: the live tool service printed one JSON entry per decision, with no token ([worklog](worklogs/0003-toolchain-integration.md#the-round-trip)). Verified for storage on 2026-10-16: a host unit copies the lines into an append-only file on the orchestrator, `L.1` to `L.7` pass, and each was seen to fail, on a broken condition or before the install ([worklog](worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). Root on the orchestrator can still edit it ([audit log](security/audit-log.md)) |
 | Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Built for the model server: 38 inputs pinned by checksum and verified on the orchestrator ([worklog](worklogs/0003-toolchain-integration.md#download-and-verify)). Built for the agent runtime the same way, and for the tool service's 28 packages, which install by hash. The tool service image is pulled by digest, checked by `T.2`. No signature is checked, and there is no SBOM |
-| Monitoring | Logs and alerts kept outside the machines they describe | Edge network and monitoring | Planned |
+| Monitoring | Logs and alerts kept outside the machines they describe | Edge network and monitoring | Decided in [ADR 0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md): Azure Monitor over Private Link, alerts shown in the portal. Not built |
 | Incident response runbook | A compromised worker or target, a leaked credential | Operational drills | Planned |
 
 There is no compliance framework here. ISO 27001 and SOC 2 describe an organisation, and this one has a single operator.
@@ -233,7 +239,7 @@ There is no compliance framework here. ISO 27001 and SOC 2 describe an organisat
 
 The subscription allows 4 vCPUs per region and has no GPU quota. Both are treated as fixed. Quota counts VMs that exist, not VMs that run, so deallocating a VM frees nothing. Evidence is in the [preflight worklog](worklogs/0000-azure-preflight.md).
 
-That gives two VMs per region, with nothing to spare. [Milestone 3a](roadmap.md#3a-edge-network-and-monitoring) adds a third VM in Sweden Central, the edge, which needs the regional limit raised to 6. Until then the limit is 4.
+That gives two VMs per region, with nothing to spare. The limit cannot be raised for this subscription type. [Milestone 3a](roadmap.md#3a-edge-network-and-monitoring) puts the edge and the router in Denmark East and moves the targets to Poland Central ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). The table shows today's placement.
 
 | Region | VM | vCPUs | Size | State |
 | --- | --- | --- | --- | --- |
@@ -250,18 +256,18 @@ Idle use of the two built VMs is on their [component pages](components/README.md
 
 ## Repository layout
 
-`.github/`, `infra/`, `worker/`, `tool-service/`, `policies/`, `validation/`, and `docs/` exist. Every other directory appears with the milestone that needs it.
+`.github/`, `infra/`, `platform/`, `worker/`, `tool-service/`, `policies/`, `validation/`, and `docs/` exist. Every other directory appears with the milestone that needs it.
 
 ```text
 .github/            Static checks on pull requests, dependency update configuration
 infra/bootstrap/    Operator-run root: resource groups, state accounts, deployment identities
 infra/modules/      Shared Terraform modules
 infra/platform/     Platform Terraform root
-infra/targets/      Target Terraform root
-platform/           K3s component configuration and workflow templates
+infra/targets/      Target Terraform root. Moves to the targets repository in milestone 3a (ADR 0024)
+platform/           What the orchestrator runs: K3s manifests and the log copiers today, workflow templates later
 worker/             What the orchestrator copies to the AI worker: pins, build scripts, service units
 tool-service/       The MCP server that checks every tool call, its tests, and its pinned packages
-targets/netbox/     NetBox deployment definition, fixtures, consumer contract
+targets/netbox/     Not in this repository. NetBox, its fixtures, and the consumer contract go in the targets repository (ADR 0024)
 policies/           Target, tool, and change rules. Today: the tool service's
 collectors/         Collection and adaptation scripts
 validation/         Checks against the running system. Contract tests and drills come later
@@ -289,5 +295,5 @@ Each gets a decision record before the milestone that depends on it.
 - A separate VM limits what a compromised worker can reach. It does nothing against a compromised host or provider.
 - Both roots use the same network module. A change to it reaches both sides, so the separation is in state, identity, and network rules, not in the code.
 - The public address policy leaves one gap on the platform side. It refuses a public address on a network interface in both resource groups, and any public IP resource on the target side. Both are assigned from the bootstrap root and [validated](worklogs/0002-platform-compute.md#public-address-policy). The platform identity can still create a public IP resource in its own group, because the NAT gateway needs one. It cannot attach it to a machine.
-- The orchestrator's egress is not filtered by hostname. It can reach any host on TCP 443 and 80.
+- The orchestrator's egress is not filtered by hostname. It can reach any host on TCP 443 and 80. [ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) moves it behind a proxy on an edge VM in milestone 3a.
 - The [threat model](security/threat-model.md) is a first pass, written by the designer. The controls on the network, the VMs, and the repository are verified or built. Most of the rest are written, decided, or planned, and its [open items](security/accepted-risks.md#open-items) have no answer yet.
