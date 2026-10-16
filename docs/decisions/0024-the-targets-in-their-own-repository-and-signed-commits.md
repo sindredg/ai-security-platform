@@ -60,7 +60,7 @@ The platform repository keeps everything else: the bootstrap root, which still c
 
 - A second ruleset, on every branch, with the signature rule. An unsigned commit cannot be pushed anywhere in the repository.
 - A required check, "Commit signatures", verifies each commit in a pull request with `git verify-commit` against `.github/allowed_signers`. That file holds the public half of the operator's signing key and nothing else. A commit signed by GitHub, or by any other key, fails it. The squash commit GitHub makes at merge is outside the pull request's range and is not checked.
-- Dependabot's commits are signed by GitHub, so they fail the check. Dependabot pull requests are closed and their change is redone from the workstation, or the check gets an exception for commits whose author is `dependabot[bot]` and whose GitHub verification is valid. Which one is settled on the first Dependabot pull request after the rule.
+- No exception, Dependabot included. Its commits are signed by GitHub, so its pull requests fail the check and cannot merge. Dependabot stays on as a source of proposals: the operator makes the same version change from the workstation, in a pull request of its own, and closes Dependabot's.
 - Merges are squash only. Rebase merges are turned off, because GitHub does not sign them, and merge commits too, so that one method is in use.
 - The signing key is the SSH key already configured, protected by a passphrase and loaded into the agent for the working session. The coding agent signs with it, so a signature shows "made on the workstation", not "approved by a person".
 
@@ -77,6 +77,6 @@ The targets repository gets the same rule and check. Its allowed signers are the
 - **A compromised workstation signs whatever it likes.** The key is there. That was true of every control in the repository before this record (T30).
 - **Two repositories to keep in step.** Two pipelines, two rulesets, and a pin to move when the module changes. The required checks of each are listed separately.
 - **History is not moved.** The commits that built `infra/targets/` stay in the platform repository's history. The new repository starts from a copy.
-- **Dependabot needs a decision.** Either its pull requests are redone by hand, or an exception trusts GitHub's signature for one author.
+- **Every version update is made by hand.** Dependabot finds them, and the operator redoes each one. A busy week of updates is a busy week of small pull requests. In return, no key but the operator's ever passes the check.
 - **The signature proves the machine, not the person.** A hardware key would prove presence, at the cost of a touch for every commit the coding agent makes. Not chosen.
 - **The containment rules stay on the platform side.** The worker-side denies are in the platform root, and the policy that refuses public addresses is in the bootstrap root. Moving the target root does not move them, which is what 0002 requires.
