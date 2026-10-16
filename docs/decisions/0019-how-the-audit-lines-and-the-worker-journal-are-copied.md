@@ -80,5 +80,5 @@ How the journal is stored on the orchestrator:
 - **The sequence finds holes, not a missing tail.** Lines lost at the end of a start, before a copy, leave no hole. The two-second interval and the wait before a deploy keep that window short. They do not close it: a pod that crashes, or a deploy run while a job is active, can still lose its last lines.
 - **A full file stops the record.** At the cap, new audit lines stay in the runtime's rotation until it drops them. A flood of refused requests can reach the cap, and requests without a token are not rate-limited yet (T20, an [open item](../security/accepted-risks.md#open-items)). The cap protects the disk K3s needs, and gives up completeness to do it.
 - **The worker can still lie.** Root on the worker can forge entries, and erase what was written since the last pull, which can be up to five minutes. 0014 accepted this.
-- **Root on the orchestrator can still edit both copies.** 0014 accepted this as a lab limit.
-- **Nothing alerts.** A failed copier shows up in `HO.1` and in the new log checks, and only when someone runs them.
+- **Root on the orchestrator can still edit both copies.** 0014 accepted this as a lab limit. [Milestone 3a](../roadmap.md#3a-edge-network-and-monitoring) plans a copy outside the VMs.
+- **Nothing alerts.** A failed copier shows up in `HO.1` and in the new log checks, and only when someone runs them. Alerting is planned for [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring).
