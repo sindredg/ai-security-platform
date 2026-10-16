@@ -901,4 +901,15 @@ Both are read-only checks, run from the workstation against the live VMs with `v
 
 ### Rollout
 
-Not installed yet. The runbook's step 2 installs the fixed copier over the running one and keeps the file and the position. `L.8` passes once it has run.
+Installed on the live orchestrator from commit `9541326` at 19:07 UTC, with the runbook's steps 1 and 2: copy the files, run `install-audit-copy.sh` again. It kept the file and the position and restarted the unit.
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| `L` checks before | `L.1` to `L.7` pass, `L.8` fails | As expected |
+| Line count and position before | A count and a position | 47 lines, position `1792177196654002381` |
+| Install again | `acl` already installed, the unit restarts | `0 newly installed`. The unit restarted at 19:07:47 |
+| The installed program | Active, with the whole-line `read()` | `active`, the docstring found once |
+| One refused request from the worker | HTTP 401, the line in the file with the next `seq` | HTTP 401. The file's last line: `"seq":28`, `"reason":"no token, or a malformed one"` |
+| Every check | All pass | `138 passed, 0 failed`, `L.8` included |
+
+The count after the request was 49, not 48. The extra line is `seq` 27 at 19:07:41, the `T.10` request of the check run in the first step: the count was read before the next pass copied it. Read afterwards, `seq` 26 to 29 are in the file with no gap, and `L.6` passes.
