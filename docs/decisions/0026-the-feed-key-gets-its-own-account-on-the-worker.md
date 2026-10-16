@@ -1,6 +1,6 @@
 # 0026. The feed key gets its own account on the worker
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-16
 
 Supersedes two parts of [0022](0022-short-lived-ssh-certificates-for-the-operator.md): that the feed key is left as it is, and the `source-address` of a certificate until the router exists. The rest of 0022 stands.
