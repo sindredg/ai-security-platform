@@ -21,14 +21,14 @@ The diagram source is [`diagrams/log-copies.html`](../diagrams/log-copies.html).
 | Who | The pod's log | The audit file |
 | --- | --- | --- |
 | The tool service, or a worker that took it | Adds lines, through standard output. Cannot rewrite them | Nothing. No pod mounts the folder (`L.5`) |
-| `aisec-audit-copy` | Reads, through a default ACL for its group | Appends. Cannot truncate, rewrite, delete, or remove the append-only attribute, because it is not root and holds no capability |
+| `aisec-audit-copy` | Reads, through a default ACL for its group. The ACL is on `/var/log/pods`, so it reads every pod's log on the host, not only the tool service's. It has no network to send them anywhere | Appends. Cannot truncate, rewrite, delete, or remove the append-only attribute, because it is not root and holds no capability |
 | Root on the orchestrator | Everything | Everything, after removing the attribute. Accepted in [lab against production](lab-vs-production.md#detection-and-response) |
 
 The file is `0620 root:aisec-audit-copy` with `chattr +a` (`L.3`). The copier runs without a network, with a read-only view of the system except for its state folder and `/var/log/aisec`, and with 256 MiB of memory.
 
 ## What the copier refuses
 
-The copier reads text that a compromised worker shapes, on the trusted machine. It copies a line as it is only when the runtime marks it as a whole line on standard output and it parses as one JSON object. Anything else becomes a marker line with the reason, the runtime's time stamp, and the size. The original is not copied. `L.7` fails on any marker.
+The copier reads text that a compromised worker shapes, on the trusted machine. It copies a line as it is only when the runtime marks it as a whole line on standard output and it parses as one JSON object. Anything else becomes a marker line with the reason, the runtime's time stamp, and the size. The original is not copied. `L.7` fails on any marker. A last line without its newline is left for the next pass: the runtime may still be writing it, and a pass that read half of it would make a marker and move past the whole line for good.
 
 A pass fails, and the copier's health file is not touched, when no log file of the service is found, a file cannot be read, or a time stamp from the runtime does not parse. Each of these means the layout changed. `L.4` fails when the copier has not succeeded for ten seconds.
 

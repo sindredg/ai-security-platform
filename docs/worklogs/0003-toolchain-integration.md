@@ -861,3 +861,44 @@ The corrected check, against the live worker:
 - The kubelet's rotation of the pod's log has not happened yet, so a rotated file has not been read by the copier.
 - The worker's journal copy is complete only back to what the worker kept. The first pull took the whole journal, 14,331 lines.
 
+
+## Fix: whole lines only
+
+Date: 2026-10-16, after the rollout. A review of the copier before merge found that it read the last line of a log file even when that line had no newline yet.
+
+### The defect
+
+The container runtime writes each line with one `write` call, but a reader can still see part of it. `read()` kept that part. A part cut inside the JSON parsed as a whole line with a valid time stamp, so the copier wrote a "not a JSON object" marker and saved the line's time stamp as its position. The whole line, once written, carried the same time stamp and was never copied. `L.6` and `L.7` would show it, so the loss is not silent.
+
+Reproduced with stubs on the workstation: a line cut to 45 bytes, one pass, then the whole line and a second pass. The output held only the marker. How often a pass meets a write halfway is reasoned, not measured. It was not seen on the live system.
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| `platform/logs/aisec_audit_copy.py` | `read()` returns whole lines only. A last line without its newline waits for the next pass |
+| `platform/logs/tests/test_audit_copy.py` | A line cut inside its JSON, then completed: no copy on the first pass, the line on the second |
+| `validation/platform-checks.sh` | `L.8` and `J.10`: the installed program and unit (and timer, for the puller) equal the files in the checkout |
+| `.github/workflows/checks.yml` | ShellCheck also reads `worker/log-export/aisec-journal-export`, which has no `.sh` extension and was skipped |
+
+### Tests
+
+| Run | Expected | Result |
+| --- | --- | --- |
+| `python3 -m unittest discover -s tests` in `platform/logs`, with the fix | All pass | `Ran 28 tests`, `OK` |
+| The same against the copier before the fix | The new test fails | `FAILED (failures=1)`, `AssertionError: 1 != 0`: the marker was copied on the first pass |
+| Ruff 0.17.0, `check` and `format --check` on `worker platform tool-service` | Clean | `All checks passed!`, `26 files already formatted` |
+| ShellCheck 0.11.0 on the pipeline's new file list | 18 files, clean | 18 files, exit 0. A copy of the export with an unquoted variable added: exit 1 |
+
+### `L.8` and `J.10` on the live system
+
+Both are read-only checks, run from the workstation against the live VMs with `validation/platform-checks.sh`. Nothing under `platform/logs/` changed between the installed commit `4218b0a` and the fix, so the installed files are those of `4218b0a`.
+
+| Checkout | Expected | Result |
+| --- | --- | --- |
+| With the fix | `L.8` fails, `J.10` passes, the rest pass | `137 passed, 1 failed`: `L.8` |
+| The copier before the fix, and one line added to the puller's timer | `L.8` passes, `J.10` fails | `137 passed, 1 failed`: `J.10` |
+
+### Rollout
+
+Not installed yet. The runbook's step 2 installs the fixed copier over the running one and keeps the file and the position. `L.8` passes once it has run.
