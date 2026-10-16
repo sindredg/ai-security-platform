@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 608" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="tool-service-cluster-title tool-service-cluster-desc" id="tool-service-cluster-root">
+        <title id="tool-service-cluster-title">Tool service in the cluster</title>
+        <desc id="tool-service-cluster-desc">Architecture diagram of the tool service inside K3s on the orchestrator: the AI worker reaches the tool listener on port 8443 only through node port 30443 on the private address, over TLS 1.3 to a pinned certificate; a short-lived dispatch pod in the orchestration namespace registers jobs on port 8444; the pod reads its policy, key set, evidence, and certificate from a read-only volume and writes audit lines to its log; its egress to the internet and a mesh device's connection to the tool port are blocked.</desc>
+        <defs>
+      <style>#tool-service-cluster-root { --color-paper:   #2d3142;   
+      --color-ink:     #f5f5f5;   
+      --color-muted:   #bfc0c0;
+      --color-accent:  #f08a59;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace; }
+      #tool-service-cluster-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #tool-service-cluster-root .diagram-container { width: 100%; overflow-x: auto; }
+      #tool-service-cluster-root .diagram-container { overflow-x: visible; }</style>
+          <marker id="tool-service-cluster-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
+          <marker id="tool-service-cluster-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
+          <marker id="tool-service-cluster-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#739fdf"/></marker>
+        </defs>
+        <rect width="100%" height="100%" fill="#2d3142"/>
+        <!-- Zones -->
+        <rect x="224" y="56" width="600" height="424" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="446" y="60" width="156" height="12" rx="2" fill="#2d3142"/>
+        <text x="524" y="69" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">ORCHESTRATOR VM · 10.40.0.4</text>
+        <rect x="240" y="336" width="152" height="128" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="276" y="340" width="80" height="12" rx="2" fill="#2d3142"/>
+        <text x="316" y="349" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">ORCHESTRATION</text>
+        <rect x="400" y="88" width="232" height="376" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="476" y="92" width="80" height="12" rx="2" fill="#2d3142"/>
+        <text x="516" y="101" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">TOOL-SERVICES</text>
+        <!-- Allowed paths -->
+        <line x1="144" y1="232" x2="244" y2="232" fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#tool-service-cluster-arrow-accent)"/>
+        <line x1="380" y1="232" x2="424" y2="232" fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#tool-service-cluster-arrow-accent)"/>
+        <line x1="516" y1="184" x2="516" y2="208" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#tool-service-cluster-arrow)"/>
+        <path d="M 376,408 H 508 Q 516,408 516,400 V 320" fill="none" stroke="#bfc0c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#tool-service-cluster-arrow)"/>
+        <line x1="608" y1="232" x2="656" y2="232" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#tool-service-cluster-arrow)"/>
+        <!-- Blocked paths: dashed, no arrowhead, ending in a stop bar -->
+        <line x1="144" y1="120" x2="216" y2="120" fill="none" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
+        <line x1="220" y1="108" x2="220" y2="132" stroke="#f5f5f5" stroke-width="2"/>
+        <line x1="608" y1="296" x2="816" y2="296" fill="none" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
+        <line x1="820" y1="284" x2="820" y2="308" stroke="#f5f5f5" stroke-width="2"/>
+        <!-- Labels -->
+        <rect x="178" y="212" width="36" height="12" rx="2" fill="#2d3142"/>
+        <text x="196" y="221" fill="#f08a59" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">30443</text>
+        <rect x="164" y="100" width="40" height="12" rx="2" fill="#2d3142"/>
+        <text x="184" y="109" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">DENIED</text>
+        <rect x="526" y="354" width="52" height="12" rx="2" fill="#2d3142"/>
+        <text x="552" y="363" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">REGISTER</text>
+        <rect x="684" y="276" width="56" height="12" rx="2" fill="#2d3142"/>
+        <text x="712" y="285" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">NO EGRESS</text>
+        <!-- Nodes -->
+        <rect x="24" y="88" width="120" height="64" rx="6" fill="#2d3142"/>
+        <rect x="24" y="88" width="120" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <rect x="32" y="96" width="28" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
+        <text x="46" y="105" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="84" y="124" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Mesh device</text>
+        <text x="84" y="140" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">operator&#8217;s, signed</text>
+        <rect x="24" y="184" width="120" height="96" rx="6" fill="#2d3142"/>
+        <rect x="24" y="184" width="120" height="96" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <rect x="32" y="192" width="56" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
+        <text x="60" y="201" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">UNTRUSTED</text>
+        <text x="84" y="220" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">AI worker VM</text>
+        <text x="84" y="236" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.40.0.36</text>
+        <text x="84" y="250" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">TLS 1.3 only</text>
+        <text x="84" y="264" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">one pinned cert</text>
+        <rect x="244" y="200" width="136" height="64" rx="6" fill="#2d3142"/>
+        <rect x="244" y="200" width="136" height="64" rx="6" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
+        <rect x="252" y="208" width="32" height="12" rx="2" fill="none" stroke="#f08a59" stroke-opacity="0.50" stroke-width="0.8"/>
+        <text x="268" y="217" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">GATE</text>
+        <text x="312" y="236" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Node port 30443</text>
+        <text x="312" y="252" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.40.0.4 only</text>
+        <rect x="256" y="376" width="120" height="72" rx="6" fill="#2d3142"/>
+        <rect x="256" y="376" width="120" height="72" rx="6" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.20" stroke-width="1" stroke-dasharray="4,3"/>
+        <rect x="264" y="384" width="36" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
+        <text x="282" y="393" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">SHORT</text>
+        <text x="316" y="412" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Dispatch pod</text>
+        <text x="316" y="428" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">register.sh today</text>
+        <text x="316" y="442" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">projected token</text>
+        <rect x="424" y="112" width="184" height="72" rx="6" fill="#2d3142"/>
+        <rect x="424" y="112" width="184" height="72" rx="6" fill="#f5f5f5" fill-opacity="0.05" stroke="#bfc0c0" stroke-width="1"/>
+        <rect x="432" y="120" width="36" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
+        <text x="450" y="129" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">FILES</text>
+        <text x="516" y="148" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Mounted read-only</text>
+        <text x="516" y="164" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">policy · cluster key set</text>
+        <text x="516" y="178" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">evidence · certificate, key</text>
+        <rect x="424" y="208" width="184" height="112" rx="6" fill="#2d3142"/>
+        <rect x="424" y="208" width="184" height="112" rx="6" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
+        <rect x="432" y="216" width="68" height="12" rx="2" fill="none" stroke="#f08a59" stroke-opacity="0.50" stroke-width="0.8"/>
+        <text x="466" y="225" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">PARSES INPUT</text>
+        <text x="516" y="244" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Tool service pod</text>
+        <text x="516" y="260" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">8443 tools · 8444 registration</text>
+        <text x="516" y="274" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">user 65532 · no token</text>
+        <text x="516" y="288" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">read-only root</text>
+        <text x="516" y="302" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">no capabilities</text>
+        <rect x="656" y="200" width="144" height="64" rx="6" fill="#2d3142"/>
+        <rect x="656" y="200" width="144" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.05" stroke="#bfc0c0" stroke-width="1"/>
+        <rect x="664" y="208" width="28" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
+        <text x="678" y="217" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">LOG</text>
+        <text x="728" y="236" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Pod log</text>
+        <text x="728" y="252" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">audit lines · not stored</text>
+        <rect x="848" y="264" width="88" height="64" rx="6" fill="#2d3142"/>
+        <rect x="848" y="264" width="88" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <rect x="856" y="272" width="28" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
+        <text x="870" y="281" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
+        <text x="892" y="300" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Internet</text>
+        <text x="892" y="316" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">any host</text>
+        <!-- Legend -->
+        <line x1="24" y1="504" x2="936" y2="504" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <text x="24" y="520" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="24" y="536" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
+        <text x="44" y="544" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Parses what the worker sends</text>
+        <rect x="200" y="536" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="220" y="544" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Gate</text>
+        <rect x="256" y="536" width="14" height="10" rx="2" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="276" y="544" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Untrusted</text>
+        <rect x="340" y="536" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.05" stroke="#bfc0c0" stroke-width="1"/>
+        <text x="360" y="544" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">On the orchestrator</text>
+        <rect x="468" y="536" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.20" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="488" y="544" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Short-lived. Stands in for dispatch</text>
+        <rect x="684" y="536" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="704" y="544" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Outside the platform network</text>
+        <line x1="24" y1="562" x2="52" y2="562" stroke="#f08a59" stroke-width="1.4" marker-end="url(#tool-service-cluster-arrow-accent)"/>
+        <text x="60" y="564" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">The worker&#8217;s tool call, TLS 1.3 to the pinned certificate</text>
+        <line x1="372" y1="562" x2="400" y2="562" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#tool-service-cluster-arrow)"/>
+        <text x="408" y="564" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Allowed. Dashed: only while the pod runs</text>
+        <line x1="24" y1="582" x2="48" y2="582" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
+        <line x1="52" y1="576" x2="52" y2="588" stroke="#f5f5f5" stroke-width="2"/>
+        <text x="60" y="584" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Blocked. Pod egress: its network policy, and the host rule from ADR 0018 behind it. Mesh: the mesh policy, and no node port on the mesh address</text>
+      </svg>
