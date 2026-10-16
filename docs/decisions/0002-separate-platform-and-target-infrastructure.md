@@ -35,6 +35,8 @@ Separate the two at every layer the project controls.
 
 When one root needs a value from the other, such as an address range or a peering identifier, it gets it as an explicit input. It does not read the other root's state.
 
+[0024](0024-the-targets-in-their-own-repository-and-signed-commits.md) adds the repository as a layer: the targets move to their own.
+
 ## Trade-offs
 
 - **A subscription Owner can still change both sides.** The separation constrains workloads and automation, not that role.
