@@ -48,6 +48,8 @@ One JSON object per decision, on standard output. Standard output carries nothin
 | Field | Value |
 | --- | --- |
 | `ts` | The time, in UTC |
+| `start` | A random identifier, made once when the service starts |
+| `seq` | Counts from 1 within one `start`. A hole means a lost line ([ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md)) |
 | `event` | `call`, `request` for a refusal before it became a call, `register`, or `revoke` |
 | `job` | The job ID, or `null` when the request cannot be associated with a job |
 | `caller` | The source address |
@@ -56,6 +58,8 @@ One JSON object per decision, on standard output. Standard output carries nothin
 | `decision` | `allowed` or `refused` |
 | `reason` | Why, for a refusal |
 | `result_bytes` | The size of an allowed tool result. The result itself is not logged |
+
+The image running on the orchestrator predates `start` and `seq`. They arrive when the manifest's image digest moves.
 
 The service writes to standard output and opens no log file. A planned host service will append the entries to a file that no pod mounts. Persistent log storage has not been implemented.
 
