@@ -211,6 +211,7 @@ write_files:
         - audit-log-maxage=30
         - audit-log-maxbackup=10
         - audit-log-maxsize=100
+        - admission-control-config-file=/var/lib/rancher/k3s/server/psa.yaml
 
   - path: /var/lib/rancher/k3s/server/audit.yaml
     permissions: "0600"
@@ -219,6 +220,31 @@ write_files:
       kind: Policy
       rules:
         - level: Metadata
+
+  # Pod security for every namespace without a label: restricted, with no
+  # exemption. kube-system gets the baseline level by its own label below,
+  # because its pods pass baseline and not restricted.
+  - path: /var/lib/rancher/k3s/server/psa.yaml
+    permissions: "0600"
+    content: |
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: AdmissionConfiguration
+      plugins:
+        - name: PodSecurity
+          configuration:
+            apiVersion: pod-security.admission.config.k8s.io/v1
+            kind: PodSecurityConfiguration
+            defaults:
+              enforce: restricted
+              enforce-version: latest
+              audit: restricted
+              audit-version: latest
+              warn: restricted
+              warn-version: latest
+            exemptions:
+              usernames: []
+              runtimeClasses: []
+              namespaces: []
 
   # Single use. It is spent by the time anything else can read it, and the
   # script removes the file.
@@ -335,6 +361,11 @@ write_files:
         retry k3s kubectl patch serviceaccount default -n "$ns" \
           -p '{"automountServiceAccountToken": false}'
       done
+      # The system pods pass baseline: no privileged container, no host path,
+      # no host network. A namespace without a label gets restricted instead.
+      retry k3s kubectl label --overwrite namespace kube-system \
+        pod-security.kubernetes.io/enforce=baseline \
+        pod-security.kubernetes.io/enforce-version=latest
       chmod 600 /var/lib/rancher/k3s/server/tls/*.crt
 
       # The audit copier reads the pod logs, which exist once the kubelet runs.

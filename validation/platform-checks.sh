@@ -142,6 +142,17 @@ import json, sys
 config = json.load(sys.stdin)[\"kubeletconfig\"]
 print(str(config[\"authentication\"][\"anonymous\"][\"enabled\"]).lower(), config[\"authorization\"][\"mode\"])
 " 2>/dev/null)"
+# A privileged pod that mounts the root of the host, sent to every namespace as a
+# server-side dry run. Admission runs and nothing is stored. A namespace that
+# does not refuse it by pod security is listed, so an error is not a refusal.
+privileged_pod="{\"apiVersion\":\"v1\",\"kind\":\"Pod\",\"metadata\":{\"name\":\"aisec-privileged-probe\"},\"spec\":{\"containers\":[{\"name\":\"probe\",\"image\":\"registry.k8s.io/pause:3.10\",\"securityContext\":{\"privileged\":true},\"volumeMounts\":[{\"name\":\"host\",\"mountPath\":\"/host\"}]}],\"volumes\":[{\"name\":\"host\",\"hostPath\":{\"path\":\"/\"}}]}}"
+admitted=""
+namespaces=$(k3s kubectl get namespaces -o jsonpath="{.items[*].metadata.name}" 2>/dev/null)
+for ns in $namespaces; do
+  printf "%s" "$privileged_pod" | k3s kubectl create --dry-run=server -n "$ns" -f - 2>&1 | grep -q "violates PodSecurity" || admitted="$admitted $ns"
+done
+echo "privileged_admitted=$([ -z "$namespaces" ] && echo "no namespaces" || echo "${admitted:- none}" | sed "s/^ //")"
+echo "system_deployments_not_ready=$(k3s kubectl get deployments -n kube-system -o jsonpath="{range .items[*]}{.metadata.name} {.status.replicas} {.status.readyReplicas}{\"\n\"}{end}" 2>/dev/null | awk "NF { n++; if (\$2 != \$3) bad++ } END { print n ? bad + 0 : \"no deployments\" }")"
 echo "mss_rules=$(nft list table inet aisec_mss 2>/dev/null | grep -c maxseg)"
 echo "pod_egress=$(nft list chain inet aisec_pod_egress forward 2>/dev/null | sed -n "s/^\t\t//p" | sed "s/counter packets [0-9]* bytes [0-9]* /counter /" | tr "\n" "|")"
 echo "pod_egress_input=$(nft list chain inet aisec_pod_egress input 2>/dev/null | sed -n "s/^\t\t//p" | sed "s/counter packets [0-9]* bytes [0-9]* /counter /" | tr "\n" "|")"
@@ -298,6 +309,12 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # The kubelet's running configuration, as it reports it, so a later file in
   # its configuration folder or a flag cannot override it unseen.
   check K.8 "The kubelet refuses anonymous requests" "false Webhook" "$(value kubelet_auth)"
+  # Pod security refuses it in every namespace, labelled or not: restricted
+  # by default, baseline in kube-system by its label.
+  check K.9 "Every namespace refuses a privileged pod" none "$(value privileged_admitted)"
+  # A system pod that pod security refuses is never created, so K.3 does not
+  # see it. Its deployment stays short of ready.
+  check K.10 "Every system deployment is ready" 0 "$(value system_deployments_not_ready)"
   check R.1 "The mesh VPN agent is active" active "$(value unit_tailscaled)"
   check R.2 "The segment size clamp is loaded" 2 "$(value mss_rules)"
   check R.3 "The orchestrator forwards packets" 1 "$(value ip_forward)"
