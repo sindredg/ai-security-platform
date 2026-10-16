@@ -12,7 +12,7 @@ Security work has no milestone of its own. Each practice is part of the completi
 | 1. Network foundation | Done, with one check carried to milestone 2. [Worklog](worklogs/0001-network-foundation.md) |
 | 2. Platform compute | Done, with three stated gaps. No CIS result for the operating system, because no tool supports the release yet. Push protection is configured and not tested. No dependency update has been proposed yet. [Worklog](worklogs/0002-platform-compute.md) |
 | 3. Toolchain integration | In progress. The model server runs on the worker, and the agent runtime runs headless against it with a fixture tool. The tool service runs on the orchestrator and has answered tool calls from the worker with a job token. The audit lines and the worker's journal are copied to append-only files on the orchestrator. No workflow or dispatch step exists yet. Paused for milestone 3a. [Worklog](worklogs/0003-toolchain-integration.md) |
-| 3a. Edge network and monitoring | In progress since 2026-10-16. The orchestrator hardening slice is on the system. [Worklog](worklogs/0004-edge-network-and-monitoring.md) |
+| 3a. Edge network and monitoring | In progress since 2026-10-16. The orchestrator hardening slice and the SSH certificate slice are on the system. [Worklog](worklogs/0004-edge-network-and-monitoring.md) |
 | 4. NetBox target and exercise 1 investigation | Planned |
 | 5. Remediation, pull requests, and delivery | Planned |
 | 6. Operational and containment drills | Planned |

@@ -27,7 +27,7 @@ It is not part of the cluster. It downloads nothing at first boot, because it ha
 
 ## What reaches it
 
-SSH from the orchestrator subnet, and nothing else. Two keys are authorized for the administrator account: the operator's and the orchestrator's feed key. A third, the orchestrator's log export key, goes on the `aisec-logexport` account and can run only the journal export ([audit log](../security/audit-log.md#the-workers-journal)). In place since 2026-10-16 (`J.7`).
+SSH from the orchestrator subnet, and nothing else. The administrator account takes only the operator's certificate ([ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md), `HW.17`). The orchestrator's feed key logs in to `aisec-feed`, which has no sudo and can only unpack staged files into its own directory ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md), `E.9` to `E.11`). Both since 2026-10-16. The orchestrator's log export key goes on the `aisec-logexport` account and can run only the journal export ([audit log](../security/audit-log.md#the-workers-journal)). In place since 2026-10-16 (`J.7`).
 
 ## The model server
 

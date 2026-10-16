@@ -64,6 +64,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-16 | 123 of 125 passed | Without the Azure and workstation checks, before the [orchestrator hardening](../worklogs/0004-edge-network-and-monitoring.md#rollout). `E.8` and `K.9` failed: the input chain was not loaded, and four namespaces admitted a privileged pod |
 | 2026-10-16 | 143 of 143 passed | After the orchestrator hardening, at 20:18 UTC, from commit `7212a42` |
 | 2026-10-16 | 143 of 143 passed | After the tool service image with the [rate limit](../worklogs/0004-edge-network-and-monitoring.md#on-the-live-system) was deployed, at 20:39 UTC |
+| 2026-10-16 | 129 of 144 passed | Without the Azure checks, before the [SSH certificate rollout](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-of-each-new-check-1), with 14 new checks and 3 changed ones. The 15 that failed are the ones written down before the run |
+| 2026-10-16 | 144 of 144 passed | Without the Azure checks, after the [rollout](../worklogs/0004-edge-network-and-monitoring.md#rollout-1), from commit `53c921c` |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 

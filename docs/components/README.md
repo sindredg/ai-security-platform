@@ -35,7 +35,7 @@ Candidates, not selections, except the rows that name a decision record. Each ha
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
 | Edge VM | Squid and the NAT gateway on their own VM, [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md). Decided | That the orchestrator reaches only the hosts on the list, and only the edge resolves public names | 3a |
 | Mesh router VM | The mesh VPN agent alone on a VM no subnet reaches, [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md). Decided | That the operator gets in through it, and it cannot reach an operator device | 3a |
-| SSH certificates | OpenSSH's own certificate authority, [ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md). Decided | That a key without a certificate, and an expired certificate, are refused | 3a |
+| SSH certificates | OpenSSH's own certificate authority, [ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md). On both VMs since 2026-10-16 | Shown: a key without a certificate, and an expired certificate, are refused ([worklog](../worklogs/0004-edge-network-and-monitoring.md#rollout-1)). Still to show: a revocation, and a replacement of the authority | 3a |
 | Monitoring | Azure Monitor, with a log agent on the orchestrator, the edge, and the router, [ADR 0021](../decisions/0021-monitoring-in-azure-monitor-over-private-link.md). Decided | That logs and alerts stay out of reach of the machines they describe, and the agent's footprint | 3a |
 | First target | NetBox | See [ADR 0004](../decisions/0004-netbox-as-first-target.md) | 4 |
 

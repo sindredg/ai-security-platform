@@ -8,7 +8,7 @@ What has been tightened on the machines and the cluster, what was left alone on 
 | --- | --- | --- |
 | Azure | No public address on any VM, refused by policy. Trusted Launch with Secure Boot and a virtual TPM. Password login off | [`Z` checks](../validation/azure-policy.md) |
 | Network | Deny by default in both directions on every subnet. Explicit denies for the internet, the target network, and Azure DNS on the worker | [`C` and `Z` checks](../validation/containment.md) |
-| SSH daemon | Keys only, no root login, no forwarding, three tries | [`HO` and `HW` checks](../validation/host-hardening.md) |
+| SSH daemon | Keys only, and only a certificate for the administrator account. No root login, three tries. No forwarding, except the administrator's tunnel to the API server on the orchestrator | [`HO` and `HW` checks](../validation/host-hardening.md), [`A.8` to `A.10`](../validation/access.md) |
 | Kernel | SysRq off, pointers hidden, no redirects or source routing, hardened BPF JIT, five unused modules kept from loading | The same |
 | Files and packages | Cron and SSH configuration closed to group and world. No compiler, assembler, or linker. Unattended security upgrades | The same, and the [`U` checks](../validation/package-proxy.md) |
 | K3s | Secrets encryption, kernel default protection, audit log at metadata level, no anonymous access to the API server or the kubelet, certificate files at `600`, no token on default service accounts. Pod security `restricted` for every namespace without a label, `baseline` in `kube-system`, no exemption. Verified on 2026-10-16 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#slice-a-orchestrator-hardening)) | [`K` checks](../validation/cluster.md) |
@@ -51,5 +51,6 @@ The orchestrator was rebuilt on 2026-10-13. kube-bench and Lynis have not been r
 | No CIS result for the operating system | The audit that ran is not the benchmark the plan named | When a tool supports Ubuntu 26.04 |
 | The 50 kube-bench warnings are not reviewed one by one | Some are manual checks that could be real findings | Milestone 3, when the cluster has workloads |
 | Held and pinned software gets no security fix until someone moves the pin | The mesh VPN agent and K3s run all the time. `U.7` fails when the agent is behind the stable release. Nothing does the same for K3s | Each milestone start, from the [version table](../components/README.md#versions) |
-| One long-lived operator SSH key on every VM | A copy works until it is swapped everywhere, and every login looks the same in the logs | [Milestone 3a](../roadmap.md#3a-edge-network-and-monitoring): certificates that expire after 12 hours ([ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md)) |
 | Nothing alerts when updates stop, a service dies, or a disk fills | Silent failure. A failure shows only when someone runs the [checks](../validation/README.md) | [Milestone 3a](../roadmap.md#3a-edge-network-and-monitoring): alert rules in Azure Monitor, shown in the portal. They send no notification |
+
+One row left this table on 2026-10-16: one long-lived operator SSH key on every VM. The administrator account now takes only a certificate that expires after 12 hours ([worklog](../worklogs/0004-edge-network-and-monitoring.md#rollout-1)).

@@ -1,6 +1,6 @@
 # SSH certificates and the feed account: operator procedure
 
-Status: Written, not yet run. The worker's feed account and the certificate settings are new in this change. The [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md) records the run once it happens.
+Status: Implemented on 2026-10-16. Steps 1 and 3 to 13 were run that day on both live VMs, through scripts with the same commands, order, and expected results. The results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#rollout-1). Step 2, the revocation in step 14, the replacement in step 15, and a first boot from the templates have not been run.
 
 Run these steps once on VMs built before this change. They add two things that first boot now does by itself: the feed key's own account on the worker ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)), and an administrator account that accepts only a certificate from the operator's certificate authority ([ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md)). A rebuilt VM needs only steps 1 to 3 and the feed key step of the [platform compute runbook](platform-compute.md).
 
@@ -151,6 +151,8 @@ Run steps 7 to 12 for the worker first, then for the orchestrator. If something 
     ```
 
     Expected: `Permission denied (publickey)` and `exit 255` four times. The VM's journal says why for each certificate.
+
+    sshd then refuses every connection from the same address for about 20 seconds ([troubleshooting 05](../troubleshooting/05-failed-logins-block-every-routed-session.md)). On the worker that address is `10.40.0.4` for every routed session, the feed and the journal pull included. Wait until `REPLACE_WITH_SSH aisec-$VM true` works before step 11.
 
 11. Check that other accounts are unchanged, and try the forwarding rule.
 

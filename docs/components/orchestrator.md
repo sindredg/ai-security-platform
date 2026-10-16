@@ -24,7 +24,7 @@ The one trusted machine. It runs the cluster, routes for the mesh VPN, copies so
 | `squid` | Package proxy for the worker | [Package proxy](package-proxy.md) |
 | `aisec-audit-copy` | Copies the tool service's audit lines into an append-only file. Running since 2026-10-16 (`L.1`) | [Audit log](../security/audit-log.md) |
 | `aisec-journal-pull.timer` | Pulls the worker's journal every five minutes into an append-only file. Running since 2026-10-16 (`J.1`) | [Audit log](../security/audit-log.md#the-workers-journal) |
-| `ssh` | Administration, key only | [Validation: host hardening](../validation/host-hardening.md) |
+| `ssh` | Administration. The administrator account takes only the operator's certificate, and may forward to the API server on loopback and nowhere else, since 2026-10-16 (`HO.17`, `A.8`) | [Validation: host hardening](../validation/host-hardening.md), [access](../validation/access.md) |
 
 ## First boot
 
