@@ -48,4 +48,11 @@ fi
 git -C "$src" archive --format=tar --prefix=converter/ "$LLAMA_COMMIT" \
   convert_hf_to_gguf.py conversion gguf-py LICENSE > "$stage/converter-src.tar"
 rm -rf "$src"
+# The worker checks the archive against the same pin before it runs anything
+# from it, so a different archive is caught here first.
+if ! echo "$CONVERTER_SRC_SHA256  $stage/converter-src.tar" | sha256sum --check --status; then
+  echo "converter-src.tar does not match CONVERTER_SRC_SHA256 in pins.env, removed" >&2
+  rm -f "$stage/converter-src.tar"
+  exit 1
+fi
 echo "ok    converter-src.tar (commit $LLAMA_COMMIT)"

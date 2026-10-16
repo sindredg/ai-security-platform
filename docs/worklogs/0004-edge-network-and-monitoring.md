@@ -151,7 +151,7 @@ Changes to the SSH daemon on both VMs and a new account on the worker. Nothing i
 | On the orchestrator, the administrator account may forward to `127.0.0.1:6443` and nowhere else. Every other account, and the worker, forwards nothing | The orchestrator's template, `A.8` to `A.10` |
 | First boot removes the key Azure writes to the administrator's `authorized_keys`. sshd ignores the file for that account, so a line there is a change to look at | Both templates, `A.5`, `A.7` |
 | The feed key logs in to `aisec-feed` on the worker, which has no sudo, a home owned by root, and a forced command that unpacks staged files into one directory or prints their size ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)) | `worker/feed/`, the worker's template, `E.4`, `E.9` to `E.11` |
-| The scripts and the pin lists reach the worker from the operator's checkout. The model build refuses a staged file that `artifacts.tsv` does not name | `worker/*/push.sh`, `build-model.sh`, the [model server](../runbooks/model-server.md) and [agent runtime](../runbooks/agent-runtime.md) runbooks |
+| The scripts and the pin lists reach the worker from the operator's checkout. The model build refuses a staged file that no pin names. The converter's source archive, which `fetch.sh` packs on the orchestrator and nothing checked on the worker, gets a SHA-256 pin in `pins.env`, checked on both sides | `worker/*/push.sh`, `build-model.sh`, the [model server](../runbooks/model-server.md) and [agent runtime](../runbooks/agent-runtime.md) runbooks |
 
 Why the feed key moved: on 2026-10-16 it was a plain line in the worker administrator's `authorized_keys`, and that account has `NOPASSWD: ALL` in sudo. Root on the orchestrator was root on the worker. ADR 0022's `AuthorizedKeysFile none` would also have cut the feed off.
 
@@ -166,6 +166,9 @@ Locally, with stubs:
 | The feed command with eight requests that are not exactly `receive` or `size` and a component name: empty, `id`, `receive model-server; id`, `receive ../x`, a trailing space, a double space, a capital letter, a second line | Each refused with exit status 2 |
 | The feed command with an archive holding an absolute path, a `..` path, and a symbolic link to a directory outside followed by a file through it | `tar` stripped or refused each one. Nothing was written outside the stage directory |
 | The build's check of the staged files, run on its own against a stage with an extra file, a symbolic link, a changed file, and a missing file | Each stopped the check with exit status 1. An empty directory passes |
+| The same check with a pinned converter archive, a changed one, and none | Passes, then exit status 1 twice |
+| The file list of the live stage on the orchestrator, 39 files, against the pins | Nothing extra. A review of this change found that the first version of the check named only `artifacts.tsv`, and would have stopped every build on `converter-src.tar` |
+| `git archive` of the pinned commit, on the workstation with git 2.43, against the live archive packed with git 2.53 | The same SHA-256, `cd546e25...` |
 | `terraform validate` and `terraform fmt -check` in `infra/platform` with Terraform 1.16.6, and both templates rendered and parsed as YAML | Valid. The rendered drop-in has the `Match` block last |
 | The signing commands, with a throwaway authority without a passphrase | Four certificates with the expected key ID, validity, principal, and options |
 

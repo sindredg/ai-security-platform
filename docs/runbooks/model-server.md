@@ -1,6 +1,6 @@
 # Model server: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Steps 1 to 8 were run during that build. A second build from the same pins has not been run. The cleanup after a failed build and the `libgomp1` version line were added to the build script afterwards and have not been run on the worker. The unit was changed and installed again once, on 2026-10-12, to turn thinking off. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md). Steps 4, 5, and 10 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the scripts go to the worker from the checkout, the staged files to the feed account, and the build refuses a staged file that `artifacts.tsv` does not name. Not yet run in that form.
+Status: Implemented on 2026-10-11. Built once. Steps 1 to 8 were run during that build. A second build from the same pins has not been run. The cleanup after a failed build and the `libgomp1` version line were added to the build script afterwards and have not been run on the worker. The unit was changed and installed again once, on 2026-10-12, to turn thinking off. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md). Steps 4, 5, and 10 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the scripts go to the worker from the checkout, the staged files to the feed account, and the build refuses a staged file that `artifacts.tsv` does not name. The converter's source archive got its own pin, checked by step 3 and the build. Not yet run in that form.
 
 Run these steps to put llama.cpp and the starting model on the AI worker: download and verify on the orchestrator, push, build the model file on the worker, start the server, and measure it. No cloud resource changes.
 
@@ -78,7 +78,7 @@ The download leaves through the NAT gateway and is billed per GB.
 
    Expected, in order in the log:
 
-   - `all files match artifacts.tsv, and nothing else is staged`
+   - `all files match artifacts.tsv and pins.env, and nothing else is staged`
    - `libgomp1` and the installed version
    - `version: 0.6.0-dev (build 11429, commit d81235049)`
    - `Model successfully exported to /var/lib/aisec-model-build/Qwen3.5-4B-F16.gguf`
@@ -87,7 +87,7 @@ The download leaves through the NAT gateway and is billed per GB.
 
    The script installs `libgomp1` through the package proxy if it is missing and prints its version. It converts in a sandboxed unit named `aisec-model-build`, and removes the build account and directory when it ends, also when it fails.
 
-   The first line proves that the staged files are the ones the repository pins, and that nothing else is staged. The list it checks against came from the checkout in step 4, not from the orchestrator. A file it does not name stops the build with `not in artifacts.tsv:` and the file's path.
+   The first line proves that the staged files are the ones the repository pins, and that nothing else is staged. The lists it checks against came from the checkout in step 4, not from the orchestrator: `artifacts.tsv` for the downloads, and `CONVERTER_SRC_SHA256` in `pins.env` for the converter's source, which the orchestrator packs from the pinned commit. A file it does not name stops the build with `not in artifacts.tsv:` and the file's path.
 
 6. Read the result.
 

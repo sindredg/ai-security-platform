@@ -15,17 +15,20 @@ stage=$(cd "${1:?usage: build-model.sh STAGE_DIR}" && pwd)
 # the orchestrator (ADR 0026). This check catches a transfer that damaged or
 # dropped a file, and an orchestrator that changed one. The converter takes a
 # whole directory of wheels and a pattern for pip, so a file the list does not
-# name is refused too, and so is anything that is not a plain file.
+# name is refused too, and so is anything that is not a plain file. The
+# converter's source is packed on the orchestrator, so its pin is in pins.env.
 echo "== verify the pushed files"
-awk -F'\t' '!/^#/ && NF { print $1 "  " $2 }' "$here/artifacts.tsv" |
-  (cd "$stage" && sha256sum --check --quiet)
-extra=$(comm -13 <(awk -F'\t' '!/^#/ && NF { print $2 }' "$here/artifacts.tsv" | sort) \
+{
+  awk -F'\t' '!/^#/ && NF { print $1 "  " $2 }' "$here/artifacts.tsv"
+  echo "$CONVERTER_SRC_SHA256  converter-src.tar"
+} | (cd "$stage" && sha256sum --check --quiet)
+extra=$(comm -13 <({ awk -F'\t' '!/^#/ && NF { print $2 }' "$here/artifacts.tsv"; echo converter-src.tar; } | sort) \
   <(cd "$stage" && find . -mindepth 1 ! -type d | sed 's|^\./||' | sort))
 if [[ -n $extra ]]; then
   printf 'not in artifacts.tsv:\n%s\n' "$extra" >&2
   exit 1
 fi
-echo "all files match artifacts.tsv, and nothing else is staged"
+echo "all files match artifacts.tsv and pins.env, and nothing else is staged"
 
 echo "== llama.cpp $LLAMA_BUILD"
 # The binaries link the OpenMP runtime, which the server image does not carry.

@@ -48,7 +48,9 @@ It accepts two requests and nothing else:
 
 **The scripts come from the operator**
 
-The operator copies the component's scripts and pin list from a checkout straight to the worker, with a certificate login, as the other runbook steps already do. The feed brings only the staged downloads. `build-model.sh` and `install-agent.sh` check every staged file against the pin list before they use it, so that check is now against the repository's pins, not against a list the orchestrator sent with the files.
+The operator copies the component's scripts and pin list from a checkout straight to the worker, with a certificate login, as the other runbook steps already do. The feed brings only the staged downloads. `build-model.sh` and `install-agent.sh` check the staged files they use against the pins before they use them, so that check is now against the repository's pins, not against a list the orchestrator sent with the files. The model build refuses a staged file that no pin names.
+
+The converter's source is the one staged file the orchestrator makes instead of downloading: `fetch.sh` packs it from the pinned commit with `git archive`. Until now nothing checked it on the worker. It gets a SHA-256 pin in `pins.env`, checked on both sides. The same bytes came from git 2.43 and git 2.53, read on 2026-10-16. A git release that packs it differently fails the fetch, and needs a new pin.
 
 **Until the router exists**
 
