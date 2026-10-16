@@ -25,7 +25,7 @@ The method also has to reach the AI worker, which is cut off from the internet o
 
 Use Tailscale. Its agent runs on the orchestrator VM and on the operator's workstation, and nowhere else.
 
-- The orchestrator advertises the platform and target address ranges as a subnet router. The other VMs need no agent.
+- The orchestrator advertises the platform and target address ranges as a subnet router. The other VMs need no agent. [0020](0020-an-edge-vm-for-the-way-out-and-the-mesh.md) moves the subnet router to an edge VM.
 - The operator uses SSH with key authentication to each VM's private address, and reaches the Argo interface the same way.
 - The mesh access policy limits access to the operator's signed-in devices. Since 2026-10-11 it also limits them to two ports, and node signing keeps the provider from adding a device by itself. Both are on the [mesh VPN page](../components/mesh-vpn.md).
 - The agent's auth key is a secret. It is supplied at provisioning time and never committed.
