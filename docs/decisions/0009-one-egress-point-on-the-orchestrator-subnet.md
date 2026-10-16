@@ -49,7 +49,7 @@ One way out for the whole system: a NAT gateway on the orchestrator subnet. Ever
 
 **The orchestrator**
 
-- The platform root creates a StandardV2 NAT gateway with one static public address and associates it with the orchestrator subnet. No other subnet gets an outbound method.
+- The platform root creates a StandardV2 NAT gateway with one static public address and associates it with the orchestrator subnet. No other subnet gets an outbound method. [0020](0020-an-edge-vm-for-the-way-out-and-the-mesh.md) moves the gateway to an edge subnet, and the orchestrator reaches the internet only through a proxy there.
 - The orchestrator's security group allows outbound to the `Internet` tag on TCP 443 and 80, plus the UDP the mesh agent uses to attempt direct connections. Hostnames are not filtered. [0017](0017-no-udp-from-the-orchestrator.md) removed the UDP on 2026-10-14.
 
 **The worker and the targets**

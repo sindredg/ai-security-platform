@@ -27,7 +27,7 @@ Every region listed has a limit of 4 vCPUs with none in use.
 ## Decision
 
 - **Platform: Sweden Central.** The widest choice of small sizes nearby, including Arm sizes that give two physical cores per 2 vCPUs. That matters for CPU inference.
-- **Targets: Denmark East.** The closest region where ordinary B-series and D-series sizes are unrestricted, in all three zones.
+- **Targets: Denmark East.** The closest region where ordinary B-series and D-series sizes are unrestricted, in all three zones. [0020](0020-an-edge-vm-for-the-way-out-and-the-mesh.md) moves the targets to Poland Central and puts an edge VM in Denmark East.
 - **Fallback for targets: Poland Central**, if Denmark East has no capacity on the day.
 
 ## Trade-offs

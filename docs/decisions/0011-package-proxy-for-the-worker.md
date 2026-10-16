@@ -28,7 +28,7 @@ An unpatched machine that runs untrusted model output is the worse risk of the t
 
 ## Decision
 
-The orchestrator runs a forward proxy for the worker's package manager. The worker updates itself.
+The orchestrator runs a forward proxy for the worker's package manager. The worker updates itself. [0020](0020-an-edge-vm-for-the-way-out-and-the-mesh.md) moves the proxy to an edge VM, with the same rules for the worker.
 
 - **Software:** Squid, from the Ubuntu `main` repository, so it gets the distribution's security updates. It caches nothing.
 - **What it accepts:** connections from the worker subnet only, on the orchestrator's private address, port 3128.
