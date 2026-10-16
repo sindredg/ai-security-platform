@@ -1,6 +1,6 @@
 # 0020. An edge VM for the way out and the mesh, and the targets to Poland Central
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-16
 
 Supersedes parts of four records. From [0009](0009-one-egress-point-on-the-orchestrator-subnet.md): where the one way out sits. From [0007](0007-mesh-vpn-for-administrative-access.md): which machine is the subnet router. From [0011](0011-package-proxy-for-the-worker.md): which machine runs the package proxy. From [0003](0003-region-pair.md): the target region. The rest of each record stands.
