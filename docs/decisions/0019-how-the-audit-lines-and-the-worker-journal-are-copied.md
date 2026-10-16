@@ -24,7 +24,7 @@ How the audit lines leave the runtime:
 | Option | Lines lost at a pod deletion | Privilege | Cost |
 | --- | --- | --- | --- |
 | A timer that reads the pod log files every minute | Up to a minute | Reads root's files | Nothing new |
-| A follower that reads the pod log files every two seconds | Up to two seconds, and none when the deploy runs a copy first | Reads root's files | A process that stays up |
+| A follower that reads the pod log files every two seconds | Up to two seconds, and none at a deploy that waits for a pass and runs with no job active | Reads root's files | A process that stays up |
 | A log agent such as Fluent Bit | About the same as a follower | Usually root | A binary to pin, scan, and configure, for one file |
 | `kubectl logs` from the host | Everything after the pod is gone. The API serves the current and previous container only | A Kubernetes credential on the host | A credential for a log copy |
 
@@ -51,7 +51,7 @@ How the journal is stored on the orchestrator:
 
 - Every two seconds it reads the tool service's log files under `/var/log/pods/tool-services_*`, current and rotated, and appends each new line to `/var/log/aisec/tool-audit.jsonl`. "New" is decided by the runtime's own nanosecond timestamp, kept in a state file.
 - It keeps the service's line as it is. A line that is not a complete JSON object on standard output, including one the runtime split because it was too long, is not copied. A marker line with its size and timestamp is copied in its place, so nothing disappears without a trace.
-- The deploy procedure runs one pass before the old pod goes.
+- The deploy refuses to replace the pod until the copier has made a whole pass that started after the old pod's last line. A rolling update gives no moment between the new pod being ready and the old one going, so the deploy waits before it starts, and runs with no job active, so the old pod writes nothing after that pass.
 
 **The journal is pulled as JSON lines.** A systemd timer on the orchestrator runs every five minutes.
 
@@ -77,7 +77,7 @@ How the journal is stored on the orchestrator:
 - **A rebuild of the orchestrator deletes both copies.** The runbook archives them off the VM before a rebuild. [Lab against production](../security/lab-vs-production.md) carries it.
 - **The copier depends on the runtime's file layout.** A path, a line prefix, or a file mode that changes with a K3s release breaks it. It fails loudly. A moved path finds no file and the pass fails. An unreadable file fails the pass. A changed prefix turns every line into a marker line. In each case the state file goes stale, or the markers show, and a check fails.
 - **The ACL relies on how the runtime creates files.** That the default ACL reaches every new pod directory and log file, including the rotated ones, is reasoned. The first deployment tests it on a new pod. If it does not hold, the fallback is a capability in a narrowed mount namespace, and that is a new record.
-- **The sequence finds holes, not a missing tail.** Lines lost at the end of a start, before a copy, leave no hole. The two-second interval and the pass before a deploy keep that window short. They do not close it.
+- **The sequence finds holes, not a missing tail.** Lines lost at the end of a start, before a copy, leave no hole. The two-second interval and the wait before a deploy keep that window short. They do not close it: a pod that crashes, or a deploy run while a job is active, can still lose its last lines.
 - **A full file stops the record.** At the cap, new audit lines stay in the runtime's rotation until it drops them. A flood of refused requests can reach the cap, and requests without a token are not rate-limited yet (T20, an [open item](../security/accepted-risks.md#open-items)). The cap protects the disk K3s needs, and gives up completeness to do it.
 - **The worker can still lie.** Root on the worker can forge entries, and erase what was written since the last pull, which can be up to five minutes. 0014 accepted this.
 - **Root on the orchestrator can still edit both copies.** 0014 accepted this as a lab limit.
