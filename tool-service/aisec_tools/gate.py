@@ -6,7 +6,9 @@ what that job may do: the tool, the arguments, the limits. Calls is the
 authority, because it works on what the SDK parsed and will act on.
 
 Every refusal ends the same way: nothing of a result goes back, and one audit
-line records the decision and the reason.
+line records the decision and the reason. Refusals before a token is accepted
+are limited per minute. Past the limit, one line says so and the rest get 429
+and no line, so a flood cannot fill the audit file.
 """
 
 import hashlib
@@ -22,17 +24,24 @@ from .http import bearer, caller, read_body, reply
 SCOPE_KEY = "aisec.job"
 
 
+def refused(scope, job, reason):
+    audit("request", "refused", caller=caller(scope), job=job and job.id, reason=reason)
+
+
 class Gate:
     def __init__(self, app, jobs):
         self.app, self.jobs, self.policy = app, jobs, jobs.policy
+        self.limit = self.policy["limits"]["untrusted_per_minute"]
+        self.minute, self.untrusted = None, 0
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         job, status, reason, body = await self._admit(scope, receive)
+        if status in (401, 404) and self._over_limit(scope):
+            return await reply(send, 429, {"error": "refused"})
         if reason:
-            job_id = job.id if job else None
-            audit("request", "refused", caller=caller(scope), job=job_id, reason=reason)
+            refused(scope, job, reason)
             return await reply(send, status, {"error": "refused"})
         scope[SCOPE_KEY] = job
         unread = [{"type": "http.request", "body": body, "more_body": False}]
@@ -44,17 +53,20 @@ class Gate:
             # The SDK can still refuse what the gate let through. That is a
             # refusal like any other, and it gets its line.
             if message["type"] == "http.response.start" and message["status"] >= 400:
-                reason = f"refused by the MCP layer, status {message['status']}"
-                audit(
-                    "request",
-                    "refused",
-                    caller=caller(scope),
-                    job=job.id,
-                    reason=reason,
-                )
+                status = message["status"]
+                refused(scope, job, f"refused by the MCP layer, status {status}")
             await send(message)
 
         await self.app(scope, replay, watch)
+
+    def _over_limit(self, scope):
+        """Counts a request without a valid token. True past the limit."""
+        minute = int(self.jobs.clock() // 60)
+        self.untrusted = self.untrusted + 1 if minute == self.minute else 1
+        self.minute = minute
+        if self.untrusted == self.limit + 1:
+            refused(scope, None, "rate limit reached, no line until the next minute")
+        return self.untrusted > self.limit
 
     async def _admit(self, scope, receive):
         """Returns (job, status, reason, body). A reason means refused."""
@@ -96,14 +108,11 @@ class Calls:
         return types.ListToolsResult(tools=offered)
 
     async def call_tool(self, ctx, params):
-        job = ctx.request.scope[SCOPE_KEY]
+        scope = ctx.request.scope
+        job = scope[SCOPE_KEY]
         arguments = params.arguments or {}
         canonical = json.dumps(arguments, sort_keys=True, separators=(",", ":"))
-        record = {
-            "caller": caller(ctx.request.scope),
-            "job": job.id,
-            "tool": params.name,
-        }
+        record = {"caller": caller(scope), "job": job.id, "tool": params.name}
         record["args_sha256"] = hashlib.sha256(canonical.encode()).hexdigest()
         reason, result = await self._decide(job, params.name, arguments)
         if reason:

@@ -20,7 +20,7 @@ The one trusted machine. It runs the cluster, routes for the mesh VPN, copies so
 | `k3s` | The cluster. One server. The tool service runs in it | [K3s](k3s.md) |
 | `tailscaled` | Mesh VPN agent and subnet router for both networks | [Mesh VPN](mesh-vpn.md) |
 | `aisec-mss-clamp` | Rewrites the TCP segment size on routed connections | [Mesh VPN](mesh-vpn.md) |
-| `aisec-pod-egress` | Loads the host rule that drops forwarded traffic from pods to anything but pods | [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md), [containment](../validation/containment.md#the-orchestrators-side) |
+| `aisec-pod-egress` | Loads the host rule that drops forwarded traffic from pods to anything but pods, and traffic from pods to the host except ports 6443 and 10250 | [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md), [ADR 0023](../decisions/0023-the-host-rule-limits-what-pods-reach-on-the-host.md), [containment](../validation/containment.md#the-orchestrators-side) |
 | `squid` | Package proxy for the worker | [Package proxy](package-proxy.md) |
 | `aisec-audit-copy` | Copies the tool service's audit lines into an append-only file. Running since 2026-10-16 (`L.1`) | [Audit log](../security/audit-log.md) |
 | `aisec-journal-pull.timer` | Pulls the worker's journal every five minutes into an append-only file. Running since 2026-10-16 (`J.1`) | [Audit log](../security/audit-log.md#the-workers-journal) |
@@ -28,7 +28,7 @@ The one trusted machine. It runs the cluster, routes for the mesh VPN, copies so
 
 ## First boot
 
-cloud-init writes every configuration file, then one script does the rest in order: kernel settings, the segment size clamp, file modes, the mesh VPN agent from its signed repository, the proxy, K3s from a binary and an install script that are both checked against pinned checksums, two cluster settings the Kubernetes benchmark asks for, the audit copier once the kubelet has made `/var/log/pods`, the journal puller with its own key, and a key pair for copying files to the other machines.
+cloud-init writes every configuration file, then one script does the rest in order: kernel settings, the segment size clamp, file modes, the mesh VPN agent from its signed repository, the proxy, K3s from a binary and an install script that are both checked against pinned checksums, two cluster settings the Kubernetes benchmark asks for, the `baseline` label on `kube-system`, the audit copier once the kubelet has made `/var/log/pods`, the journal puller with its own key, and a key pair for copying files to the other machines.
 
 The two cluster settings wait for the API: no token on the default service account of each namespace K3s creates, and mode `600` on the certificate files. If the API never answers, the script stops and leaves no `/var/lib/aisec-first-boot.done`. Tested on the live system: the VM was rebuilt from the template on 2026-10-13, and checks `K.5` and `K.6` passed with neither setting applied by hand. The first two tries found no service account yet, and the retry carried it. The failure path, an API that never answers, has not been seen on the live system.
 

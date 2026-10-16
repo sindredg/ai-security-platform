@@ -45,13 +45,13 @@ Every pin in one place. Checked against the official source on the date shown.
 
 | Component | Version | Pinned in | Moves | Checked |
 | --- | --- | --- | --- | --- |
-| Terraform | 1.16.5. 1.16.6 released 2026-10-14 | `versions.tf` in each root, and the checks workflow | By hand | 2026-10-16 |
-| `hashicorp/azurerm` | 5.9.0. 5.10.0 released 2026-10-15 | `versions.tf` and the lock files | Dependabot, weekly | 2026-10-16 |
+| Terraform | 1.16.6 | `versions.tf` in each root, and the checks workflow | By hand | 2026-10-16 |
+| `hashicorp/azurerm` | 5.10.0 | `versions.tf` and the lock files | Dependabot, weekly | 2026-10-16 |
 | `hashicorp/azuread` | 3.10.0 | The same | Dependabot, weekly | 2026-10-16 |
 | `hashicorp/random` | 3.9.1 | The same | Dependabot, weekly | 2026-10-16 |
 | Ubuntu image | 26.04 LTS, `26.04.202610070`. `26.04.202610140` is the newest in Sweden Central | `infra/platform/variables.tf` | By hand, and only at a rebuild | 2026-10-16 |
 | Ubuntu packages | Whatever the archive serves | Not pinned | Unattended upgrades, daily, security suite | |
-| Mesh VPN agent | 1.104.1 | `infra/platform/variables.tf`, held on the VM | By hand | 2026-10-16 |
+| Mesh VPN agent | 1.104.1 | `infra/platform/variables.tf`, held on the VM | By hand. `U.7` fails when a newer stable release exists | 2026-10-16 |
 | K3s | `v1.36.5+k3s1`, the `stable` channel | `infra/platform/variables.tf`, with two checksums | By hand | 2026-10-16 |
 | Squid | 7.2 | Not pinned, see [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) | Unattended upgrades | 2026-10-11 |
 | `acl` package | Whatever the archive serves. Sets the default ACL on the pod logs for the audit copier | Not pinned. The archive drops old versions, as for Squid | Unattended upgrades | |
@@ -62,8 +62,8 @@ Every pin in one place. Checked against the official source on the date shown.
 | Converter packages | 27, PyTorch 2.11.0 the largest | `worker/model-server/artifacts.tsv` and `converter-requirements.txt` | By hand. Used only during a build | 2026-10-11 |
 | Goose | 1.54.0, one static binary. 1.55.0 released 2026-10-16 ([#83](https://github.com/sindredg/ai-security-platform/issues/83)) | `worker/agent-runtime/pins.env` and `artifacts.tsv`, with a checksum | By hand | 2026-10-16 |
 | `actions/checkout` | v7.0.1, by commit | The checks workflow | Dependabot, weekly | 2026-10-16 |
-| Checkov, Trivy, gitleaks images | 3.3.27, 0.75.0, and 8.30.1, by digest. Checkov 3.3.29 and Trivy 0.76.0 ([#56](https://github.com/sindredg/ai-security-platform/issues/56)) are released | The checks workflow | By hand | 2026-10-16 |
-| ShellCheck, Ruff images | 0.11.0 and 0.17.0, by digest. Ruff 0.17.1 released 2026-10-15 | The checks workflow | By hand | 2026-10-16 |
+| Checkov, Trivy, gitleaks images | 3.3.29, 0.76.0, and 8.30.1, by digest | The checks workflow | By hand | 2026-10-16 |
+| ShellCheck, Ruff images | 0.11.0 and 0.17.1, by digest | The checks workflow | By hand | 2026-10-16 |
 | hadolint image | 2.15.1, by digest | The checks workflow | By hand | 2026-10-16 |
 | kubeconform image | 0.8.0, by digest. Validates the manifests against the schemas for Kubernetes 1.36.5, the cluster's release | The checks workflow | By hand, and the Kubernetes version with K3s | 2026-10-16 |
 | Python image | 3.15.0 on Alpine 3.24, by digest. Runs the tool service and log copier tests, and is the base of the tool service image | The checks workflow and `tool-service/Dockerfile`. The pipeline fails until the two name the same digest | Dependabot, weekly, for the Dockerfile. The workflow by hand | 2026-10-16 |

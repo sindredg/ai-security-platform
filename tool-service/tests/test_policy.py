@@ -54,7 +54,12 @@ def test_every_target_names_tools_the_policy_has():
 
 
 def test_the_limits_are_small_positive_numbers():
-    assert set(POLICY["limits"]) == {"request_bytes", "result_bytes", "calls_per_job"}
+    assert set(POLICY["limits"]) == {
+        "request_bytes",
+        "result_bytes",
+        "calls_per_job",
+        "untrusted_per_minute",
+    }
     for value in POLICY["limits"].values():
         assert type(value) is int
         assert 0 < value <= 65536

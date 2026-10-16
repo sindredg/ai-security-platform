@@ -12,7 +12,7 @@ Run these steps to build or revalidate milestone 1: state storage, deployment id
 | --- | --- |
 | An Azure subscription | The operator needs Owner on it, to create resource groups, a custom role, and role assignments |
 | A Microsoft Entra tenant | The operator must be allowed to create app registrations |
-| `terraform` 1.16.5 | The roots refuse any other version |
+| `terraform` 1.16.6 | The roots refuse any other version |
 | `az` 2.88 or later, `openssl` 3, `jq` | Sign-in, checks, key generation, and reading Terraform outputs |
 | A private directory outside the repository, on an encrypted disk | Holds two private keys. Called `$CRED_DIR` below |
 

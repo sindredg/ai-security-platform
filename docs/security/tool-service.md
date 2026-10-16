@@ -84,7 +84,7 @@ CI enforces a 300-line limit on the server code and scans its pinned dependencie
 - **A bearer token can be reused if stolen.** Any process that reads it can make calls with the job's permissions until it is revoked or expires. Those permissions are limited to one target and the registered tools.
 - **Two jobs on one target read the same evidence.** Evidence is stored per target. That is enough while evidence is synthetic and fixed.
 - **Jobs live in memory.** A restart of the service ends every job. It fails closed.
-- **Unauthenticated requests have no rate limit.** Requests that reach the application without a valid token are rejected and logged. The server limits concurrent requests, but does not limit how often a caller can retry.
+- **The rate limit is shared.** Requests without a valid token, from any caller, share one count per minute. Past it they get 429, and the rest of that minute leaves one audit line, not one per request. How many were refused in that minute is not recorded. A valid token is never limited. Written and tested in the pipeline, not deployed yet.
 - **An offline check cannot see a deleted pod.** The dispatch step's token stays valid until it expires.
 - **Schema validation checks structure, not meaning.** A read-only tool can still expose more data than a job needs.
 - **Tool results remain untrusted text.** The service checks their size and source. It does not detect misleading content or injected instructions.

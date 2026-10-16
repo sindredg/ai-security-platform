@@ -25,8 +25,9 @@ The worker's only outbound access: a proxy on the orchestrator that forwards pac
 | `U.4` | Unattended upgrades are enabled on the worker | Nobody has to remember | `systemctl is-enabled` |
 | `U.5` | No security update is pending on the worker | The whole path works, daily | `apt list --upgradable` has nothing from the security suite |
 | `U.6` | The mesh VPN agent does not install updates itself | The hold in `U.2` stops `apt`, not the agent's own updater. An update it applied would be code from the vendor running as root | `tailscale debug prefs`, `AutoUpdate.Apply` |
+| `U.7` | The mesh VPN agent is the current stable release | The hold in `U.2` and the updater off in `U.6` mean only the pin moves the agent. A pin left behind misses fixes, and nothing else would show it | The installed package version on the orchestrator equals `Version` from `pkgs.tailscale.com/stable/?mode=json`, read from the workstation. No answer from the site is a failure |
 
 ## Limits of these checks
 
 - `U.1` and `U.5` read the package lists on the machine. If the daily refresh has stopped, the lists are stale and the check still passes. Nothing alerts on a refresh that stopped.
-- `U.2` is also a gap: a held package gets no security fixes until someone moves the pin. The same is true of the pinned K3s release.
+- `U.2` is also a gap: a held package gets no security fixes until someone moves the pin. `U.7` catches that for the mesh agent. Nothing catches it for the pinned K3s release.
