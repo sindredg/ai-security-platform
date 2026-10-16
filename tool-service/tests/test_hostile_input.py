@@ -381,3 +381,56 @@ def test_a_host_name_that_is_not_the_services(two_jobs, lines, host):
     assert line["decision"] == "refused"
     assert line["reason"].startswith("refused by the MCP layer")
     assert json.dumps(line).count(TOKEN_A) == 0
+
+
+# --- Requests without a valid token -----------------------------------------
+
+
+def flood(service, count):
+    """Calls with a token nobody issued. Returns the status codes."""
+    return [service.call("never-issued").status_code for _ in range(count)]
+
+
+def test_past_the_limit_one_line_says_so_and_the_rest_get_none(two_jobs, lines):
+    limit = two_jobs.policy["limits"]["untrusted_per_minute"]
+    assert flood(two_jobs, limit) == [401] * limit
+    assert [line["reason"] for line in lines()] == ["unknown token"] * limit
+    assert flood(two_jobs, 3) == [429] * 3
+    (line,) = lines()
+    assert line["decision"] == "refused"
+    assert line["reason"].startswith("rate limit reached")
+    assert line["job"] is None
+
+
+def test_a_valid_token_is_not_limited(two_jobs, lines):
+    limit = two_jobs.policy["limits"]["untrusted_per_minute"]
+    flood(two_jobs, limit + 1)
+    lines()
+    for _ in range(3):
+        assert two_jobs.call(TOKEN_A).json()["result"]["isError"] is False
+    assert [line["decision"] for line in lines()] == ["allowed"] * 3
+
+
+def test_the_limit_starts_again_the_next_minute(two_jobs, lines):
+    limit = two_jobs.policy["limits"]["untrusted_per_minute"]
+    flood(two_jobs, limit + 1)
+    lines()
+    two_jobs.now += 60
+    assert flood(two_jobs, 1) == [401]
+    assert [line["reason"] for line in lines()] == ["unknown token"]
+
+
+@pytest.mark.parametrize("token", [None, "never-issued", TOKEN_A])
+def test_no_token_an_unknown_one_and_a_wrong_path_all_count(two_jobs, lines, token):
+    limit = two_jobs.policy["limits"]["untrusted_per_minute"]
+    headers = {} if token is None else {"Authorization": "Bearer " + token}
+    for _ in range(limit):
+        two_jobs.tools.request("GET", "/", headers=headers)
+    assert flood(two_jobs, 1) == [429]
+
+
+def test_refusals_after_a_valid_token_do_not_count(two_jobs, lines):
+    limit = two_jobs.policy["limits"]["untrusted_per_minute"]
+    for _ in range(limit + 5):
+        assert two_jobs.post(TOKEN_A, content=b"not json").status_code == 400
+    assert flood(two_jobs, 1) == [401]

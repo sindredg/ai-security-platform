@@ -14,7 +14,8 @@
   "limits": {
     "request_bytes": 8192,
     "result_bytes": 16384,
-    "calls_per_job": 20
+    "calls_per_job": 20,
+    "untrusted_per_minute": 30
   },
   "targets": {
     "synthetic": {
