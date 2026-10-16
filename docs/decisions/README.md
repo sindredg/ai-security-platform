@@ -22,6 +22,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0016](0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md) | A pinned certificate, an offline caller check, and a line limit for the tool service. Replaces the private authority in 0013 | Accepted |
 | [0017](0017-no-udp-from-the-orchestrator.md) | No UDP from the orchestrator to the internet. Replaces the mesh agent's UDP rules in 0009 | Accepted |
 | [0018](0018-a-host-rule-keeps-pods-off-the-internet.md) | A host rule keeps pods off the internet, including the seconds before a pod's network policy is written. Adds to 0014 | Accepted |
+| [0019](0019-how-the-audit-lines-and-the-worker-journal-are-copied.md) | How the audit lines and the worker's journal are copied: a follower and a pull, each as its own user, into capped append-only files, with a sequence in every audit line. Adds to 0014 | Accepted |
 
 ## Format
 
