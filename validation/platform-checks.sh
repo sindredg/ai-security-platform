@@ -137,8 +137,14 @@ echo "secrets_encryption=$(k3s secrets-encrypt status 2>/dev/null | sed -n "s/^E
 echo "cert_modes_not_600=$(stat -c %a /var/lib/rancher/k3s/server/tls/*.crt | grep -v -c "^600$")"
 echo "default_sa_automount=$(k3s kubectl get sa -A --field-selector metadata.name=default -o jsonpath="{range .items[*]}{.automountServiceAccountToken}{\"\n\"}{end}" 2>/dev/null | grep -v -c "^false$")"
 echo "apiserver_anonymous=$(journalctl -u k3s --no-pager 2>/dev/null | grep "Running kube-apiserver" | tail -n 1 | grep -o -- "--anonymous-auth=[a-z]*")"
+echo "kubelet_auth=$(k3s kubectl get --raw "/api/v1/nodes/$(hostname)/proxy/configz" 2>/dev/null | python3 -I -c "
+import json, sys
+config = json.load(sys.stdin)[\"kubeletconfig\"]
+print(str(config[\"authentication\"][\"anonymous\"][\"enabled\"]).lower(), config[\"authorization\"][\"mode\"])
+" 2>/dev/null)"
 echo "mss_rules=$(nft list table inet aisec_mss 2>/dev/null | grep -c maxseg)"
 echo "pod_egress=$(nft list chain inet aisec_pod_egress forward 2>/dev/null | sed -n "s/^\t\t//p" | sed "s/counter packets [0-9]* bytes [0-9]* /counter /" | tr "\n" "|")"
+echo "pod_egress_input=$(nft list chain inet aisec_pod_egress input 2>/dev/null | sed -n "s/^\t\t//p" | sed "s/counter packets [0-9]* bytes [0-9]* /counter /" | tr "\n" "|")"
 echo "pod_egress_unit=$(systemctl is-enabled aisec-pod-egress 2>/dev/null)"
 echo "ip_forward=$(sysctl -n net.ipv4.ip_forward)"
 echo "squid_listen=$(ss -ltn | awk "{print \$4}" | grep ":3128$" | tr "\n" " " | sed "s/ $//")"
@@ -289,6 +295,9 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check K.5 "Every certificate file is 600" 0 "$(value cert_modes_not_600)"
   check K.6 "No default service account mounts a token" 0 "$(value default_sa_automount)"
   check K.7 "The API server refuses anonymous requests" "--anonymous-auth=false" "$(value apiserver_anonymous)"
+  # The kubelet's running configuration, as it reports it, so a later file in
+  # its configuration folder or a flag cannot override it unseen.
+  check K.8 "The kubelet refuses anonymous requests" "false Webhook" "$(value kubelet_auth)"
   check R.1 "The mesh VPN agent is active" active "$(value unit_tailscaled)"
   check R.2 "The segment size clamp is loaded" 2 "$(value mss_rules)"
   check R.3 "The orchestrator forwards packets" 1 "$(value ip_forward)"
@@ -319,6 +328,11 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
     "type filter hook forward priority filter + 10; policy accept;|ip saddr 10.42.0.0/16 ct state established,related accept|ip saddr 10.42.0.0/16 ip daddr 10.42.0.0/16 accept|ip saddr 10.42.0.0/16 counter drop|" \
     "$(value pod_egress)"
   check E.7 "The pod egress rule loads at boot" enabled "$(value pod_egress_unit)"
+  # The same for traffic from pods to the host itself (ADR 0023). Replies to
+  # connections the host started, and the API server and the kubelet.
+  check E.8 "Pods reach the host only on the API server and kubelet ports" \
+    "type filter hook input priority filter + 10; policy accept;|ip saddr 10.42.0.0/16 ct state established,related accept|ip saddr 10.42.0.0/16 tcp dport { 6443, 10250 } accept|ip saddr 10.42.0.0/16 counter drop|" \
+    "$(value pod_egress_input)"
   check T.1 "The tool service pod is ready" 1 "$(value tool_ready)"
   # The digest that runs, against the digest the reviewed manifest names. An
   # empty manifest digest is a failure, not a match.
