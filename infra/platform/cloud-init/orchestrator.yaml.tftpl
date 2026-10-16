@@ -236,6 +236,28 @@ write_files:
     permissions: "0700"
     content: ${audit_copy_install}
 
+  # The journal puller (ADR 0019), the same way. First boot makes its key. The
+  # worker trusts it, and its host key is pinned, in a runbook step.
+  - path: /usr/local/lib/aisec/install/aisec_journal_pull.py
+    encoding: b64
+    permissions: "0644"
+    content: ${journal_pull_py}
+
+  - path: /usr/local/lib/aisec/install/aisec-journal-pull.service
+    encoding: b64
+    permissions: "0644"
+    content: ${journal_pull_unit}
+
+  - path: /usr/local/lib/aisec/install/aisec-journal-pull.timer
+    encoding: b64
+    permissions: "0644"
+    content: ${journal_pull_timer}
+
+  - path: /usr/local/lib/aisec/install/install-journal-pull.sh
+    encoding: b64
+    permissions: "0700"
+    content: ${journal_pull_install}
+
   - path: /usr/local/sbin/aisec-first-boot
     permissions: "0700"
     content: |
@@ -310,6 +332,7 @@ write_files:
       # The audit copier reads the pod logs, which exist once the kubelet runs.
       retry test -d /var/log/pods
       /usr/local/lib/aisec/install/install-audit-copy.sh
+      /usr/local/lib/aisec/install/install-journal-pull.sh
 
       # The key the orchestrator uses to feed the other machines. It is made
       # here so the private half never passes through Terraform or its state.
