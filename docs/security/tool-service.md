@@ -63,6 +63,10 @@ The service writes to standard output and opens no log file. A planned host serv
 
 The service parses untrusted input. These controls limit what a bug in it gives an attacker. They are decided in [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), written in `platform/tool-service/` and `infra/platform/main.tf`, and checked in the pipeline. They are deployed, and the [tool service checks](../validation/tool-service.md) test them on the live system.
 
+![The tool service in K3s on the orchestrator: the AI worker reaches the tool listener on 8443 only through node port 30443 on the private address, over TLS 1.3 to a pinned certificate. A short-lived pod in orchestration registers jobs on 8444. The pod reads its policy, key set, evidence, and certificate from a read-only volume and writes audit lines to its log. Its egress to the internet, and a mesh device's connection to the tool port, are blocked](../diagrams/tool-service-cluster.svg)
+
+The diagram source is [`diagrams/tool-service-cluster.html`](../diagrams/tool-service-cluster.html).
+
 - The pod runs as user 65532, without a service account token, privilege escalation, capabilities, or a writable file system. Both namespaces enforce the restricted pod security level.
 - Both namespaces deny all traffic by default. The tool port admits the worker subnet, the registration port admits the dispatch pods, and the tool service pod has no egress. A host rule also drops forwarded traffic from any pod to anything but pods ([ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md)).
 - The worker reaches the tool port through node port 30443, which keeps the caller's address for the network policy and the audit line. K3s answers node ports on the orchestrator's private address only.
