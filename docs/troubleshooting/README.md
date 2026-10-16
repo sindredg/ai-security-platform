@@ -8,3 +8,4 @@ Failures that taught something about the system or a procedure. Each entry recor
 | [02](02-ssh-through-subnet-router-stalls.md) | 2 | A deny-all security group also drops path MTU discovery. The subnet router has to clamp the segment size |
 | [03](03-proxy-cannot-fetch-upstream-over-tls.md) | After 2 | The `main` Squid build cannot fetch from a peer over TLS, so closing outbound port 80 costs more than leaving it open |
 | [04](04-default-service-account-already-exists.md) | 3 | Kubernetes creates each namespace's default service account on its own. A manifest that sets it has to wait for it |
+| [05](05-failed-logins-block-every-routed-session.md) | 3a | sshd penalises a source address after failed logins, and every routed session reaches the worker from one address. A few refused logins block the feed and the journal pull too |
