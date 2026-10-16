@@ -1,6 +1,6 @@
 # Platform compute: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md).
+Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). On 2026-10-16 the logins changed to SSH certificates and the feed key to an account of its own on the worker ([SSH certificates runbook](ssh-certificates.md)). Steps 12, 14, 19, 24, and 29 and the feed key and operator key rotations were rewritten for that and have not been run in that form.
 
 Run these steps to build milestone 2: the public address policy, the NAT gateway, the orchestrator and AI worker VMs, the mesh VPN, and K3s. Never commit local values, plans, state, keys, or raw output.
 
@@ -13,7 +13,8 @@ Run these steps to build milestone 2: the public address policy, the NAT gateway
 | `az` 2.88 or later, `ssh`, `jq` | Applies, checks, and logins |
 | A mesh VPN account with administrator access | To create a tag and an auth key, and to approve routes |
 | The mesh VPN client on the workstation, signed in | The VMs have no other way in |
-| An SSH key pair on the workstation, used for this project only | The public half is the only key the VMs trust at first boot |
+| An SSH key pair on the workstation, used for this project only | Azure requires its public half. The administrator account takes it only with a certificate |
+| The SSH certificate authority, and a certificate for the key signed today | Steps 1 to 3 of the [SSH certificates runbook](ssh-certificates.md). `operator_user_ca_public_key` in `terraform.tfvars` |
 | Quota for 4 vCPUs in the platform region | 2 in the `Basv2` family and 2 in the `Dpsv6` family |
 
 The design is in the [architecture](../architecture.md). The egress design is [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), the access design [ADR 0007](../decisions/0007-mesh-vpn-for-administrative-access.md).
@@ -174,8 +175,10 @@ Plan, read the plan, then apply the saved plan. Do not apply a plan nobody read.
     Every `ssh` below uses these options:
 
     ```bash
-    SSH_OPTS="-o UserKnownHostsFile=$KNOWN_HOSTS -o StrictHostKeyChecking=yes"
+    SSH_OPTS="-o UserKnownHostsFile=$KNOWN_HOSTS -o StrictHostKeyChecking=yes -o CertificateFile=REPLACE_WITH_OPERATOR_KEY.aisec-cert.pub"
     ```
+
+    The administrator account refuses the key without a certificate. A certificate signed more than 12 hours ago is refused too: sign a new one with step 3 of the [SSH certificates runbook](ssh-certificates.md).
 
 13. Confirm the orchestrator's first boot.
 
@@ -191,19 +194,19 @@ Plan, read the plan, then apply the saved plan. Do not apply a plan nobody read.
 
     Expected: the marker file exists, `status: done`, and `/run/aisec` is empty, so the auth key file is gone. Four services `active`. The node is `Ready`, three `kube-system` pods are `Running`, and encryption status is `Enabled`.
 
-14. Let the orchestrator copy files to the worker. Its key pair was generated at first boot, so the private half never passed through Terraform.
+14. Let the orchestrator copy files to the worker. Its key pair was generated at first boot, so the private half never passed through Terraform. The worker's first boot made the feed account. This gives it the key ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)).
 
     ```bash
     FEED_KEY="$(ssh $SSH_OPTS aisec@10.40.0.4 'cat ~/.ssh/aisec-feed.pub')"
     ssh $SSH_OPTS aisec@10.40.0.36 \
-      "grep -qxF '$FEED_KEY' ~/.ssh/authorized_keys || echo '$FEED_KEY' >> ~/.ssh/authorized_keys"
+      "sudo /usr/local/lib/aisec/install/install-feed-account.sh '$FEED_KEY'"
     WORKER_KEY="$(grep '^10.40.0.36 ' "$KNOWN_HOSTS" | sed 's/^10.40.0.36/aisec-worker,10.40.0.36/')"
     ssh $SSH_OPTS aisec@10.40.0.4 \
       "grep -qF aisec-worker ~/.ssh/known_hosts 2>/dev/null || echo '$WORKER_KEY' >> ~/.ssh/known_hosts
-       ssh -i ~/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes aisec@aisec-worker hostname"
+       ssh -n -i ~/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes aisec-feed@aisec-worker id; echo \"exit \$?\""
     ```
 
-    Expected: `aisec-worker`.
+    Expected: `refused: not a feed request` and `exit 2`. The key logs in, and the account runs nothing but the feed command.
 
 ## Check the milestone 2 gate
 
@@ -272,7 +275,6 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
       set -e; d=$(mktemp -d); cd $d
       curl -fsSLO https://downloads.cisofy.com/lynis/lynis-3.1.7.tar.gz
       echo "REPLACE_WITH_PUBLISHED_SHA256  lynis-3.1.7.tar.gz" | sha256sum -c -
-      scp -q -i ~/.ssh/aisec-feed lynis-3.1.7.tar.gz aisec@aisec-worker:/tmp/
       sudo tar xzf lynis-3.1.7.tar.gz --no-same-owner; cd lynis
       sudo ./lynis audit system --quiet --no-colors --logfile $d/lynis.log --report-file $d/lynis-report.dat
       sudo grep -E "^(hardening_index|lynis_tests_done)=|^warning" $d/lynis-report.dat
@@ -281,7 +283,7 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
 
     Expected: the checksum line ends in `OK`, then the test count, the hardening index, and any warnings. On this build the orchestrator scored 60 with two warnings, both about packages, before the hardening that cloud-init now applies, and 76 after it.
 
-    Run the same on the worker from the copied archive. Expected: the run stalls for about six minutes at the package update test, because the worker cannot reach a repository, and then finishes. On this build it scored 66 with no warnings before the hardening and 77 after. To skip the stall, put `skip-test=PKGS-7392` in a `custom.prf` file next to the `lynis` script.
+    Run the same on the worker, with the archive copied through the workstation: `ssh $SSH_OPTS aisec@10.40.0.4 'cat REPLACE_WITH_ARCHIVE' | ssh $SSH_OPTS aisec@10.40.0.36 'cat > /tmp/lynis-3.1.7.tar.gz'`, and the same checksum check before unpacking. Expected: the run stalls for about six minutes at the package update test, because the worker cannot reach a repository, and then finishes. On this build it scored 66 with no warnings before the hardening and 77 after. To skip the stall, put `skip-test=PKGS-7392` in a `custom.prf` file next to the `lynis` script.
 
 20. Install pending security updates on the orchestrator.
 
@@ -342,15 +344,15 @@ Run once, on 2026-10-11, while the worker was empty. The commands are that run, 
     ```bash
     FEED_KEY="$(ssh $SSH_OPTS aisec@10.40.0.4 'cat ~/.ssh/aisec-feed.pub')"
     ssh $SSH_OPTS aisec@10.40.0.36 \
-      "grep -qxF '$FEED_KEY' ~/.ssh/authorized_keys || echo '$FEED_KEY' >> ~/.ssh/authorized_keys"
+      "sudo /usr/local/lib/aisec/install/install-feed-account.sh '$FEED_KEY'"
     WORKER_KEY="$(grep '^10.40.0.36 ' "$KNOWN_HOSTS" | sed 's/^10.40.0.36/aisec-worker,10.40.0.36/')"
     ssh $SSH_OPTS aisec@10.40.0.4 \
       "ssh-keygen -q -R aisec-worker; ssh-keygen -q -R 10.40.0.36; rm -f ~/.ssh/known_hosts.old
        echo '$WORKER_KEY' >> ~/.ssh/known_hosts
-       ssh -i ~/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes aisec@aisec-worker hostname"
+       ssh -n -i ~/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes aisec-feed@aisec-worker id; echo \"exit \$?\""
     ```
 
-    Expected: `aisec-worker`.
+    Expected: `refused: not a feed request` and `exit 2`.
 
 25. Run step 21 for the first update, then every check.
 
@@ -406,7 +408,7 @@ The worker keeps running, but it has no outbound access and cannot be reached wh
 
     Expected: `1 added, 0 changed, 1 destroyed`. Then approve both routes of the new node in the admin console, as in step 11. If the old node is still listed, the new one joins under a different name.
 
-29. Take the new host key from the serial log, then swap the feed key on the worker. Run as the operator. First boot takes about 80 seconds.
+29. Take the new host key from the serial log, then give the new feed key to the worker's feed account. Run as the operator. First boot takes about 80 seconds.
 
     ```bash
     az vm boot-diagnostics get-boot-log -g rg-aisec-platform -n vm-aisec-orchestrator -o tsv \
@@ -417,14 +419,14 @@ The worker keeps running, but it has no outbound access and cannot be reached wh
     ssh-keygen -lf "$KNOWN_HOSTS"
 
     FEED_KEY="$(ssh $SSH_OPTS aisec@10.40.0.4 'cat ~/.ssh/aisec-feed.pub')"
-    ssh $SSH_OPTS aisec@10.40.0.36 "sed -i '/ aisec-feed\$/d' ~/.ssh/authorized_keys &&
-      echo '$FEED_KEY' >> ~/.ssh/authorized_keys && grep -c . ~/.ssh/authorized_keys"
+    ssh $SSH_OPTS aisec@10.40.0.36 "sudo /usr/local/lib/aisec/install/install-feed-account.sh '$FEED_KEY' &&
+      sudo grep -c . /home/aisec-feed/.ssh/authorized_keys"
     WORKER_KEY="$(grep '^10.40.0.36 ' "$KNOWN_HOSTS" | sed 's/^10.40.0.36/aisec-worker,10.40.0.36/')"
     ssh $SSH_OPTS aisec@10.40.0.4 "echo '$WORKER_KEY' >> ~/.ssh/known_hosts &&
-      ssh -i ~/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes aisec@aisec-worker hostname"
+      ssh -n -i ~/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes aisec-feed@aisec-worker id; echo \"exit \$?\""
     ```
 
-    Expected: the orchestrator's fingerprint from the scan equals the one from the serial log. Then `2`, the operator key and the new feed key, and `aisec-worker`. The old feed key's private half died with the old VM, and its line is removed here so the worker trusts nothing that no longer exists.
+    Expected: the orchestrator's fingerprint from the scan equals the one from the serial log. Then `1`, the new feed key, and `refused: not a feed request` with `exit 2`. The install replaces the file, so the old feed key, whose private half died with the old VM, is no longer trusted.
 
 30. Confirm first boot and node signing, then install the pending updates on both VMs.
 
@@ -454,27 +456,24 @@ The worker keeps running, but it has no outbound access and cannot be reached wh
 
 ## Rotate a credential
 
-Each rotation was run once on 2026-10-11. The commands are that run, condensed. Each ends by proving that the old credential no longer works.
+Each rotation was run once on 2026-10-11. The commands are that run, condensed, except the feed key and the operator key, rewritten on 2026-10-16 for certificates and the feed account and not run in that form. Each ends by proving that the old credential no longer works.
 
 ### Feed key
 
-Run on the orchestrator. The new key goes in with the old one, then the old one comes out with the new one.
+Make the new key on the orchestrator, install it on the worker as the operator, then prove that the old one is refused. The feed key cannot change its own key line: the file is root's ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)).
 
 ```bash
+ssh $SSH_OPTS aisec@10.40.0.4 'cd ~/.ssh && ssh-keygen -q -t ed25519 -N "" -C aisec-feed -f aisec-feed.new'
+NEW="$(ssh $SSH_OPTS aisec@10.40.0.4 'cat ~/.ssh/aisec-feed.new.pub')"
+ssh $SSH_OPTS aisec@10.40.0.36 "sudo /usr/local/lib/aisec/install/install-feed-account.sh '$NEW'"
 ssh $SSH_OPTS aisec@10.40.0.4 '
-  set -e; cd ~/.ssh
-  S="ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes"
-  ssh-keygen -q -t ed25519 -N "" -C aisec-feed -f aisec-feed.new
-  cat aisec-feed.new.pub | $S -i aisec-feed aisec@aisec-worker "cat >> ~/.ssh/authorized_keys"
-  $S -i aisec-feed.new aisec@aisec-worker hostname
-  old=$(cut -d" " -f2 aisec-feed.pub)
-  $S -i aisec-feed.new aisec@aisec-worker "grep -vF $old ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && chmod 600 ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys"
-  $S -i aisec-feed aisec@aisec-worker true && echo "OLD KEY STILL ACCEPTED" || echo "old key refused"
-  mv aisec-feed.new aisec-feed; mv aisec-feed.new.pub aisec-feed.pub
-  $S -i aisec-feed aisec@aisec-worker hostname'
+  cd ~/.ssh; S="ssh -n -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes"
+  $S -i aisec-feed.new aisec-feed@aisec-worker id; echo "new: exit $?"
+  $S -i aisec-feed aisec-feed@aisec-worker id; echo "old: exit $?"
+  mv aisec-feed.new aisec-feed; mv aisec-feed.new.pub aisec-feed.pub'
 ```
 
-Expected: `aisec-worker`, then `old key refused`, then `aisec-worker` again. Every target that trusts the feed key needs the same swap.
+Expected: `new: exit 2`, the feed command refusing, then `Permission denied (publickey)` and `old: exit 255`. Every target that trusts the feed key needs the same swap.
 
 ### Cluster token
 
@@ -499,26 +498,22 @@ Expected: `Token rotated, restart k3s nodes with new token`, the node `Ready` af
 
 ### Operator SSH key
 
-Azure replaces a VM whose administrator key changes, so Terraform does not push this. The key is swapped on the running VMs, and the variable is updated for the next rebuild.
+The VMs trust the certificate authority, not the key, so nothing changes on a VM. Make the new key, sign a certificate for it with step 3 of the [SSH certificates runbook](ssh-certificates.md), and stop signing for the old one. A certificate for the old key works until it expires, at most 12 hours. To end it sooner, revoke its serial with step 14 of that runbook.
 
 ```bash
-ssh-keygen -q -t ed25519 -N "" -C aisec-operator -f "$CRED_DIR/operator_ed25519"
-NEW="$(cat "$CRED_DIR/operator_ed25519.pub")"
-OLD_BLOB='REPLACE_WITH_THE_BASE64_PART_OF_THE_OLD_PUBLIC_KEY'
+ssh-keygen -q -t ed25519 -N "" -C aisec-operator -f "$CRED_DIR/operator_ed25519.new"
+# Sign the new key as in step 3, then:
 for host in 10.40.0.4 10.40.0.36; do
-  ssh $SSH_OPTS aisec@$host "grep -qxF '$NEW' ~/.ssh/authorized_keys || echo '$NEW' >> ~/.ssh/authorized_keys"
-  ssh $SSH_OPTS -i "$CRED_DIR/operator_ed25519" -o IdentitiesOnly=yes aisec@$host hostname
-  ssh $SSH_OPTS -i "$CRED_DIR/operator_ed25519" -o IdentitiesOnly=yes aisec@$host \
-    "grep -vF '$OLD_BLOB' ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp && chmod 600 ~/.ssh/authorized_keys.tmp && mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys"
-  ssh $SSH_OPTS -i 'REPLACE_WITH_OLD_PRIVATE_KEY' -o IdentitiesOnly=yes -o BatchMode=yes aisec@$host true
+  ssh $SSH_OPTS -i "$CRED_DIR/operator_ed25519.new" -o CertificateFile="$CRED_DIR/operator_ed25519.new.aisec-cert.pub" \
+    -o IdentitiesOnly=yes aisec@$host hostname
 done
 # In infra/platform/terraform.tfvars, set operator_ssh_public_key to the new public key.
 (cd infra/platform && source "$CRED_DIR/platform.env" && terraform plan -detailed-exitcode)
 ```
 
-Expected: each hostname with the new key, then `Permission denied (publickey)` for the old key on both VMs. The plan reports `No changes` and exits `0`, because the VM ignores changes to the key.
+Expected: each hostname with the new key. The plan reports `No changes` and exits `0`, because the VM ignores changes to the key.
 
-If the new key is lost before the old one is removed, nothing is lost. If both are lost, the way back in is the serial console or a rebuild.
+The authority itself is replaced with step 15 of the [SSH certificates runbook](ssh-certificates.md).
 
 ### Mesh VPN node key
 
