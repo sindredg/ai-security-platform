@@ -8,7 +8,7 @@ Run these steps to build milestone 2: the public address policy, the NAT gateway
 
 | Input | Notes |
 | --- | --- |
-| Milestone 1, built | The [network foundation runbook](network-foundation.md), with `$CRED_DIR` holding `platform.env` and `targets.env` |
+| Milestone 1, built | The [network foundation runbook](network-foundation.md), with `$CRED_DIR` holding `platform.env` and `targets.env`, and `$TARGETS` set as in its inputs |
 | `terraform` 1.16.6, first on `PATH` | The roots refuse any other version. A distribution package can be older |
 | `az` 2.88 or later, `ssh`, `jq` | Applies, checks, and logins |
 | A mesh VPN account with administrator access | To create a tag and an auth key, and to approve routes |
@@ -123,24 +123,24 @@ Plan, read the plan, then apply the saved plan. Do not apply a plan nobody read.
 
    If the VMs fail and the rest succeeds, fix the cause and plan again. The next plan shows only the VMs.
 
-9. Add the target-side denies. Run in `infra/targets` as the target identity.
+9. Add the target-side denies. Run in `$TARGETS`, the target root in a checkout of the [targets repository](https://github.com/sindredg/ai-security-targets), as the target identity.
 
    ```bash
-   cd ../targets
+   cd "$TARGETS"
    source "$CRED_DIR/targets.env"
    terraform init -backend-config=backend.hcl
    terraform plan -out=targets.tfplan
    terraform apply targets.tfplan
    ```
 
-   Expected: 0 to add, 4 to change. Each target security group gains `deny-to-internet` and `deny-to-azure-dns`.
+   Expected: 0 to add, 4 to change. Each target security group gains `deny-to-internet` and `deny-to-azure-dns`. That count is from the 2026-10-11 build, where the target network came from milestone 1's code. A target network built from the current target root already has both denies, and this plan reports `No changes` (reasoned from the code, not observed).
 
 10. Confirm that every root has converged. The auth key variable is empty here on purpose: the VM ignores changes to its custom data after creation.
 
     ```bash
-    (cd ../platform && source "$CRED_DIR/platform.env" && terraform plan -detailed-exitcode)
-    (cd ../targets && source "$CRED_DIR/targets.env" && terraform plan -detailed-exitcode)
-    (cd ../bootstrap && terraform plan -detailed-exitcode)
+    (cd REPLACE_WITH_PLATFORM_CHECKOUT/infra/platform && source "$CRED_DIR/platform.env" && terraform plan -detailed-exitcode)
+    (cd "$TARGETS" && source "$CRED_DIR/targets.env" && terraform plan -detailed-exitcode)
+    (cd REPLACE_WITH_PLATFORM_CHECKOUT/infra/bootstrap && terraform plan -detailed-exitcode)
     ```
 
     Expected: `No changes` and exit `0` three times.

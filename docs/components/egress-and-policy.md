@@ -6,7 +6,7 @@ One outbound path for the whole system: a NAT gateway on the orchestrator subnet
 | --- | --- |
 | State | Built |
 | NAT gateway | StandardV2, one static public address, associated with `snet-orchestrator` only |
-| Defined in | `infra/platform/egress.tf`, the rules in `infra/platform/main.tf` and `infra/targets/`, the policy in `infra/bootstrap/policy.tf` |
+| Defined in | `infra/platform/egress.tf`, the rules in `infra/platform/main.tf` and in `infra/targets/` of the [targets repository](https://github.com/sindredg/ai-security-targets), the policy in `infra/bootstrap/policy.tf` |
 | Decisions | [0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), [0008](../decisions/0008-deployment-identities-and-bootstrap-scope.md) |
 
 ## The three controls on the worker and target machines

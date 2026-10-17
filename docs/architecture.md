@@ -39,8 +39,8 @@ They share an Azure subscription, with separate Terraform roots, state, resource
 | Aspect | Platform | Targets |
 | --- | --- | --- |
 | Purpose | Orchestration, tools, AI workers, inference | The service under investigation and its lab fixtures |
-| Region | Sweden Central | Denmark East. Moves to Poland Central in [milestone 3a](roadmap.md#3a-edge-network-and-monitoring) ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)) |
-| Terraform root | `infra/platform/` | `infra/targets/` |
+| Region | Sweden Central | Poland Central. The resource groups and the state account are in Denmark East ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)) |
+| Terraform root | `infra/platform/` | `infra/targets/` in the [targets repository](https://github.com/sindredg/ai-security-targets) ([ADR 0024](decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) |
 | Terraform state | Own storage account, own access scope | Own storage account, own access scope |
 | Resource groups | `rg-aisec-platform`, `rg-aisec-platform-state` | `rg-aisec-targets`, `rg-aisec-targets-state` |
 | Virtual network | `10.40.0.0/20` | `10.50.0.0/20` |
@@ -74,14 +74,14 @@ Deployed. Every subnet has its own network security group and no default outboun
 | `10.40.0.0/20` | Sweden Central | Platform virtual network |
 | `10.40.0.0/27` | Sweden Central | Orchestrator subnet |
 | `10.40.0.32/27` | Sweden Central | AI worker subnet |
-| `10.50.0.0/20` | Denmark East | Target virtual network |
-| `10.50.0.0/27` | Denmark East | NetBox subnet |
-| `10.50.0.32/27` | Denmark East | Authorized consumer viewpoint |
-| `10.50.0.64/27` | Denmark East | Unintended viewpoint (exercise 2) |
-| `10.50.1.0/27` | Denmark East | Rehearsal copy |
+| `10.50.0.0/20` | Poland Central | Target virtual network |
+| `10.50.0.0/27` | Poland Central | NetBox subnet |
+| `10.50.0.32/27` | Poland Central | Authorized consumer viewpoint |
+| `10.50.0.64/27` | Poland Central | Unintended viewpoint (exercise 2) |
+| `10.50.1.0/27` | Poland Central | Rehearsal copy |
 | `10.42.0.0/16`, `10.43.0.0/16` | In cluster | K3s default pod and service ranges, never routed between networks |
 
-Decided for [milestone 3a](roadmap.md#3a-edge-network-and-monitoring), not built: an edge network, `10.45.0.0/24` in Denmark East, with the edge at `10.45.0.4` and the router at `10.45.0.36` ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). A private endpoint subnet for monitoring, `10.40.0.64/27` ([ADR 0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md)). The target network keeps its ranges and moves to Poland Central.
+Decided for [milestone 3a](roadmap.md#3a-edge-network-and-monitoring), not built: an edge network, `10.45.0.0/24` in Denmark East, with the edge at `10.45.0.4` and the router at `10.45.0.36` ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). A private endpoint subnet for monitoring, `10.40.0.64/27` ([ADR 0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md)).
 
 ### Connectivity
 
@@ -218,8 +218,8 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Practice | What it covers | Lands with | State |
 | --- | --- | --- | --- |
 | Threat model | Threats per trust boundary, AI-specific threats, the control for each, residual risk, and the gap between this lab and production | Before platform compute, then updated with each decision | First pass written. States reviewed on 2026-10-14 and 2026-10-15 against the validation checks and repository settings, and moved on 2026-10-16 for ADRs 0020 to 0025 |
-| Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Built. Secret scanning, push protection, and a ruleset on `main`. Required checks are documented in the [pipeline page](components/pipeline.md#repository-settings). Verified: a required check that every commit in a pull request is signed by the operator's key blocks a commit GitHub signed ([worklog](worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github), [0024](decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) |
-| Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Built. The [pipeline page](components/pipeline.md#checks-on-every-pull-request) lists the checks and which are required |
+| Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Built. Secret scanning, push protection, and a ruleset on `main`. Required checks are documented in the [pipeline page](components/pipeline.md#repository-settings). Verified: a required check that every commit in a pull request is signed by the operator's key blocks a commit GitHub signed ([worklog](worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github), [0024](decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)). The targets repository has the same settings and check, verified the same way on 2026-10-17 ([pipeline](components/pipeline.md#the-targets-repository)) |
+| Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Built. The [pipeline page](components/pipeline.md#checks-on-every-pull-request) lists the checks and which are required. Tested on 2026-10-17: Checkov and Trivy do not judge the security group rules ([#96](https://github.com/sindredg/ai-security-platform/issues/96)) |
 | Dependency updates | Automated pull requests that move the version pins | Platform compute | Configured. No update has been proposed yet. From milestone 3a, each proposal is redone by the operator, because the [signature check](components/pipeline.md#the-signature-check) refuses commits GitHub signs |
 | Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Kubernetes benchmark run, one check accepted. The operating system has a Lynis audit with its findings triaged. No tool has a CIS profile for Ubuntu 26.04 yet, which is an accepted risk. Neither tool has been run again on the orchestrator that was rebuilt on 2026-10-13 |
 | Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current. Each long-lived credential on the VMs rotated once, except the worker log export key and the SSH certificate authority key, both made on 2026-10-16. The dispatch SSH key is planned and has not been created. The worker log export key is in use since 2026-10-16 |
@@ -241,14 +241,14 @@ There is no compliance framework here. ISO 27001 and SOC 2 describe an organisat
 
 The subscription allows 4 vCPUs per region and has no GPU quota. Both are treated as fixed. Quota counts VMs that exist, not VMs that run, so deallocating a VM frees nothing. Evidence is in the [preflight worklog](worklogs/0000-azure-preflight.md).
 
-That gives two VMs per region, with nothing to spare. The limit cannot be raised for this subscription type. [Milestone 3a](roadmap.md#3a-edge-network-and-monitoring) puts the edge and the router in Denmark East and moves the targets to Poland Central ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). The table shows today's placement.
+That gives two VMs per region, with nothing to spare. The limit cannot be raised for this subscription type. The targets are in Poland Central. [Milestone 3a](roadmap.md#3a-edge-network-and-monitoring) puts the edge and the router in Denmark East ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). The table shows today's placement.
 
 | Region | VM | vCPUs | Size | State |
 | --- | --- | --- | --- | --- |
 | Sweden Central | Orchestrator | 2 | `Standard_B2as_v2` (8 GB) | Built. The regional quota is full |
 | Sweden Central | AI worker | 2 | `Standard_D2ps_v6` (Arm, 2 physical cores, 8 GB) | Built |
-| Denmark East | NetBox | 2 | `Standard_B2as_v2` (8 GB), candidate | Planned |
-| Denmark East | Lab | 2 | `Standard_B2as_v2` (8 GB), candidate | Planned |
+| Poland Central | NetBox | 2 | `Standard_B2as_v2` (8 GB), candidate, zone 3 | Planned |
+| Poland Central | Lab | 2 | `Standard_B2as_v2` (8 GB), candidate, zone 3 | Planned |
 
 Idle use of the two built VMs is on their [component pages](components/README.md). Where it will hurt:
 
@@ -258,18 +258,16 @@ Idle use of the two built VMs is on their [component pages](components/README.md
 
 ## Repository layout
 
-`.github/`, `infra/`, `platform/`, `worker/`, `tool-service/`, `policies/`, `validation/`, and `docs/` exist. Every other directory appears with the milestone that needs it.
+`.github/`, `infra/`, `platform/`, `worker/`, `tool-service/`, `policies/`, `validation/`, and `docs/` exist. Every other directory appears with the milestone that needs it. The target Terraform root is in the [targets repository](https://github.com/sindredg/ai-security-targets), and NetBox, its fixtures, and the consumer contract go there in milestone 4 ([ADR 0024](decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)).
 
 ```text
 .github/            Static checks on pull requests, dependency update configuration
 infra/bootstrap/    Operator-run root: resource groups, state accounts, deployment identities
 infra/modules/      Shared Terraform modules
 infra/platform/     Platform Terraform root
-infra/targets/      Target Terraform root. Moves to the targets repository in milestone 3a (ADR 0024)
 platform/           What the orchestrator runs: K3s manifests and the log copiers today, workflow templates later
 worker/             What the orchestrator copies to the AI worker: pins, build scripts, service units
 tool-service/       The MCP server that checks every tool call, its tests, and its pinned packages
-targets/netbox/     Not in this repository. NetBox, its fixtures, and the consumer contract go in the targets repository (ADR 0024)
 policies/           Target, tool, and change rules. Today: the tool service's
 collectors/         Collection and adaptation scripts
 validation/         Checks against the running system. Contract tests and drills come later

@@ -5,7 +5,7 @@ Milestone: 3a, edge network and monitoring
 
 ## Summary
 
-The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The edge, the router, the targets' move, and monitoring are not built. The gate is not met.
+The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The edge, the router, and monitoring are not built. The gate is not met.
 
 | Criterion | Result |
 | --- | --- |
@@ -23,7 +23,7 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from | Open |
 | Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | Open |
 | Flow logs are recorded for the platform subnets | Open |
-| The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | Open for the targets. **Tested** for the signature check on GitHub: a pull request with a commit GitHub signed is blocked, also next to a passing job of the same name, and an unsigned push is refused ([fail side](#the-fail-side-on-github)) |
+| The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | **Tested** for the targets on the live system: `Z.14` reads `polandcentral`, after it read `denmarkeast` before the move, and the target root is in [its own repository](https://github.com/sindredg/ai-security-targets) ([the move](#the-targets-in-poland-central)). **Tested** for the signature check on GitHub: a pull request with a commit GitHub signed is blocked, also next to a passing job of the same name, and an unsigned push is refused ([fail side](#the-fail-side-on-github)) |
 | Log volume per day is measured, and a daily cap is set from it | Open |
 | The orchestrator's memory and CPU use with the log agent are measured | Open |
 
@@ -296,4 +296,90 @@ Pull requests 91, 92, and 94 were closed without merging and their branches dele
 
 - Not tried on GitHub: a pull request from a fork. GitHub does not let an account fork its own repository ([#95](https://github.com/sindredg/ai-security-platform/issues/95)).
 - The settings were set in the web interface. The [runbook](../runbooks/repository-settings.md) writes the same steps down and was checked against the settings as read, not run again from the start.
+
+## The targets in Poland Central
+
+The target root moved to its own repository, [`sindredg/ai-security-targets`](https://github.com/sindredg/ai-security-targets), and the target network moved to Poland Central ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)). Run on 2026-10-17 between 07:50 and 08:45 UTC.
+
+### What changed
+
+| Change | Where |
+| --- | --- |
+| The target root, as it was at platform commit `3d2044d`, with a `location` variable set to `polandcentral` and the shared module as a Git source pinned to that commit | `infra/targets/` in the targets repository, [pull request 1](https://github.com/sindredg/ai-security-targets/pull/1) |
+| The signature check, a copy of this repository's, with the same allowed signer | The targets repository's `.github/`, on `main` before pull request 1 |
+| A pipeline with Terraform format and validate, Checkov, Trivy, the secret scan, and ShellCheck, at this repository's pins | The targets repository's `.github/workflows/checks.yml` |
+| The target root removed, and the validation loop and Dependabot without it | `infra/targets/`, `.github/workflows/checks.yml`, `.github/dependabot.yml` |
+| `Z.11` builds its test interface in the region of the network, not of the group. `Z.14` and `Z.15` are new | `validation/platform-checks.sh` |
+
+The resource group and the state account stay in Denmark East, where the bootstrap root made them. Nothing in the bootstrap root changed: it has no policy that limits regions.
+
+### The plan for the move
+
+Written before the plan: the network, four subnets, four security groups, four associations, and the target half of the peering are replaced.
+
+`terraform plan` from the targets repository, as the target identity: `9 to add, 0 to change, 9 to destroy`. The network and the security groups were replaced, with `location = "denmarkeast" -> "polandcentral" # forces replacement`, and the associations with them. The subnets and the peering were not in the plan. They refer to the network by name, and the name does not change. Applied, the plan would have deleted the subnets with the old network and kept them in state. The plan was not applied. The move was made as a destroy and a fresh apply instead, and the [runbook](../runbooks/network-foundation.md#rebuild-the-target-network) says why.
+
+### The new checks, before and after
+
+Written before the run: `Z.14` reads the network's region and fails on `denmarkeast`. `Z.15` reads both halves of the peering, passes while they are connected, and fails once the target network is gone.
+
+| When (UTC) | `Z.14` input | `Z.15` input | Result |
+| --- | --- | --- | --- |
+| 07:52, before the move | `denmarkeast` | `Connected Connected` | `Z.14` would fail, `Z.15` passes |
+| 08:27, after the destroy | Network not found | `Disconnected` and no target half | Both would fail |
+| 08:43, after the rebuild | `polandcentral` | `Connected Connected` | Both pass |
+
+The first two rows are the queries the checks run, made by hand with `az`. The third is the full run below.
+
+`Z.11` used to build its test interface in the group's region. With the group in Denmark East and the network in Poland Central, that template has a second fault. Validated by hand at 08:44 with both regions, Azure reported `RequestDisallowedByPolicy` for each: it evaluates the policy first. The old check would have kept passing. The change keeps it from resting on that order.
+
+### The applies
+
+Each was planned and read before it was applied, from a saved plan.
+
+| Step | Root | Plan | Result |
+| --- | --- | --- | --- |
+| 1 | Targets, destroy | 14 to destroy | `0 added, 0 changed, 14 destroyed` |
+| 2 | Targets | 14 to add, every `location` `polandcentral` | 13 created. The peering failed: `RemotePeeringIsDisconnected` |
+| 3 | Platform, `-replace` on the peering | 1 to add, 1 to destroy | `1 added, 0 changed, 1 destroyed`. Platform half `Initiated` |
+| 4 | Targets | 1 to add, the peering | `1 added, 0 changed, 0 destroyed` |
+
+Step 2 failed because the platform half had turned `Disconnected` when the old network was deleted, and the rebuilt network keeps its ID, so a plain platform plan showed no change. [Troubleshooting 06](../troubleshooting/06-rebuilt-network-leaves-peering-disconnected.md) has the cause.
+
+At 08:42, `terraform plan -detailed-exitcode` exited `0` for the platform, target, and bootstrap roots.
+
+### Checks
+
+`validation/platform-checks.sh` from this pull request's branch, at 08:43: `159 passed, 0 failed`. That is the 157 of the last run plus `Z.14` and `Z.15`. `C.2` and `C.3` still time out against the rebuilt subnets, and `Z.11` passes with the test interface in Poland Central.
+
+### The targets repository's settings
+
+Set on 2026-10-17 through the API with steps 4 to 7 of the [repository settings runbook](../runbooks/repository-settings.md), the first run of those steps as written. Squash merges only, secret scanning and push protection on, and two rulesets. Read back at 08:05 UTC:
+
+- `protect-main` on `~DEFAULT_BRANCH`: `deletion`, `non_fast_forward`, `required_signatures`, `pull_request`, `required_status_checks`, no bypass. Six required checks, each from app `15368`: Terraform format and validate, Checkov, Trivy, Secret scan, ShellCheck, Commit signatures.
+- `signed-commits` on `~ALL`: `required_signatures` only, no bypass.
+
+Steps 8 to 11, between 08:05 and 08:17 UTC:
+
+| Test | Result |
+| --- | --- |
+| Pull request 2, one commit made with `createCommitOnBranch` (`wasSignedByGitHub: true`) | "Commit signatures" failed: `FAILED fe71970... E`. `blocked` |
+| An unsigned commit (`%G?` = `N`) pushed to a new branch | `push declined due to repository rule violations`, `Commits must have verified signatures`. The branch returns 404 |
+| Pull request 3, a commit that adds a job named "Commit signatures" that passes | The real check failed, the added one passed. Re-run alone, the added one finished last at 08:16:02. Still `blocked` |
+
+Both pull requests were closed without merging and their branches deleted.
+
+### The scanners and the module
+
+Written before the run: with a security group rule that allows SSH from any source, Checkov and Trivy each fail, naming the rule. If either passes, it does not read the rules the root passes to the module.
+
+The first pipeline run passed, and proved nothing. Checkov could not write the module into the read-only checkout, logged `Failed to download module`, and passed on two checks of the data source. Both jobs now scan a copy with the module fetched, and a step fails the job when the module is missing. Checkov then ran 5 checks.
+
+A test commit, `d13de59`, set the SSH rule's source to `"*"` on all four subnets. Checkov: `Passed checks: 5, Failed checks: 0`. Trivy: 0 misconfigurations. Both passed. The module builds `security_rule` from a `for` expression, and neither scanner evaluates it. The commit was reverted in the next one. The platform repository uses the same module the same way, so the same holds there ([#96](https://github.com/sindredg/ai-security-platform/issues/96)). The rules are tested on the live system by `Z.4`, `Z.5`, and the `Z` flow checks, after an apply.
+
+### Limits
+
+- The scanners in both repositories do not judge security group rules ([#96](https://github.com/sindredg/ai-security-platform/issues/96)).
+- The runbook steps that now use `$TARGETS` were rewritten and run only as the rebuild procedure. A build from scratch from two repositories has not been run.
+- The signature script is a copy. A change to one has to be made in the other.
 
