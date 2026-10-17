@@ -143,6 +143,7 @@ write_files:
       DEBIAN_FRONTEND=noninteractive apt-get remove -y -q -o DPkg::Lock::Timeout=120 binutils
 
       # Mesh VPN, from the vendor's signed package repository, at a pinned version.
+      # shellcheck source=/dev/null
       . /etc/os-release
       install -d -m 0755 /usr/share/keyrings
       curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/$VERSION_CODENAME.noarmor.gpg" \
