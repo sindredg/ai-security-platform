@@ -22,7 +22,9 @@ This is an infrastructure project. The work is Terraform, Kubernetes operations,
 
 ## System overview
 
-![Target architecture: a trusted orchestrator VM is the only link between the AI worker, the targets, and the outside world. The operator reaches it through a mesh VPN service outside Azure](diagrams/target-architecture.svg)
+![Target architecture: a trusted orchestrator VM holds the secrets and has no direct way out. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](diagrams/target-architecture.svg)
+
+The diagram shows the design after milestone 3a ([0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md), [0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). The edge, the router, and monitoring are not built yet. Status is in the [roadmap](roadmap.md).
 
 Note the dotted line from the AI worker: it ends at a stop bar. The worker cannot reach the target region at all. Everything it knows about the target, it was handed by a tool service on the orchestrator.
 
