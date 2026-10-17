@@ -1,0 +1,10 @@
+name: spoof
+on:
+  pull_request:
+permissions: {}
+jobs:
+  spoof:
+    name: Commit signatures
+    runs-on: ubuntu-26.04
+    steps:
+      - run: "true"
