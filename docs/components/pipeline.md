@@ -14,7 +14,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 | --- | --- |
 | Terraform format and validate | `terraform fmt -check` and `terraform validate` on the bootstrap and platform roots. The target root is checked in the [targets repository](https://github.com/sindredg/ai-security-platform-test) |
 | Checkov | Terraform and Kubernetes manifest misconfigurations |
-| Trivy | Terraform, Kubernetes manifest, and Dockerfile misconfigurations. For Terraform and the manifests, a second scanner beside Checkov. For the manifests, `.github/trivy-data/ksv0125.yaml` names `ghcr.io` as the trusted registry, with its reason |
+| Trivy | Terraform, Kubernetes manifest, and Dockerfile misconfigurations. For Terraform and the manifests, a second scanner beside Checkov. For the manifests, `.github/trivy-data/ksv0125.yaml` names `ghcr.io` as the trusted registry, with its reason. For Terraform, `AZU-0051` is ignored on the orchestrator's security group only, with its reason in the network module ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-suppression)) |
 | Secret scan | gitleaks over the whole history |
 | ShellCheck | Every shell script under `worker/`, `platform/`, `validation/`, and `.github/scripts/`. Most run as root on the VMs |
 | Ruff | Lint and format check on all Python files under `worker/`, `platform/`, and `tool-service/`. The tool service adds bugbear, the security rules, and import order |
@@ -57,7 +57,7 @@ Its settings were set through the API with the runbook on 2026-10-17 and read ba
 ## Limits
 
 - **One person approves their own pull requests.**
-- **Checkov and Trivy do not judge the security group rules.** The network module builds them from a `for` expression that neither scanner evaluates. A rule that allows SSH from any source passed both, in the targets repository ([#96](https://github.com/sindredg/ai-security-platform/issues/96), [worklog](../worklogs/0004-edge-network-and-monitoring.md#the-scanners-and-the-module)). The live rules are compared with the configured ones by the [`Z` checks](../validation/containment.md#from-azures-side), after an apply.
+- **Checkov does not judge the security group rules.** It does not resolve the rules the network module receives as a variable, so a rule that allows SSH from any source passes it. Trivy fails that rule ([#99](https://github.com/sindredg/ai-security-platform/issues/99), [worklog](../worklogs/0004-edge-network-and-monitoring.md#the-security-group-rules-in-the-scanners)). The live rules are compared with the configured ones by the [`Z` checks](../validation/containment.md#from-azures-side), after an apply.
 - **Two copies of the signature check.** A change to the script or the allowed signers file has to be made in both repositories.
 - **A change to the signature check takes effect only after it merges.** The pull request that changes it is judged by the version on `main`. The pull request that added it was not judged by it at all.
 - **The fail side on GitHub was run from branches of this repository.** A pull request that edits `signatures.yml` itself was blocked by the default branch's copy. A pull request from a fork was not tried ([#95](https://github.com/sindredg/ai-security-platform/issues/95), [worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github)).

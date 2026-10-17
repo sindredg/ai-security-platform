@@ -383,3 +383,54 @@ A test commit, `d13de59`, set the SSH rule's source to `"*"` on all four subnets
 - The runbook steps that now use `$TARGETS` were rewritten and run only as the rebuild procedure. A build from scratch from two repositories has not been run.
 - The signature script is a copy. A change to one has to be made in the other.
 
+
+## The security group rules in the scanners
+
+[#96](https://github.com/sindredg/ai-security-platform/issues/96) found that neither scanner judged the rules the network module builds. The module now builds them in a `dynamic "security_rule"` block instead of assigning a list made by a `for` expression. The rules stay inline on the security group, so a rule added by hand still shows up as drift.
+
+### Tested locally
+
+Written before the run: with the worker's `allow-ssh-from-orchestrator` rule opened to `"*"`, both scanners pass on the old module, and both fail on the new one. If either still passes, the change does not fix it for that scanner.
+
+Checkov 3.3.29 from PyPI and Trivy 0.76.0 (the arm64 release archive, checksum matched), the versions the pipeline pins. Each ran on a `git archive` copy of `infra/`, so ignored local files were not scanned. The commands were the pipeline's: `checkov --directory infra --framework terraform --skip-download --quiet --compact` and `trivy config --skip-check-update --exit-code 1 infra`. Trivy ran with an empty `--cache-dir`, so it used the checks built into the binary, as the pipeline's image does. A first round used a check bundle cached on the workstation since 2026-10-11. That bundle lacks `AZU-0051`, and its Trivy results did not match the pipeline.
+
+| Module | Input | Checkov | Trivy |
+| --- | --- | --- | --- |
+| `for` expression | As on `main` | `Passed checks: 30, Failed checks: 0` | Exit 0 |
+| `for` expression | Worker SSH rule from `"*"` | `Passed checks: 30, Failed checks: 0` | Exit 0 |
+| `dynamic` block, no suppression | As on `main` | `Passed checks: 34, Failed checks: 0` | Exit 1, `AZU-0051` on the orchestrator's group |
+| `dynamic` block, with the suppression | As on `main` | `Passed checks: 34, Failed checks: 0` | Exit 0 |
+| `dynamic` block, with the suppression | Worker SSH rule from `"*"` | `Passed checks: 34, Failed checks: 0` | Exit 1, `AZU-0047` and `AZU-0050` |
+| `dynamic` block, with the suppression | Worker `deny-to-internet` changed to Allow | `Passed checks: 34, Failed checks: 0` | Exit 1, `AZU-0051` on the worker's group |
+
+Trivy now judges the rules. Checkov does not. The four extra Checkov checks are `CKV_AZURE_9`, `CKV_AZURE_10`, `CKV_AZURE_77`, and `CKV_AZURE_160` on each security group, and they pass on the open rule. Small configurations, one shape each, showed why: Checkov resolves a dynamic block's `for_each` only when it is a literal list or locals of the same module. With `each.value`, a local indexed by `each.key`, a module variable, or separate rule resources over a flattened map, it passes the open rule. Trivy failed every shape. The module receives its rules as a variable, so no shape tried lets Checkov see them ([#99](https://github.com/sindredg/ai-security-platform/issues/99)).
+
+The target root, scanned with its module source pointed at the changed module: Trivy exit 0, Checkov `Passed checks: 7, Failed checks: 0`. With its SSH rule opened to `"*"`, Trivy failed with `AZU-0047` and `AZU-0050` on each of the four target subnets.
+
+### The suppression
+
+Trivy's `AZU-0051` flags a rule that allows egress to every address. On the orchestrator that is true and intended: its HTTPS and HTTP rules to the internet are the platform's egress point, carried as accepted risk T05 until the edge VM takes them over ([0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)). The module ignores `AZU-0051` for the security group whose subnet key is `orchestrator`, with the reason next to the ignore. The last row of the table shows that the ignore does not reach other subnets.
+
+The cost: the shared module names a platform subnet, and any other egress rule to every address on the orchestrator is hidden from Trivy too. A global entry in a `.trivyignore` file would have hidden the same finding on the worker and on every target subnet. The edge pull request moves the key to the edge subnet.
+
+### On GitHub
+
+The first push of this branch ran the pipeline with the `dynamic` block and no suppression. Trivy failed on `AZU-0051`, naming `azurerm_network_security_group.this["orchestrator"]` through the `dynamic.security_rule` content, so the pipeline's Trivy reads the rules. Checkov passed. The broken SSH rule was run locally only, not pushed.
+
+### Plans
+
+Expected before the run: no changes in either root, because the same rules are built through a different syntax. Run with Terraform 1.16.6, `plan -lock=false -detailed-exitcode`, against the live state, before the suppression comment was added. A comment does not change the configuration.
+
+| Root | Result |
+| --- | --- |
+| Platform | `No changes`, exit 0 |
+| Platform, with the SSH rule opened to `"*"` | Exit 2, `Plan: 0 to add, 1 to change, 0 to destroy`, the worker's security group updated in place. The plan sees a rule change, so `No changes` above means something |
+| Targets, with the module source pointed at the changed local module | `No changes`, exit 0 |
+
+The targets repository still pins the old module commit. Its pin moves in a pull request there after this one merges.
+
+### Limits
+
+- Checkov does not judge the security group rules ([#99](https://github.com/sindredg/ai-security-platform/issues/99)).
+- `AZU-0051` is ignored for every rule on the orchestrator's security group, not only the two rules to the internet.
+- The broken SSH rule was run locally, not on GitHub. The targets repository's pipeline gets the new module when its pin moves.
