@@ -52,7 +52,7 @@ The [repository settings runbook](../runbooks/repository-settings.md) sets these
 
 - **One person approves their own pull requests.**
 - **A change to the signature check takes effect only after it merges.** The pull request that changes it is judged by the version on `main`. The pull request that added it was not judged by it at all.
-- **The fail side on GitHub was run once, from a branch of this repository.** A pull request from a fork, and a pull request that edits `signatures.yml` itself, were not tried. The second is reasoned to change nothing, because the job runs the default branch's copy ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github)).
+- **The fail side on GitHub was run from branches of this repository.** A pull request that edits `signatures.yml` itself was blocked by the default branch's copy. A pull request from a fork was not tried ([#95](https://github.com/sindredg/ai-security-platform/issues/95), [worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github)).
 - **Every version update is made by hand.** Dependabot's commits are signed by GitHub, so its pull requests fail the signature check. The operator makes the same change in a pull request of their own.
 - **Push protection is read as enabled, not tested with a pushed secret.**
 - **The secret scan has false positives.** A `curl -u` with a command substitution was flagged once.

@@ -272,7 +272,7 @@ The first run of "Commit signatures" was on pull request 90, run `39008978522`, 
 
 ### The fail side on GitHub
 
-Run on 2026-10-17 between 06:59 and 07:09 UTC, against `main` at `3fb614a`, with the operator's `gh` token. Written before the run, with what counts as a pass:
+Run on 2026-10-17 between 06:59 and 07:35 UTC, against `main` at `3fb614a`, with the operator's `gh` token. Written before the run, with what counts as a pass:
 
 1. A pull request with one commit made through the API, which GitHub signs. Expected: "Commit signatures" fails, and the pull request is blocked. The second ruleset lets the commit in, because its signature is verified.
 2. An unsigned commit pushed to a new branch. Expected: the push is refused, and the branch does not exist afterwards.
@@ -286,13 +286,14 @@ The API commits were first made with the REST contents endpoint. The second rule
 | 2. Unsigned commit `5d20b30` (`%G?` = `N`) pushed to a new branch | `push declined due to repository rule violations`, `Commits must have verified signatures`. `GET branches/...`: 404 |
 | 3. Pull request 92, one commit `a32fc88` with `createCommitOnBranch` that adds `.github/workflows/spoof.yml` | Two runs named "Commit signatures", both from app 15368: the real one failed, run `39011941975`, and the added one passed, run `39011942272`. The real one finished last. `BLOCKED` |
 | 3, again, with the added job's pass last | Pull request reopened. The added job was re-run alone and finished at 07:08:17, after the real run's failure at 07:07:07. Still `BLOCKED`, `viewerCanMergeAsAdmin` false |
+| 4. Pull request 94, one commit `51f3f7f` with `createCommitOnBranch` that makes `signatures.yml` run `true` and `check-signatures.sh` exit 0. Expected: the default branch's copy runs and fails, `BLOCKED` | One "Commit signatures" run, run `39013143955`, from the default branch's script: `FAILED 51f3f7f... E`. The edited job did not run. `BLOCKED` |
 
-What proves the block is the check's: the ruleset on `main` asks for no approving review, the other ten required checks passed on both pull requests, and both commits carry verified signatures. The failing "Commit signatures" run is the one rule they break. One setting of the ruleset, `require_extra_approval_for_unattributed_changes`, is on. The commits name the operator's account as author, so it is reasoned not to apply. That is not tested.
+What proves the block is the check's: the ruleset on `main` asks for no approving review, the other ten required checks passed on each pull request, and every commit carries a verified signature. One setting of the ruleset, `require_extra_approval_for_unattributed_changes`, is on and not in GitHub's public documentation. The commits made with `createCommitOnBranch` have no GitHub user as committer, so the setting could have been a second reason. Pull request 91 was reopened to read it while open: `reviewDecision` was `null`, and the pull request page listed one failing check, "Commit signatures", and no review or approval item. The failing check is the one rule these pull requests break.
 
-Both pull requests were closed without merging and their branches deleted. `GET branches/...` returns 404 for each.
+Pull requests 91, 92, and 94 were closed without merging and their branches deleted. `GET branches/...` returns 404 for each.
 
 ### Limits of slice (c)
 
-- Not tried on GitHub: a pull request from a fork, and a pull request that edits `signatures.yml`. The second is reasoned to change nothing, because the job runs the default branch's copy.
+- Not tried on GitHub: a pull request from a fork. GitHub does not let an account fork its own repository ([#95](https://github.com/sindredg/ai-security-platform/issues/95)).
 - The settings were set in the web interface. The [runbook](../runbooks/repository-settings.md) writes the same steps down and was checked against the settings as read, not run again from the start.
 
