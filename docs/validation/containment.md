@@ -2,7 +2,7 @@
 
 The AI worker runs untrusted model output. It gets no path to the internet, to the targets, or to a name server, and two ports on the orchestrator: the package proxy and the tool service. The design is [ADR 0005](../decisions/0005-ai-workers-on-a-separate-vm.md) and [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md). The threat is T17: the worker reaches a target or the internet directly.
 
-![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator and the worker on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else is denied](../diagrams/network-flows.svg)
+![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else is denied](../diagrams/network-flows.svg)
 
 The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). It shows what is enforced today. The [target architecture](../architecture.md#system-overview) shows what is planned on top of it.
 
@@ -50,6 +50,8 @@ A timeout proves a packet was dropped. It does not say which rule dropped it, an
 | `Z.15` | Both halves of the peering are connected | `peeringState` of each half. A rebuilt network leaves the other half `Disconnected` ([troubleshooting 06](../troubleshooting/06-rebuilt-network-leaves-peering-disconnected.md)) |
 | `Z.17` | Nothing is allowed into the router | Inbound allow rules among the router's effective rules, counted once `Z.16` got an answer. `0`. Its tunnel is opened outbound, so no subnet needs a way in ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)) |
 | `Z.18` | Both halves of the platform and edge peering are connected | As `Z.15` |
+| `Z.24` | Both halves of the edge and target peering are connected | As `Z.15`. The router's sessions to the targets cross it |
+| `Z.25` | Only SSH from the orchestrator and the router is allowed into each target subnet | The configured inbound allows of each target group, by name, source, and port. Not the effective rules: those need a network interface, and no target VM exists |
 | `Z.19` | The edge network is in Denmark East | The network's location. The group is in Sweden Central |
 | `Z.21` | Only the proxy port and SSH from the router are allowed into the edge | The inbound allow rules among the edge's effective rules, by name and port, counted once `Z.20` got an answer: `allow-proxy-from-orchestrator` and `allow-proxy-from-worker` on 3128, `allow-ssh-from-router` on 22 |
 | `Z.22` | Orchestrator to the internet is denied by `deny-to-internet` | IP flow verify from the orchestrator. Before 2026-10-17 it named `allow-https-to-internet` |

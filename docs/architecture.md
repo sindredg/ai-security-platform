@@ -85,11 +85,11 @@ The edge network, `10.45.0.0/24` in Denmark East, holds the router subnet `10.45
 
 ### Connectivity
 
-Global virtual network peering joins the networks: platform to targets, platform to edge, and edge to targets. The target half of the last is not built, so that peering is `Initiated`. Peering is plumbing, not a filter: once it exists, everything can route to everything. Network security groups on both sides deny by default and allow only what is listed here.
+Global virtual network peering joins the networks: platform to targets, platform to edge, and edge to targets (`Z.15`, `Z.18`, `Z.24`). Peering is plumbing, not a filter: once it exists, everything can route to everything. Network security groups on both sides deny by default and allow only what is listed here.
 
 Each security group ends in a deny-all rule in both directions at priority 4096. That rule is the point: Azure's built-in rules allow everything inside the `VirtualNetwork` tag, and peering puts the other network inside that tag.
 
-The table is the design. Rules exist for what is built: SSH from the orchestrator subnet to the worker and to the target network, SSH from the router subnet to the orchestrator, the worker, and the edge, the tool service port from the worker to the orchestrator, the proxy port from the orchestrator and the worker to the edge, and outbound internet access from the router and the edge. The other allowed flows get their rules with the service that listens on them. The denied flows are enforced now.
+The table is the design. Rules exist for what is built: SSH from the orchestrator subnet to the worker and to the target network, SSH from the router subnet to the orchestrator, the worker, the edge, and the target network, the tool service port from the worker to the orchestrator, the proxy port from the orchestrator and the worker to the edge, and outbound internet access from the router and the edge. The other allowed flows get their rules with the service that listens on them. The denied flows are enforced now.
 
 | Source | Destination | Purpose | State |
 | --- | --- | --- | --- |
@@ -103,7 +103,7 @@ The table is the design. Rules exist for what is built: SSH from the orchestrato
 | Orchestrator subnet | Internet, and Azure DNS | None. It fetches through Squid on the edge | Denied, by explicit rules on the platform side (`E.12` to `E.14`, `Z.22`) |
 | Router subnet | Internet | The mesh VPN's coordination service and relays, packages | Allowed, through the edge network's NAT gateway: TCP 443 and 80 |
 | Edge subnet | Internet | Squid's upstream requests | Allowed, through the same NAT gateway: TCP 443 and 80. Squid decides which hosts |
-| Router subnet | Platform network, edge subnet | Routed operator sessions | Allowed, TCP 22. The target network's side of this is not built |
+| Router subnet | Platform network, edge subnet, target network | Routed operator sessions | Allowed, TCP 22 |
 | Any other source | Edge subnet | None | Denied. Only TCP 3128 from two subnets and TCP 22 from the router are allowed in (`Z.21`) |
 | Any subnet | Router subnet | None | Denied. The router has no inbound allow (`Z.17`) |
 | Target network | Internet | None. The orchestrator pushes what the targets need | Denied, by explicit rules and by a policy that refuses public IP resources on the target side |

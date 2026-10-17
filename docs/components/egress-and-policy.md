@@ -19,7 +19,7 @@ One outbound path for the whole system: a NAT gateway on the edge network, used 
 
 ## Rules on the platform side
 
-![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator and the worker on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else is denied](../diagrams/network-flows.svg)
+![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else is denied](../diagrams/network-flows.svg)
 
 The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). The table below names the rule behind each path.
 
@@ -48,6 +48,18 @@ The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.
 The table is read from `infra/platform/main.tf` and `infra/platform/edge.tf` on 2026-10-17. `Z.4`, `Z.5`, `Z.16`, and `Z.20` compare each group's effective rules with its configured ones. `Z.21` counts what is allowed into the edge, and `Z.22` and `Z.23` test the orchestrator's paths.
 
 Administration arrives from the router subnet, translated to the router's address. The router has no inbound allow: its mesh tunnel is opened outbound (`Z.17`).
+
+## Rules on the target side
+
+Each of the four target subnets has its own security group with the same rules. They are defined in `infra/targets/main.tf` of the [targets repository](https://github.com/sindredg/ai-security-platform-test).
+
+| Direction | Access | What | Rule |
+| --- | --- | --- | --- |
+| Inbound | Allow | TCP 22 from the orchestrator subnet and the router subnet | `allow-ssh-from-orchestrator`, `allow-ssh-from-router` |
+| Outbound | Deny | The internet, Azure DNS | `deny-to-internet`, `deny-to-azure-dns` |
+| Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
+
+The table is read from that file on 2026-10-17, at the commit that added `allow-ssh-from-router`. `Z.25` reads each group's inbound allows. No target VM exists, so no check reads effective rules on the target side.
 
 ## Validation
 

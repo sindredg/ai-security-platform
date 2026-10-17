@@ -30,7 +30,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | Page | Checks | What it covers |
 | --- | --- | --- |
 | [Access](access.md) | `A`, `M`, `R` | Who can get in, and through what |
-| [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.23` | What the worker and the orchestrator cannot reach, and what they can |
+| [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.25` | What the worker and the orchestrator cannot reach, and what they can |
 | [Package proxy](package-proxy.md) | `P`, `U` | Squid on the edge, the one path out for the orchestrator and the worker, the fetch window, and whether updates arrive |
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |

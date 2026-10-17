@@ -809,6 +809,22 @@ EOF
     "$(az network vnet peering show -g $RG --vnet-name vnet-aisec-platform -n peer-platform-to-edge \
       --query peeringState -o tsv 2>/dev/null) $(az network vnet peering show -g $RG \
       --vnet-name vnet-aisec-edge -n peer-edge-to-platform --query peeringState -o tsv 2>/dev/null)"
+  # The router's sessions to the targets cross this peering. The target half
+  # belongs to the targets repository.
+  check Z.24 "Both halves of the edge and target peering are connected" "Connected Connected" \
+    "$(az network vnet peering show -g $RG --vnet-name vnet-aisec-edge -n peer-edge-to-targets \
+      --query peeringState -o tsv 2>/dev/null) $(az network vnet peering show -g $RG_TARGETS \
+      --vnet-name vnet-aisec-targets -n peer-targets-to-edge --query peeringState -o tsv 2>/dev/null)"
+  # No target VM exists, so no interface has effective rules to read. This reads
+  # the inbound allows each target group is configured with instead.
+  want="" got=""
+  for g in netbox consumer unintended rehearsal; do
+    want="$want$g: allow-ssh-from-orchestrator 10.40.0.0/27 22, allow-ssh-from-router 10.45.0.32/27 22; "
+    got="$got$g: $(az network nsg rule list -g $RG_TARGETS --nsg-name "nsg-aisec-targets-$g" \
+      --query "[?direction=='Inbound' && access=='Allow'].[name, sourceAddressPrefix, destinationPortRange]" \
+      -o tsv 2>/dev/null | sort | tr '\t' ' ' | paste -sd ',' - | sed 's/,/, /g'); "
+  done
+  check Z.25 "Only SSH from the orchestrator and the router is allowed into each target subnet" "$want" "$got"
   check Z.19 "The edge network is in Denmark East" denmarkeast \
     "$(az network vnet show -g $RG -n vnet-aisec-edge --query location -o tsv 2>/dev/null)"
 fi

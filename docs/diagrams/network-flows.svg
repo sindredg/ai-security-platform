@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 960 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="network-flows-title network-flows-desc" id="network-flows-root">
+<svg viewBox="0 0 960 656" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="network-flows-title network-flows-desc" id="network-flows-root">
         <title id="network-flows-title">Network flows</title>
-        <desc id="network-flows-desc">Architecture diagram showing every allowed and denied network path on the platform side: the operator reaches the router VM on port 22 over the mesh VPN, the router reaches the orchestrator and the worker on port 22, the orchestrator and the worker reach the internet only through Squid on the edge VM on port 3128, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, and the orchestrator, the worker, and the targets are denied everything else.</desc>
+        <desc id="network-flows-desc">Architecture diagram showing every allowed and denied network path on the platform side: the operator reaches the router VM on port 22 over the mesh VPN, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the internet only through Squid on the edge VM on port 3128, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, and the orchestrator, the worker, and the targets are denied everything else.</desc>
         <defs>
       <style>#network-flows-root { --color-paper:   #2d3142;   
       --color-ink:     #f5f5f5;   
@@ -49,6 +49,7 @@
         <line x1="560" y1="416" x2="560" y2="336" fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#network-flows-arrow-accent)"/>
         <line x1="480" y1="336" x2="480" y2="416" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
         <path d="M 616,264 H 626 A 6 6 0 0 1 638,264 H 704" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
+        <path d="M 304,432 V 540 Q 304,548 312,548 H 856 Q 864,548 864,540 V 328" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
         <!-- Denied paths: dashed, no arrowhead, ending in a stop bar -->
         <line x1="528" y1="224" x2="528" y2="196" fill="none" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
         <line x1="516" y1="192" x2="540" y2="192" stroke="#f5f5f5" stroke-width="2"/>
@@ -81,6 +82,8 @@
         <text x="456" y="379" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
         <rect x="660" y="244" width="20" height="12" rx="2" fill="#2d3142"/>
         <text x="670" y="253" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
+        <rect x="874" y="440" width="20" height="12" rx="2" fill="#2d3142"/>
+        <text x="884" y="449" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
         <rect x="548" y="200" width="64" height="12" rx="2" fill="#2d3142"/>
         <text x="580" y="209" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">NO INTERNET</text>
         <rect x="540" y="496" width="64" height="12" rx="2" fill="#2d3142"/>
@@ -145,24 +148,24 @@
         <text x="796" y="260" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Target network</text>
         <text x="796" y="276" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.50.0.0/20</text>
         <text x="796" y="290" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">no VMs yet</text>
-        <line x1="40" y1="560" x2="920" y2="560" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
-        <text x="40" y="576" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
-        <rect x="40" y="592" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
-        <text x="60" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Trusted</text>
-        <rect x="112" y="592" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
-        <text x="132" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Egress gate</text>
-        <rect x="200" y="592" width="14" height="10" rx="2" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
-        <text x="220" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">No public address</text>
-        <rect x="316" y="592" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
-        <text x="336" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Outside the networks</text>
-        <line x1="440" y1="598" x2="468" y2="598" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
-        <text x="476" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Allowed, labelled with the TCP port</text>
-        <line x1="640" y1="598" x2="668" y2="598" stroke="#f08a59" stroke-width="1.4" marker-end="url(#network-flows-arrow-accent)"/>
-        <text x="676" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">The only connections the worker starts</text>
-        <line x1="40" y1="618" x2="64" y2="618" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
-        <line x1="68" y1="612" x2="68" y2="624" stroke="#f5f5f5" stroke-width="2"/>
-        <text x="76" y="620" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Denied by a security group rule or by policy, tested with traffic</text>
-        <line x1="440" y1="618" x2="468" y2="618" stroke="#739fdf" stroke-width="1.2" marker-end="url(#network-flows-arrow-link)"/>
-        <text x="476" y="620" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">To the internet, through the NAT gateway</text>
+        <line x1="40" y1="576" x2="920" y2="576" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <text x="40" y="592" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="40" y="608" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
+        <text x="60" y="616" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Trusted</text>
+        <rect x="112" y="608" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="132" y="616" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Egress gate</text>
+        <rect x="200" y="608" width="14" height="10" rx="2" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="220" y="616" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">No public address</text>
+        <rect x="316" y="608" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="336" y="616" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Outside the networks</text>
+        <line x1="440" y1="614" x2="468" y2="614" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
+        <text x="476" y="616" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Allowed, labelled with the TCP port</text>
+        <line x1="640" y1="614" x2="668" y2="614" stroke="#f08a59" stroke-width="1.4" marker-end="url(#network-flows-arrow-accent)"/>
+        <text x="676" y="616" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">The only connections the worker starts</text>
+        <line x1="40" y1="634" x2="64" y2="634" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
+        <line x1="68" y1="628" x2="68" y2="640" stroke="#f5f5f5" stroke-width="2"/>
+        <text x="76" y="636" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Denied by a security group rule or by policy, tested with traffic</text>
+        <line x1="440" y1="634" x2="468" y2="634" stroke="#739fdf" stroke-width="1.2" marker-end="url(#network-flows-arrow-link)"/>
+        <text x="476" y="636" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">To the internet, through the NAT gateway</text>
 
       </svg>

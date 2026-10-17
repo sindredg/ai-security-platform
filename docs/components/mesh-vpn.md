@@ -40,7 +40,7 @@ Nothing dials in. Both ends open their connections outbound, which is why the ro
 | Filter | The router's agent drops anything the access policy does not allow, for itself and for the routed networks | Checks `M.1` to `M.7` test it with traffic |
 | Clamp | Routed TCP handshakes get a maximum segment size of 1240 | `tailscale0` has MTU 1280, and the rule is loaded (`R.2`) |
 | Translate | The source address becomes `10.45.0.36`. The machines behind the router never see a mesh address, so their security groups name the router subnet | `NoSNAT` is `false`, `ts-postrouting` holds the masquerade rule, and an SSH login shows `10.45.0.36` as the client on the worker and the orchestrator |
-| Forward | `allow-ssh-from-router` on the orchestrator and the worker. The router's own rules allow TCP 22 out to the three networks | The rules are in [egress and policy](egress-and-policy.md#rules-on-the-platform-side) |
+| Forward | `allow-ssh-from-router` on the orchestrator, the worker, the edge, and each target subnet. The router's own rules allow TCP 22 out to the three networks | The rules are in [egress and policy](egress-and-policy.md#rules-on-the-platform-side) |
 
 The router's rules have no UDP, so the agent cannot try a direct connection, and the relay is the only path ([ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md), `E.5`).
 

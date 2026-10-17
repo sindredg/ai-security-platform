@@ -2,7 +2,7 @@
 
 Status: Implemented and validated on 2026-10-10. Built once, from an empty subscription. A second build from scratch has not been run. Results are in the [milestone 1 worklog](../worklogs/0001-network-foundation.md).
 
-On 2026-10-17 the target root moved to the [targets repository](https://github.com/sindredg/ai-security-platform-test), and steps 6, 8, 10, and 12 and the rotation now name its checkout as `$TARGETS`. They have not been run in that form. The [target network rebuild](#rebuild-the-target-network) was run that day.
+On 2026-10-17 the target root moved to the [targets repository](https://github.com/sindredg/ai-security-platform-test), and steps 6, 8, 10, and 12 and the rotation now name its checkout as `$TARGETS`. They have not been run in that form. The [target network rebuild](#rebuild-the-target-network) was run that day. Later on 2026-10-17 the target root gained its half of the edge peering: steps 8 and 9 and the rebuild steps were changed for it, and have not been run in that form.
 
 The state upload in step 5 was added and run on 2026-10-11. Key handling in steps 3 and 12 and in the rotation changed on 2026-10-11, to keep one key file per side. Checked that day: key generation with throwaway keys, and the sign-in from a temporary PEM for both identities. The rest of step 12 was not repeated.
 
@@ -159,15 +159,16 @@ A fresh shell has no `CRED_DIR`. Export it again, as in step 3, before sourcing 
    ```bash
    cd "$TARGETS"
    source "$CRED_DIR/targets.env"
-   printf 'platform_virtual_network_id = "%s"\n' \
-     "$(az network vnet show -g rg-aisec-platform -n vnet-aisec-platform --query id -o tsv)" > terraform.tfvars
+   printf '%s = "%s"\n' \
+     platform_virtual_network_id "$(az network vnet show -g rg-aisec-platform -n vnet-aisec-platform --query id -o tsv)" \
+     edge_virtual_network_id "$(az network vnet show -g rg-aisec-platform -n vnet-aisec-edge --query id -o tsv)" > terraform.tfvars
    chmod 600 terraform.tfvars
    terraform init -backend-config=backend.hcl
    terraform plan -out=targets.tfplan
    terraform apply targets.tfplan
    ```
 
-   Expected: the plan adds 14 resources: one virtual network, four subnets, four security groups, four associations, and one peering. The `az` command runs as the operator, because the target identity cannot read the platform network. `init` also fetches the shared network module from the platform repository, at the commit `main.tf` pins.
+   Expected: the plan adds 15 resources: one virtual network, four subnets, four security groups, four associations, and two peerings, to the platform and to the edge. The `az` commands run as the operator, because the target identity cannot read the platform network. `init` also fetches the shared network module from the platform repository, at the commit `main.tf` pins.
 
 9. Apply the platform root again, now with its half of the peering.
 
@@ -181,7 +182,7 @@ A fresh shell has no `CRED_DIR`. Export it again, as in step 3, before sourcing 
    terraform apply platform.tfplan
    ```
 
-   Expected: the plan adds exactly 1 resource, the peering. Anything else in that plan is drift. Stop and read it.
+   Expected: the plan adds exactly 2 resources, the platform's and the edge's halves of their peerings to the targets. Anything else in that plan is drift. Stop and read it.
 
 ## Check the milestone 1 gate
 
@@ -284,18 +285,20 @@ A change of `location` alone does not work. The plan replaces the network and th
    terraform apply destroy.tfplan && rm destroy.tfplan
    ```
 
-   Expected: 14 to destroy: the network, four subnets, four security groups, four associations, and the target half of the peering. Then, as the operator, `az network vnet peering show -g rg-aisec-platform --vnet-name vnet-aisec-platform -n peer-platform-to-targets --query peeringState -o tsv` prints `Disconnected`.
+   Expected: 15 to destroy: the network, four subnets, four security groups, four associations, and the target halves of the two peerings. Then, as the operator, `az network vnet peering show -g rg-aisec-platform --vnet-name vnet-aisec-platform -n peer-platform-to-targets --query peeringState -o tsv` prints `Disconnected`, and so does the same command for `--vnet-name vnet-aisec-edge -n peer-edge-to-targets`.
 
-2. Re-create the platform half of the peering.
+2. Re-create the platform's and the edge's halves of the peerings.
 
    ```bash
    cd REPLACE_WITH_PLATFORM_CHECKOUT/infra/platform
    source "$CRED_DIR/platform.env"
-   terraform plan -replace='module.network.azurerm_virtual_network_peering.this[0]' -out=platform.tfplan
+   terraform plan -out=platform.tfplan \
+     -replace='module.network.azurerm_virtual_network_peering.this["peer-platform-to-targets"]' \
+     -replace='module.edge_network.azurerm_virtual_network_peering.this["peer-edge-to-targets"]'
    terraform apply platform.tfplan && rm platform.tfplan
    ```
 
-   Expected: 1 to add and 1 to destroy, the peering and nothing else. The half then reads `Initiated`. The rebuilt network keeps its name and so its ID, which is why a plain plan shows no change here and a forced replacement is needed ([troubleshooting 06](../troubleshooting/06-rebuilt-network-leaves-peering-disconnected.md)).
+   Expected: 2 to add and 2 to destroy, the two peerings and nothing else. Both halves then read `Initiated`. The rebuilt network keeps its name and so its ID, which is why a plain plan shows no change here and a forced replacement is needed ([troubleshooting 06](../troubleshooting/06-rebuilt-network-leaves-peering-disconnected.md)).
 
 3. Build the target network.
 
@@ -306,7 +309,7 @@ A change of `location` alone does not work. The plan replaces the network and th
    terraform apply targets.tfplan && rm targets.tfplan
    ```
 
-   Expected: 14 to add, in the region `location` names. Both halves of the peering then read `Connected`.
+   Expected: 15 to add, in the region `location` names. Both halves of each peering then read `Connected`.
 
    On 2026-10-17, steps 2 and 3 ran the other way round. The target apply created 13 resources and failed on its half of the peering with `RemotePeeringIsDisconnected`. After step 2, a second target plan added the one missing resource.
 
@@ -318,7 +321,7 @@ A change of `location` alone does not work. The plan replaces the network and th
    REPLACE_WITH_PLATFORM_CHECKOUT/validation/platform-checks.sh
    ```
 
-   Expected: `No changes` and exit `0` twice. In the checks, `Z.14` and `Z.15` pass, with `Z.11` and the other `Z` checks that read the target group.
+   Expected: `No changes` and exit `0` twice. In the checks, `Z.14`, `Z.15`, `Z.24`, and `Z.25` pass, with `Z.11` and the other `Z` checks that read the target group.
 
 ## Rotate a certificate
 
