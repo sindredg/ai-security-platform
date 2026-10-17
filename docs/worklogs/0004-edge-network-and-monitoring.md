@@ -264,7 +264,7 @@ ShellCheck 0.11 passes on the script, and yamllint (relaxed) on the workflow.
 
 Read from the GitHub API on 2026-10-17, before any change: one ruleset, `protect-main`, without the signature rule and without "Commit signatures" among its required checks. Merge commits, squash merges, and rebase merges were all allowed.
 
-The operator then changed them in the web interface. Read again at 06:43 UTC, the [pipeline page](../components/pipeline.md#repository-settings) has the result: "Commit signatures" is required, every required check names GitHub Actions as its source, `main` takes squash merges only, and a second ruleset requires signed commits on every branch.
+The operator then changed them in the web interface. Read again at 06:43 UTC, the [pipeline page](../components/pipeline.md#repository-settings) has the result: "Commit signatures" is required, every required check names GitHub Actions as its source, `main` takes squash merges only, and a second ruleset requires signed commits on every branch. Rebase merges were turned off in the repository settings at 06:46 UTC, after the first read, so squash is the only merge method anywhere.
 
 ### On GitHub
 
@@ -273,6 +273,5 @@ The first run of "Commit signatures" was on pull request 90, run `39008978522`, 
 ### Limits of slice (c)
 
 - Not tried on GitHub: a pull request with a commit made in the web interface or through the API, a push of an unsigned commit against the new ruleset, and a pull request that adds a second job named "Commit signatures". These are the fail side.
-- Rebase merges are still on in the repository settings. The ruleset limits `main` to squash, so no rebase merge reaches it.
 - The operator procedure for the settings goes into a runbook once it has run.
 

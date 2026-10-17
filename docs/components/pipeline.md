@@ -42,7 +42,7 @@ Read from the GitHub API on 2026-10-17 at 06:43 UTC, after the changes for [0024
 - Secret scanning with push protection is on.
 - The ruleset `protect-main`, on the default branch, refuses deletion and force pushes, requires signed commits, and requires a pull request with every check above except the dependency scan. Each required check names GitHub Actions as its source, so a status with the same name from anything else does not count. The only merge method it allows is squash. No one can bypass it.
 - A second ruleset, on every branch, requires signed commits and nothing else. No one can bypass it.
-- In the repository settings, merge commits are off. Squash merges and rebase merges are on. On `main`, the ruleset allows squash only.
+- In the repository settings, squash is the only merge method. Merge commits and rebase merges are off, read at 06:46 UTC. On `main`, the ruleset allows squash only as well.
 
 ## Limits
 
