@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 960 608" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="network-flows-title network-flows-desc" id="network-flows-root">
+<svg viewBox="0 0 960 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="network-flows-title network-flows-desc" id="network-flows-root">
         <title id="network-flows-title">Network flows</title>
-        <desc id="network-flows-desc">Architecture diagram showing every allowed and denied network path on the platform side: the operator reaches the orchestrator on ports 22 and 6443 over the mesh VPN, the orchestrator reaches the worker and the targets on port 22 and the internet through one NAT gateway, the worker reaches only the package proxy on port 3128 and the tool service on port 30443, and the worker and the targets are denied everything else.</desc>
+        <desc id="network-flows-desc">Architecture diagram showing every allowed and denied network path on the platform side: the operator reaches the router VM on port 22 over the mesh VPN, the router reaches the orchestrator and the worker on port 22 and the internet through its own NAT gateway, the orchestrator reaches the worker and the targets on port 22 and the internet through its NAT gateway, the worker reaches only the package proxy on port 3128 and the tool service on port 30443, and the worker and the targets are denied everything else.</desc>
         <defs>
       <style>#network-flows-root { --color-paper:   #2d3142;   
       --color-ink:     #f5f5f5;   
@@ -28,47 +28,59 @@
         <rect width="100%" height="100%" fill="#2d3142"/>
 
         <!-- Zones -->
-        <rect x="216" y="56" width="224" height="440" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
-        <rect x="258" y="60" width="140" height="12" rx="2" fill="#2d3142"/>
-        <text x="328" y="69" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">PLATFORM · SWEDEN CENTRAL</text>
-        <rect x="584" y="160" width="248" height="220" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
-        <rect x="644" y="164" width="128" height="12" rx="2" fill="#2d3142"/>
-        <text x="708" y="173" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">TARGETS · POLAND CENTRAL</text>
+        <rect x="192" y="280" width="160" height="136" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="220" y="284" width="104" height="12" rx="2" fill="#2d3142"/>
+        <text x="272" y="293" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">EDGE · DENMARK EAST</text>
+        <rect x="384" y="56" width="224" height="472" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="426" y="60" width="140" height="12" rx="2" fill="#2d3142"/>
+        <text x="496" y="69" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">PLATFORM · SWEDEN CENTRAL</text>
+        <rect x="664" y="160" width="256" height="220" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="728" y="164" width="128" height="12" rx="2" fill="#2d3142"/>
+        <text x="792" y="173" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">TARGETS · POLAND CENTRAL</text>
         <!-- Allowed paths -->
-        <line x1="168" y1="304" x2="240" y2="304" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
-        <line x1="328" y1="248" x2="328" y2="152" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
-        <line x1="240" y1="104" x2="168" y2="104" fill="none" stroke="#739fdf" stroke-width="1.2" marker-end="url(#network-flows-arrow-link)"/>
-        <line x1="300" y1="360" x2="300" y2="408" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
-        <line x1="356" y1="408" x2="356" y2="360" fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#network-flows-arrow-accent)"/>
-        <line x1="416" y1="288" x2="608" y2="288" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
+        <line x1="168" y1="344" x2="208" y2="344" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
+        <path d="M 272,312 V 128 Q 272,120 264,120 H 168" fill="none" stroke="#739fdf" stroke-width="1.2" marker-end="url(#network-flows-arrow-link)"/>
+        <line x1="336" y1="336" x2="408" y2="336" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
+        <path d="M 336,376 H 368 Q 376,376 376,384 V 432 Q 376,440 384,440 H 408" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
+        <line x1="496" y1="248" x2="496" y2="152" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
+        <line x1="408" y1="104" x2="168" y2="104" fill="none" stroke="#739fdf" stroke-width="1.2" marker-end="url(#network-flows-arrow-link)"/>
+        <line x1="468" y1="360" x2="468" y2="408" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
+        <line x1="524" y1="408" x2="524" y2="360" fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#network-flows-arrow-accent)"/>
+        <line x1="584" y1="288" x2="696" y2="288" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
         <!-- Denied paths: dashed, no arrowhead, ending in a stop bar -->
-        <path d="M 416,440 H 688 Q 696,440 696,432 V 396" fill="none" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
-        <line x1="684" y1="392" x2="708" y2="392" stroke="#f5f5f5" stroke-width="2"/>
-        <line x1="240" y1="440" x2="196" y2="440" fill="none" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
-        <line x1="192" y1="428" x2="192" y2="452" stroke="#f5f5f5" stroke-width="2"/>
-        <line x1="608" y1="312" x2="560" y2="312" fill="none" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
-        <line x1="556" y1="300" x2="556" y2="324" stroke="#f5f5f5" stroke-width="2"/>
-        <line x1="784" y1="272" x2="816" y2="272" fill="none" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
-        <line x1="820" y1="260" x2="820" y2="284" stroke="#f5f5f5" stroke-width="2"/>
+        <path d="M 584,456 H 776 Q 784,456 784,448 V 396" fill="none" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
+        <line x1="772" y1="392" x2="796" y2="392" stroke="#f5f5f5" stroke-width="2"/>
+        <line x1="496" y1="472" x2="496" y2="500" fill="none" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
+        <line x1="484" y1="504" x2="508" y2="504" stroke="#f5f5f5" stroke-width="2"/>
+        <line x1="696" y1="312" x2="648" y2="312" fill="none" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
+        <line x1="644" y1="300" x2="644" y2="324" stroke="#f5f5f5" stroke-width="2"/>
+        <line x1="840" y1="216" x2="840" y2="192" fill="none" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
+        <line x1="828" y1="188" x2="852" y2="188" stroke="#f5f5f5" stroke-width="2"/>
         <!-- Port labels -->
-        <rect x="178" y="284" width="52" height="12" rx="2" fill="#2d3142"/>
-        <text x="204" y="293" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22 · 6443</text>
-        <rect x="338" y="194" width="48" height="12" rx="2" fill="#2d3142"/>
-        <text x="362" y="203" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">443 · 80</text>
-        <rect x="270" y="378" width="20" height="12" rx="2" fill="#2d3142"/>
-        <text x="280" y="387" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
-        <rect x="366" y="378" width="64" height="12" rx="2" fill="#2d3142"/>
-        <text x="398" y="387" fill="#f08a59" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">3128 · 30443</text>
-        <rect x="502" y="268" width="20" height="12" rx="2" fill="#2d3142"/>
-        <text x="512" y="277" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
-        <rect x="706" y="410" width="40" height="12" rx="2" fill="#2d3142"/>
-        <text x="726" y="419" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">DENIED</text>
-        <rect x="196" y="448" width="40" height="12" rx="2" fill="#2d3142"/>
-        <text x="216" y="457" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">DENIED</text>
-        <rect x="564" y="320" width="40" height="12" rx="2" fill="#2d3142"/>
-        <text x="584" y="329" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">DENIED</text>
-        <rect x="840" y="266" width="56" height="12" rx="2" fill="#2d3142"/>
-        <text x="868" y="275" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">NO EGRESS</text>
+        <rect x="178" y="324" width="20" height="12" rx="2" fill="#2d3142"/>
+        <text x="188" y="333" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
+        <rect x="280" y="200" width="48" height="12" rx="2" fill="#2d3142"/>
+        <text x="304" y="209" fill="#739fdf" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">443 · 80</text>
+        <rect x="362" y="316" width="20" height="12" rx="2" fill="#2d3142"/>
+        <text x="372" y="325" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
+        <rect x="388" y="400" width="20" height="12" rx="2" fill="#2d3142"/>
+        <text x="398" y="409" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
+        <rect x="506" y="194" width="48" height="12" rx="2" fill="#2d3142"/>
+        <text x="530" y="203" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">443 · 80</text>
+        <rect x="438" y="378" width="20" height="12" rx="2" fill="#2d3142"/>
+        <text x="448" y="387" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
+        <rect x="534" y="378" width="64" height="12" rx="2" fill="#2d3142"/>
+        <text x="566" y="387" fill="#f08a59" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">3128 · 30443</text>
+        <rect x="630" y="268" width="20" height="12" rx="2" fill="#2d3142"/>
+        <text x="640" y="277" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
+        <rect x="806" y="410" width="40" height="12" rx="2" fill="#2d3142"/>
+        <text x="826" y="419" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">DENIED</text>
+        <rect x="516" y="484" width="64" height="12" rx="2" fill="#2d3142"/>
+        <text x="548" y="493" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">NO INTERNET</text>
+        <rect x="652" y="320" width="40" height="12" rx="2" fill="#2d3142"/>
+        <text x="672" y="329" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">DENIED</text>
+        <rect x="856" y="196" width="56" height="12" rx="2" fill="#2d3142"/>
+        <text x="884" y="205" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">NO EGRESS</text>
         <!-- Nodes -->
         <rect x="40" y="72" width="128" height="64" rx="6" fill="#2d3142"/>
         <rect x="40" y="72" width="128" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
@@ -76,55 +88,64 @@
         <text x="62" y="89" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">EXT</text>
         <text x="104" y="108" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Internet</text>
         <text x="104" y="124" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">any host</text>
-        <rect x="40" y="272" width="128" height="64" rx="6" fill="#2d3142"/>
-        <rect x="40" y="272" width="128" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
-        <rect x="48" y="280" width="32" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
-        <text x="64" y="289" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">USER</text>
-        <text x="104" y="308" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Operator</text>
-        <text x="104" y="324" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">devices on the mesh</text>
-        <rect x="240" y="88" width="176" height="64" rx="6" fill="#2d3142"/>
-        <rect x="240" y="88" width="176" height="64" rx="6" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
-        <rect x="248" y="96" width="32" height="12" rx="2" fill="none" stroke="#f08a59" stroke-opacity="0.50" stroke-width="0.8"/>
-        <text x="264" y="105" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">GATE</text>
-        <text x="328" y="124" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">NAT gateway</text>
-        <text x="328" y="140" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">the only way out</text>
-        <rect x="240" y="248" width="176" height="112" rx="6" fill="#2d3142"/>
-        <rect x="240" y="248" width="176" height="112" rx="6" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
-        <rect x="248" y="256" width="48" height="12" rx="2" fill="none" stroke="#f08a59" stroke-opacity="0.50" stroke-width="0.8"/>
-        <text x="272" y="265" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">TRUSTED</text>
-        <text x="328" y="292" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Orchestrator VM</text>
-        <text x="328" y="308" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">K3s · mesh router</text>
-        <text x="328" y="322" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">package proxy · tool service</text>
-        <text x="328" y="336" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.40.0.4</text>
-        <rect x="240" y="408" width="176" height="64" rx="6" fill="#2d3142"/>
-        <rect x="240" y="408" width="176" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
-        <rect x="248" y="416" width="56" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
-        <text x="276" y="425" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">UNTRUSTED</text>
-        <text x="328" y="444" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">AI worker VM</text>
-        <text x="328" y="460" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.40.0.36 · no DNS</text>
-        <rect x="608" y="216" width="176" height="112" rx="6" fill="#2d3142"/>
-        <rect x="608" y="216" width="176" height="112" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
-        <rect x="616" y="224" width="56" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
-        <text x="644" y="233" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">UNTRUSTED</text>
-        <text x="696" y="260" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Target network</text>
-        <text x="696" y="276" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.50.0.0/20</text>
-        <text x="696" y="290" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">no VMs yet</text>
-        <line x1="40" y1="524" x2="920" y2="524" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
-        <text x="40" y="540" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
-        <rect x="40" y="556" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
-        <text x="60" y="564" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Trusted</text>
-        <rect x="112" y="556" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
-        <text x="132" y="564" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Egress gate</text>
-        <rect x="200" y="556" width="14" height="10" rx="2" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
-        <text x="220" y="564" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">No public address</text>
-        <rect x="316" y="556" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
-        <text x="336" y="564" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Outside the networks</text>
-        <line x1="440" y1="562" x2="468" y2="562" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
-        <text x="476" y="564" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Allowed, labelled with the TCP port</text>
-        <line x1="640" y1="562" x2="668" y2="562" stroke="#f08a59" stroke-width="1.4" marker-end="url(#network-flows-arrow-accent)"/>
-        <text x="676" y="564" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">The only connections the worker starts</text>
-        <line x1="40" y1="582" x2="64" y2="582" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
-        <line x1="68" y1="576" x2="68" y2="588" stroke="#f5f5f5" stroke-width="2"/>
-        <text x="76" y="584" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Denied by a security group rule or by policy, tested with traffic</text>
+        <rect x="40" y="312" width="128" height="64" rx="6" fill="#2d3142"/>
+        <rect x="40" y="312" width="128" height="64" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <rect x="48" y="320" width="32" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
+        <text x="64" y="329" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">USER</text>
+        <text x="104" y="348" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Operator</text>
+        <text x="104" y="364" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">devices on the mesh</text>
+        <rect x="208" y="312" width="128" height="88" rx="6" fill="#2d3142"/>
+        <rect x="208" y="312" width="128" height="88" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <rect x="216" y="320" width="40" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
+        <text x="236" y="329" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">ROUTER</text>
+        <text x="272" y="356" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Router VM</text>
+        <text x="272" y="372" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">mesh node only</text>
+        <text x="272" y="386" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">own NAT gateway</text>
+        <rect x="408" y="88" width="176" height="64" rx="6" fill="#2d3142"/>
+        <rect x="408" y="88" width="176" height="64" rx="6" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
+        <rect x="416" y="96" width="32" height="12" rx="2" fill="none" stroke="#f08a59" stroke-opacity="0.50" stroke-width="0.8"/>
+        <text x="432" y="105" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">GATE</text>
+        <text x="496" y="124" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">NAT gateway</text>
+        <text x="496" y="140" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">the orchestrator's</text>
+        <rect x="408" y="248" width="176" height="112" rx="6" fill="#2d3142"/>
+        <rect x="408" y="248" width="176" height="112" rx="6" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
+        <rect x="416" y="256" width="48" height="12" rx="2" fill="none" stroke="#f08a59" stroke-opacity="0.50" stroke-width="0.8"/>
+        <text x="440" y="265" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">TRUSTED</text>
+        <text x="496" y="292" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Orchestrator VM</text>
+        <text x="496" y="308" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">K3s · package proxy</text>
+        <text x="496" y="322" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">tool service</text>
+        <text x="496" y="336" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.40.0.4</text>
+        <rect x="408" y="408" width="176" height="64" rx="6" fill="#2d3142"/>
+        <rect x="408" y="408" width="176" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <rect x="416" y="416" width="56" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
+        <text x="444" y="425" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">UNTRUSTED</text>
+        <text x="496" y="444" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">AI worker VM</text>
+        <text x="496" y="460" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.40.0.36 · no DNS</text>
+        <rect x="696" y="216" width="176" height="112" rx="6" fill="#2d3142"/>
+        <rect x="696" y="216" width="176" height="112" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <rect x="704" y="224" width="56" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
+        <text x="732" y="233" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">UNTRUSTED</text>
+        <text x="784" y="260" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Target network</text>
+        <text x="784" y="276" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.50.0.0/20</text>
+        <text x="784" y="290" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">no VMs yet</text>
+        <line x1="40" y1="560" x2="920" y2="560" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <text x="40" y="576" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="40" y="592" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
+        <text x="60" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Trusted</text>
+        <rect x="112" y="592" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.05" stroke="#f08a59" stroke-opacity="0.50" stroke-width="1" stroke-dasharray="4,4"/>
+        <text x="132" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Egress gate</text>
+        <rect x="200" y="592" width="14" height="10" rx="2" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="220" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">No public address</text>
+        <rect x="316" y="592" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="336" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Outside the networks</text>
+        <line x1="440" y1="598" x2="468" y2="598" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#network-flows-arrow)"/>
+        <text x="476" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Allowed, labelled with the TCP port</text>
+        <line x1="640" y1="598" x2="668" y2="598" stroke="#f08a59" stroke-width="1.4" marker-end="url(#network-flows-arrow-accent)"/>
+        <text x="676" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">The only connections the worker starts</text>
+        <line x1="40" y1="618" x2="64" y2="618" stroke="#f5f5f5" stroke-width="1.2" stroke-dasharray="2,3"/>
+        <line x1="68" y1="612" x2="68" y2="624" stroke="#f5f5f5" stroke-width="2"/>
+        <text x="76" y="620" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Denied by a security group rule or by policy, tested with traffic</text>
+        <line x1="440" y1="618" x2="468" y2="618" stroke="#739fdf" stroke-width="1.2" marker-end="url(#network-flows-arrow-link)"/>
+        <text x="476" y="620" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">To the internet, through a NAT gateway</text>
 
       </svg>
