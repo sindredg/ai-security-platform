@@ -14,3 +14,4 @@ One operator procedure per milestone, or per slice of a milestone that is built 
 | [SSH certificates and the feed account](ssh-certificates.md) | 3a | Implemented on 2026-10-16. Applied once to both running VMs. Revocation, replacement of the authority, and first boot from the templates not run |
 | [Repository settings and signed commits](repository-settings.md) | 3a | Implemented on 2026-10-17. Settings made in the web interface and read back. Fail side run once. The API steps not run from the start |
 | [Mesh VPN router](mesh-router.md) | 3a | Implemented on 2026-10-17. Run once, on the live platform |
+| [Edge VM](edge-vm.md) | 3a | Implemented on 2026-10-17. Run once, on the live platform, partly from scripts. A rebuild of the orchestrator through a fetch window not run |

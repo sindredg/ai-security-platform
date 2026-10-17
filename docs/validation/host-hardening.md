@@ -1,6 +1,6 @@
 # Host hardening
 
-The same settings on every VM, from cloud-init. They came out of the Lynis audit in [milestone 2](../worklogs/0002-platform-compute.md#operating-system-audit). The checks are the same list on each: `HO` on the orchestrator, `HW` on the worker, `HR` on the router.
+The same settings on every VM, from cloud-init. They came out of the Lynis audit in [milestone 2](../worklogs/0002-platform-compute.md#operating-system-audit). The checks are the same list on each: `HO` on the orchestrator, `HW` on the worker, `HR` on the router, `HE` on the edge.
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |

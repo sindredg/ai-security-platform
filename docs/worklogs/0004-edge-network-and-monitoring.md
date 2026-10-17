@@ -5,12 +5,12 @@ Milestone: 3a, edge network and monitoring
 
 ## Summary
 
-The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The mesh VPN agent runs on a router VM of its own, and the orchestrator is off the mesh. The edge VM and monitoring are not built. The gate is not met.
+The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The mesh VPN agent runs on a router VM of its own, and the orchestrator is off the mesh. Squid runs on an edge VM, the orchestrator reaches the internet only through it, and only Squid resolves public names for the platform. Monitoring is not built. The gate is not met.
 
 | Criterion | Result |
 | --- | --- |
-| The orchestrator reaches the internet only through the edge proxy, and only the hosts on its list | Open |
-| Only the edge resolves public names | Open |
+| The orchestrator reaches the internet only through the edge proxy, and only the hosts on its list | **Tested** on the live system: `E.12` times out on `1.1.1.1:443` and read `open` before the change, `Z.22` names `deny-to-internet`, and the edge refuses another host (`P.14`) and a tunnel with no window open (`P.15`), with `TCP_DENIED` lines in its log. In a window, the listed hosts answer ([the edge VM](#the-edge-vm)) |
+| Only the edge resolves public names | **Tested** on the live system: Azure DNS gives the orchestrator no answer over TCP (`E.13`, `open` before the change) and over UDP (`E.14`), and gives the edge one ([fail side](#the-fail-side-of-each-new-check-3)) |
 | The orchestrator is not on the mesh VPN | **Tested** on the live system: `A.11` reads `0 0` after the agent was removed, and read `1 1` before ([the router](#the-router)) |
 | The mesh agent runs only on the router, with its own updates and its log upload off | **Tested** on the live system: `A.11` on the orchestrator, `U.6` and `R.5` on the router, and `Z.17` shows no inbound allow on the router ([the router](#the-router)). `R.5`'s fail side was seen on the orchestrator, `U.6`'s on 2026-10-16 |
 | A check fails when the mesh agent is behind the current stable release | **Tested** with `U.7`: passes on the live router at 1.104.1, as on the orchestrator before it, and fails locally on an older version and on no answer from the package site ([fail side](#the-fail-side-of-each-new-check)) |
@@ -528,3 +528,100 @@ Written before each run: the value that proves the claim, and an input that has 
 - The edge-to-targets peering is `Initiated`. The target repository adds its half, and an SSH rule from the router subnet, after this pull request merges.
 - No `kubectl` command ran through the tunnel.
 - The edge VM, Squid on it, the fetch window, and the orchestrator's loss of the internet are the next stage. Until then the orchestrator keeps its NAT gateway and its rules to the internet (T05).
+
+## The edge VM
+
+Squid moved from the orchestrator to an edge VM of its own in Denmark East, and the orchestrator lost its way out ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)). Run on 2026-10-17 between 18:40 and 19:59 UTC, through the steps of the [edge runbook](../runbooks/edge-vm.md). This is the second stage of the edge network. Monitoring is not built.
+
+### What changed
+
+| Change | Where |
+| --- | --- |
+| The edge subnet, `10.45.0.0/27`, on the edge network's NAT gateway. Inbound TCP 3128 from the orchestrator and worker subnets and TCP 22 from the router subnet. Outbound TCP 443 and 80 to the internet | `infra/platform/edge.tf` |
+| The edge VM, `Standard_B2als_v2` in zone 1 at `10.45.0.4`, the same image as the other VMs. First boot installs Squid and runs `unattended-upgrade`. No mesh agent | `infra/platform/compute.tf`, `infra/platform/cloud-init/edge.yaml.tftpl` |
+| Squid on the edge: the worker gets `archive.ubuntu.com` and `security.ubuntu.com`, as before. The orchestrator gets `azure.archive.ubuntu.com` on port 80, and a tunnel on port 443 to the hosts in `edge/fetch-hosts` while a fetch window is open | The template, `edge/fetch-hosts` |
+| The fetch window command: root only, at most 60 minutes, closed by a timer at a set time, every open and close logged. The window is a file under `/run`, so a reboot closes it | `edge/aisec-fetch-window` |
+| The orchestrator's security group: no allow to the internet, denies for `Internet` and `AzurePlatformDNS`, TCP 3128 to the edge. Its inbound TCP 3128 from the worker goes. The worker's TCP 3128 goes to the edge | `infra/platform/main.tf` |
+| The NAT gateway and public address in Sweden Central are gone. The edge network's gateway is the platform's only way out | `infra/platform/egress.tf`, removed |
+| Squid is off the orchestrator. Its template sends apt, the operator's fetches (`/etc/environment`), and containerd's image pulls (`CONTAINERD_HTTPS_PROXY`) to the edge, and fetches K3s through it on first boot | `infra/platform/cloud-init/orchestrator.yaml.tftpl` |
+| The first-boot scripts inside the templates are rendered and linted ([#101](https://github.com/sindredg/ai-security-platform/issues/101)) | `.github/scripts/render-first-boot.sh`, the ShellCheck job |
+| New checks: `A.15` to `A.18`, `HE`, `P.12` to `P.18`, `U.10` to `U.13`, `E.12` to `E.14`, `C.10`, `M.8`, `Z.20` to `Z.23`. `P.1` to `P.4` read the edge. `P.5`, `U.3`, `M.3`, `Z.2`, and `Z.8` name the edge. `E.1` is retired | `validation/platform-checks.sh`, [validation](../validation/README.md) |
+
+Pre-build reads, 17:39 UTC: image `26.04.202610070` is still the newest release, Denmark East had 2 of 4 cores in use, and `Standard_B2als_v2` is offered in zones 1 to 3 without restriction. The retail price API still has no Denmark East price. Sweden Central lists the size at USD 0.0389 per hour, as on 2026-10-16.
+
+### The applies
+
+Two applies, so the orchestrator kept its way out until both clients used the edge. Written before each plan.
+
+| Apply | Expected | Plan | Result |
+| --- | --- | --- | --- |
+| 1, from `8879a73` | 6 to add, 2 to change, 0 to destroy | The same. Each of the two changed groups gains one rule for TCP 3128 to `10.45.0.0/27` | Applied at 18:46 UTC. A plan at 18:57 shows no changes |
+| 2, from `99fbf6b` | 0 to add, 2 to change, 4 to destroy | The same: the Sweden Central gateway, its address, and both associations | `Apply complete! Resources: 0 added, 2 changed, 4 destroyed`, at 19:19 UTC |
+| After | No changes | `plan -detailed-exitcode` at 19:50 | `No changes`, exit 0 |
+
+### First boot and the change-over
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| Host key from the serial log, against a scan through the router | The same fingerprint | `SHA256:2sH0p8Aq...` both times |
+| First boot on the edge | Marker, `status: done`, Squid active on `10.45.0.4:3128` only, window closed, nothing pending | All as expected. 0 failed units, 0 security updates pending, 572 MB of 3.8 GB in use |
+| The worker's apt to the edge | `apt-get update` exits 0 from the two Ubuntu hosts | Exit 0. The edge logs `TCP_MISS` for both hosts from `10.40.0.36` |
+| The orchestrator's apt, environment, and containerd to the edge, K3s restarted | Node `Ready`, every pod `Running`, `apt-get update` exits 0, a tunnel to `github.com` gets 403 | All as expected. containerd's environment has `HTTPS_PROXY`. The edge logs `TCP_MISS` for `azure.archive.ubuntu.com` and `TCP_DENIED/403 CONNECT github.com:443` |
+| Squid removed from the orchestrator, after apply 2 | No package, nothing listening on 3128, K3s active | All as expected |
+
+The change-over also logged four `TCP_DENIED/403 CONNECT esm.ubuntu.com:443` from the orchestrator. That is the image's apt hook for Ubuntu Pro's extended security maintenance, which is not enabled. It now reaches the proxy through `/etc/environment` and is refused. Not expected beforehand. Harmless.
+
+### The fetch window
+
+Written before the run: closed, a tunnel gets 403. Open, one small fetch from each host the orchestrator needs answers 200 or 206. Closed again, 403. A 1-minute window closes by its timer.
+
+| Step | Result |
+| --- | --- |
+| Before | `closed`. Tunnel to `github.com`: 403 |
+| Open for 15 minutes, then a ranged fetch from each host, as the operator's account | 206 from the K3s release asset (redirected to `release-assets.githubusercontent.com`), the K3s install script, a llama.cpp release asset, a Hugging Face file and a weight file (redirected to `us.aws.cdn.hf.co`), PyPI, and the PyTorch index. `git ls-remote` exit 0. Image pulls answered from the node |
+| Close | `closed`. Tunnel to `github.com`: 403 |
+| A 1-minute window | Closed by its timer 60 seconds after it opened |
+| Image pulls of two images not on the node, in a second window | Both downloaded. Squid logged tunnels to `registry-1.docker.io`, `auth.docker.io`, `production.cloudfront.docker.com`, `ghcr.io`, and `pkg-containers.githubusercontent.com`, and refused nothing |
+
+The first windows found three defects, fixed in `8ca922b`:
+
+- Docker Hub serves layers from `production.cloudfront.docker.com`. The list named `production.cloudflare.docker.com`, so Squid refused the layer and the pull failed. The name now comes from Squid's log.
+- `status` printed `open, closes` with no time. A timer started with `--on-active` has no wall-clock time to report. The close is scheduled with `--on-calendar` now.
+- A timer close logged its line twice, once through `logger` and once from the service's standard output. One close, two lines. The output goes nowhere now.
+
+The second test's first run tried to install the fixed command from `/dev/stdin` under `sudo`. That failed, so the run used the old command. Its second run installed the fix through a temporary file. The first run also removed an old tool service image that nothing used: the tag picked to test a download was already on the node.
+
+A tunnel opened inside a window outlives it. Two tunnels that containerd opened before the manual close were logged 27 seconds after it, when they ended. Closing stops new tunnels only, as the command's header says.
+
+Two names on the list have not appeared in a log: `objects.githubusercontent.com`, an older redirect target for GitHub release assets, and names under `.hf.co` other than `us.aws.cdn.hf.co`. Both belong to the same owner as a name that did appear.
+
+### Checks
+
+`validation/platform-checks.sh` from this branch:
+
+| When (UTC) | Result |
+| --- | --- |
+| 19:15, after the change-over and before apply 2 | `230 passed, 5 failed`: `E.12` and `E.13` `open`, `P.12` `1`, `Z.2` `2`, `Z.22` `Allow allow-https-to-internet`. Exactly the five written down before the run |
+| 19:23, after apply 2 | `234 passed, 1 failed`: `P.12`, Squid still installed |
+| 19:30, after Squid was removed | `235 passed, 0 failed` |
+| 19:59, with `E.14` and `C.10` | `237 passed, 0 failed` |
+
+### The fail side of each new check
+
+| Check | Pass | Fail seen |
+| --- | --- | --- |
+| `E.12`, `E.13`, `P.12`, `Z.2`, `Z.22` | Live after the change | Live at 19:15, before it, with the values above |
+| `E.14`, `C.10` | Live: `timeout` | The same query from the edge, which may use Azure DNS: `answer` |
+| `P.17`, `P.18` | Live | From a copy of the checkout with one line added to the command and to the list: `202 passed, 2 failed`, those two |
+| `Z.21` | Live: the three inbound allows | Locally, on the edge's live effective rules with one inbound allow added: a fourth name in the list |
+| `P.15`, `P.16` | Live, no window open | Not run during a window. The window test saw what they would read then: tunnels allowed, and `status` open |
+| `A.15` to `A.18`, `HE`, `P.1` to `P.4`, `P.13`, `P.14`, `U.10` to `U.13`, `M.3`, `M.8`, `Z.20`, `Z.23` | Live | Not seen failing. No broken input was tried |
+
+### Limits
+
+- First boot from the orchestrator's template, which now fetches K3s through the edge in a window, has not run. A rebuilt orchestrator needs a window open before it boots, and the runbook says so.
+- First boot from the edge's template ran once, with the command and list from `7532cbb`. The fixed command was installed by hand.
+- An open tunnel outlives the window. A fetch started in the last minute of a window can run on after it closes.
+- Squid sees host names, not content. During a window the orchestrator can upload to an account of its own on any listed host (T40).
+- The edge-to-targets peering is still `Initiated`. The target repository adds its half, and SSH from the router subnet, after this pull request merges.
+- cloud-init's final stage writes the administrator's `authorized_keys` back empty, after first boot removed it, on the router and the edge. Its log names the `ssh_authkey_fingerprints` module. The file authorizes nothing, and sshd ignores it for this account. The template comments said the file goes. They say what happens now.

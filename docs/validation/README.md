@@ -30,13 +30,13 @@ The script changes nothing. It opens connections that should fail, reads setting
 | Page | Checks | What it covers |
 | --- | --- | --- |
 | [Access](access.md) | `A`, `M`, `R` | Who can get in, and through what |
-| [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.19` | What the worker cannot reach, and what the orchestrator can |
-| [Package proxy](package-proxy.md) | `P`, `U` | The worker's one path out, and whether updates arrive |
+| [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.23` | What the worker and the orchestrator cannot reach, and what they can |
+| [Package proxy](package-proxy.md) | `P`, `U` | Squid on the edge, the one path out for the orchestrator and the worker, the fetch window, and whether updates arrive |
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |
 | [Tool service](tool-service.md) | `T` | The deployed tool service: its pod, namespaces, network paths, and certificate |
 | [Audit log](audit-log.md) | `L`, `J` | The copier that stores the tool service's audit lines, the pull of the worker's journal, and the append-only files they write |
-| [Host hardening](host-hardening.md) | `HO`, `HW` | SSH daemon, kernel settings, file modes, on both VMs |
+| [Host hardening](host-hardening.md) | `HO`, `HW`, `HR`, `HE` | SSH daemon, kernel settings, file modes, on every VM |
 | [Azure policy](azure-policy.md) | `Z.1` to `Z.3`, `Z.10` to `Z.12` | Public addresses and the policy that refuses them |
 
 ## Last run

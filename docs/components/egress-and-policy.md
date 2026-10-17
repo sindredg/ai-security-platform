@@ -1,15 +1,15 @@
 # Egress and policy
 
-One outbound path for the whole system: a NAT gateway on the orchestrator subnet. Every other machine has three controls that block outbound access, because any one control alone leaves a path open.
+One outbound path for the whole system: a NAT gateway on the edge network, used by the router and the edge VM. The orchestrator and the worker reach the internet only through Squid on the edge. Every machine without the gateway has three controls that block outbound access, because any one control alone leaves a path open.
 
 | | |
 | --- | --- |
-| State | Built |
-| NAT gateway | StandardV2, one static public address, associated with `snet-orchestrator` only |
-| Defined in | `infra/platform/egress.tf`, the rules in `infra/platform/main.tf` and in `infra/targets/` of the [targets repository](https://github.com/sindredg/ai-security-platform-test), the policy in `infra/bootstrap/policy.tf` |
-| Decisions | [0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), [0008](../decisions/0008-deployment-identities-and-bootstrap-scope.md) |
+| State | Built. Verified by `E`, `C`, and `Z` on 2026-10-17 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm)) |
+| NAT gateway | StandardV2 in Denmark East, one static public address, associated with `snet-router` and `snet-edge` only |
+| Defined in | `infra/platform/edge.tf`, the rules in `infra/platform/main.tf`, `infra/platform/edge.tf`, and `infra/targets/` of the [targets repository](https://github.com/sindredg/ai-security-platform-test), the policy in `infra/bootstrap/policy.tf` |
+| Decisions | [0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), [0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [0025](../decisions/0025-the-mesh-node-on-its-own-vm.md), [0008](../decisions/0008-deployment-identities-and-bootstrap-scope.md) |
 
-## The three controls on the worker and target machines
+## The three controls on the orchestrator, the worker, and the targets
 
 | Control | What it stops | What it does not |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ One outbound path for the whole system: a NAT gateway on the orchestrator subnet
 
 ## Rules on the platform side
 
-![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator and the worker on port 22 and the internet through its own NAT gateway, the orchestrator reaches the worker and the targets on port 22 and the internet through its NAT gateway, the worker reaches only ports 3128 and 30443 on the orchestrator, and everything else is denied](../diagrams/network-flows.svg)
+![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator and the worker on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else is denied](../diagrams/network-flows.svg)
 
 The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). The table below names the rule behind each path.
 
@@ -27,20 +27,25 @@ The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.
 | --- | --- | --- | --- | --- |
 | Orchestrator | Inbound | Deny | Anything from the target network | `deny-from-targets` |
 | Orchestrator | Inbound | Allow | TCP 22 from the router subnet | `allow-ssh-from-router` |
-| Orchestrator | Inbound | Allow | TCP 3128 from the worker subnet | `allow-package-proxy-from-worker` |
 | Orchestrator | Inbound | Allow | TCP 30443 from the worker subnet, the tool service's node port | `allow-tool-service-from-worker` |
+| Orchestrator | Outbound | Deny | The internet, Azure DNS | `deny-to-internet`, `deny-to-azure-dns` |
 | Orchestrator | Outbound | Allow | TCP 22 to the worker subnet and the target network | `allow-ssh-to-worker`, `allow-ssh-to-targets` |
-| Orchestrator | Outbound | Allow | TCP 443 and 80 to the internet | `allow-https-to-internet`, `allow-http-to-internet` |
+| Orchestrator | Outbound | Allow | TCP 3128 to the edge subnet | `allow-proxy-to-edge` |
 | Worker | Inbound | Deny | Anything from the target network | `deny-from-targets` |
 | Worker | Inbound | Allow | TCP 22 from the orchestrator subnet and the router subnet | `allow-ssh-from-orchestrator`, `allow-ssh-from-router` |
 | Worker | Outbound | Deny | The target network, the internet, Azure DNS | `deny-to-targets`, `deny-to-internet`, `deny-to-azure-dns` |
-| Worker | Outbound | Allow | TCP 3128 and 30443 to the orchestrator subnet | `allow-package-proxy-to-orchestrator`, `allow-tool-service-to-orchestrator` |
+| Worker | Outbound | Allow | TCP 3128 to the edge subnet | `allow-package-proxy-to-edge` |
+| Worker | Outbound | Allow | TCP 30443 to the orchestrator subnet | `allow-tool-service-to-orchestrator` |
 | Router | Outbound | Allow | TCP 443 and 80 to the internet, through its own NAT gateway | `allow-https-to-internet`, `allow-http-to-internet` |
 | Router | Outbound | Allow | TCP 22 to the platform network, the target network, and the edge subnet | `allow-ssh-to-platform`, `allow-ssh-to-targets`, `allow-ssh-to-edge` |
 | Router | Inbound | Allow | Nothing | |
-| All three | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
+| Edge | Inbound | Deny | Anything from the target network | `deny-from-targets` |
+| Edge | Inbound | Allow | TCP 3128 from the orchestrator subnet and the worker subnet | `allow-proxy-from-orchestrator`, `allow-proxy-from-worker` |
+| Edge | Inbound | Allow | TCP 22 from the router subnet | `allow-ssh-from-router` |
+| Edge | Outbound | Allow | TCP 443 and 80 to the internet, through the NAT gateway. Azure DNS is not denied: Squid resolves names | `allow-https-to-internet`, `allow-http-to-internet` |
+| All four | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
 
-The table is read from `infra/platform/main.tf` and `infra/platform/edge.tf`. The rules for port 30443, and the removal of the mesh agent's UDP rules in [ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md), were applied on 2026-10-15. `Z.13` and `Z.4` check them.
+The table is read from `infra/platform/main.tf` and `infra/platform/edge.tf` on 2026-10-17. `Z.4`, `Z.5`, `Z.16`, and `Z.20` compare each group's effective rules with its configured ones. `Z.21` counts what is allowed into the edge, and `Z.22` and `Z.23` test the orchestrator's paths.
 
 Administration arrives from the router subnet, translated to the router's address. The router has no inbound allow: its mesh tunnel is opened outbound (`Z.17`).
 
@@ -51,8 +56,9 @@ Administration arrives from the router subnet, translated to the router's addres
 ## Limits
 
 - **The gateway bills by the hour whether or not a VM runs.**
-- **The orchestrator's egress is not filtered by hostname.** [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) moves the NAT gateway to an edge VM and sends the orchestrator through a proxy there, in milestone 3a. Not built.
-- **Port 80 is open as well as 443.** Only the package mirrors need it. Closing it was tried and failed. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
+- **The edge and the router reach any host on TCP 443 and 80.** The edge filters by hostname in Squid, not in its rules. The router's mesh service and relays change addresses without notice. Root on either has open outbound access (T38, T39).
+- **Port 80 is open as well as 443 on the edge.** Only the package mirrors need it. Closing it was tried and failed. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).
+- **The edge is a single point of failure** for every outbound fetch, and the router for every administrative session.
 - **Platform endpoints are not the internet and stay reachable.**
 
 ## Official documentation

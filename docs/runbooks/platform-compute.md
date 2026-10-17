@@ -1,6 +1,6 @@
 # Platform compute: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). On 2026-10-16 the logins changed to SSH certificates and the feed key to an account of its own on the worker ([SSH certificates runbook](ssh-certificates.md)). Steps 12, 14, 19, 24, and 29 and the feed key and operator key rotations were rewritten for that and have not been run in that form. On 2026-10-17 the mesh VPN moved to a router VM ([router runbook](mesh-router.md)), and the orchestrator's template no longer joins the mesh. The mesh steps below describe the build as it was run. They are superseded, not rewritten: the notes at each say what changes.
+Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). On 2026-10-16 the logins changed to SSH certificates and the feed key to an account of its own on the worker ([SSH certificates runbook](ssh-certificates.md)). Steps 12, 14, 19, 24, and 29 and the feed key and operator key rotations were rewritten for that and have not been run in that form. On 2026-10-17 the mesh VPN moved to a router VM ([router runbook](mesh-router.md)), and the orchestrator's template no longer joins the mesh. The mesh steps below describe the build as it was run. They are superseded, not rewritten: the notes at each say what changes. Later on 2026-10-17 the package proxy moved to an edge VM and the orchestrator's NAT gateway was removed ([edge runbook](edge-vm.md)). Steps 21 and 25 to 31 are superseded the same way.
 
 Run these steps to build milestone 2: the public address policy, the NAT gateway, the orchestrator and AI worker VMs, the mesh VPN, and K3s. Never commit local values, plans, state, keys, or raw output.
 
@@ -312,6 +312,8 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
 
     Expected: `200`, then `403` three times, `no connection`, a package list refresh that fetches from the two Ubuntu hosts, and `0` packages left from the security suite. The design is [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md).
 
+    Since 2026-10-17 the proxy is on the edge VM: `P=http://10.45.0.4:3128`. The same answers are expected.
+
 ## Rebuild the worker
 
 Run once, on 2026-10-11, while the worker was empty. The commands are that run, condensed. A rebuild destroys everything on the worker: after milestone 3 that includes the model.
@@ -379,6 +381,8 @@ A rebuild destroys everything on the orchestrator:
 | The staged inputs under `~/feed`, about 9 GB | Step 31 |
 
 The worker keeps running, but it has no outbound access and cannot be reached while the orchestrator is gone: the mesh routes and the package proxy both live there. Do this when no job is running.
+
+Since 2026-10-17 the mesh routes are on the router and the package proxy on the edge VM, so the worker keeps both. The new orchestrator's first boot fetches K3s through the edge, and needs a fetch window open before the apply ([edge runbook](edge-vm.md#rebuild-the-orchestrator)).
 
 26. Record a baseline and check the pins. Run `validation/platform-checks.sh`, then steps 1 and 2. Check the K3s and mesh VPN agent versions in `infra/platform/variables.tf` against the releases the publishers serve.
 

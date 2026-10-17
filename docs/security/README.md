@@ -40,7 +40,7 @@ No page yet. Each gets one when the milestone that builds it starts.
 
 The short list, for a reader who opens only this page. Detail is in the topic pages.
 
-1. **A compromised orchestrator can control the platform.** It holds every credential that matters and reaches any host on TCP 443 and 80. Accepted until milestone 3a builds the edge proxy of [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md).
+1. **A compromised orchestrator can control the platform.** It holds every credential that matters. Its only way out is Squid on the edge VM, since 2026-10-17 ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)). During a fetch window it can still upload to a listed host (T40).
 2. **One operator.** One Azure account owns both sides and one GitHub account approves every change. Accepted.
 3. **Tool authorization relies on custom code.** The service is implemented, its rejection cases are tested in CI, and it is deployed. One round trip from the worker is tested on the running platform. Dispatch is not built. See [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md).
 4. **Monitoring is incomplete.** No audit daemon, remote log collection, or alerting is configured. The audit lines and the worker's journal are copied to append-only files on the orchestrator, where root can still edit them. Log storage outside the VMs and alerts are decided for [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring) ([ADR 0021](../decisions/0021-monitoring-in-azure-monitor-over-private-link.md)).

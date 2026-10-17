@@ -10,3 +10,4 @@ Failures that taught something about the system or a procedure. Each entry recor
 | [04](04-default-service-account-already-exists.md) | 3 | Kubernetes creates each namespace's default service account on its own. A manifest that sets it has to wait for it |
 | [05](05-failed-logins-block-every-routed-session.md) | 3a | sshd penalises a source address after failed logins, and every routed session reaches the worker from one address. A few refused logins block the feed and the journal pull too |
 | [06](06-rebuilt-network-leaves-peering-disconnected.md) | 3a | A network rebuilt under the same name keeps its ID, so Terraform sees no change on the other side, while Azure keeps that half of the peering disconnected until it is re-created |
+| [07](07-image-pull-refused-in-a-fetch-window.md) | 3a | A pull answered from the node's cache never reaches the layer host. A proxy's host list is tested with a pull that downloads |

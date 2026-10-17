@@ -25,6 +25,7 @@ The cluster on the orchestrator. One server, no agents. The tool service is the 
 | Certificate files at `600` | Applied after install. K3s keeps the mode |
 | `admission-control-config-file`, pod security defaults | A namespace without a label enforces `restricted`. No namespace is exempt. Checked by `K.9` |
 | `kube-system` labelled `enforce=baseline` | Its pods pass `baseline` and not `restricted`. Applied after install. Checked by `K.9` and `K.10` |
+| `CONTAINERD_HTTPS_PROXY` in `k3s.service.env` | containerd pulls images through Squid on the edge. K3s and the kubelet get no proxy. A pull works only while a fetch window is open. Checked by `U.11` |
 
 The installer is not piped from the network into a shell. The script is fetched at the release tag and checked against its pinned checksum first, and so is the binary.
 

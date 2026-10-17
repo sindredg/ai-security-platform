@@ -16,7 +16,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Checkov | Terraform and Kubernetes manifest misconfigurations |
 | Trivy | Terraform, Kubernetes manifest, and Dockerfile misconfigurations. For Terraform and the manifests, a second scanner beside Checkov. For the manifests, `.github/trivy-data/ksv0125.yaml` names `ghcr.io` as the trusted registry, with its reason. For Terraform, `AZU-0051` is ignored on the orchestrator's security group only, with its reason in the network module ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-suppression)) |
 | Secret scan | gitleaks over the whole history |
-| ShellCheck | Every shell script under `worker/`, `platform/`, `validation/`, and `.github/scripts/`. Most run as root on the VMs |
+| ShellCheck | Every shell script under `worker/`, `platform/`, `edge/`, `validation/`, and `.github/scripts/`, and each VM's first-boot script, rendered out of its cloud-init template by `.github/scripts/render-first-boot.sh` ([#101](https://github.com/sindredg/ai-security-platform/issues/101)). Most run as root on the VMs |
 | Ruff | Lint and format check on all Python files under `worker/`, `platform/`, and `tool-service/`. The tool service adds bugbear, the security rules, and import order |
 | Kubernetes manifests | kubeconform over every manifest under `platform/`, strict, against the cluster's Kubernetes release. Then every image line has to name a digest that is not the placeholder of zeros |
 | Tool service tests | The line count against the limit of 300, then the tests, on the pinned Python image with every package installed by hash |
