@@ -29,8 +29,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 
 | Page | Checks | What it covers |
 | --- | --- | --- |
-| [Access](access.md) | `A`, `M` | Who can get in, and through what |
-| [Containment](containment.md) | `C`, `E`, `R`, `Z.4` to `Z.9`, `Z.13` to `Z.15` | What the worker cannot reach, and what the orchestrator can |
+| [Access](access.md) | `A`, `M`, `R` | Who can get in, and through what |
+| [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.19` | What the worker cannot reach, and what the orchestrator can |
 | [Package proxy](package-proxy.md) | `P`, `U` | The worker's one path out, and whether updates arrive |
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |

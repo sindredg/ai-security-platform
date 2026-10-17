@@ -12,6 +12,8 @@
 #               Default: ssh
 #   AISEC_ORCH  Orchestrator address or host alias. Default: 10.40.0.4
 #   AISEC_WORK  Worker address or host alias. Default: 10.40.0.36
+#   AISEC_ROUTER  Router address or host alias, on the mesh VPN.
+#               Default: aisec-router
 #   AISEC_USER_CA  The SSH certificate authority's public key file on the
 #               workstation. The VMs have to trust this one and no other.
 #
@@ -25,12 +27,16 @@ set -uo pipefail
 SSH=${AISEC_SSH:-ssh}
 ORCH=${AISEC_ORCH:-10.40.0.4}
 WORK=${AISEC_WORK:-10.40.0.36}
+ROUTER=${AISEC_ROUTER:-aisec-router}
 # The fingerprint the VMs' certificate authority file has to show. Without the
 # file there is nothing to compare with, and the check fails.
 USER_CA_FP=$(ssh-keygen -l -f "${AISEC_USER_CA:-/nonexistent}" 2>/dev/null | cut -d " " -f 2)
 USER_CA_FP=${USER_CA_FP:-"AISEC_USER_CA not given or not a public key"}
 ORCH_IP=10.40.0.4
 WORK_IP=10.40.0.36
+# What the router advertises (ADR 0025): the platform, the targets, and the
+# edge subnet.
+ROUTES="10.40.0.0/20 10.45.0.0/27 10.50.0.0/20"
 PROXY="http://$ORCH_IP:3128"
 MODEL_UNIT=aisec-llama-server
 MODEL_PORT=8080
@@ -145,7 +151,7 @@ echo "revoked_keys=$(stat -c "%U %G" /etc/ssh/aisec-revoked.krl 2>/dev/null) $(s
 '
 
 probe_orchestrator="$probe_common"'
-for unit in k3s tailscaled aisec-mss-clamp squid; do
+for unit in k3s squid; do
   echo "unit_$(echo $unit | tr - _)=$(systemctl is-active $unit)"
 done
 echo "node_ready=$(k3s kubectl get nodes --no-headers 2>/dev/null | grep -c " Ready ")"
@@ -170,20 +176,15 @@ for ns in $namespaces; do
 done
 echo "privileged_admitted=$([ -z "$namespaces" ] && echo "no namespaces" || echo "${admitted:- none}" | sed "s/^ //")"
 echo "system_deployments_not_ready=$(k3s kubectl get deployments -n kube-system -o jsonpath="{range .items[*]}{.metadata.name} {.status.replicas} {.status.readyReplicas}{\"\n\"}{end}" 2>/dev/null | awk "NF { n++; if (\$2 != \$3) bad++ } END { print n ? bad + 0 : \"no deployments\" }")"
-echo "mss_rules=$(nft list table inet aisec_mss 2>/dev/null | grep -c maxseg)"
 echo "pod_egress=$(nft list chain inet aisec_pod_egress forward 2>/dev/null | sed -n "s/^\t\t//p" | sed "s/counter packets [0-9]* bytes [0-9]* /counter /" | tr "\n" "|")"
 echo "pod_egress_input=$(nft list chain inet aisec_pod_egress input 2>/dev/null | sed -n "s/^\t\t//p" | sed "s/counter packets [0-9]* bytes [0-9]* /counter /" | tr "\n" "|")"
 echo "pod_egress_unit=$(systemctl is-enabled aisec-pod-egress 2>/dev/null)"
-echo "ip_forward=$(sysctl -n net.ipv4.ip_forward)"
 echo "squid_listen=$(ss -ltn | awk "{print \$4}" | grep ":3128$" | tr "\n" " " | sed "s/ $//")"
 echo "squid_no_new_privileges=$(systemctl show squid -p NoNewPrivileges --value)"
 echo "squid_from_orchestrator=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 -x '"$PROXY"' http://archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
-echo "lock=$(tailscale lock status 2>/dev/null | head -n 1)"
-echo "lock_signed=$(tailscale lock status 2>/dev/null | grep -c "This node is accessible under Tailnet Lock")"
-echo "tailscale_held=$(apt-mark showhold | grep -c "^tailscale$")"
-echo "tailscale_installed=$(dpkg-query -W -f="\${Version}" tailscale 2>/dev/null)"
-echo "tailscale_auto_apply=$(tailscale debug prefs 2>/dev/null | tr -d " \n" | grep -o "\"AutoUpdate\":{[^}]*}" | grep -o "\"Apply\":[a-z]*" | cut -d: -f2)"
-echo "auth_key_file=$(ls /run/aisec 2>/dev/null | wc -l)"
+# The package, and the interface it makes. Both are gone once the orchestrator
+# leaves the mesh VPN (ADR 0025).
+echo "mesh_agent=$(dpkg-query -W -f="\${Status}" tailscale 2>/dev/null | grep -c " ok installed$") $(ip -br link show tailscale0 2>/dev/null | wc -l)"
 echo "egress_https=$(tcp 1.1.1.1 443)"
 echo "to_worker_ssh=$(tcp '"$WORK_IP"' 22)"
 echo "to_worker_http=$(tcp '"$WORK_IP"' 80)"
@@ -193,14 +194,12 @@ echo "to_worker_model=$(tcp '"$WORK_IP"' '"$MODEL_PORT"')"
 sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec-feed@aisec-worker id >/dev/null 2>&1
 echo "feed_refuses=$?"
 echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
-echo "mesh_udp=$(tailscale netcheck 2>/dev/null | sed -n "s/^[^A-Za-z]*UDP: //p" | head -n 1)"
 k() { k3s kubectl "$@" 2>/dev/null; }
 echo "tool_ready=$(k get deployment tool-service -n tool-services -o jsonpath="{.status.readyReplicas}")"
 echo "tool_image=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{.items[0].status.containerStatuses[0].imageID}" | sed "s/.*@//")"
 echo "tool_pod_security=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{.items[0].spec.automountServiceAccountToken} {.items[0].spec.securityContext.runAsNonRoot} {.items[0].spec.containers[0].securityContext.readOnlyRootFilesystem} {.items[0].spec.containers[0].securityContext.allowPrivilegeEscalation} {.items[0].spec.containers[0].securityContext.capabilities.drop[0]}")"
 echo "pod_security_admission=$(k get namespace tool-services orchestration -o jsonpath="{range .items[*]}{.metadata.labels.pod-security\.kubernetes\.io/enforce} {end}" | sed "s/ $//")"
 echo "default_deny=$({ k get networkpolicy default-deny -n tool-services -o name; k get networkpolicy default-deny -n orchestration -o name; } | tr "\n" " " | sed "s/ $//")"
-echo "tool_port_on_mesh=$(tcp "$(tailscale ip -4 2>/dev/null | head -n 1)" '"$TOOL_PORT"')"
 echo "tool_cert_14_days=$(openssl x509 -in /etc/aisec/tool-service/tls.crt -noout -checkend 1209600 >/dev/null 2>&1 && echo yes || echo no)"
 audit=/var/log/aisec/tool-audit.jsonl
 echo "audit_copy_active=$(systemctl is-active aisec-audit-copy 2>/dev/null)"
@@ -298,6 +297,29 @@ echo "feed_account=$(id -nG aisec-feed 2>/dev/null) $(sudo -n -l -U aisec-feed 2
 echo "feed_command=$(sha256sum /usr/local/sbin/aisec-feed-receive 2>/dev/null | cut -d " " -f 1)"
 '
 
+probe_router="$probe_common"'
+echo "unit_tailscaled=$(systemctl is-active tailscaled)"
+echo "unit_mss_clamp=$(systemctl is-active aisec-mss-clamp)"
+echo "mss_rules=$(nft list table inet aisec_mss 2>/dev/null | grep -c maxseg)"
+echo "ip_forward=$(sysctl -n net.ipv4.ip_forward)"
+echo "lock=$(tailscale lock status 2>/dev/null | head -n 1)"
+echo "lock_signed=$(tailscale lock status 2>/dev/null | grep -c "This node is accessible under Tailnet Lock")"
+echo "auth_key_file=$(ls /run/aisec 2>/dev/null | wc -l)"
+echo "tailscale_held=$(apt-mark showhold | grep -c "^tailscale$")"
+echo "tailscale_installed=$(dpkg-query -W -f="\${Version}" tailscale 2>/dev/null)"
+prefs=$(tailscale debug prefs 2>/dev/null | tr -d " \n")
+pref() { printf "%s" "$prefs" | grep -o "\"$1\":[a-z]*" | head -n 1 | cut -d: -f2; }
+echo "tailscale_auto_apply=$(printf "%s" "$prefs" | grep -o "\"AutoUpdate\":{[^}]*}" | grep -o "\"Apply\":[a-z]*" | cut -d: -f2)"
+echo "tailscale_features=$(pref RunSSH) $(pref RunWebClient)"
+echo "advertised_routes=$(printf "%s" "$prefs" | grep -o "\"AdvertiseRoutes\":\[[^]]*\]" | grep -o "[0-9./]*/[0-9]*" | sort | tr "\n" " " | sed "s/ $//")"
+# The running agent, not the defaults file, so a restart with other flags shows.
+echo "log_upload_off=$(tr "\0" " " < /proc/$(pidof tailscaled)/cmdline 2>/dev/null | grep -c -- "--no-logs-no-support")"
+echo "serve_config=$(tailscale serve status --json 2>/dev/null | tr -d " \n")"
+echo "mesh_udp=$(tailscale netcheck 2>/dev/null | sed -n "s/^[^A-Za-z]*UDP: //p" | head -n 1)"
+echo "unattended_upgrades=$(systemctl is-enabled unattended-upgrades 2>/dev/null)"
+echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
+'
+
 common_checks() { # prefix
   check "$1.1" "No failed systemd unit" 0 "$(value failed_units)"
   check "$1.2" "SSH: no root login" no "$(value sshd_root)"
@@ -326,10 +348,8 @@ common_checks() { # prefix
 
 echo "== Orchestrator ($ORCH)"
 if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && [ -n "$probe" ]; then
-  check A.1 "Reachable over the mesh VPN with the operator certificate" yes yes
-  check A.2 "Mesh VPN node signing is enabled" "Tailnet Lock is ENABLED." "$(value lock)"
-  check A.3 "The orchestrator's node key is signed" 1 "$(value lock_signed)"
-  check A.4 "The spent auth key file is gone" 0 "$(value auth_key_file)"
+  check A.1 "Reachable through the router with the operator certificate" yes yes
+  check A.11 "The orchestrator is not on the mesh VPN" "0 0" "$(value mesh_agent)"
   check A.5 "No plain key is authorized for the administrator" 0 "$(value authorized_keys)"
   check A.8 "The administrator forwards only to the API server on loopback" "local 127.0.0.1:6443" "$(value sshd_admin_forwarding)"
   check A.9 "Other accounts forward nothing" no "$(value sshd_other_forwarding)"
@@ -349,9 +369,6 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # A system pod that pod security refuses is never created, so K.3 does not
   # see it. Its deployment stays short of ready.
   check K.10 "Every system deployment is ready" 0 "$(value system_deployments_not_ready)"
-  check R.1 "The mesh VPN agent is active" active "$(value unit_tailscaled)"
-  check R.2 "The segment size clamp is loaded" 2 "$(value mss_rules)"
-  check R.3 "The orchestrator forwards packets" 1 "$(value ip_forward)"
   check E.1 "The orchestrator reaches the internet on 443" open "$(value egress_https)"
   check E.2 "The orchestrator reaches the worker on 22" open "$(value to_worker_ssh)"
   # Nothing listens on the worker's port 80. If its rules let the packet in,
@@ -368,17 +385,6 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # the rules dropped it.
   check S.1 "The worker's rules drop the orchestrator on the model server port" timeout "$(value to_worker_model)"
   check U.1 "No security update is pending on the orchestrator" 0 "$(value security_updates_pending)"
-  check U.2 "The mesh VPN agent is held at its pinned version" 1 "$(value tailscale_held)"
-  # The hold stops apt. The agent has its own updater, which the hold does not stop.
-  check U.6 "The mesh VPN agent does not install updates itself" false "$(value tailscale_auto_apply)"
-  # The hold means nothing moves the agent but the pin. This catches a pin left
-  # behind. The current stable version is read here, from the package site.
-  stable=$(curl -fsS --max-time 10 "https://pkgs.tailscale.com/stable/?mode=json" 2>/dev/null |
-    python3 -I -c "import json, sys; print(json.load(sys.stdin)[\"Version\"])" 2>/dev/null)
-  check U.7 "The mesh VPN agent is the current stable release" \
-    "${stable:-no answer from pkgs.tailscale.com}" "$(value tailscale_installed)"
-  # The mesh agent's UDP rules are gone, so it cannot reach a STUN server.
-  check E.5 "The orchestrator sends no UDP to the internet" false "$(value mesh_udp)"
   # The chain as nft lists it, with the counter's values taken out. It holds
   # a pod from its first packet, before kube-router writes the pod's policy.
   check E.6 "Forwarded traffic from pods goes only to pods" \
@@ -397,10 +403,6 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check T.3 "The tool service pod has no token, no root, and nothing writable" "false true true false ALL" "$(value tool_pod_security)"
   check T.4 "Both namespaces enforce the restricted pod security level" "restricted restricted" "$(value pod_security_admission)"
   check T.5 "Both namespaces deny by default" "networkpolicy.networking.k8s.io/default-deny networkpolicy.networking.k8s.io/default-deny" "$(value default_deny)"
-  # Node ports answer on the private address only. The mesh address is a
-  # local address of this machine, so the mesh policy does not apply here.
-  # Nothing listens: a reset, "refused", is the expected answer.
-  check T.6 "The tool port does not answer on the mesh address" refused "$(value tool_port_on_mesh)"
   check T.7 "The tool service certificate has more than 14 days left" yes "$(value tool_cert_14_days)"
   # From inside the pod. K3s enforces network policies with kube-router, which
   # rejects with an ICMP port unreachable, so a blocked connection is
@@ -439,7 +441,7 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check J.10 "The journal puller installed is the one in this checkout" "$PULL_SHA" "$(value journal_pull_code)"
   common_checks HO
 else
-  check A.1 "Reachable over the mesh VPN with the operator certificate" yes no
+  check A.1 "Reachable through the router with the operator certificate" yes no
 fi
 
 echo
@@ -509,18 +511,64 @@ else
   check A.6 "Reachable through the subnet router with the operator certificate" yes no
 fi
 
+echo
+echo "== Router ($ROUTER)"
+if probe=$($SSH "$ROUTER" 'sudo bash -s' <<<"$probe_router" 2>/dev/null) && [ -n "$probe" ]; then
+  check A.12 "Reachable over the mesh VPN with the operator certificate" yes yes
+  check A.2 "Mesh VPN node signing is enabled" "Tailnet Lock is ENABLED." "$(value lock)"
+  check A.3 "The router's node key is signed" 1 "$(value lock_signed)"
+  check A.4 "The spent auth key file is gone" 0 "$(value auth_key_file)"
+  check A.13 "No plain key is authorized for the administrator" 0 "$(value authorized_keys)"
+  # Routed sessions pass through the router at the IP layer. SSH on the router
+  # forwards nothing, for any account.
+  check A.14 "The administrator forwards nothing on the router" "no any" "$(value sshd_admin_forwarding)"
+  check R.1 "The mesh VPN agent is active" active "$(value unit_tailscaled)"
+  check R.2 "The segment size clamp is loaded" "active 2" "$(value unit_mss_clamp) $(value mss_rules)"
+  check R.3 "The router forwards packets" 1 "$(value ip_forward)"
+  check R.4 "The router advertises the platform, the targets, and the edge subnet" "$ROUTES" "$(value advertised_routes)"
+  # The flag on the running agent's command line (ADR 0025). The defaults file
+  # alone would not show an agent started without it.
+  check R.5 "The mesh VPN agent uploads no logs to the vendor" 1 "$(value log_upload_off)"
+  check R.6 "Tailscale SSH and the web client are off" "false false" "$(value tailscale_features)"
+  # An empty configuration is "{}". No answer is a failure, not a match.
+  check R.7 "Nothing is served or funnelled through the mesh VPN" "{}" "$(value serve_config)"
+  # The router's rules have no UDP to the internet, so it cannot reach a STUN
+  # server, and the agent uses the relays over TCP 443.
+  check E.5 "The router sends no UDP to the internet" false "$(value mesh_udp)"
+  check U.2 "The mesh VPN agent is held at its pinned version" 1 "$(value tailscale_held)"
+  # The hold stops apt. The agent has its own updater, which the hold does not stop.
+  check U.6 "The mesh VPN agent does not install updates itself" false "$(value tailscale_auto_apply)"
+  # The hold means nothing moves the agent but the pin. This catches a pin left
+  # behind. The current stable version is read here, from the package site.
+  stable=$(curl -fsS --max-time 10 "https://pkgs.tailscale.com/stable/?mode=json" 2>/dev/null |
+    python3 -I -c "import json, sys; print(json.load(sys.stdin)[\"Version\"])" 2>/dev/null)
+  check U.7 "The mesh VPN agent is the current stable release" \
+    "${stable:-no answer from pkgs.tailscale.com}" "$(value tailscale_installed)"
+  check U.8 "Unattended upgrades are enabled on the router" enabled "$(value unattended_upgrades)"
+  check U.9 "No security update is pending on the router" 0 "$(value security_updates_pending)"
+  common_checks HR
+else
+  check A.12 "Reachable over the mesh VPN with the operator certificate" yes no
+fi
+
 if [ "$workstation" = 1 ]; then
   echo
   echo "== Workstation, through the mesh VPN"
   eval "$tcp_fn"
   check M.1 "The mesh policy allows SSH to the orchestrator" open "$(tcp $ORCH_IP 22 6)"
-  check M.2 "The mesh policy allows the Kubernetes API" open "$(tcp $ORCH_IP 6443 6)"
+  # The API server listens on this address (K.1). The policy no longer grants
+  # it: kubectl goes through an SSH tunnel to the orchestrator (A.8).
+  check M.2 "The mesh policy drops the Kubernetes API" timeout "$(tcp $ORCH_IP 6443 6)"
   # Squid and the kubelet both listen on this address (P.2, and C.8 above). The
   # mesh drops what its policy does not grant, so a timeout is the policy.
   # "refused" would mean the packet reached the orchestrator.
   check M.3 "The mesh policy drops the proxy port" timeout "$(tcp $ORCH_IP 3128 6)"
   check M.4 "The mesh policy drops the kubelet port" timeout "$(tcp $ORCH_IP 10250 6)"
   check M.5 "The mesh policy drops the tool port" timeout "$(tcp $ORCH_IP $TOOL_PORT 6)"
+  check M.6 "The mesh policy allows SSH to the router" open "$(tcp "$ROUTER" 22 6)"
+  # Nothing listens on the router's port 80. If the policy let the packet in,
+  # the router would answer with a reset. Only a timeout shows the drop.
+  check M.7 "The mesh policy drops another port on the router" timeout "$(tcp "$ROUTER" 80 6)"
 fi
 
 if [ "$azure" = 1 ]; then
@@ -528,7 +576,9 @@ if [ "$azure" = 1 ]; then
   echo "== Azure, as the operator"
   check Z.1 "No VM has a public address" 0 \
     "$(az vm list -g $RG -d --query "length([?publicIps!=''])" -o tsv 2>/dev/null)"
-  check Z.2 "The platform group holds one public address, the NAT gateway's" 1 \
+  # The orchestrator's gateway and the router's, until the edge stage removes
+  # the orchestrator's (ADR 0020).
+  check Z.2 "The platform group holds two public addresses, the NAT gateways'" 2 \
     "$(az network public-ip list -g $RG --query "length(@)" -o tsv 2>/dev/null)"
   check Z.3 "The target group holds no public address" 0 \
     "$(az network public-ip list -g $RG_TARGETS --query "length(@)" -o tsv 2>/dev/null)"
@@ -603,28 +653,34 @@ print("\n".join(sorted(lines)))
   # So an answer has to arrive and hold rules before anything is compared. No
   # answer is a FAIL that says so.
   az_err=$(mktemp)
-  n=4
-  for vm in orchestrator worker; do
+  for row in Z.4:orchestrator:platform Z.5:worker:platform Z.16:router:edge; do
+    IFS=: read -r id vm network <<<"$row"
     claim="Effective rules on the $vm interface equal the configured rules"
     : >"$az_err"
     effective=$(az network nic list-effective-nsg -g $RG -n "nic-aisec-$vm" -o json 2>>"$az_err" |
       nsg_rules effective 2>>"$az_err")
     effective_rc=$?
-    configured=$(az network nsg show -g $RG -n "nsg-aisec-platform-$vm" -o json 2>>"$az_err" |
+    configured=$(az network nsg show -g $RG -n "nsg-aisec-$network-$vm" -o json 2>>"$az_err" |
       nsg_rules configured 2>>"$az_err")
     configured_rc=$?
     if [ "$effective_rc" != 0 ] || [ -z "$effective" ]; then
-      check "Z.$n" "$claim" "effective rules from Azure" "no usable answer: $(head -n 1 "$az_err" | cut -c1-200)"
+      check "$id" "$claim" "effective rules from Azure" "no usable answer: $(head -n 1 "$az_err" | cut -c1-200)"
     elif [ "$configured_rc" != 0 ] || [ -z "$configured" ]; then
-      check "Z.$n" "$claim" "configured rules from Azure" "no usable answer: $(head -n 1 "$az_err" | cut -c1-200)"
+      check "$id" "$claim" "configured rules from Azure" "no usable answer: $(head -n 1 "$az_err" | cut -c1-200)"
     elif [ "$effective" = "$configured" ]; then
-      check "Z.$n" "$claim" equal equal
+      check "$id" "$claim" equal equal
     else
-      check "Z.$n" "$claim" equal different
+      check "$id" "$claim" equal different
       # "<" is configured only, ">" is effective only.
       diff <(printf '%s\n' "$configured") <(printf '%s\n' "$effective") | grep '^[<>]' | sed 's/^/            /'
     fi
-    n=$((n + 1))
+    # No subnet has a rule that reaches the router (ADR 0025). Its tunnel is
+    # opened outbound. Counted on the rules Azure enforces, once they arrived.
+    if [ "$vm" = router ] && [ -n "$effective" ]; then
+      check Z.17 "Nothing is allowed into the router" 0 "$(printf '%s\n' "$effective" | grep -c '^Inbound [0-9]* Allow ')"
+    elif [ "$vm" = router ]; then
+      check Z.17 "Nothing is allowed into the router" 0 "no usable answer"
+    fi
   done
   rm -f "$az_err"
 
@@ -672,6 +728,12 @@ EOF
     "$(az network vnet peering show -g $RG --vnet-name vnet-aisec-platform -n peer-platform-to-targets \
       --query peeringState -o tsv 2>/dev/null) $(az network vnet peering show -g $RG_TARGETS \
       --vnet-name vnet-aisec-targets -n peer-targets-to-platform --query peeringState -o tsv 2>/dev/null)"
+  check Z.18 "Both halves of the platform and edge peering are connected" "Connected Connected" \
+    "$(az network vnet peering show -g $RG --vnet-name vnet-aisec-platform -n peer-platform-to-edge \
+      --query peeringState -o tsv 2>/dev/null) $(az network vnet peering show -g $RG \
+      --vnet-name vnet-aisec-edge -n peer-edge-to-platform --query peeringState -o tsv 2>/dev/null)"
+  check Z.19 "The edge network is in Denmark East" denmarkeast \
+    "$(az network vnet show -g $RG -n vnet-aisec-edge --query location -o tsv 2>/dev/null)"
 fi
 
 echo
