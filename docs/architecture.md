@@ -40,7 +40,7 @@ They share an Azure subscription, with separate Terraform roots, state, resource
 | --- | --- | --- |
 | Purpose | Orchestration, tools, AI workers, inference | The service under investigation and its lab fixtures |
 | Region | Sweden Central | Poland Central. The resource groups and the state account are in Denmark East ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)) |
-| Terraform root | `infra/platform/` | `infra/targets/` in the [targets repository](https://github.com/sindredg/ai-security-targets) ([ADR 0024](decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) |
+| Terraform root | `infra/platform/` | `infra/targets/` in the [targets repository](https://github.com/sindredg/ai-security-platform-test) ([ADR 0024](decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) |
 | Terraform state | Own storage account, own access scope | Own storage account, own access scope |
 | Resource groups | `rg-aisec-platform`, `rg-aisec-platform-state` | `rg-aisec-targets`, `rg-aisec-targets-state` |
 | Virtual network | `10.40.0.0/20` | `10.50.0.0/20` |
@@ -258,7 +258,7 @@ Idle use of the two built VMs is on their [component pages](components/README.md
 
 ## Repository layout
 
-`.github/`, `infra/`, `platform/`, `worker/`, `tool-service/`, `policies/`, `validation/`, and `docs/` exist. Every other directory appears with the milestone that needs it. The target Terraform root is in the [targets repository](https://github.com/sindredg/ai-security-targets), and NetBox, its fixtures, and the consumer contract go there in milestone 4 ([ADR 0024](decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)).
+`.github/`, `infra/`, `platform/`, `worker/`, `tool-service/`, `policies/`, `validation/`, and `docs/` exist. Every other directory appears with the milestone that needs it. The target Terraform root is in the [targets repository](https://github.com/sindredg/ai-security-platform-test), and NetBox, its fixtures, and the consumer contract go there in milestone 4 ([ADR 0024](decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)).
 
 ```text
 .github/            Static checks on pull requests, dependency update configuration

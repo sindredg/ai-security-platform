@@ -123,7 +123,7 @@ Plan, read the plan, then apply the saved plan. Do not apply a plan nobody read.
 
    If the VMs fail and the rest succeeds, fix the cause and plan again. The next plan shows only the VMs.
 
-9. Add the target-side denies. Run in `$TARGETS`, the target root in a checkout of the [targets repository](https://github.com/sindredg/ai-security-targets), as the target identity.
+9. Add the target-side denies. Run in `$TARGETS`, the target root in a checkout of the [targets repository](https://github.com/sindredg/ai-security-platform-test), as the target identity.
 
    ```bash
    cd "$TARGETS"

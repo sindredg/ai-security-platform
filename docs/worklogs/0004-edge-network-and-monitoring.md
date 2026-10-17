@@ -23,7 +23,7 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from | Open |
 | Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | Open |
 | Flow logs are recorded for the platform subnets | Open |
-| The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | **Tested** for the targets on the live system: `Z.14` reads `polandcentral`, after it read `denmarkeast` before the move, and the target root is in [its own repository](https://github.com/sindredg/ai-security-targets) ([the move](#the-targets-in-poland-central)). **Tested** for the signature check on GitHub: a pull request with a commit GitHub signed is blocked, also next to a passing job of the same name, and an unsigned push is refused ([fail side](#the-fail-side-on-github)) |
+| The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | **Tested** for the targets on the live system: `Z.14` reads `polandcentral`, after it read `denmarkeast` before the move, and the target root is in [its own repository](https://github.com/sindredg/ai-security-platform-test) ([the move](#the-targets-in-poland-central)). **Tested** for the signature check on GitHub: a pull request with a commit GitHub signed is blocked, also next to a passing job of the same name, and an unsigned push is refused ([fail side](#the-fail-side-on-github)) |
 | Log volume per day is measured, and a daily cap is set from it | Open |
 | The orchestrator's memory and CPU use with the log agent are measured | Open |
 
@@ -299,13 +299,13 @@ Pull requests 91, 92, and 94 were closed without merging and their branches dele
 
 ## The targets in Poland Central
 
-The target root moved to its own repository, [`sindredg/ai-security-targets`](https://github.com/sindredg/ai-security-targets), and the target network moved to Poland Central ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)). Run on 2026-10-17 between 07:50 and 08:45 UTC.
+The target root moved to its own repository, [`sindredg/ai-security-platform-test`](https://github.com/sindredg/ai-security-platform-test), and the target network moved to Poland Central ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)). Run on 2026-10-17 between 07:50 and 08:45 UTC. The repository was created as `ai-security-targets` and renamed after the run, the same day. The commands below ran against the old name, and GitHub redirects it.
 
 ### What changed
 
 | Change | Where |
 | --- | --- |
-| The target root, as it was at platform commit `3d2044d`, with a `location` variable set to `polandcentral` and the shared module as a Git source pinned to that commit | `infra/targets/` in the targets repository, [pull request 1](https://github.com/sindredg/ai-security-targets/pull/1) |
+| The target root, as it was at platform commit `3d2044d`, with a `location` variable set to `polandcentral` and the shared module as a Git source pinned to that commit | `infra/targets/` in the targets repository, [pull request 1](https://github.com/sindredg/ai-security-platform-test/pull/1) |
 | The signature check, a copy of this repository's, with the same allowed signer | The targets repository's `.github/`, on `main` before pull request 1 |
 | A pipeline with Terraform format and validate, Checkov, Trivy, the secret scan, and ShellCheck, at this repository's pins | The targets repository's `.github/workflows/checks.yml` |
 | The target root removed, and the validation loop and Dependabot without it | `infra/targets/`, `.github/workflows/checks.yml`, `.github/dependabot.yml` |

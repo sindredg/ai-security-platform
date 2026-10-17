@@ -5,7 +5,7 @@ Two sides, two identities, two state stores. The platform identity cannot change
 | | |
 | --- | --- |
 | State | Built |
-| Roots | `infra/bootstrap` (operator, local state), `infra/platform`, and `infra/targets` in the [targets repository](https://github.com/sindredg/ai-security-targets) |
+| Roots | `infra/bootstrap` (operator, local state), `infra/platform`, and `infra/targets` in the [targets repository](https://github.com/sindredg/ai-security-platform-test) |
 | Identities | One app registration per side, signed in by certificate |
 | State | One storage account per side. Shared keys off, access by role |
 | Decisions | [0002](../decisions/0002-separate-platform-and-target-infrastructure.md), [0006](../decisions/0006-terraform-state-in-azure-storage.md), [0008](../decisions/0008-deployment-identities-and-bootstrap-scope.md) |

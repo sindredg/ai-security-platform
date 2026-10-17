@@ -12,7 +12,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 
 | Check | What it does |
 | --- | --- |
-| Terraform format and validate | `terraform fmt -check` and `terraform validate` on the bootstrap and platform roots. The target root is checked in the [targets repository](https://github.com/sindredg/ai-security-targets) |
+| Terraform format and validate | `terraform fmt -check` and `terraform validate` on the bootstrap and platform roots. The target root is checked in the [targets repository](https://github.com/sindredg/ai-security-platform-test) |
 | Checkov | Terraform and Kubernetes manifest misconfigurations |
 | Trivy | Terraform, Kubernetes manifest, and Dockerfile misconfigurations. For Terraform and the manifests, a second scanner beside Checkov. For the manifests, `.github/trivy-data/ksv0125.yaml` names `ghcr.io` as the trusted registry, with its reason |
 | Secret scan | gitleaks over the whole history |
@@ -50,7 +50,7 @@ The [repository settings runbook](../runbooks/repository-settings.md) sets these
 
 ## The targets repository
 
-The [targets repository](https://github.com/sindredg/ai-security-targets) holds the target root ([0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) and has a pipeline of its own, at the same pins: Terraform format and validate, Checkov, Trivy, the secret scan, ShellCheck on the signature script, and "Commit signatures", a copy of this repository's check with the same allowed signer. The two scanners fetch the shared module first, because the rules are arguments to it, and a step fails each job when the module is missing.
+The [targets repository](https://github.com/sindredg/ai-security-platform-test) holds the target root ([0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) and has a pipeline of its own, at the same pins: Terraform format and validate, Checkov, Trivy, the secret scan, ShellCheck on the signature script, and "Commit signatures", a copy of this repository's check with the same allowed signer. The two scanners fetch the shared module first, because the rules are arguments to it, and a step fails each job when the module is missing.
 
 Its settings were set through the API with the runbook on 2026-10-17 and read back at 08:05 UTC: squash merges only, secret scanning with push protection, `protect-main` with the six checks above required, each from GitHub Actions, and a second ruleset that requires signed commits on every branch. Neither ruleset can be bypassed. The fail side was repeated there ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-in-poland-central)).
 

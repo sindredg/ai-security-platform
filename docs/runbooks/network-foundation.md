@@ -2,7 +2,7 @@
 
 Status: Implemented and validated on 2026-10-10. Built once, from an empty subscription. A second build from scratch has not been run. Results are in the [milestone 1 worklog](../worklogs/0001-network-foundation.md).
 
-On 2026-10-17 the target root moved to the [targets repository](https://github.com/sindredg/ai-security-targets), and steps 6, 8, 10, and 12 and the rotation now name its checkout as `$TARGETS`. They have not been run in that form. The [target network rebuild](#rebuild-the-target-network) was run that day.
+On 2026-10-17 the target root moved to the [targets repository](https://github.com/sindredg/ai-security-platform-test), and steps 6, 8, 10, and 12 and the rotation now name its checkout as `$TARGETS`. They have not been run in that form. The [target network rebuild](#rebuild-the-target-network) was run that day.
 
 The state upload in step 5 was added and run on 2026-10-11. Key handling in steps 3 and 12 and in the rotation changed on 2026-10-11, to keep one key file per side. Checked that day: key generation with throwaway keys, and the sign-in from a temporary PEM for both identities. The rest of step 12 was not repeated.
 
@@ -17,7 +17,7 @@ Run these steps to build or revalidate milestone 1: state storage, deployment id
 | `terraform` 1.16.6 | The roots refuse any other version |
 | `az` 2.88 or later, `openssl` 3, `jq` | Sign-in, checks, key generation, and reading Terraform outputs |
 | A private directory outside the repository, on an encrypted disk | Holds two private keys. Called `$CRED_DIR` below |
-| A checkout of the [targets repository](https://github.com/sindredg/ai-security-targets) | Holds the target root. `$TARGETS` below is its `infra/targets` directory, as an absolute path: `export TARGETS=REPLACE_WITH_TARGETS_CHECKOUT/infra/targets` |
+| A checkout of the [targets repository](https://github.com/sindredg/ai-security-platform-test) | Holds the target root. `$TARGETS` below is its `infra/targets` directory, as an absolute path: `export TARGETS=REPLACE_WITH_TARGETS_CHECKOUT/infra/targets` |
 
 The design is in the [architecture](../architecture.md). The reasons for the identity setup are in [ADR 0008](../decisions/0008-deployment-identities-and-bootstrap-scope.md).
 
