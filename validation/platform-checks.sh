@@ -129,6 +129,11 @@ tcp() {
 # the machine.
 probe_common="$tcp_fn"'
 sshd_opt() { sshd -T 2>/dev/null | sed -n "s/^$1 //p"; }
+# A DNS query over UDP to Azure DNS. dig exits 9 when no reply came back.
+udp_dns() {
+  timeout 10 dig +tries=1 +time=4 @168.63.129.16 example.com A >/dev/null 2>&1
+  case $? in 0) echo answer ;; 9) echo timeout ;; *) echo error ;; esac
+}
 echo "failed_units=$(systemctl --failed --no-legend | wc -l)"
 echo "sshd_root=$(sshd_opt permitrootlogin)"
 echo "sshd_password=$(sshd_opt passwordauthentication)"
@@ -193,6 +198,7 @@ echo "proxy_tunnel=$(curl -s -o /dev/null -w "%{http_connect}" --max-time 8 -x '
 echo "apt_proxy=$(apt-config dump 2>/dev/null | grep -c "Acquire::http::Proxy \"'"$PROXY"'\"")"
 echo "containerd_proxy=$(tr "\0" "\n" < /proc/$(pidof containerd)/environ 2>/dev/null | sed -n "s/^HTTPS_PROXY=//p")"
 echo "azure_dns=$(tcp 168.63.129.16 53)"
+echo "azure_dns_udp=$(udp_dns)"
 # The package, and the interface it makes. Both are gone once the orchestrator
 # leaves the mesh VPN (ADR 0025).
 echo "mesh_agent=$(dpkg-query -W -f="\${Status}" tailscale 2>/dev/null | grep -c " ok installed$") $(ip -br link show tailscale0 2>/dev/null | wc -l)"
@@ -270,6 +276,7 @@ echo "internet=$(tcp 1.1.1.1 443)"
 echo "targets_netbox=$(tcp 10.50.0.4 22)"
 echo "targets_rehearsal=$(tcp 10.50.1.4 22)"
 echo "azure_dns=$(tcp 168.63.129.16 53)"
+echo "azure_dns_udp=$(udp_dns)"
 timeout 6 getent hosts example.com >/dev/null 2>&1; echo "resolve_public_name_rc=$?"
 echo "orchestrator_ssh=$(tcp '"$ORCH_IP"' 22)"
 echo "orchestrator_api=$(tcp '"$ORCH_IP"' 6443)"
@@ -398,7 +405,8 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # Both addresses answer when the path is open, so a timeout is the
   # security group's deny. Before the way out closed, both were "open".
   check E.12 "The orchestrator opens no connection to the internet" timeout "$(value egress_https)"
-  check E.13 "The orchestrator gets no answer from Azure DNS" timeout "$(value azure_dns)"
+  check E.13 "The orchestrator gets no answer from Azure DNS over TCP" timeout "$(value azure_dns)"
+  check E.14 "The orchestrator gets no answer from Azure DNS over UDP" timeout "$(value azure_dns_udp)"
   check E.2 "The orchestrator reaches the worker on 22" open "$(value to_worker_ssh)"
   # Nothing listens on the worker's port 80. If its rules let the packet in,
   # the worker answers with a reset. Only a timeout shows the rules dropped it.
@@ -490,6 +498,9 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check C.2 "No connection to the NetBox subnet" timeout "$(value targets_netbox)"
   check C.3 "No connection to the rehearsal subnet" timeout "$(value targets_rehearsal)"
   check C.4 "No connection to the platform resolver" timeout "$(value azure_dns)"
+  # The same query from the edge gets an answer, so a timeout here is the
+  # worker's rule and not the resolver.
+  check C.10 "No answer from the platform resolver over UDP" timeout "$(value azure_dns_udp)"
   check C.5 "A public name does not resolve" no "$([ "$(value resolve_public_name_rc)" = 0 ] && echo yes || echo no)"
   # All three ports listen on the orchestrator: E.2 and M.1 reach 22, M.2
   # reaches 6443, and the kubelet runs with k3s. A timeout is a drop.
