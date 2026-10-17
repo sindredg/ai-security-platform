@@ -16,10 +16,11 @@ objects.githubusercontent.com
 ghcr.io
 pkg-containers.githubusercontent.com
 
-# The cluster's system images.
+# The cluster's system images. Layers come from the CDN host, read from
+# Squid's log on 2026-10-17.
 registry-1.docker.io
 auth.docker.io
-production.cloudflare.docker.com
+production.cloudfront.docker.com
 
 # Model and agent inputs.
 huggingface.co

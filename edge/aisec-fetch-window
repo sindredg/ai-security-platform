@@ -54,10 +54,14 @@ case "${1:-}" in
     # A second open starts the count again. The window never lasts longer
     # than the last open asked for.
     stop_timer
-    systemd-run --quiet --unit="$timer" --on-active="${minutes}m" \
-      --timer-property=AccuracySec=1s /usr/local/sbin/aisec-fetch-window close
+    # A wall-clock time, so status can say when the window closes. The close
+    # logs through logger; its standard output would log the same line twice.
+    closes=$(date -u -d "+$minutes minutes" '+%Y-%m-%d %H:%M:%S UTC')
+    systemd-run --quiet --unit="$timer" --on-calendar="$closes" \
+      --timer-property=AccuracySec=1s --property=StandardOutput=null \
+      /usr/local/sbin/aisec-fetch-window close
     write_window "$rule"$'\n'
-    say "open for $minutes minutes, by ${SUDO_USER:-root}"
+    say "open for $minutes minutes, until $closes, by ${SUDO_USER:-root}"
     ;;
   close)
     write_window ''
