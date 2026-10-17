@@ -350,7 +350,7 @@ At 08:42, `terraform plan -detailed-exitcode` exited `0` for the platform, targe
 
 ### Checks
 
-`validation/platform-checks.sh` from this pull request's branch, at 08:43: `159 passed, 0 failed`. That is the 157 of the last run plus `Z.14` and `Z.15`. `C.2` and `C.3` still time out against the rebuilt subnets, and `Z.11` passes with the test interface in Poland Central.
+`validation/platform-checks.sh` from this pull request's branch, at 08:43 before the commits and at 08:50 from commit `081eab2`: `159 passed, 0 failed` both times. That is the 157 of the last run plus `Z.14` and `Z.15`. `C.2` and `C.3` still time out against the rebuilt subnets, and `Z.11` passes with the test interface in Poland Central.
 
 ### The targets repository's settings
 
