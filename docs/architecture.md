@@ -22,7 +22,9 @@ This is an infrastructure project. The work is Terraform, Kubernetes operations,
 
 ## System overview
 
-![Target architecture: a trusted orchestrator VM is the only link between the AI worker, the targets, and the outside world. The operator reaches it through a mesh VPN service outside Azure](diagrams/target-architecture.svg)
+![Target architecture: a trusted orchestrator VM holds the secrets and has no direct way out. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](diagrams/target-architecture.svg)
+
+The diagram shows the design after milestone 3a ([0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md), [0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). The edge, the router, and monitoring are not built yet. Status is in the [roadmap](roadmap.md).
 
 Note the dotted line from the AI worker: it ends at a stop bar. The worker cannot reach the target region at all. Everything it knows about the target, it was handed by a tool service on the orchestrator.
 
@@ -216,7 +218,7 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Practice | What it covers | Lands with | State |
 | --- | --- | --- | --- |
 | Threat model | Threats per trust boundary, AI-specific threats, the control for each, residual risk, and the gap between this lab and production | Before platform compute, then updated with each decision | First pass written. States reviewed on 2026-10-14 and 2026-10-15 against the validation checks and repository settings, and moved on 2026-10-16 for ADRs 0020 to 0025 |
-| Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Built. Secret scanning, push protection, and a ruleset on `main`. Required checks are documented in the [pipeline page](components/pipeline.md#repository-settings). Written: a check that every commit is signed by the operator's key, not yet required ([0024](decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) |
+| Repository protection | Secret scanning with push protection, and a protected `main`. The repository is the approval channel, so this is a system control | Platform compute | Built. Secret scanning, push protection, and a ruleset on `main`. Required checks are documented in the [pipeline page](components/pipeline.md#repository-settings). Built: a required check that every commit in a pull request is signed by the operator's key. Seen to pass on GitHub, not yet to fail ([0024](decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) |
 | Static checks on pull requests | Terraform and manifest misconfigurations, leaked secrets. No cloud credentials in the pipeline | Platform compute | Built. The [pipeline page](components/pipeline.md#checks-on-every-pull-request) lists the checks and which are required |
 | Dependency updates | Automated pull requests that move the version pins | Platform compute | Configured. No update has been proposed yet. From milestone 3a, each proposal is redone by the operator, because the [signature check](components/pipeline.md#the-signature-check) refuses commits GitHub signs |
 | Hardening baselines | CIS benchmarks for the operating system and Kubernetes | Platform compute | Kubernetes benchmark run, one check accepted. The operating system has a Lynis audit with its findings triaged. No tool has a CIS profile for Ubuntu 26.04 yet, which is an accepted risk. Neither tool has been run again on the orchestrator that was rebuilt on 2026-10-13 |

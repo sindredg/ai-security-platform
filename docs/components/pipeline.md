@@ -23,9 +23,9 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Log copier tests | The unit tests of the audit copier and the journal puller under `platform/logs/`, on the pinned Python image. They use the standard library only, so nothing is installed |
 | Tool service image | hadolint on the Dockerfile, a build from the pinned base image, and a Trivy scan of the image that blocks on any finding with a fix. On `main`, the job pushes the image to the repository's package registry and writes its digest to the run summary |
 | Dependency scan | Trivy over the converter's Python pins: reports, never blocks. Trivy over the tool service's pins: blocks |
-| Commit signatures | `git verify-commit` on every commit in the pull request, against `.github/allowed_signers`: the public half of the operator's signing key, nothing else. A commit signed by GitHub, by another key, or not at all fails. Written, and run locally only: see [below](#the-signature-check) |
+| Commit signatures | `git verify-commit` on every commit in the pull request, against `.github/allowed_signers`: the public half of the operator's signing key, nothing else. A commit signed by GitHub, by another key, or not at all fails. See [below](#the-signature-check) |
 
-All but the dependency scan and the signature check are required by the ruleset on `main`. The dependency scan runs on every pull request and does not block a merge. The image job is the only job with write permission. It can write packages to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
+All but the dependency scan are required by the ruleset on `main`. The dependency scan runs on every pull request and does not block a merge. The image job is the only job with write permission. It can write packages to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
 
 ## The signature check
 
@@ -37,22 +37,18 @@ The range is every commit reachable from the pull request's head and not from `m
 
 ## Repository settings
 
-Read from the GitHub API on 2026-10-17:
+Read from the GitHub API on 2026-10-17 at 06:43 UTC, after the changes for [0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md):
 
 - Secret scanning with push protection is on.
-- The ruleset `protect-main`, on the default branch, refuses deletion and force pushes, and requires a pull request with every check above except the dependency scan and the signature check. No one can bypass it.
-- Merge commits, squash merges, and rebase merges are all allowed.
-
-Planned in milestone 3a ([0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)), as settings changed by the operator:
-
-- A second ruleset, on every branch, with the signature rule.
-- "Commit signatures" added to the required checks of `protect-main`, with GitHub Actions as its source. Every required check names that source.
-- Squash merges only, in the repository settings and in the ruleset.
+- The ruleset `protect-main`, on the default branch, refuses deletion and force pushes, requires signed commits, and requires a pull request with every check above except the dependency scan. Each required check names GitHub Actions as its source, so a status with the same name from anything else does not count. The only merge method it allows is squash. No one can bypass it.
+- A second ruleset, on every branch, requires signed commits and nothing else. No one can bypass it.
+- In the repository settings, squash is the only merge method. Merge commits and rebase merges are off, read at 06:46 UTC. On `main`, the ruleset allows squash only as well.
 
 ## Limits
 
 - **One person approves their own pull requests.**
 - **A change to the signature check takes effect only after it merges.** The pull request that changes it is judged by the version on `main`. The pull request that added it was not judged by it at all.
+- **The check has been seen to pass on GitHub, not to fail.** Its first run, on pull request 90, verified one commit and passed. The fail side was run locally only ([worklog](../worklogs/0004-edge-network-and-monitoring.md#slice-c-signed-commits)).
 - **Two jobs with one name have not been tried.** A pull request can add a workflow with its own job named "Commit signatures". Whether a passing run of that job satisfies the required check, next to a failing run of the real one, is not tested.
 - **Every version update is made by hand.** Dependabot's commits are signed by GitHub, so its pull requests fail the signature check. The operator makes the same change in a pull request of their own.
 - **Push protection is read as enabled, not tested with a pushed secret.**

@@ -5,7 +5,7 @@ Milestone: 3a, edge network and monitoring
 
 ## Summary
 
-The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is written and tested locally. It is not yet required. The edge, the router, the targets' move, and monitoring are not built. The gate is not met.
+The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required. It was tested locally, and has passed once on GitHub. The edge, the router, the targets' move, and monitoring are not built. The gate is not met.
 
 | Criterion | Result |
 | --- | --- |
@@ -23,7 +23,7 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from | Open |
 | Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | Open |
 | Flow logs are recorded for the platform subnets | Open |
-| The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | Open. The signature check is written and tested locally against commits signed by GitHub, by another key, and not at all ([slice (c)](#slice-c-signed-commits)). It is not required yet, and has not run on GitHub |
+| The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | Open for the targets. The signature check is required and tested locally against commits signed by GitHub, by another key, and not at all ([slice (c)](#slice-c-signed-commits)). On GitHub it has passed once and not yet been seen to fail |
 | Log volume per day is measured, and a daily cap is set from it | Open |
 | The orchestrator's memory and CPU use with the log agent are measured | Open |
 
@@ -262,12 +262,16 @@ ShellCheck 0.11 passes on the script, and yamllint (relaxed) on the workflow.
 
 ### Repository settings
 
-Read from the GitHub API on 2026-10-17, before any change. The [pipeline page](../components/pipeline.md#repository-settings) lists the result and the changes planned.
+Read from the GitHub API on 2026-10-17, before any change: one ruleset, `protect-main`, without the signature rule and without "Commit signatures" among its required checks. Merge commits, squash merges, and rebase merges were all allowed.
+
+The operator then changed them in the web interface. Read again at 06:43 UTC, the [pipeline page](../components/pipeline.md#repository-settings) has the result: "Commit signatures" is required, every required check names GitHub Actions as its source, `main` takes squash merges only, and a second ruleset requires signed commits on every branch. Rebase merges were turned off in the repository settings at 06:46 UTC, after the first read, so squash is the only merge method anywhere.
+
+### On GitHub
+
+The first run of "Commit signatures" was on pull request 90, run `39008978522`, on 2026-10-17. Expected: one line, `ok`, for the pull request's one commit. Result: `ok      ae4836e...`, conclusion `success`. This shows the job runs from `main` on `pull_request_target`, fetches the head without a credential, and passes a commit signed by the operator's key. It does not show the fail side.
 
 ### Limits of slice (c)
 
-- The check has not run on GitHub. It runs from `main`, so its first run is on the first pull request after this one merges.
-- Nothing requires it yet. The second ruleset, the required check, and squash only are settings for the operator, after the merge.
-- Not tried: a pull request with a commit made in the web interface, a push of an unsigned commit against the new ruleset, and a pull request that adds a second job named "Commit signatures". These are the fail side on GitHub, after the settings change.
+- Not tried on GitHub: a pull request with a commit made in the web interface or through the API, a push of an unsigned commit against the new ruleset, and a pull request that adds a second job named "Commit signatures". These are the fail side.
 - The operator procedure for the settings goes into a runbook once it has run.
 
