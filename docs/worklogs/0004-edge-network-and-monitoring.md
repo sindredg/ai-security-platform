@@ -5,7 +5,7 @@ Milestone: 3a, edge network and monitoring
 
 ## Summary
 
-The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required. It was tested locally, and has passed once on GitHub. The edge, the router, the targets' move, and monitoring are not built. The gate is not met.
+The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The edge, the router, the targets' move, and monitoring are not built. The gate is not met.
 
 | Criterion | Result |
 | --- | --- |
@@ -23,7 +23,7 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from | Open |
 | Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | Open |
 | Flow logs are recorded for the platform subnets | Open |
-| The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | Open for the targets. The signature check is required and tested locally against commits signed by GitHub, by another key, and not at all ([slice (c)](#slice-c-signed-commits)). On GitHub it has passed once and not yet been seen to fail |
+| The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | Open for the targets. **Tested** for the signature check on GitHub: a pull request with a commit GitHub signed is blocked, also next to a passing job of the same name, and an unsigned push is refused ([fail side](#the-fail-side-on-github)) |
 | Log volume per day is measured, and a daily cap is set from it | Open |
 | The orchestrator's memory and CPU use with the log agent are measured | Open |
 
@@ -222,7 +222,7 @@ The orchestrator's log has the valid certificate refused before its reload at 21
 
 ## Slice (c): signed commits
 
-A check that every commit in a pull request is signed by the operator's key ([ADR 0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)). Nothing in Azure changed, and no repository setting changed.
+A check that every commit in a pull request is signed by the operator's key ([ADR 0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)). Nothing in Azure changed. The repository settings were changed by hand, below.
 
 ### What changed
 
@@ -270,8 +270,29 @@ The operator then changed them in the web interface. Read again at 06:43 UTC, th
 
 The first run of "Commit signatures" was on pull request 90, run `39008978522`, on 2026-10-17. Expected: one line, `ok`, for the pull request's one commit. Result: `ok      ae4836e...`, conclusion `success`. This shows the job runs from `main` on `pull_request_target`, fetches the head without a credential, and passes a commit signed by the operator's key. It does not show the fail side.
 
+### The fail side on GitHub
+
+Run on 2026-10-17 between 06:59 and 07:09 UTC, against `main` at `3fb614a`, with the operator's `gh` token. Written before the run, with what counts as a pass:
+
+1. A pull request with one commit made through the API, which GitHub signs. Expected: "Commit signatures" fails, and the pull request is blocked. The second ruleset lets the commit in, because its signature is verified.
+2. An unsigned commit pushed to a new branch. Expected: the push is refused, and the branch does not exist afterwards.
+3. A pull request that adds a workflow with a job named "Commit signatures" that always passes. Expected: not known. Both runs come from GitHub Actions. A pass is the pull request staying blocked. If it can merge, the check can be faked, and that is a design fault, not an accepted gap.
+
+The API commits were first made with the REST contents endpoint. The second ruleset refused both with HTTP 409, `Commits must have verified signatures`: GitHub does not sign a commit made that way with a user's token. The expectation was wrong on that point. The GraphQL mutation `createCommitOnBranch` makes a commit GitHub signs (`wasSignedByGitHub: true`, state `VALID`), and the ruleset accepted it. That is the path the check exists for, and the one the tests below use. ADR 0024 named a commit made in the web interface. GitHub signs both with its own key, which the check reads the same way: `E`, no public key.
+
+| Test | Result |
+| --- | --- |
+| 1. Pull request 91, one commit `14aa820` made with `createCommitOnBranch` | "Commit signatures" failed, run `39011940429`: `FAILED 14aa820... E`. The other ten required checks passed. Once marked ready for review: `mergeStateStatus` `BLOCKED`, `viewerCanMergeAsAdmin` false |
+| 2. Unsigned commit `5d20b30` (`%G?` = `N`) pushed to a new branch | `push declined due to repository rule violations`, `Commits must have verified signatures`. `GET branches/...`: 404 |
+| 3. Pull request 92, one commit `a32fc88` with `createCommitOnBranch` that adds `.github/workflows/spoof.yml` | Two runs named "Commit signatures", both from app 15368: the real one failed, run `39011941975`, and the added one passed, run `39011942272`. The real one finished last. `BLOCKED` |
+| 3, again, with the added job's pass last | Pull request reopened. The added job was re-run alone and finished at 07:08:17, after the real run's failure at 07:07:07. Still `BLOCKED`, `viewerCanMergeAsAdmin` false |
+
+What proves the block is the check's: the ruleset on `main` asks for no approving review, the other ten required checks passed on both pull requests, and both commits carry verified signatures. The failing "Commit signatures" run is the one rule they break. One setting of the ruleset, `require_extra_approval_for_unattributed_changes`, is on. The commits name the operator's account as author, so it is reasoned not to apply. That is not tested.
+
+Both pull requests were closed without merging and their branches deleted. `GET branches/...` returns 404 for each.
+
 ### Limits of slice (c)
 
-- Not tried on GitHub: a pull request with a commit made in the web interface or through the API, a push of an unsigned commit against the new ruleset, and a pull request that adds a second job named "Commit signatures". These are the fail side.
-- The operator procedure for the settings goes into a runbook once it has run.
+- Not tried on GitHub: a pull request from a fork, and a pull request that edits `signatures.yml`. The second is reasoned to change nothing, because the job runs the default branch's copy.
+- The settings were set in the web interface. The [runbook](../runbooks/repository-settings.md) writes the same steps down and was checked against the settings as read, not run again from the start.
 
