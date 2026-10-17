@@ -49,7 +49,7 @@ The AI also has to earn its place. Each result is compared with the same workflo
 ## Status
 
 - **Done:** the network foundation and both platform VMs, deployed and checked. Evidence in worklogs [0001](docs/worklogs/0001-network-foundation.md) and [0002](docs/worklogs/0002-platform-compute.md).
-- **In progress:** [milestone 3a](docs/roadmap.md#3a-edge-network-and-monitoring), the edge network and monitoring, in worklog [0004](docs/worklogs/0004-edge-network-and-monitoring.md). The orchestrator hardening and the SSH certificates are on the system, and every commit in a pull request has to pass a required check that it is signed by the operator's key. The target network is in Poland Central, in its own repository. The edge, the router, and monitoring are not built.
+- **In progress:** [milestone 3a](docs/roadmap.md#3a-edge-network-and-monitoring), the edge network and monitoring, in worklog [0004](docs/worklogs/0004-edge-network-and-monitoring.md). The orchestrator hardening and the SSH certificates are on the system, and every commit in a pull request has to pass a required check that it is signed by the operator's key. The target network is in Poland Central, in its own repository. The mesh VPN agent runs on the router VM. The edge VM and monitoring are not built.
 - **Paused for 3a:** toolchain integration, in worklog [0003](docs/worklogs/0003-toolchain-integration.md). A model server runs on the AI worker, and the agent runtime has completed fixture-based runs against it. The tool service runs on the orchestrator and has answered tool calls from the worker. No workflow or dispatch exists yet.
 - **Planned:** the targets, the investigation and remediation workflow, and the drills.
 
