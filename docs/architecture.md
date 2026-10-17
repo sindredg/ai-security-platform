@@ -24,7 +24,7 @@ This is an infrastructure project. The work is Terraform, Kubernetes operations,
 
 ![Target architecture: a trusted orchestrator VM holds the secrets and has no direct way out. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](diagrams/target-architecture.svg)
 
-The diagram shows the design after milestone 3a ([0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md), [0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). The router and the edge VM are built. Monitoring is not built yet. Status is in the [roadmap](roadmap.md).
+The diagram shows the design after milestone 3a ([0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md), [0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). The router, the edge VM, and the log store are built. The alert rules are not. Status is in the [roadmap](roadmap.md).
 
 Note the dotted line from the AI worker: it ends at a stop bar. The worker cannot reach the target region at all. Everything it knows about the target, it was handed by a tool service on the orchestrator.
 
@@ -81,7 +81,7 @@ Deployed. Every subnet has its own network security group and no default outboun
 | `10.50.1.0/27` | Poland Central | Rehearsal copy |
 | `10.42.0.0/16`, `10.43.0.0/16` | In cluster | K3s default pod and service ranges, never routed between networks |
 
-The edge network, `10.45.0.0/24` in Denmark East, holds the router subnet `10.45.0.32/27` with the router at `10.45.0.36`, built on 2026-10-17 ([ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md), [worklog](worklogs/0004-edge-network-and-monitoring.md#the-router)), and the edge subnet `10.45.0.0/27` with the edge VM at `10.45.0.4`, built the same day ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [worklog](worklogs/0004-edge-network-and-monitoring.md#the-edge-vm)). Decided for [milestone 3a](roadmap.md#3a-edge-network-and-monitoring), not built: a private endpoint subnet for monitoring, `10.40.0.64/27` ([ADR 0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md)).
+The edge network, `10.45.0.0/24` in Denmark East, holds the router subnet `10.45.0.32/27` with the router at `10.45.0.36`, built on 2026-10-17 ([ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md), [worklog](worklogs/0004-edge-network-and-monitoring.md#the-router)), and the edge subnet `10.45.0.0/27` with the edge VM at `10.45.0.4`, built the same day ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [worklog](worklogs/0004-edge-network-and-monitoring.md#the-edge-vm)). The platform network also holds `10.40.0.64/27`, the private endpoint for Azure Monitor, built on 2026-10-17 ([ADR 0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md), [monitoring](components/monitoring.md)). It takes TCP 443 from the orchestrator, the edge, and the router, and starts nothing.
 
 ### Connectivity
 
@@ -229,7 +229,7 @@ Everything else is attached to the milestone that builds the thing it checks. A 
 | Credential inventory | Every secret: where it lives, what can read it, how it is rotated | Platform compute, then every milestone | Current. Each long-lived credential on the VMs rotated once, except the worker log export key and the SSH certificate authority key, both made on 2026-10-16. The dispatch SSH key is planned and has not been created. The worker log export key is in use since 2026-10-16 |
 | Audit log | Every tool call with caller, job, and decision, out of the worker's reach | Toolchain integration | Verified for audit output: the live tool service printed one JSON entry per decision, with no token ([worklog](worklogs/0003-toolchain-integration.md#the-round-trip)). Verified for storage on 2026-10-16: a host unit copies the lines into an append-only file on the orchestrator, `L.1` to `L.7` pass, and each was seen to fail, on a broken condition or before the install ([worklog](worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). Root on the orchestrator can still edit it ([audit log](security/audit-log.md)) |
 | Supply chain | Digest pins, signature checks where upstream signs, an SBOM where an exercise needs one | Toolchain integration, target deployment, exercise 3 | Built for the model server: 38 inputs pinned by checksum and verified on the orchestrator ([worklog](worklogs/0003-toolchain-integration.md#download-and-verify)). Built for the agent runtime the same way, and for the tool service's 28 packages, which install by hash. The tool service image is pulled by digest, checked by `T.2`. No signature is checked, and there is no SBOM |
-| Monitoring | Logs and alerts kept outside the machines they describe | Edge network and monitoring | Decided in [ADR 0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md): Azure Monitor over Private Link, alerts shown in the portal. Not built |
+| Monitoring | Logs and alerts kept outside the machines they describe | Edge network and monitoring | Built on 2026-10-17 for the log store: agents on the orchestrator, the edge, and the router send to Azure Monitor over Private Link, `O.1` to `O.13` ([monitoring](components/monitoring.md)). Alert rules, flow logs, and the workbook are decided in [ADR 0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md) and not built |
 | Incident response runbook | A compromised worker or target, a leaked credential | Operational drills | Planned |
 
 There is no compliance framework here. ISO 27001 and SOC 2 describe an organisation, and this one has a single operator.
@@ -259,7 +259,7 @@ That gives two VMs per region, with nothing to spare. The limit cannot be raised
 Idle use of the orchestrator and the worker is on their [component pages](components/README.md). Where it will hurt:
 
 - **Inference.** Two x64 vCPUs are one physical core. Arm sizes give two real cores for the same quota, at the price of arm64 builds for everything on the worker.
-- **The orchestrator.** It carries K3s, Argo, collectors, tool services, and the change components. The model gateway goes in only if measurement shows room. Planned for [milestone 3a](roadmap.md#3a-edge-network-and-monitoring): monitoring in Azure Monitor, so the orchestrator carries only a log agent.
+- **The orchestrator.** It carries K3s, Argo, collectors, tool services, and the change components. The model gateway goes in only if measurement shows room. Monitoring is in Azure Monitor, so the orchestrator carries only a log agent: about 200 MB, read once on 2026-10-17 ([monitoring](components/monitoring.md#footprint)).
 - **Concurrency.** One investigation at a time, one loaded model.
 
 ## Repository layout

@@ -5,7 +5,7 @@ Milestone: 3a, edge network and monitoring
 
 ## Summary
 
-The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The mesh VPN agent runs on a router VM of its own, and the orchestrator is off the mesh. Squid runs on an edge VM, the orchestrator reaches the internet only through it, and only Squid resolves public names for the platform. The target network has its own peering with the edge network and takes SSH from the router. Monitoring is not built. The gate is not met.
+The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The mesh VPN agent runs on a router VM of its own, and the orchestrator is off the mesh. Squid runs on an edge VM, the orchestrator reaches the internet only through it, and only Squid resolves public names for the platform. The target network has its own peering with the edge network and takes SSH from the router. The audit lines, the worker's journal, and the edge's and the router's logs reach a Log Analytics workspace over Private Link. Alert rules and flow logs are not built. The gate is not met.
 
 | Criterion | Result |
 | --- | --- |
@@ -21,12 +21,12 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | A pod reaches the host only on the ports the host rule lists, from its first packet | **Tested** on the live system: a new pod reached SSH before the change and timed out after it, while 6443 and 10250 stayed open, and `E.8` passes ([rollout](#rollout)). The rule loads before K3s, so it holds from the first packet. That ordering is read from the unit, not observed on a boot |
 | Every namespace rejects a privileged pod, whether or not it has a pod security label | **Tested** on the live system: `K.9` failed on `default`, `kube-node-lease`, `kube-public`, and `kube-system` before the change and passes after it ([rollout](#rollout)) |
 | Requests to the tool service without a valid token are rate-limited | **Tested** on the live system: 33 requests without a token from the worker got 30 × 401 and 3 × 429, with 31 audit lines, one of them for the limit ([the rate limit](#on-the-live-system)) |
-| The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from | Open |
+| The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from | **Tested** on the live system on 2026-10-17: rows from all three agents, two audit rows equal to the file's lines, and no role for any VM identity (`O.1` to `O.13`). The orchestrator's only path is the private endpoint ([monitoring](#monitoring)) |
 | Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | Open |
 | Flow logs are recorded for the platform subnets | Open |
 | The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | **Tested** for the targets on the live system: `Z.14` reads `polandcentral`, after it read `denmarkeast` before the move, and the target root is in [its own repository](https://github.com/sindredg/ai-security-platform-test) ([the move](#the-targets-in-poland-central)). **Tested** for the signature check on GitHub: a pull request with a commit GitHub signed is blocked, also next to a passing job of the same name, and an unsigned push is refused ([fail side](#the-fail-side-on-github)) |
 | Log volume per day is measured, and a daily cap is set from it | Open |
-| The orchestrator's memory and CPU use with the log agent are measured | Open |
+| The orchestrator's memory and CPU use with the log agent are measured | Open. One reading on 2026-10-17: 199 MB and 0.3 % CPU ([footprint](#footprint)) |
 
 ## Slice (a): orchestrator hardening
 
@@ -668,3 +668,94 @@ Each check's lines were run alone, with the script's `check` function, against t
 
 - No target VM exists. No login through the router to a target has run, and neither flow verify nor effective rules can read the target side, because both need a network interface. `Z.25` reads the configured rules, not what Azure enforces.
 - The network foundation runbook's steps 8 and 9 and its rebuild steps were changed for the second peering. They have not been run in that form.
+
+## Monitoring
+
+The log store of [ADR 0021](../decisions/0021-monitoring-in-azure-monitor-over-private-link.md), with the changes in [ADR 0027](../decisions/0027-how-the-monitoring-is-built.md). Alert rules, flow logs, the workbook, and the measured daily cap are not part of this slice.
+
+### What changed
+
+| Change | Where |
+| --- | --- |
+| A Log Analytics workspace in Sweden Central: no public ingestion, no shared key, 31 days, a 1 GB daily cap. Three custom tables, one row per line in `RawData` | `infra/platform/monitoring.tf` |
+| A Private Link Scope, ingestion `PrivateOnly`, query `Open`, with the workspace and two collection endpoints, one per region with an agent | The same |
+| A private endpoint in a new subnet, `10.40.0.64/27`. Its group allows TCP 443 from the orchestrator, the edge, and the router. Each of those three gets one outbound rule to it, priority 1030 | `infra/platform/main.tf`, `edge.tf`. The module takes `private_endpoint_network_policies`, so the group applies to the endpoint |
+| A system-assigned identity on the orchestrator, the edge, and the router. None on the worker | `infra/platform/compute.tf` |
+| Hosts entries from the endpoint's record, written by a script through managed run command | `platform/monitoring/aisec-monitor-hosts`, linted by ShellCheck in the pipeline |
+| The Azure Monitor Agent extension, `1.45`, automatic upgrades off. Three collection rules: syslog and load on all three, the two copies on the orchestrator, Squid's log on the edge | `infra/platform/monitoring.tf` |
+| `Microsoft.Insights` and `Microsoft.OperationalInsights` registered | `infra/bootstrap/main.tf` |
+| `O.1` to `O.13` | `validation/platform-checks.sh`, [validation](../validation/monitoring.md) |
+
+Read on 2026-10-17 before the change: azurerm `5.10.0` is the newest release. The agent's newest Linux version in both regions is `1.45.1`, and its release notes list Ubuntu 26.04 for x64 and Arm64. A standard private endpoint is USD 0.01 an hour and USD 0.01 per GB in the retail price API.
+
+### Tested before the apply
+
+| Test | Result |
+| --- | --- |
+| The hosts script against a copy of a hosts file, with stubs for the input | Writes the block between its markers and keeps the other lines. A second run replaces the block. Refuses, and leaves the file unchanged: a public address, a name outside Azure Monitor, an address outside `10.40.0.64/27`, no input, input that is not base64, and an extra line naming `evil.com` |
+| `terraform plan` | `Plan: 31 to add, 6 to change, 0 to destroy.` The changes: the three identities, and the outbound rule in three groups. Nothing replaced |
+| Checkov, Trivy, ShellCheck on a clean copy | Checkov `Passed checks: 36, Failed checks: 0, Skipped checks: 8`. Trivy 0.76.0: no findings. ShellCheck 0.11.0: no findings |
+| `validation/platform-checks.sh` at 22:50 UTC | `241 passed, 11 failed`. The 11 are the new checks, each on absence. `O.4` and `O.13` passed |
+
+### The applies
+
+Written before the apply: `O.1` to `O.3` read `1 active`, `O.5` to `O.7` match the endpoint's record, `O.8` reads `Disabled Enabled true`, `O.9` `PrivateOnly Open`, `O.10` lists all three VMs, `O.11` `yes`, `O.12` no role for any identity.
+
+| Step | Result |
+| --- | --- |
+| First platform apply, from the saved plan | Stopped on four errors: `MissingSubscriptionRegistration` for `Microsoft.OperationalInsights` (the workspace) and `microsoft.insights` (the scope and both endpoints). azurerm 5 registers no provider unless told to, and the platform identity cannot register one. A new plan read `Plan: 28 to add, 0 to change, 0 to destroy.`, so the subnet, its group, the rules, and the identities were in place |
+| Bootstrap plan and apply, as the operator | `Plan: 2 to add`. `Apply complete! Resources: 2 added, 0 changed, 0 destroyed.` Each registration took about three minutes. The state copy's `content_md5` equals the local file's |
+| Second platform apply | `Apply complete! Resources: 28 added, 0 changed, 0 destroyed.` The agent extensions finished in 24 to 37 seconds |
+| `az vm run-command show` on each VM | `Succeeded`, exit `0`, `wrote 17 entries` |
+| `validation/platform-checks.sh` at 23:39 UTC | `252 passed, 0 failed` |
+
+The run commands and the agents installed with no internet on the orchestrator. Its heartbeat arrived, and the orchestrator has no route to the internet and no DNS. So the agent needs neither Azure Resource Manager nor any public name on the private path, which ADR 0021 left open.
+
+### What arrived
+
+Read with the operator's sign-in, through the workspace's query API, between 23:39 and 23:45 UTC.
+
+| Table | From | Result |
+| --- | --- | --- |
+| `Heartbeat` | All three | One a minute from each since 23:32 |
+| `Syslog` | All three | `auth` and `authpriv` at `info`, from the checks' logins |
+| `Perf` | All three | Every minute since 23:34 |
+| `AisecWorkerJournal_CL` | Orchestrator | 446 rows from the pulls after 23:32. The file holds 65,142 lines: the agent starts at the end of a file, so earlier lines are on the orchestrator only. No row holds more than one line |
+| `AisecSquidAccess_CL` | Edge | 11 rows by 23:41, with the checks' `TCP_DENIED` requests |
+| `AisecToolAudit_CL` | Orchestrator | The line with `seq` 53, written at 23:35:01 by `T.10`, arrived about 23:43, eight minutes later: the table's first row. The line with `seq` 54, from one refused call at 23:42:10, was ingested at 23:43:22. Both rows equal the file's lines byte for byte |
+
+The agent applies a multiline parser to text files even when no timestamp format is set. Its start rule wants a line that begins with a timestamp. Lines that begin with `{` are passed one per row, as the journal's 446 single-line rows show.
+
+### The fail side of each new check
+
+| Check | Pass | Fail seen |
+| --- | --- | --- |
+| `O.1` to `O.3` | `1 active` | `0 inactive` before the apply (absence) |
+| `O.4` | `0` | `1` from the same probe on the orchestrator, where the agent is installed |
+| `O.5` to `O.7` | Equal hashes | Before the apply: no record from the endpoint. After: a stub that changes one address in the endpoint's list gives a different hash from the orchestrator's block |
+| `O.8`, `O.9`, `O.11` | As written | Empty before the apply (absence) |
+| `O.10` | Three computers | Empty before the apply (absence). A stopped agent is the alert drill in the next slice |
+| `O.12` | `0` for each | `no identity` for each before the apply |
+| `O.13` | `none` | `SystemAssigned` from the same query on the orchestrator |
+
+### A pod and the metadata service
+
+From a new pod in `default`, with the probe from the [orchestrator hardening runbook](../runbooks/orchestrator-hardening.md): `169.254.169.254:80 timeout  10.40.0.75:443 timeout  10.40.0.4:6443 open`. The API server is the control. From the orchestrator itself both addresses open. So a pod can ask neither for the VM's token nor send to the workspace. `10.40.0.75` is the workspace's ingestion address.
+
+### Footprint
+
+`ps` and `free -m` at 23:41 UTC, about nine minutes after the install. One reading, not a measurement over time.
+
+| VM | Agent processes, RSS | CPU | Memory available |
+| --- | --- | --- | --- |
+| Orchestrator | 199 MB | 0.3 % | 6,531 of 7,881 MB |
+| Edge | 192 MB | 0.3 % | 3,092 of 3,855 MB |
+| Router | 88 MB | 0.3 % | 396 of 836 MB |
+
+### Limits
+
+- No alert rule exists. A stopped agent, a hole in the sequence, or a refused request shows only when someone queries or runs the checks.
+- The footprint is one reading. The 3a criterion asks for a measurement, and the week of volume for the cap is still to come.
+- Lines written before the agent started are not in the workspace.
+- The edge and the router can still reach the internet on TCP 443. Nothing stops root on either from sending to another workspace.
+- The first boot of a VM with the agent, and the runbook's undo step, have not run.

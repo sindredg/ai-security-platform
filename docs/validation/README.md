@@ -18,7 +18,7 @@ Expected: one `PASS` line per check, a summary, and exit `0`. A `FAIL` prints wh
 
 | Option | Effect |
 | --- | --- |
-| `--no-azure` | Skips the `Z` checks. The rest need no Azure sign-in |
+| `--no-azure` | Skips the `Z` checks and `O.5` to `O.13`. The rest need no Azure sign-in |
 | `--no-workstation` | Skips the `M` checks, which test the mesh policy from the machine that runs the script |
 
 A connection check reports `open`, `refused`, `timeout`, or `unreachable`, and each check expects exactly one of them. [Containment](containment.md#what-a-failed-connection-proves) says why.
@@ -36,6 +36,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |
 | [Tool service](tool-service.md) | `T` | The deployed tool service: its pod, namespaces, network paths, and certificate |
 | [Audit log](audit-log.md) | `L`, `J` | The copier that stores the tool service's audit lines, the pull of the worker's journal, and the append-only files they write |
+| [Monitoring](monitoring.md) | `O` | The log agents, their hosts entries, the workspace and its scope, heartbeats, and the identities |
 | [Host hardening](host-hardening.md) | `HO`, `HW`, `HR`, `HE` | SSH daemon, kernel settings, file modes, on every VM |
 | [Azure policy](azure-policy.md) | `Z.1` to `Z.3`, `Z.10` to `Z.12` | Public addresses and the policy that refuses them |
 
@@ -70,6 +71,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-17 | 159 of 159 passed | From the branch at `081eab2`, at 08:50 UTC, after the target network was rebuilt in Poland Central. First run with `Z.14` and `Z.15` ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-in-poland-central)) |
 | 2026-10-17 | 193 of 194 passed | From the branch at `797d217`, at 14:24 UTC, after the [router](../worklogs/0004-edge-network-and-monitoring.md#the-router) took over the mesh. First run with the router's checks. `U.9` failed: 16 security updates pending on the new router |
 | 2026-10-17 | 194 of 194 passed | At 14:34 UTC, after `unattended-upgrade` on the router |
+| 2026-10-17 | 241 of 252 passed | From the branch with the 13 new `O` checks, at 22:50 UTC, before the [monitoring](../worklogs/0004-edge-network-and-monitoring.md#monitoring) apply. The 11 that failed are the ones written down before the run, each on absence. `O.4` and `O.13` passed |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
