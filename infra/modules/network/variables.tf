@@ -22,6 +22,9 @@ variable "subnets" {
   description = "Subnets by name. Each gets its own security group. Rules listed here sit above a deny-all in both directions. A rule matches any source port unless it names one."
   type = map(object({
     address_prefix = string
+    # Azure skips the security group for a private endpoint unless this is
+    # Enabled or NetworkSecurityGroupEnabled.
+    private_endpoint_network_policies = optional(string, "Disabled")
     rules = optional(list(object({
       name                       = string
       priority                   = number

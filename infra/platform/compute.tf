@@ -147,6 +147,15 @@ resource "azurerm_linux_virtual_machine" "vm" {
     public_key = var.operator_ssh_public_key
   }
 
+  # The log agent signs in with the VM's own identity, which holds no role
+  # anywhere. The worker gets none (ADR 0021).
+  dynamic "identity" {
+    for_each = contains(local.monitored, each.key) ? [1] : []
+    content {
+      type = "SystemAssigned"
+    }
+  }
+
   secure_boot_enabled = true
   vtpm_enabled        = true
 

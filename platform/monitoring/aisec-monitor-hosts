@@ -1,0 +1,42 @@
+#!/bin/sh
+# Writes the names of Azure Monitor's private endpoint into /etc/hosts, between
+# two marker lines, and leaves every other line alone (ADR 0021, ADR 0027).
+#
+# Terraform runs this as root through the VM agent, with the entries in
+# AISEC_MONITOR_HOSTS_B64: base64 of "address name" lines. The VMs have no
+# private DNS zone, and the orchestrator has no DNS at all, so these lines are
+# how the log agent finds the endpoint. A second run replaces the block.
+set -eu
+
+begin='# BEGIN aisec-monitoring, written by Terraform'
+end='# END aisec-monitoring'
+hosts=/etc/hosts
+
+entries=$(printf '%s' "${AISEC_MONITOR_HOSTS_B64:?no entries given}" | base64 -d)
+if [ -z "$entries" ]; then
+  echo "refused, no entries" >&2
+  exit 1
+fi
+
+# Accept only an address in the monitoring subnet and an Azure Monitor name.
+# Anything else would let a changed plan point some other name somewhere else.
+bad=$(printf '%s\n' "$entries" | grep -Ev '^10\.40\.0\.(6[4-9]|[7-8][0-9]|9[0-5]) [a-z0-9.-]+\.(monitor\.azure\.com|opinsights\.azure\.com|azure-automation\.net|blob\.core\.windows\.net)$' || true)
+if [ -n "$bad" ]; then
+  echo "refused, not an address in 10.40.0.64/27 and an Azure Monitor name:" >&2
+  printf '%s\n' "$bad" >&2
+  exit 1
+fi
+
+tmp=$(mktemp "$hosts.aisec.XXXXXX")
+trap 'rm -f "$tmp"' EXIT
+awk -v b="$begin" -v e="$end" '$0 == b { skip = 1 } !skip { print } $0 == e { skip = 0 }' "$hosts" > "$tmp"
+{
+  printf '%s\n' "$begin"
+  printf '%s\n' "$entries"
+  printf '%s\n' "$end"
+} >> "$tmp"
+chmod 0644 "$tmp"
+mv "$tmp" "$hosts"
+trap - EXIT
+
+echo "wrote $(printf '%s\n' "$entries" | grep -c .) entries"
