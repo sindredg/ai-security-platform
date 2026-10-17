@@ -1,18 +1,19 @@
 #cloud-config
 # The AI worker has no internet access and no DNS, so nothing here installs or
-# downloads anything. The orchestrator copies what it needs.
+# downloads anything. The orchestrator copies what it needs, and packages come
+# through Squid on the edge.
 write_files:
   - path: /etc/hosts
     append: true
     content: |
       ${orchestrator_ip} aisec-orchestrator tool-service.aisec.internal
 
-  # Packages come through the proxy on the orchestrator. Unattended upgrades
-  # are on in the image and use it too.
+  # Packages come through Squid on the edge. Unattended upgrades are on in the
+  # image and use it too.
   - path: /etc/apt/apt.conf.d/90aisec-proxy
     permissions: "0644"
     content: |
-      Acquire::http::Proxy "http://${orchestrator_ip}:3128";
+      Acquire::http::Proxy "http://${edge_ip}:3128";
 
   # Hardening that an audit asked for and nothing here needs otherwise. What was
   # left alone, and why, is in the milestone 2 worklog.

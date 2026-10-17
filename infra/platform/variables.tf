@@ -35,7 +35,7 @@ variable "targets_address_space" {
 }
 
 variable "egress_enabled" {
-  description = "Create the NAT gateway and its public address. Both bill by the hour while they exist. Set to false to park the lab, and back to true before the orchestrator starts."
+  description = "Create the edge network's NAT gateway and its public address. Both bill by the hour while they exist. Set to false to park the lab, and back to true before the router or the edge VM starts."
   type        = bool
   default     = true
 }

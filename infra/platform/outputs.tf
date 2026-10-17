@@ -13,18 +13,13 @@ output "network_security_group_names" {
   value       = module.network.network_security_group_names
 }
 
-output "egress_public_ip" {
-  description = "Address the orchestrator's outbound traffic comes from, or null while egress is off."
-  value       = one(azurerm_public_ip.egress[*].ip_address)
-}
-
 output "edge_virtual_network_id" {
   description = "Give this to the target root as edge_virtual_network_id."
   value       = module.edge_network.virtual_network_id
 }
 
 output "edge_egress_public_ip" {
-  description = "Address the router's outbound traffic comes from, or null while egress is off."
+  description = "Address the platform's outbound traffic comes from, the router's and Squid's, or null while egress is off."
   value       = one(azurerm_public_ip.edge_egress[*].ip_address)
 }
 

@@ -27,7 +27,8 @@ locals {
         operator_user_ca_public_key = var.operator_user_ca_public_key
         orchestrator_ip             = local.orchestrator_ip
         worker_ip                   = local.worker_ip
-        worker_prefix               = local.worker_prefix
+        edge_ip                     = local.edge_ip
+        platform_address_space      = var.address_space
         k3s_version                 = var.k3s_version
         k3s_sha256                  = var.k3s_sha256
         k3s_install_sha256          = var.k3s_install_sha256
@@ -53,6 +54,7 @@ locals {
         admin_username              = var.admin_username
         operator_user_ca_public_key = var.operator_user_ca_public_key
         orchestrator_ip             = local.orchestrator_ip
+        edge_ip                     = local.edge_ip
         # The account the orchestrator pulls the journal through (ADR 0019).
         log_export_command = filebase64("${path.module}/../../worker/log-export/aisec-journal-export")
         log_export_install = filebase64("${path.module}/../../worker/log-export/install-log-export.sh")

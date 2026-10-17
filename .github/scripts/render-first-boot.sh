@@ -16,7 +16,7 @@ script_path=/usr/local/sbin/aisec-first-boot
 vars='{
   admin_username = "aisec", operator_user_ca_public_key = "ssh-ed25519 AAAA placeholder",
   orchestrator_ip = "10.0.0.4", worker_ip = "10.0.0.36", worker_prefix = "10.0.0.32/27",
-  edge_ip = "10.0.1.4", no_proxy = "localhost", k3s_version = "v0.0.0+k3s1",
+  edge_ip = "10.0.1.4", platform_address_space = "10.0.0.0/20", k3s_version = "v0.0.0+k3s1",
   k3s_sha256 = "0", k3s_install_sha256 = "0", advertised_routes = "10.0.0.0/20",
   tailscale_version = "0.0.0", tailscale_auth_key = "placeholder",
   audit_copy_py = "", audit_copy_unit = "", audit_copy_install = "",

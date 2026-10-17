@@ -58,17 +58,6 @@ module "network" {
         local.deny_from_targets,
         local.allow_ssh_from_router,
         {
-          name                       = "allow-package-proxy-from-worker"
-          priority                   = 1000
-          direction                  = "Inbound"
-          access                     = "Allow"
-          protocol                   = "Tcp"
-          source_address_prefix      = local.worker_prefix
-          destination_address_prefix = local.orchestrator_prefix
-          destination_port_range     = "3128"
-          description                = "The worker's package manager. The proxy forwards to two package hosts and nothing else."
-        },
-        {
           name                       = "allow-tool-service-from-worker"
           priority                   = 1010
           direction                  = "Inbound"
@@ -78,6 +67,28 @@ module "network" {
           destination_address_prefix = local.orchestrator_prefix
           destination_port_range     = "30443"
           description                = "Tool calls. The tool service checks the job token on every call."
+        },
+        {
+          name                       = "deny-to-internet"
+          priority                   = 110
+          direction                  = "Outbound"
+          access                     = "Deny"
+          protocol                   = "*"
+          source_address_prefix      = "*"
+          destination_address_prefix = "Internet"
+          destination_port_range     = "*"
+          description                = "Containment. The orchestrator reaches the internet only through Squid on the edge."
+        },
+        {
+          name                       = "deny-to-azure-dns"
+          priority                   = 120
+          direction                  = "Outbound"
+          access                     = "Deny"
+          protocol                   = "*"
+          source_address_prefix      = "*"
+          destination_address_prefix = "AzurePlatformDNS"
+          destination_port_range     = "*"
+          description                = "Containment. Squid resolves names for the orchestrator, and a resolver can carry data out."
         },
         {
           name                       = "allow-ssh-to-worker"
@@ -111,28 +122,6 @@ module "network" {
           destination_address_prefix = local.edge_prefix
           destination_port_range     = "3128"
           description                = "Squid on the edge: packages always, other downloads during a fetch window."
-        },
-        {
-          name                       = "allow-https-to-internet"
-          priority                   = 1100
-          direction                  = "Outbound"
-          access                     = "Allow"
-          protocol                   = "Tcp"
-          source_address_prefix      = local.orchestrator_prefix
-          destination_address_prefix = "Internet"
-          destination_port_range     = "443"
-          description                = "Egress. Downloads, registries, feeds, and GitHub, until the edge VM takes them over."
-        },
-        {
-          name                       = "allow-http-to-internet"
-          priority                   = 1110
-          direction                  = "Outbound"
-          access                     = "Allow"
-          protocol                   = "Tcp"
-          source_address_prefix      = local.orchestrator_prefix
-          destination_address_prefix = "Internet"
-          destination_port_range     = "80"
-          description                = "Egress. Package mirrors that serve signed packages over plain HTTP."
         },
       ]
     }
@@ -174,17 +163,6 @@ module "network" {
           destination_address_prefix = "AzurePlatformDNS"
           destination_port_range     = "*"
           description                = "Containment. Azure DNS ignores every rule that does not name this tag, and a resolver can carry data out."
-        },
-        {
-          name                       = "allow-package-proxy-to-orchestrator"
-          priority                   = 1000
-          direction                  = "Outbound"
-          access                     = "Allow"
-          protocol                   = "Tcp"
-          source_address_prefix      = local.worker_prefix
-          destination_address_prefix = local.orchestrator_prefix
-          destination_port_range     = "3128"
-          description                = "Package updates."
         },
         {
           name                       = "allow-package-proxy-to-edge"
