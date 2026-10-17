@@ -12,7 +12,7 @@ Two more gaps sit next to it:
 - **The logs cannot tell sessions apart.** Routed sessions arrive with the subnet router's address, and every login uses the same key. `LogLevel VERBOSE` records the key's fingerprint, which is the same for every login.
 - **[0020](0020-an-edge-vm-for-the-way-out-and-the-mesh.md) needs a tunnel that the SSH daemon refuses.** It takes the Kubernetes API off the mesh and sends the operator through an SSH tunnel to the orchestrator. The orchestrator's daemon sets `AllowTcpForwarding no` for every account.
 
-The machine keys are a different case. The feed key, the worker log export key, and the planned dispatch key belong to accounts on the orchestrator, each limited on the worker by its account or a forced command. They are not part of this record.
+The machine keys are a different case. The feed key, the worker log export key, and the planned dispatch key belong to accounts on the orchestrator, each limited on the worker by its account or a forced command. They are not part of this record. [0026](0026-the-feed-key-gets-its-own-account-on-the-worker.md) found that the feed key is not limited this way, and moves it to an account of its own.
 
 OpenSSH on the VMs is 10.2p1, read on 2026-10-16. User certificates, `source-address`, and key revocation lists have been in OpenSSH for many years.
 

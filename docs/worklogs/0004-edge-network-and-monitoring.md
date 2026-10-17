@@ -5,7 +5,7 @@ Milestone: 3a, edge network and monitoring
 
 ## Summary
 
-The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The edge, the router, SSH certificates, the targets' move, and monitoring are not built. The gate is not met.
+The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The edge, the router, the targets' move, and monitoring are not built. The gate is not met.
 
 | Criterion | Result |
 | --- | --- |
@@ -16,7 +16,7 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | A check fails when the mesh agent is behind the current stable release | **Tested** with `U.7`: passes on the live orchestrator at 1.104.1, and fails locally on an older version and on no answer from the package site ([fail side](#the-fail-side-of-each-new-check)) |
 | The router cannot open a connection to an operator device | Open |
 | The Kubernetes API is not reachable over the mesh VPN | Open |
-| Operator SSH logins use certificates that expire within a day | Open |
+| Operator SSH logins use certificates that expire within a day | **Tested** on the live system: a login with a 12-hour certificate works on both VMs, and the plain key, an expired certificate, one from another address, and one for another principal are refused, each with its reason in sshd's log ([slice (b)](#rollout-1)). `HO.17` to `HO.20` and `HW.17` to `HW.20` pass |
 | A pod reaches the host only on the ports the host rule lists, from its first packet | **Tested** on the live system: a new pod reached SSH before the change and timed out after it, while 6443 and 10250 stayed open, and `E.8` passes ([rollout](#rollout)). The rule loads before K3s, so it holds from the first packet. That ordering is read from the unit, not observed on a boot |
 | Every namespace rejects a privileged pod, whether or not it has a pod security label | **Tested** on the live system: `K.9` failed on `default`, `kube-node-lease`, `kube-public`, and `kube-system` before the change and passes after it ([rollout](#rollout)) |
 | Requests to the tool service without a valid token are rate-limited | **Tested** on the live system: 33 requests without a token from the worker got 30 × 401 and 3 × 429, with 31 audit lines, one of them for the limit ([the rate limit](#on-the-live-system)) |
@@ -132,9 +132,91 @@ The pipeline passed with every new version on the pull request. Each Trivy step,
 | Dependency scan | 8 advisories on the converter's packages, report only. None on the tool service's | The same 8 advisory IDs |
 | Image scan | 0 in the Alpine packages and in each of 55 Python packages | The same |
 
-### Limits
+### Limits of slice (a)
 
 - First boot from the template with these changes has not run. The running orchestrator got them by hand, through the runbook's steps.
 - The `input` chain cannot tell one pod from another. Every pod still reaches the API server and the kubelet, and both rely on authentication.
 - `K.9` covers the namespaces that exist when it runs. The default level is what holds a namespace created later.
 - The rate limit is shared by every caller and counts nothing per caller. How many requests were refused past the limit in a minute is not recorded.
+
+## Slice (b): SSH certificates and the feed account
+
+Changes to the SSH daemon on both VMs and a new account on the worker. Nothing in Azure changed.
+
+### What changed
+
+| Change | Where |
+| --- | --- |
+| The administrator account takes only a certificate from the operator's certificate authority, for the principal `aisec-operator`, checked against a revocation list. A plain key is refused ([ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md)) | Both cloud-init templates, `operator_user_ca_public_key`, `HO.17` to `HO.20`, `HW.17` to `HW.20` |
+| On the orchestrator, the administrator account may forward to `127.0.0.1:6443` and nowhere else. Every other account, and the worker, forwards nothing | The orchestrator's template, `A.8` to `A.10` |
+| First boot removes the key Azure writes to the administrator's `authorized_keys`. sshd ignores the file for that account, so a line there is a change to look at | Both templates, `A.5`, `A.7` |
+| The feed key logs in to `aisec-feed` on the worker, which has no sudo, a home owned by root, and a forced command that unpacks staged files into one directory or prints their size ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)) | `worker/feed/`, the worker's template, `E.4`, `E.9` to `E.11` |
+| The scripts and the pin lists reach the worker from the operator's checkout. The model build refuses a staged file that no pin names. The converter's source archive, which `fetch.sh` packs on the orchestrator and nothing checked on the worker, gets a SHA-256 pin in `pins.env`, checked on both sides | `worker/*/push.sh`, `build-model.sh`, the [model server](../runbooks/model-server.md) and [agent runtime](../runbooks/agent-runtime.md) runbooks |
+
+Why the feed key moved: on 2026-10-16 it was a plain line in the worker administrator's `authorized_keys`, and that account has `NOPASSWD: ALL` in sudo. Root on the orchestrator was root on the worker. ADR 0022's `AuthorizedKeysFile none` would also have cut the feed off.
+
+Until the router exists, certificates name `source-address=100.64.0.0/10,10.40.0.4/32`. Routed logins reach the worker from the orchestrator's address ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)).
+
+### Tested before the rollout
+
+Locally, with stubs:
+
+| Test | Result |
+| --- | --- |
+| The feed command with eight requests that are not exactly `receive` or `size` and a component name: empty, `id`, `receive model-server; id`, `receive ../x`, a trailing space, a double space, a capital letter, a second line | Each refused with exit status 2 |
+| The feed command with an archive holding an absolute path, a `..` path, and a symbolic link to a directory outside followed by a file through it | `tar` stripped or refused each one. Nothing was written outside the stage directory |
+| The build's check of the staged files, run on its own against a stage with an extra file, a symbolic link, a changed file, and a missing file | Each stopped the check with exit status 1. An empty directory passes |
+| The same check with a pinned converter archive, a changed one, and none | Passes, then exit status 1 twice |
+| The file list of the live stage on the orchestrator, 39 files, against the pins | Nothing extra. A review of this change found that the first version of the check named only `artifacts.tsv`, and would have stopped every build on `converter-src.tar` |
+| `git archive` of the pinned commit, on the workstation with git 2.43, against the live archive packed with git 2.53 | The same SHA-256, `cd546e25...` |
+| `terraform validate` and `terraform fmt -check` in `infra/platform` with Terraform 1.16.6, and both templates rendered and parsed as YAML | Valid. The rendered drop-in has the `Match` block last |
+| The signing commands, with a throwaway authority without a passphrase | Four certificates with the expected key ID, validity, principal, and options |
+
+Read on the live VMs, without a change: sshd 10.2 accepts `TrustedUserCAKeys`, `RevokedKeys`, `AuthorizedPrincipalsFile`, `AuthorizedKeysFile`, `AllowTcpForwarding`, and `PermitOpen` inside `Match User`, read from a configuration on standard input. A `Match` block in an included file ends with that file: OpenSSH 10.2's `servconf.c` restores the match state after each `Include`.
+
+### The fail side of each new check
+
+Written before the run: every new check except `A.9` and `A.10` fails on the VMs as they were, 15 failures in all, and 129 passes from the 144 checks that run without Azure.
+
+| Check | Pass | Fail seen |
+| --- | --- | --- |
+| `HO.17` to `HO.20`, `HW.17` to `HW.20` | Live after the rollout | Live before it: the default key files and `none` for the rest, no authority, no principal file, no revocation list. `.18` also fails without `AISEC_USER_CA` |
+| `A.5`, `A.7` | Live after: `0` | Live before: `1` and `2` |
+| `A.8` | Live after: `local 127.0.0.1:6443` | Live before: `no any` |
+| `A.9`, `A.10` | Live before and after | On the live VMs with a configuration on standard input that allows the forward: `yes`, and `local 127.0.0.1:6443` |
+| `E.4` | Live after: `2` | Live before: `255`, no such account |
+| `E.9` to `E.11` | Live after | Live before: no key file, no account, no command |
+
+The run before the rollout gave 129 passed and 15 failed, the 15 written down.
+
+### Rollout
+
+Run on 2026-10-16 between 21:24 and 21:32 UTC on both live VMs, from commit `53c921c`, with a script that runs the [runbook's](../runbooks/ssh-certificates.md) steps and stops at the first result that differs from the one written before it. The worker went first.
+
+| Step | Result |
+| --- | --- |
+| Feed account installed with the orchestrator's feed key | The key line `from="10.40.0.4",restrict,command="/usr/local/sbin/aisec-feed-receive"`, root's, `644`. The account in no other group, no sudo rule, its home root's |
+| Feed key from the orchestrator: `id`, an empty archive, `size` | Exit 2, exit 0, `4.0K /home/aisec-feed/agent-runtime/stage` |
+| Feed line removed from the worker administrator's file, then the old login | `1` line left, the operator key. The old login refused, exit 255 |
+| Files written, `sshd -t`, a 15-minute revert timer, reload | `syntax-ok` and the timer `active`, on each VM |
+| Login with the certificate on a new connection | On each VM: `Accepted publickey for aisec ... ED25519-CERT ... ID aisec-operator-2026-10-16 (serial 1792185839) CA ED25519 SHA256:3e5U...` |
+| The plain key, and the expired, wrong-source, and wrong-principal certificates | Exit 255 for each, on each VM. sshd logged `Certificate invalid: expired`, `not from a permitted source address`, and `Certificate does not contain an authorized principal` |
+| `sshd -T` for another account, and globally, before and after | No difference on either VM |
+| `-W 127.0.0.1:22`, and on the orchestrator `-W 127.0.0.1:6443` | `administratively prohibited` for 22 on each VM. The forward to 6443 opened |
+| Timer stopped, the ignored key file and the backup removed | Timer `inactive`, no line in the administrator's `authorized_keys` |
+| Every check without Azure | 144 of 144 |
+| Every check, the Azure ones included, at 21:44 UTC | 157 of 157 |
+
+The first run stopped at the worker's step 8. After the four refused logins, sshd's per-source penalty dropped every connection from `10.40.0.4` for 17 seconds, and the step's `sshd -T` got no answer. Every routed login reaches the worker from that address. [Troubleshooting 05](../troubleshooting/05-failed-logins-block-every-routed-session.md) has the detail. The worker's step 8 was then done read-only: the settings before were rebuilt from the kept drop-in and the other files sshd reads, given to `sshd -T` on standard input. On the orchestrator, which still had its old settings, the same rebuild gave output identical to the real `sshd -T`. On the worker, the rebuilt settings before and the real ones after are identical for another account and globally. The run then resumed at the worker's step 9, inside the revert timer's 15 minutes. The script waits for the penalty now, about 25 seconds on the orchestrator.
+
+The orchestrator's log has the valid certificate refused before its reload at 21:28:44: the old settings did not trust the authority, so `ssh` offered the certificate, it was refused, and the plain key was accepted on the same connection. After the reload the certificate is accepted.
+
+### Limits of slice (b)
+
+- First boot from the templates with these changes has not run. The running VMs got them through the runbook's steps.
+- The forward to 6443 opened, and no `kubectl` command ran through it. The Kubernetes API is still reachable over the mesh VPN until the router slice.
+- No certificate was revoked, and the authority was not replaced. Steps 14 and 15 of the runbook have not run.
+- No staged file has gone through the feed account yet. The model server and agent runtime runbooks' changed steps have not run.
+- The orchestrator's address stays in every certificate until the router slice. A certificate copied to the orchestrator works on the worker from there.
+- `operator_user_ca_public_key` has to be in the local `terraform.tfvars` before the next plan.
+

@@ -51,6 +51,25 @@ write_files:
       ClientAliveCountMax 2
       TCPKeepAlive no
       LogLevel VERBOSE
+      # The administrator account takes only a certificate signed by the
+      # operator's certificate authority, for the principal in the file (ADR
+      # 0022). A plain key, the operator's included, is refused. First boot
+      # writes the empty revocation list. Other accounts keep their keys.
+      Match User ${admin_username}
+        AuthorizedKeysFile none
+        TrustedUserCAKeys /etc/ssh/aisec-user-ca.pub
+        AuthorizedPrincipalsFile /etc/ssh/aisec-principals
+        RevokedKeys /etc/ssh/aisec-revoked.krl
+
+  - path: /etc/ssh/aisec-user-ca.pub
+    permissions: "0644"
+    content: |
+      ${operator_user_ca_public_key}
+
+  - path: /etc/ssh/aisec-principals
+    permissions: "0644"
+    content: |
+      aisec-operator
 
   # The account the orchestrator pulls this machine's journal through (ADR
   # 0019): the files from worker/log-export/ in the repository, in base64. The
@@ -65,6 +84,18 @@ write_files:
     permissions: "0700"
     content: ${log_export_install}
 
+  # The account the orchestrator's feed key logs in to (ADR 0026). Its key is
+  # added in a runbook step, as the log export key is.
+  - path: /usr/local/lib/aisec/install/aisec-feed-receive
+    encoding: b64
+    permissions: "0755"
+    content: ${feed_receive_command}
+
+  - path: /usr/local/lib/aisec/install/install-feed-account.sh
+    encoding: b64
+    permissions: "0700"
+    content: ${feed_receive_install}
+
   - path: /etc/modprobe.d/aisec-unused.conf
     permissions: "0644"
     content: |
@@ -77,8 +108,15 @@ write_files:
 # Tighter modes on files an audit flagged, and no assembler or linker. Removing
 # a package needs no repository.
 runcmd:
+  # An empty revocation list. Without the file, sshd refuses every
+  # certificate for the administrator account. Azure wrote the operator key
+  # to the account's authorized_keys, which sshd ignores for it. The file
+  # goes, so a key line there is a change to look at (A.7).
+  - [ssh-keygen, -q, -k, -f, /etc/ssh/aisec-revoked.krl]
+  - [rm, -f, /home/${admin_username}/.ssh/authorized_keys]
   - [sysctl, --system]
   - [chmod, "600", /etc/crontab, /etc/ssh/sshd_config]
   - [chmod, "700", /etc/cron.d, /etc/cron.daily, /etc/cron.hourly, /etc/cron.weekly, /etc/cron.monthly]
   - [apt-get, remove, -y, -q, -o, "DPkg::Lock::Timeout=120", binutils]
   - [/usr/local/lib/aisec/install/install-log-export.sh]
+  - [/usr/local/lib/aisec/install/install-feed-account.sh]

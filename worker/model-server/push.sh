@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# Runs on the orchestrator. Copies this directory and the staged files to the
-# worker over SSH with the feed key.
+# Runs on the orchestrator. Copies the staged files to the worker over SSH with
+# the feed key, which can only unpack them into the feed account's directory
+# (ADR 0026). The scripts and the pin list reach the worker from the operator's
+# checkout, not from here.
 #
 # Usage: push.sh STAGE_DIR [WORKER]
 set -euo pipefail
 
-here=$(cd "$(dirname "$0")" && pwd)
 stage=${1:?usage: push.sh STAGE_DIR [WORKER]}
-worker=${2:-aisec@aisec-worker}
+worker=${2:-aisec-feed@aisec-worker}
 key=${AISEC_FEED_KEY:-$HOME/.ssh/aisec-feed}
 
-ssh -i "$key" "$worker" 'mkdir -p feed/model-server/scripts feed/model-server/stage'
-tar -C "$here" -cf - . | ssh -i "$key" "$worker" 'tar -C feed/model-server/scripts -xf -'
-tar -C "$stage" -cf - . | ssh -i "$key" "$worker" 'tar -C feed/model-server/stage -xf -'
-ssh -i "$key" "$worker" 'du -sh feed/model-server/stage'
+tar -C "$stage" -cf - . | ssh -i "$key" "$worker" receive model-server
+ssh -i "$key" "$worker" size model-server

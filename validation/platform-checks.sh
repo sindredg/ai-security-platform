@@ -12,6 +12,8 @@
 #               Default: ssh
 #   AISEC_ORCH  Orchestrator address or host alias. Default: 10.40.0.4
 #   AISEC_WORK  Worker address or host alias. Default: 10.40.0.36
+#   AISEC_USER_CA  The SSH certificate authority's public key file on the
+#               workstation. The VMs have to trust this one and no other.
 #
 #   validation/platform-checks.sh [--no-azure] [--no-workstation]
 
@@ -23,6 +25,10 @@ set -uo pipefail
 SSH=${AISEC_SSH:-ssh}
 ORCH=${AISEC_ORCH:-10.40.0.4}
 WORK=${AISEC_WORK:-10.40.0.36}
+# The fingerprint the VMs' certificate authority file has to show. Without the
+# file there is nothing to compare with, and the check fails.
+USER_CA_FP=$(ssh-keygen -l -f "${AISEC_USER_CA:-/nonexistent}" 2>/dev/null | cut -d " " -f 2)
+USER_CA_FP=${USER_CA_FP:-"AISEC_USER_CA not given or not a public key"}
 ORCH_IP=10.40.0.4
 WORK_IP=10.40.0.36
 PROXY="http://$ORCH_IP:3128"
@@ -36,6 +42,8 @@ here=$(cd "$(dirname "$0")" && pwd)
 TOOL_IMAGE_DIGEST=$(sed -n 's/^ *image: ghcr.io[^@]*@\(sha256:[0-9a-f]*\)$/\1/p' "$here/../platform/tool-service/tool-service.yaml")
 # The journal export command the worker should run, from this checkout.
 EXPORT_SHA=$(sha256sum "$here/../worker/log-export/aisec-journal-export" | cut -d " " -f 1)
+# The feed account's command, from this checkout.
+FEED_SHA=$(sha256sum "$here/../worker/feed/aisec-feed-receive" | cut -d " " -f 1)
 # The copiers' programs and units, in install order, from this checkout.
 logs="$here/../platform/logs"
 COPY_SHA=$(cat "$logs/aisec_audit_copy.py" "$logs/aisec-audit-copy.service" | sha256sum | cut -d " " -f 1)
@@ -124,7 +132,16 @@ echo "mode_cron_d=$(stat -c %a /etc/cron.d)"
 echo "toolchain=$(command -v as ld gcc cc 2>/dev/null | wc -l)"
 echo "unused_modules=$(lsmod | grep -c -E "^(dccp|sctp|rds|tipc|usb_storage) ")"
 echo "time_synced=$(timedatectl show -p NTPSynchronized --value)"
-echo "authorized_keys=$(wc -l < /home/aisec/.ssh/authorized_keys)"
+# Azure writes the operator key here at first boot, and first boot removes it.
+# sshd ignores the file for this account either way, which the next lines show.
+echo "authorized_keys=$(cat /home/aisec/.ssh/authorized_keys 2>/dev/null | grep -c .)"
+admin_opt() { sshd -T -C user=aisec,host=check,addr='"$ORCH_IP"' 2>/dev/null | sed -n "s/^$1 //p"; }
+echo "sshd_admin_auth=$(for k in authorizedkeysfile trustedusercakeys authorizedprincipalsfile revokedkeys; do admin_opt $k; done | tr "\n" " " | sed "s/ $//")"
+echo "sshd_admin_forwarding=$(admin_opt allowtcpforwarding) $(admin_opt permitopen)"
+echo "sshd_other_forwarding=$(sshd -T -C user=nobody,host=check,addr='"$ORCH_IP"' 2>/dev/null | sed -n "s/^allowtcpforwarding //p")"
+echo "user_ca=$(ssh-keygen -l -f /etc/ssh/aisec-user-ca.pub 2>/dev/null | cut -d " " -f 2) $(grep -c . /etc/ssh/aisec-user-ca.pub 2>/dev/null)"
+echo "principals=$(stat -c "%U %G %a" /etc/ssh/aisec-principals 2>/dev/null) $(cat /etc/ssh/aisec-principals 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+echo "revoked_keys=$(stat -c "%U %G" /etc/ssh/aisec-revoked.krl 2>/dev/null) $(ssh-keygen -Q -l -f /etc/ssh/aisec-revoked.krl >/dev/null 2>&1 && echo valid || echo invalid)"
 '
 
 probe_orchestrator="$probe_common"'
@@ -171,7 +188,10 @@ echo "egress_https=$(tcp 1.1.1.1 443)"
 echo "to_worker_ssh=$(tcp '"$WORK_IP"' 22)"
 echo "to_worker_http=$(tcp '"$WORK_IP"' 80)"
 echo "to_worker_model=$(tcp '"$WORK_IP"' '"$MODEL_PORT"')"
-echo "feed=$(sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec@aisec-worker hostname 2>/dev/null)"
+# Exit status 2 is the feed command refusing. 255 would be SSH failing, and 0
+# that the key ran a command it should not.
+sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec-feed@aisec-worker id >/dev/null 2>&1
+echo "feed_refuses=$?"
 echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
 echo "mesh_udp=$(tailscale netcheck 2>/dev/null | sed -n "s/^[^A-Za-z]*UDP: //p" | head -n 1)"
 k() { k3s kubectl "$@" 2>/dev/null; }
@@ -272,6 +292,10 @@ keys=/home/aisec-logexport/.ssh/authorized_keys
 echo "export_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
 echo "export_groups=$(id -nG aisec-logexport 2>/dev/null)"
 echo "export_command=$(sha256sum /usr/local/sbin/aisec-journal-export 2>/dev/null | cut -d " " -f 1)"
+keys=/home/aisec-feed/.ssh/authorized_keys
+echo "feed_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
+echo "feed_account=$(id -nG aisec-feed 2>/dev/null) $(sudo -n -l -U aisec-feed 2>/dev/null | grep -c "may run") $(stat -c %U /home/aisec-feed 2>/dev/null)"
+echo "feed_command=$(sha256sum /usr/local/sbin/aisec-feed-receive 2>/dev/null | cut -d " " -f 1)"
 '
 
 common_checks() { # prefix
@@ -291,15 +315,24 @@ common_checks() { # prefix
   check "$1.14" "No assembler, linker, or compiler" 0 "$(value toolchain)"
   check "$1.15" "Unused network and USB storage modules not loaded" 0 "$(value unused_modules)"
   check "$1.16" "Clock is synchronized" yes "$(value time_synced)"
+  check "$1.17" "SSH: the administrator takes only a certificate" \
+    "none /etc/ssh/aisec-user-ca.pub /etc/ssh/aisec-principals /etc/ssh/aisec-revoked.krl" "$(value sshd_admin_auth)"
+  # One key in the file, and it is the one on the workstation.
+  check "$1.18" "SSH: the certificate authority is the operator's" "$USER_CA_FP 1" "$(value user_ca)"
+  check "$1.19" "SSH: one principal, in root's file" "root root 644 aisec-operator" "$(value principals)"
+  # sshd refuses every certificate if the list is missing or unreadable.
+  check "$1.20" "SSH: the revocation list is root's and loads" "root root valid" "$(value revoked_keys)"
 }
 
 echo "== Orchestrator ($ORCH)"
 if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && [ -n "$probe" ]; then
-  check A.1 "Reachable over the mesh VPN with the operator key" yes yes
+  check A.1 "Reachable over the mesh VPN with the operator certificate" yes yes
   check A.2 "Mesh VPN node signing is enabled" "Tailnet Lock is ENABLED." "$(value lock)"
   check A.3 "The orchestrator's node key is signed" 1 "$(value lock_signed)"
   check A.4 "The spent auth key file is gone" 0 "$(value auth_key_file)"
-  check A.5 "Only the operator key is authorized" 1 "$(value authorized_keys)"
+  check A.5 "No plain key is authorized for the administrator" 0 "$(value authorized_keys)"
+  check A.8 "The administrator forwards only to the API server on loopback" "local 127.0.0.1:6443" "$(value sshd_admin_forwarding)"
+  check A.9 "Other accounts forward nothing" no "$(value sshd_other_forwarding)"
   check K.1 "k3s is active" active "$(value unit_k3s)"
   check K.2 "The node is Ready" 1 "$(value node_ready)"
   check K.3 "Every pod is Running" 0 "$(value pods_not_running)"
@@ -324,7 +357,7 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # Nothing listens on the worker's port 80. If its rules let the packet in,
   # the worker answers with a reset. Only a timeout shows the rules dropped it.
   check E.3 "The worker's rules drop the orchestrator on 80" timeout "$(value to_worker_http)"
-  check E.4 "The feed key logs in to the worker" aisec-worker "$(value feed)"
+  check E.4 "The feed key runs nothing but the feed command" 2 "$(value feed_refuses)"
   check P.1 "Squid is active" active "$(value unit_squid)"
   check P.2 "Squid listens on the private address only" "$ORCH_IP:3128" "$(value squid_listen)"
   check P.3 "Squid cannot gain privileges" yes "$(value squid_no_new_privileges)"
@@ -406,14 +439,15 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check J.10 "The journal puller installed is the one in this checkout" "$PULL_SHA" "$(value journal_pull_code)"
   common_checks HO
 else
-  check A.1 "Reachable over the mesh VPN with the operator key" yes no
+  check A.1 "Reachable over the mesh VPN with the operator certificate" yes no
 fi
 
 echo
 echo "== Worker ($WORK)"
 if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "$probe" ]; then
-  check A.6 "Reachable through the subnet router with the operator key" yes yes
-  check A.7 "Only the operator key and the feed key are authorized" 2 "$(value authorized_keys)"
+  check A.6 "Reachable through the subnet router with the operator certificate" yes yes
+  check A.7 "No plain key is authorized for the administrator" 0 "$(value authorized_keys)"
+  check A.10 "The administrator forwards nothing on the worker" "no any" "$(value sshd_admin_forwarding)"
   # C.1 and C.4 aim at ports that are known to listen, so a timeout is a drop.
   check C.1 "No connection to the internet" timeout "$(value internet)"
   # No target machine exists, so these two time out with or without the deny
@@ -462,12 +496,17 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # The export command is the boundary on the worker. It has to be the
   # reviewed one.
   check J.9 "The worker runs the export command in this checkout" "$EXPORT_SHA" "$(value export_command)"
+  # The same shape for the feed key (ADR 0026).
+  check E.9 "The feed key is restricted to the orchestrator and the feed command" \
+    "1 root root 644 from=\"$ORCH_IP\",restrict,command=\"/usr/local/sbin/aisec-feed-receive\"" "$(value feed_key)"
+  check E.10 "The feed account has no other group, no sudo, and not its own home" "aisec-feed 0 root" "$(value feed_account)"
+  check E.11 "The worker runs the feed command in this checkout" "$FEED_SHA" "$(value feed_command)"
   check U.3 "apt on the worker uses the proxy" 1 "$(value apt_proxy)"
   check U.4 "Unattended upgrades are enabled on the worker" enabled "$(value unattended_upgrades)"
   check U.5 "No security update is pending on the worker" 0 "$(value security_updates_pending)"
   common_checks HW
 else
-  check A.6 "Reachable through the subnet router with the operator key" yes no
+  check A.6 "Reachable through the subnet router with the operator certificate" yes no
 fi
 
 if [ "$workstation" = 1 ]; then

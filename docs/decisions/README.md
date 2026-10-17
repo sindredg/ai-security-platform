@@ -29,6 +29,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0023](0023-the-host-rule-limits-what-pods-reach-on-the-host.md) | The host rule also limits what pods reach on the host: the API server and the kubelet, nothing else. Adds to 0018 | Accepted |
 | [0024](0024-the-targets-in-their-own-repository-and-signed-commits.md) | The targets in their own public repository, where the broker writes, and commits to the platform repository signed by the operator's key, checked in the pipeline. Extends 0002 | Accepted |
 | [0025](0025-the-mesh-node-on-its-own-vm.md) | The mesh node on its own router VM, which no subnet can reach, with the agent's updates and log upload off. Replaces the mesh node in 0020 | Accepted |
+| [0026](0026-the-feed-key-gets-its-own-account-on-the-worker.md) | The feed key logs in to an account of its own on the worker, with no sudo and a command that only unpacks the staged files. The scripts come from the operator. Changes two parts of 0022 | Accepted |
 
 ## Format
 
