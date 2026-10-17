@@ -63,6 +63,7 @@ module "edge_network" {
           destination_port_range     = "80"
           description                = "Ubuntu mirrors, which serve signed packages over plain HTTP."
         },
+        local.allow_monitoring_out,
       ]
     }
 
@@ -124,6 +125,7 @@ module "edge_network" {
           destination_port_range     = "22"
           description                = "Routed operator sessions to the edge VM."
         },
+        local.allow_monitoring_out,
       ]
     }
   }

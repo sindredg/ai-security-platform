@@ -160,6 +160,11 @@ echo "sshd_other_forwarding=$(sshd -T -C user=nobody,host=check,addr='"$ORCH_IP"
 echo "user_ca=$(ssh-keygen -l -f /etc/ssh/aisec-user-ca.pub 2>/dev/null | cut -d " " -f 2) $(grep -c . /etc/ssh/aisec-user-ca.pub 2>/dev/null)"
 echo "principals=$(stat -c "%U %G %a" /etc/ssh/aisec-principals 2>/dev/null) $(cat /etc/ssh/aisec-principals 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 echo "revoked_keys=$(stat -c "%U %G" /etc/ssh/aisec-revoked.krl 2>/dev/null) $(ssh-keygen -Q -l -f /etc/ssh/aisec-revoked.krl >/dev/null 2>&1 && echo valid || echo invalid)"
+# The log agent (ADR 0021): installed, and its service state.
+echo "monitor_agent=$(dpkg-query -W -f="\${Status}" azuremonitoragent 2>/dev/null | grep -c " ok installed$") $(systemctl is-active azuremonitoragent 2>/dev/null)"
+# The lines between the markers the hosts script writes, sorted. No block is
+# an empty hash input, which no endpoint record matches.
+echo "monitor_hosts=$(awk "/^# BEGIN aisec-monitoring/ { on = 1; next } /^# END aisec-monitoring/ { on = 0 } on" /etc/hosts | sort | sha256sum | cut -d " " -f 1)"
 '
 
 probe_orchestrator="$probe_common"'
@@ -480,6 +485,8 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # the key ran a command it should not.
   check J.6 "The export key runs nothing but the export" 2 "$(value journal_export_refuses)"
   check J.10 "The journal puller installed is the one in this checkout" "$PULL_SHA" "$(value journal_pull_code)"
+  check O.1 "The log agent is installed and active on the orchestrator" "1 active" "$(value monitor_agent)"
+  hosts_orchestrator=$(value monitor_hosts)
   common_checks HO
 else
   check A.1 "Reachable through the router with the operator certificate" yes no
@@ -550,6 +557,8 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check U.3 "apt on the worker uses the edge" 1 "$(value apt_proxy)"
   check U.4 "Unattended upgrades are enabled on the worker" enabled "$(value unattended_upgrades)"
   check U.5 "No security update is pending on the worker" 0 "$(value security_updates_pending)"
+  # The worker ships nothing (ADR 0021). Its journal leaves with the orchestrator.
+  check O.4 "No log agent on the worker" 0 "$(value monitor_agent | cut -d " " -f 1)"
   common_checks HW
 else
   check A.6 "Reachable through the subnet router with the operator certificate" yes no
@@ -590,6 +599,8 @@ if probe=$($SSH "$ROUTER" 'sudo bash -s' <<<"$probe_router" 2>/dev/null) && [ -n
     "${stable:-no answer from pkgs.tailscale.com}" "$(value tailscale_installed)"
   check U.8 "Unattended upgrades are enabled on the router" enabled "$(value unattended_upgrades)"
   check U.9 "No security update is pending on the router" 0 "$(value security_updates_pending)"
+  check O.3 "The log agent is installed and active on the router" "1 active" "$(value monitor_agent)"
+  hosts_router=$(value monitor_hosts)
   common_checks HR
 else
   check A.12 "Reachable over the mesh VPN with the operator certificate" yes no
@@ -612,6 +623,8 @@ if probe=$($SSH "$EDGE" 'sudo bash -s' <<<"$probe_edge" 2>/dev/null) && [ -n "$p
   check P.18 "Squid's fetch host list is the one in this checkout" "$HOSTS_SHA" "$(value fetch_hosts)"
   check U.12 "Unattended upgrades are enabled on the edge" enabled "$(value unattended_upgrades)"
   check U.13 "No security update is pending on the edge" 0 "$(value security_updates_pending)"
+  check O.2 "The log agent is installed and active on the edge" "1 active" "$(value monitor_agent)"
+  hosts_edge=$(value monitor_hosts)
   common_checks HE
 else
   check A.15 "Reachable through the router with the operator certificate" yes no
@@ -827,6 +840,64 @@ EOF
   check Z.25 "Only SSH from the orchestrator and the router is allowed into each target subnet" "$want" "$got"
   check Z.19 "The edge network is in Denmark East" denmarkeast \
     "$(az network vnet show -g $RG -n vnet-aisec-edge --query location -o tsv 2>/dev/null)"
+
+  # Monitoring (ADR 0021, ADR 0027).
+  #
+  # The hosts entries each VM holds, against the names and addresses the
+  # private endpoint records, in the form the hosts script writes them. No
+  # answer from Azure hashes to the hash of nothing, which no VM holds once its
+  # block is written. A VM that was not reached has no value, and fails.
+  endpoint_hosts=$(az network private-endpoint show -g $RG -n pe-aisec-monitoring -o json 2>/dev/null |
+    python3 -I -c "
+import json, sys
+try:
+    configs = json.load(sys.stdin).get(\"customDnsConfigs\") or []
+except ValueError:
+    configs = []
+lines = sorted({f\"{a} {c['fqdn']}\" for c in configs for a in c.get(\"ipAddresses\") or []})
+print(\"\\n\".join(lines))
+" 2>/dev/null)
+  if [ -n "$endpoint_hosts" ]; then
+    endpoint_hosts=$(printf '%s\n' "$endpoint_hosts" | sha256sum | cut -d " " -f 1)
+  else
+    endpoint_hosts="no record from the private endpoint"
+  fi
+  check O.5 "The orchestrator's hosts entries are the private endpoint's" "$endpoint_hosts" "${hosts_orchestrator:-not reached}"
+  check O.6 "The edge's hosts entries are the private endpoint's" "$endpoint_hosts" "${hosts_edge:-not reached}"
+  check O.7 "The router's hosts entries are the private endpoint's" "$endpoint_hosts" "${hosts_router:-not reached}"
+  check O.8 "The workspace takes no public ingestion and no shared key" "Disabled Enabled true" \
+    "$(az monitor log-analytics workspace show -g $RG -n log-aisec \
+      --query "join(' ', [publicNetworkAccessForIngestion, publicNetworkAccessForQuery, to_string(features.disableLocalAuth)])" \
+      -o tsv 2>/dev/null)"
+  check O.9 "The Private Link Scope takes ingestion only from its private endpoint" "PrivateOnly Open" \
+    "$(az resource show -g $RG -n ampls-aisec --resource-type microsoft.insights/privateLinkScopes \
+      --query "join(' ', [properties.accessModeSettings.ingestionAccessMode, properties.accessModeSettings.queryAccessMode])" \
+      -o tsv 2>/dev/null)"
+  # Queries go to the workspace's API with the operator's sign-in. A failed
+  # call prints nothing, which matches no expected value.
+  workspace_id=$(az monitor log-analytics workspace show -g $RG -n log-aisec --query customerId -o tsv 2>/dev/null)
+  kql() {
+    az rest --method post --resource https://api.loganalytics.io \
+      --url "https://api.loganalytics.io/v1/workspaces/${workspace_id:-none}/query" \
+      --body "$(python3 -I -c "import json, sys; print(json.dumps({\"query\": sys.argv[1]}))" "$1")" \
+      --query "tables[0].rows[]" -o tsv 2>/dev/null | tr '\n' ' ' | sed 's/ $//'
+  }
+  check O.10 "A heartbeat from each log agent in the last 10 minutes" "aisec-edge aisec-orchestrator aisec-router" \
+    "$(kql "Heartbeat | where TimeGenerated > ago(10m) | distinct Computer | order by Computer asc")"
+  # The pull runs every five minutes (J.3), and each pass writes at least the
+  # lines the worker logged since the last one.
+  check O.11 "The worker's journal copy reached the workspace in the last 25 minutes" yes \
+    "$(kql "AisecWorkerJournal_CL | where TimeGenerated > ago(25m) | count | project iff(Count > 0, 'yes', 'no')")"
+  # A VM's identity can send, and nothing else: no role anywhere, so it cannot
+  # read or delete what it sent. The worker has no identity at all.
+  roles=""
+  for vm in orchestrator edge router; do
+    principal=$(az vm show -g $RG -n "vm-aisec-$vm" --query identity.principalId -o tsv 2>/dev/null)
+    roles="$roles$vm $( [ -n "$principal" ] && az role assignment list --all --assignee "$principal" --query "length(@)" -o tsv 2>/dev/null || echo "no identity"); "
+  done
+  check O.12 "The log agents' identities hold no role" "orchestrator 0; edge 0; router 0; " "$roles"
+  check O.13 "The worker has no managed identity" none \
+    "$(az vm show -g $RG -n vm-aisec-worker --query "identity.type || 'none'" -o tsv 2>/dev/null)"
 fi
 
 echo

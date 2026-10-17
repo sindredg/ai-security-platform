@@ -22,6 +22,7 @@ The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 | [Repository and pipeline](pipeline.md) | The approval channel and its checks | GitHub |
 | [Tool service](../security/tool-service.md) | A small MCP server written for this project. Authorizes every tool call from the worker | Orchestrator, in K3s |
 | SSH certificates | OpenSSH's own certificate authority. The administrator account takes only a certificate that expires within 12 hours, [ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md), [credentials](../security/credentials.md) | Every VM |
+| [Monitoring](monitoring.md) | The Azure Monitor Agent and a Log Analytics workspace reached over Private Link. Alert rules not built | The orchestrator, the edge, the router, and Azure |
 
 ## Planned
 
@@ -34,7 +35,6 @@ Candidates, not selections, except the rows that name a decision record. Each ha
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far | 3 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
-| Monitoring | Azure Monitor, with a log agent on the orchestrator, the edge, and the router, [ADR 0021](../decisions/0021-monitoring-in-azure-monitor-over-private-link.md). Decided | That logs and alerts stay out of reach of the machines they describe, and the agent's footprint | 3a |
 | First target | NetBox | See [ADR 0004](../decisions/0004-netbox-as-first-target.md) | 4 |
 
 ## Versions
@@ -51,6 +51,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | Ubuntu packages | Whatever the archive serves | Not pinned | Unattended upgrades, daily, security suite | |
 | Mesh VPN agent | 1.104.1 | `infra/platform/variables.tf`, held on the VM | By hand. `U.7` fails when a newer stable release exists | 2026-10-16 |
 | K3s | `v1.36.5+k3s1`, the `stable` channel | `infra/platform/variables.tf`, with two checksums | By hand | 2026-10-16 |
+| Azure Monitor Agent | Extension `1.45`. Azure served `1.45.1` on 2026-10-17 | `monitor_agent_version` in `infra/platform/variables.tf`, automatic upgrades off | By hand. Azure picks the patch release within the minor version | 2026-10-17 |
 | Squid | 7.2, `7.2-2ubuntu2.2` on the edge | Not pinned, see [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) | Unattended upgrades | 2026-10-17 |
 | `acl` package | Whatever the archive serves. Sets the default ACL on the pod logs for the audit copier | Not pinned. The archive drops old versions, as for Squid | Unattended upgrades | |
 | kube-bench | 0.16.0 | The [runbook](../runbooks/platform-compute.md) | By hand, at each run | 2026-10-16 |

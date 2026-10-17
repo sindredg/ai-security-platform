@@ -133,3 +133,15 @@ variable "k3s_install_sha256" {
   type        = string
   default     = "46177d4c99440b4c0311b67233823a8e8a2fc09693f6c89af1a7161e152fbfad"
 }
+
+variable "log_daily_cap_gb" {
+  description = "Daily ingestion cap of the workspace, in GB. Ingestion stops for the rest of the day when it is reached. 1 until a week of volume is measured (ADR 0021)."
+  type        = number
+  default     = 1
+}
+
+variable "monitor_agent_version" {
+  description = "Azure Monitor Agent extension version, major and minor. Azure serves the newest patch release within it."
+  type        = string
+  default     = "1.45"
+}

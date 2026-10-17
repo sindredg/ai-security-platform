@@ -69,4 +69,4 @@ What it does not do:
 - **A rebuild of the orchestrator deletes the file.** Archive it first. See [lab against production](lab-vs-production.md#detection-and-response).
 - **The copier depends on the runtime's file layout.** A K3s release that changes the path, the line prefix, or the file mode makes the copier fail, and `L.4` with it. That is by design, and it also means an upgrade can stop the record until the copier is fixed.
 - **The ACL is reasoned, not observed.** That the default entries reach every new pod folder and rotated file is tested on the first deployment.
-- **Nothing alerts.** A failure shows when someone runs the checks. Alerting is planned for [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring).
+- **Nothing alerts.** A failure shows when someone runs the checks. Since 2026-10-17 each line also reaches Azure Monitor ([monitoring](../components/monitoring.md)). The alert rules are decided for [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring) and not built.

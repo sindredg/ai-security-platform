@@ -35,3 +35,13 @@ output "vm_private_ips" {
   description = "Private address of each VM, by role."
   value       = { for name, nic in azurerm_network_interface.vm : name => nic.private_ip_address }
 }
+
+output "log_workspace_id" {
+  description = "Workspace (customer) ID of the Log Analytics workspace, for queries from the operator's Azure sign-in."
+  value       = azurerm_log_analytics_workspace.this.workspace_id
+}
+
+output "monitoring_hosts" {
+  description = "The hosts entries written on the orchestrator, the edge, and the router for Azure Monitor's private endpoint."
+  value       = local.monitoring_hosts
+}

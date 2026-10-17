@@ -46,7 +46,7 @@ The orchestrator was rebuilt on 2026-10-13. kube-bench and Lynis have not been r
 | Gap | Why it matters | Lands with |
 | --- | --- | --- |
 | No `auditd`, no process accounting | Nothing records what ran on a machine | Milestone 6, with the drills ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) |
-| Logs stay on the machine they describe | A compromised machine can alter its own logs | Milestone 3 for the worker: the orchestrator pulls its journal every five minutes ([audit log](audit-log.md#the-workers-journal)), verified on 2026-10-16. The orchestrator's own logs stay where they are. [Milestone 3a](../roadmap.md#3a-edge-network-and-monitoring): a copy of both in Azure Monitor, decided in [ADR 0021](../decisions/0021-monitoring-in-azure-monitor-over-private-link.md) |
+| Logs stay on the machine they describe | A compromised machine can alter its own logs | Milestone 3 for the worker: the orchestrator pulls its journal every five minutes ([audit log](audit-log.md#the-workers-journal)), verified on 2026-10-16. Milestone 3a: a copy of the audit lines, the worker's journal, and the orchestrator's, the edge's, and the router's logins and warnings in Azure Monitor, since 2026-10-17 ([monitoring](../components/monitoring.md)). What a VM logged before its agent read it can still be altered on the VM |
 | No file integrity monitoring | A changed binary or configuration file goes unnoticed | Milestone 6 |
 | No CIS result for the operating system | The audit that ran is not the benchmark the plan named | When a tool supports Ubuntu 26.04 |
 | The 50 kube-bench warnings are not reviewed one by one | Some are manual checks that could be real findings | Milestone 3, when the cluster has workloads |

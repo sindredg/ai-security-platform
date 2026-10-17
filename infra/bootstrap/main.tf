@@ -141,3 +141,16 @@ resource "azurerm_role_assignment" "bootstrap_copy" {
   principal_id         = data.azuread_client_config.current.object_id
   principal_type       = "User"
 }
+
+# Resource providers are registered once per subscription, which neither
+# deployment identity can do. The provider registers nothing on its own
+# (azurerm 5 defaults to "none"), so each one a root needs is listed here.
+# Compute, Network, and Storage were registered before this list existed.
+resource "azurerm_resource_provider_registration" "this" {
+  for_each = toset([
+    "Microsoft.Insights",            # Azure Monitor: data collection, Private Link Scope, alerts (ADR 0021)
+    "Microsoft.OperationalInsights", # The Log Analytics workspace (ADR 0021)
+  ])
+
+  name = each.key
+}
