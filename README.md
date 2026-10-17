@@ -10,14 +10,14 @@ This is what gets built. The networks, their rules, the peering, both platform V
 
 ![Target architecture: a trusted orchestrator VM holds the secrets and has no direct way out. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](docs/diagrams/target-architecture.svg)
 
-The mesh VPN service is a third party. The operator's device and the orchestrator both connect out to it, and it relays the encrypted tunnel between them. Nothing in Azure accepts a connection from the internet. The [mesh VPN page](docs/components/mesh-vpn.md) has the detail.
+The mesh VPN service is a third party. The operator's device and the router VM both connect out to it, and it relays the encrypted tunnel between them. From the router, the operator's sessions continue as SSH to each VM, with a certificate that expires within 12 hours. Until the router is built, the orchestrator is the mesh node. Nothing in Azure accepts a connection from the internet. The [mesh VPN page](docs/components/mesh-vpn.md) has the detail.
 
 The blocked paths matter as much as the open ones:
 
-- **The AI worker reaches two services on the orchestrator and nothing else:** the tool services and the package proxy. No target, no internet, no name server. Rules in [`infra/platform/main.tf`](infra/platform/main.tf). Checks on [containment](docs/validation/containment.md#from-the-worker).
+- **The AI worker reaches two services and nothing else:** the tool services on the orchestrator, and a package proxy limited to two hosts. The proxy is on the orchestrator today and moves to the edge VM in milestone 3a. No target, no internet, no name server. Rules in [`infra/platform/main.tf`](infra/platform/main.tf). Checks on [containment](docs/validation/containment.md#from-the-worker).
 - **The targets reach nothing outside their own network.** They cannot open a connection into the platform, and they have no internet path. Rules in [`infra/targets/main.tf`](infra/targets/main.tf). No target VM exists yet, so no traffic check covers this side. The [Azure policy checks](docs/validation/azure-policy.md) show it has no public address and cannot get one.
-- **No VM has a public address.** The operator comes in over the mesh VPN. Outbound traffic leaves through one NAT gateway on the orchestrator subnet. The policy that refuses an address is in [`infra/bootstrap/policy.tf`](infra/bootstrap/policy.tf), and the [Azure policy checks](docs/validation/azure-policy.md) test it.
-- **The two sides cross only over network peering**, between separate Terraform roots, state, and deployment identities. Every crossing starts on the orchestrator. See [identities and state](docs/components/identities-and-state.md) and [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md).
+- **No VM has a public address.** The operator comes in over the mesh VPN. Outbound traffic leaves through one NAT gateway, on the orchestrator subnet today. Milestone 3a moves it to the edge network, and the orchestrator then reaches the internet only through the edge's proxy. The policy that refuses an address is in [`infra/bootstrap/policy.tf`](infra/bootstrap/policy.tf), and the [Azure policy checks](docs/validation/azure-policy.md) test it.
+- **The two sides cross only over network peering**, between separate Terraform roots, state, and deployment identities. Every crossing starts on the orchestrator, except the operator's SSH sessions through the router once it exists. See [identities and state](docs/components/identities-and-state.md) and [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md).
 
 ## Find your way around
 
@@ -49,14 +49,15 @@ The AI also has to earn its place. Each result is compared with the same workflo
 ## Status
 
 - **Done:** the network foundation and both platform VMs, deployed and checked. Evidence in worklogs [0001](docs/worklogs/0001-network-foundation.md) and [0002](docs/worklogs/0002-platform-compute.md).
-- **In progress:** toolchain integration, in worklog [0003](docs/worklogs/0003-toolchain-integration.md). A model server runs on the AI worker, and the agent runtime has completed fixture-based runs against it. The tool service runs on the orchestrator and has answered tool calls from the worker. No workflow or dispatch exists yet. Paused for [milestone 3a](docs/roadmap.md#3a-edge-network-and-monitoring), the edge network and monitoring.
+- **In progress:** [milestone 3a](docs/roadmap.md#3a-edge-network-and-monitoring), the edge network and monitoring, in worklog [0004](docs/worklogs/0004-edge-network-and-monitoring.md). The orchestrator hardening and the SSH certificates are on the system, and every commit in a pull request has to pass a required check that it is signed by the operator's key. The edge, the router, monitoring, and the targets' move are not built.
+- **Paused for 3a:** toolchain integration, in worklog [0003](docs/worklogs/0003-toolchain-integration.md). A model server runs on the AI worker, and the agent runtime has completed fixture-based runs against it. The tool service runs on the orchestrator and has answered tool calls from the worker. No workflow or dispatch exists yet.
 - **Planned:** the targets, the investigation and remediation workflow, and the drills.
 
 The [roadmap](docs/roadmap.md#status) holds the state of every milestone and what each has to prove.
 
 ## Design in brief
 
-- **Platform:** a small K3s cluster for trusted orchestration, plus a separate VM for AI workers and model inference. Sweden Central.
+- **Platform:** a small K3s cluster for trusted orchestration, plus a separate VM for AI workers and model inference. Sweden Central. From milestone 3a, an edge VM for the way out and a router VM for the mesh VPN, in Denmark East.
 - **Target:** a NetBox inventory service with a real API consumer that must keep working. Denmark East, on its own network, moving to Poland Central in milestone 3a.
 - **Separation:** platform and targets share an Azure subscription, with separate Terraform roots, state, resource groups, networks, and deployment identities.
 - **Workflow:** collect evidence, investigate, propose, rehearse on a disposable copy, open a pull request, wait for approval, deliver, verify.
@@ -68,7 +69,7 @@ The [roadmap](docs/roadmap.md#status) holds the state of every milestone and wha
 | --- | --- | --- |
 | [`infra/bootstrap/`](infra/bootstrap/) | Terraform for what the other roots depend on: resource groups, state storage, the two deployment identities, and the public address policy. Applied by the operator | [Identities and state](docs/components/identities-and-state.md) |
 | [`infra/platform/`](infra/platform/) | Terraform for the platform side: network, security group rules, NAT gateway, both VMs, and their first-boot templates | [Egress and policy](docs/components/egress-and-policy.md), [orchestrator](docs/components/orchestrator.md), [AI worker](docs/components/ai-worker.md) |
-| [`infra/targets/`](infra/targets/) | Terraform for the target network. No VMs yet | [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md) |
+| [`infra/targets/`](infra/targets/) | Terraform for the target network. No VMs yet. Moves to its own repository in milestone 3a | [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md), [ADR 0024](docs/decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
 | [`infra/modules/network/`](infra/modules/network/) | The network module both sides use | [Architecture](docs/architecture.md) |
 | [`platform/logs/`](platform/logs/) | Host units and scripts on the orchestrator that copy the tool service's audit lines and pull the worker's journal into append-only files, and their tests | [Audit log](docs/security/audit-log.md) |
 | [`platform/tool-service/`](platform/tool-service/) | Kubernetes manifests and scripts that deploy the tool service to K3s: namespaces, network policies, the pod, the certificate, and job registration | [Tool service](docs/security/tool-service.md#deployment-controls), [checks](docs/validation/tool-service.md) |
@@ -78,7 +79,7 @@ The [roadmap](docs/roadmap.md#status) holds the state of every milestone and wha
 | [`tool-service/`](tool-service/) | The tool service: its code, tests, and Dockerfile | [Tool service](docs/security/tool-service.md) |
 | [`policies/`](policies/) | The tool service policy: the tools and arguments each job may use | [Tool service](docs/security/tool-service.md) |
 | [`validation/`](validation/) | The script that runs every check against the live system | [Validation](docs/validation/README.md) |
-| [`.github/workflows/`](.github/workflows/) | The checks on every pull request, and the image build | [Pipeline](docs/components/pipeline.md) |
+| [`.github/`](.github/) | The checks on every pull request, the image build, and the signature check with its allowed signers | [Pipeline](docs/components/pipeline.md) |
 | [`docs/`](docs/) | Everything in [Find your way around](#find-your-way-around) | |
 
 ## What this is not
