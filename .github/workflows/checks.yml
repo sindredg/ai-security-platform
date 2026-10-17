@@ -153,10 +153,10 @@ jobs:
       # before they do. The image has no shell, so the runner finds the files.
       # -x follows the "source" of pins.env, which holds no secret. The journal
       # export and the feed command have no extension: sshd runs each by that
-      # name as a forced command.
-      - name: Lint the worker, platform, and validation scripts
+      # name as a forced command. .github/scripts holds the signature check.
+      - name: Lint the worker, platform, validation, and pipeline scripts
         run: |
-          mapfile -t scripts < <(find worker platform validation \
+          mapfile -t scripts < <(find worker platform validation .github/scripts \
             \( -name '*.sh' -o -path worker/log-export/aisec-journal-export \
             -o -path worker/feed/aisec-feed-receive \) | sort)
           [ "${#scripts[@]}" -gt 0 ]

@@ -5,7 +5,7 @@ Milestone: 3a, edge network and monitoring
 
 ## Summary
 
-The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The edge, the router, the targets' move, and monitoring are not built. The gate is not met.
+The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is written and tested locally. It is not yet required. The edge, the router, the targets' move, and monitoring are not built. The gate is not met.
 
 | Criterion | Result |
 | --- | --- |
@@ -23,7 +23,7 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from | Open |
 | Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | Open |
 | Flow logs are recorded for the platform subnets | Open |
-| The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | Open |
+| The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | Open. The signature check is written and tested locally against commits signed by GitHub, by another key, and not at all ([slice (c)](#slice-c-signed-commits)). It is not required yet, and has not run on GitHub |
 | Log volume per day is measured, and a daily cap is set from it | Open |
 | The orchestrator's memory and CPU use with the log agent are measured | Open |
 
@@ -219,4 +219,55 @@ The orchestrator's log has the valid certificate refused before its reload at 21
 - No staged file has gone through the feed account yet. The model server and agent runtime runbooks' changed steps have not run.
 - The orchestrator's address stays in every certificate until the router slice. A certificate copied to the orchestrator works on the worker from there.
 - `operator_user_ca_public_key` has to be in the local `terraform.tfvars` before the next plan.
+
+## Slice (c): signed commits
+
+A check that every commit in a pull request is signed by the operator's key ([ADR 0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)). Nothing in Azure changed, and no repository setting changed.
+
+### What changed
+
+| Change | Where |
+| --- | --- |
+| The public half of the operator's signing key, as the only allowed signer, with the principal `sindredg` | `.github/allowed_signers` |
+| A script that runs `git verify-commit` on every commit in a range against that file, with the minimum trust level `fully`, and fails on an empty range, a commit missing from the clone, or a file with no key line | `.github/scripts/check-signatures.sh` |
+| A workflow on `pull_request_target` with one job, "Commit signatures". It checks out `main`, fetches the pull request's head by hash, and runs the script from `main` | `.github/workflows/signatures.yml` |
+| ShellCheck covers `.github/scripts/` | `.github/workflows/checks.yml` |
+
+ADR 0024 put the job in `checks.yml`. It went into a workflow of its own because a `pull_request` job runs the pull request's own copy of the workflow: a pull request made with a stolen token could replace the check and pass it. The [pipeline page](../components/pipeline.md#the-signature-check) has the design. The cost is that this pull request is not judged by the check it adds.
+
+The minimum trust level: Git 2.43 gives a good signature by a key the file does not name the trust level `undefined` and fails it even without the setting (test 4 below). The setting keeps it failing if a Git release scores it differently.
+
+### Tested locally
+
+Run on 2026-10-17 on the workstation, Git 2.43.0 and OpenSSH 9.6p1. Written before the run: the operator's commits pass, and the commits on `main` (squash merges, signed by GitHub), a commit signed with another key, an unsigned commit, an empty signers file, a signers file with another key, a hash not in the clone, and an empty range each make the script exit with a non-zero status.
+
+| Test | Result |
+| --- | --- |
+| The 12 commits of pull request 88, the operator's | `ok` for each, exit 0 |
+| The last three commits on `main`, squash merges signed by GitHub | `FAILED` for each, `%G?` = `E` (no public key), exit 1 |
+| In a scratch repository: one commit signed with the operator's key | `ok`, exit 0 |
+| The same: one commit signed with a throwaway SSH key | `FAILED`, `%G?` = `U`, exit 1. Plain `git verify-commit` without the trust setting and with an empty home directory: exit 1, `No principal matched` |
+| The same: one unsigned commit | `FAILED`, `%G?` = `N`, exit 1 |
+| A range with the good commit, then the other-key and the unsigned one | `ok`, `FAILED`, `FAILED`, exit 1 |
+| An empty allowed signers file | Exit 1 at the key line check |
+| An allowed signers file that names only the throwaway key, against the operator's commit | `FAILED`, exit 1 |
+| A head hash not in the clone | `Invalid revision range`, exit 128 |
+| A range with no commits | `No commits in ...`, exit 1 |
+
+The workflow's steps, by hand: a fresh clone of the public repository over HTTPS with no credential and an empty home directory, `git fetch --no-tags origin <head of pull request 88>`, then the script with `HEAD` as the base. `ok` for all 12 commits, exit 0. The script and the signers file were copied into that clone, because `main` does not have them yet.
+
+The key in `.github/allowed_signers` has the same SHA-256 fingerprint as the workstation's signing key, and its key text matches the signing key registered on the GitHub account (`gh api users/sindredg/ssh_signing_keys`).
+
+ShellCheck 0.11 passes on the script, and yamllint (relaxed) on the workflow.
+
+### Repository settings
+
+Read from the GitHub API on 2026-10-17, before any change. The [pipeline page](../components/pipeline.md#repository-settings) lists the result and the changes planned.
+
+### Limits of slice (c)
+
+- The check has not run on GitHub. It runs from `main`, so its first run is on the first pull request after this one merges.
+- Nothing requires it yet. The second ruleset, the required check, and squash only are settings for the operator, after the merge.
+- Not tried: a pull request with a commit made in the web interface, a push of an unsigned commit against the new ruleset, and a pull request that adds a second job named "Commit signatures". These are the fail side on GitHub, after the settings change.
+- The operator procedure for the settings goes into a runbook once it has run.
 
