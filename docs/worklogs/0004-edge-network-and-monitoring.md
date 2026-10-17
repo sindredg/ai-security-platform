@@ -5,13 +5,14 @@ Milestone: 3a, edge network and monitoring
 
 ## Summary
 
-The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The mesh VPN agent runs on a router VM of its own, and the orchestrator is off the mesh. Squid runs on an edge VM, the orchestrator reaches the internet only through it, and only Squid resolves public names for the platform. Monitoring is not built. The gate is not met.
+The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The mesh VPN agent runs on a router VM of its own, and the orchestrator is off the mesh. Squid runs on an edge VM, the orchestrator reaches the internet only through it, and only Squid resolves public names for the platform. The target network has its own peering with the edge network and takes SSH from the router. Monitoring is not built. The gate is not met.
 
 | Criterion | Result |
 | --- | --- |
 | The orchestrator reaches the internet only through the edge proxy, and only the hosts on its list | **Tested** on the live system: `E.12` times out on `1.1.1.1:443` and read `open` before the change, `Z.22` names `deny-to-internet`, and the edge refuses another host (`P.14`) and a tunnel with no window open (`P.15`), with `TCP_DENIED` lines in its log. In a window, the listed hosts answer ([the edge VM](#the-edge-vm)) |
 | Only the edge resolves public names | **Tested** on the live system: Azure DNS gives the orchestrator no answer over TCP (`E.13`, `open` before the change) and over UDP (`E.14`), and gives the edge one ([fail side](#the-fail-side-of-each-new-check-3)) |
 | The orchestrator is not on the mesh VPN | **Tested** on the live system: `A.11` reads `0 0` after the agent was removed, and read `1 1` before ([the router](#the-router)) |
+| The operator reaches the orchestrator, the worker, the edge, and the targets through the router | **Tested** for the orchestrator, the worker, and the edge: the checks log in to their private addresses over the router's routes, and both VMs see `10.45.0.36` as the client ([the router](#the-router)). **Configured, not tested** for the targets: both halves of the edge and target peering are `Connected` (`Z.24`) and each target group allows SSH from the router subnet (`Z.25`), but no target VM exists to log in to ([the edge and target peering](#the-edge-and-target-peering)) |
 | The mesh agent runs only on the router, with its own updates and its log upload off | **Tested** on the live system: `A.11` on the orchestrator, `U.6` and `R.5` on the router, and `Z.17` shows no inbound allow on the router ([the router](#the-router)). `R.5`'s fail side was seen on the orchestrator, `U.6`'s on 2026-10-16 |
 | A check fails when the mesh agent is behind the current stable release | **Tested** with `U.7`: passes on the live router at 1.104.1, as on the orchestrator before it, and fails locally on an older version and on no answer from the package site ([fail side](#the-fail-side-of-each-new-check)) |
 | The router cannot open a connection to an operator device | **Tested** for the policy: the console refused a policy with a grant from `tag:aisec-router` to `autogroup:member`, with `test(s) failed for user: tag:aisec-router` ([the policy tests](#the-policy-tests)). **Configured, not tested** for a connection: operator devices run `shields-up`, a device setting, and no check opens a connection from the router to a device that listens ([limits](#limits-2)) |
@@ -625,3 +626,45 @@ Two names on the list have not appeared in a log: `objects.githubusercontent.com
 - Squid sees host names, not content. During a window the orchestrator can upload to an account of its own on any listed host (T40).
 - The edge-to-targets peering is still `Initiated`. The target repository adds its half, and SSH from the router subnet, after this pull request merges.
 - cloud-init's final stage writes the administrator's `authorized_keys` back empty, after first boot removed it, on the router and the edge. Its log names the `ssh_authkey_fingerprints` module. The file authorizes nothing, and sshd ignores it for this account. The template comments said the file goes. They say what happens now.
+
+## The edge and target peering
+
+The router sits in the edge network, and peering is not transitive. The edge's half of its peering to the targets was built with the router and stayed `Initiated`. This change adds the target half and SSH from the router subnet on the target side ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)).
+
+### What changed
+
+| Change | Where |
+| --- | --- |
+| The shared module pin moves from `9ffaba0` to `77803d8`, which takes a map of peerings. A `moved` block keeps `peer-targets-to-platform` in place | `infra/targets/main.tf` in the targets repository, [pull request 5](https://github.com/sindredg/ai-security-platform-test/pull/5) |
+| `peer-targets-to-edge`, from a new `edge_virtual_network_id` input | The same |
+| `allow-ssh-from-router` on each target group: TCP 22 from `10.45.0.32/27`, priority 1020 | The same |
+| `Z.24` reads both halves of the edge and target peering. `Z.25` reads each target group's inbound allows | `validation/platform-checks.sh` |
+
+The custom peering role the bootstrap root gives the target identity is scoped to the whole platform resource group, so it already covered the edge network. No role changed.
+
+### The apply
+
+Written before the plan, from the module diff: the peering moves in state with no change, the four security groups change in place to add the one rule, and the edge peering is added. `Plan: 1 to add, 4 to change, 0 to destroy.`
+
+| Step | Result |
+| --- | --- |
+| `terraform plan -out=targets.tfplan`, as the target identity | As written: four groups updated in place, `peer-targets-to-edge` created, `this[0]` has moved to `this["peer-targets-to-platform"]`. `Plan: 1 to add, 4 to change, 0 to destroy.` |
+| `terraform apply targets.tfplan` | `Apply complete! Resources: 1 added, 4 changed, 0 destroyed.` |
+| `az network vnet peering show`, both halves | `Connected`, `FullyInSync`. The edge half read `Initiated`, `RemoteNotInSync` before the apply. Forwarded traffic, gateway transit, and remote gateways are off on the target half |
+| `terraform plan -detailed-exitcode`, both roots | Exit 0, `No changes` |
+| `az network watcher test-ip-flow` from the router to `10.50.0.4` | Port 22: `Allow`, `allow-ssh-to-targets`. Port 23: `Deny`, `deny-all-outbound` |
+| `validation/platform-checks.sh` | `239 passed, 0 failed`, with `Z.24` and `Z.25` |
+
+### The fail side of each new check
+
+Each check's lines were run alone, with the script's `check` function, against the live system.
+
+| Check | Pass | Fail seen |
+| --- | --- | --- |
+| `Z.24` | `Connected Connected` | A wrong name for the target half: `Connected ` (absence). `peeringSyncLevel` read in place of `peeringState`: `FullyInSync FullyInSync` |
+| `Z.25` | The two SSH allows on each of the four groups | A resource group that does not exist: four empty lists (absence). A stub that adds `allow-http-from-orchestrator` on port 80 to the live answer for `netbox`: that group's list has three rules |
+
+### Limits
+
+- No target VM exists. No login through the router to a target has run, and neither flow verify nor effective rules can read the target side, because both need a network interface. `Z.25` reads the configured rules, not what Azure enforces.
+- The network foundation runbook's steps 8 and 9 and its rebuild steps were changed for the second peering. They have not been run in that form.

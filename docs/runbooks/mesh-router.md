@@ -110,7 +110,7 @@ The orchestrator and the router are both on the mesh until step 13. Until then, 
 
    Expected: `13 to add, 2 to change, 0 to destroy`. The additions are the edge network, the router subnet, its security group and association, the peerings from the edge to the platform and to the targets and from the platform to the edge, the NAT gateway with its address and two associations, and the router's interface and VM. The changes are the orchestrator and worker security groups: `allow-ssh-from-router` on each, and new descriptions on the orchestrator's two internet rules. The platform-to-targets peering moves to a new address in state and is not replaced.
 
-   The edge-to-targets peering stays `Initiated` until the target repository adds its half.
+   The edge-to-targets peering stays `Initiated` until the target root adds its half, with `edge_virtual_network_id` set ([network foundation](network-foundation.md), step 8).
 
 6. Take the router's host key from the serial log. First boot takes about two minutes after the apply returns.
 
