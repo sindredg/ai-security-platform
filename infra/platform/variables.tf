@@ -16,6 +16,18 @@ variable "address_space" {
   default     = "10.40.0.0/20"
 }
 
+variable "edge_location" {
+  description = "Region of the edge network, the router, and the edge VM (ADR 0020)."
+  type        = string
+  default     = "denmarkeast"
+}
+
+variable "edge_address_space" {
+  description = "Edge virtual network range. The edge subnet is its first /27, the router subnet its second."
+  type        = string
+  default     = "10.45.0.0/24"
+}
+
 variable "targets_address_space" {
   description = "Target virtual network range. An agreed input, not read from the target root's state."
   type        = string
@@ -35,7 +47,7 @@ variable "targets_virtual_network_id" {
 }
 
 variable "zone" {
-  description = "Availability zone for both VMs."
+  description = "Availability zone for every VM, in its own region."
   type        = string
   default     = "1"
 }
@@ -53,13 +65,27 @@ variable "worker_size" {
 }
 
 variable "image_version" {
-  description = "Ubuntu 26.04 LTS image version, the same for both architectures."
+  description = "Ubuntu 26.04 LTS image version of the orchestrator and the worker, the same for both architectures."
   type        = string
   default     = "26.04.202610070"
 }
 
+variable "router_size" {
+  description = "VM size for the mesh VPN router. x64, 1 GB (ADR 0025)."
+  type        = string
+  default     = "Standard_B2ats_v2"
+}
+
+# Its own pin, so that a newer image for the router does not rebuild the
+# orchestrator and the worker. image_version moves with their next rebuild.
+variable "router_image_version" {
+  description = "Ubuntu 26.04 LTS image version of the router."
+  type        = string
+  default     = "26.04.202610140"
+}
+
 variable "admin_username" {
-  description = "Administrator account on both VMs. Key authentication only."
+  description = "Administrator account on every VM. Certificate authentication only (ADR 0022)."
   type        = string
   default     = "aisec"
 }
@@ -80,7 +106,7 @@ variable "operator_user_ca_public_key" {
 }
 
 variable "tailscale_auth_key" {
-  description = "Mesh VPN auth key for the orchestrator. Single use, short expiry, tagged. Needed only for the apply that creates the orchestrator, and ignored after that. Pass it as TF_VAR_tailscale_auth_key and never write it to a file in the repository. It ends up in the VM's custom data and in state, which is why it has to be single use."
+  description = "Mesh VPN auth key for the router, under tag:aisec-router. Single use, short expiry. Needed only for the apply that creates the router, and ignored after that. Pass it as TF_VAR_tailscale_auth_key and never write it to a file in the repository. It ends up in the VM's custom data and in state, which is why it has to be single use."
   type        = string
   sensitive   = true
   default     = ""

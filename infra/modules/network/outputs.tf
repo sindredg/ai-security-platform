@@ -13,7 +13,7 @@ output "network_security_group_names" {
   value       = { for name, nsg in azurerm_network_security_group.this : name => nsg.name }
 }
 
-output "peering_name" {
-  description = "Name of this side's peering, or null before it exists."
-  value       = one(azurerm_virtual_network_peering.this[*].name)
+output "peering_names" {
+  description = "Names of this side's peerings."
+  value       = keys(azurerm_virtual_network_peering.this)
 }

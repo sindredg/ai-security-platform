@@ -1,0 +1,171 @@
+#cloud-config
+# First boot of the router: the mesh VPN agent and nothing else (ADR 0025).
+# Everything fetched here is a signed package.
+write_files:
+  # The router forwards operator sessions from the mesh VPN to the networks it
+  # advertises, translated to its own address.
+  - path: /etc/sysctl.d/90-aisec-router.conf
+    permissions: "0644"
+    content: |
+      net.ipv4.ip_forward = 1
+
+  # Routed TCP has to fit the mesh VPN's 1280-byte MTU. The machines behind
+  # the router never see the "fragmentation needed" replies, because their
+  # network security groups drop ICMP, so the router rewrites the segment size
+  # instead.
+  - path: /etc/aisec/mss-clamp.nft
+    permissions: "0644"
+    content: |
+      table inet aisec_mss
+      delete table inet aisec_mss
+      table inet aisec_mss {
+        chain forward {
+          type filter hook forward priority mangle; policy accept;
+          iifname "tailscale0" tcp flags syn tcp option maxseg size set 1240
+          oifname "tailscale0" tcp flags syn tcp option maxseg size set 1240
+        }
+      }
+
+  - path: /etc/systemd/system/aisec-mss-clamp.service
+    permissions: "0644"
+    content: |
+      [Unit]
+      Description=Clamp TCP segment size on routes through the mesh VPN
+      Before=tailscaled.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/usr/sbin/nft -f /etc/aisec/mss-clamp.nft
+
+      [Install]
+      WantedBy=multi-user.target
+
+  # The same hardening as the orchestrator. What was left alone, and why, is in
+  # the milestone 2 worklog.
+  - path: /etc/sysctl.d/90-aisec-hardening.conf
+    permissions: "0644"
+    content: |
+      kernel.sysrq = 0
+      kernel.kptr_restrict = 2
+      kernel.core_uses_pid = 1
+      fs.suid_dumpable = 0
+      fs.protected_fifos = 2
+      fs.protected_regular = 2
+      net.core.bpf_jit_harden = 2
+      net.ipv4.conf.all.accept_source_route = 0
+      net.ipv4.conf.default.accept_source_route = 0
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv4.conf.all.send_redirects = 0
+      net.ipv4.conf.default.send_redirects = 0
+      net.ipv4.conf.all.log_martians = 1
+      net.ipv4.conf.default.log_martians = 1
+      net.ipv6.conf.all.accept_redirects = 0
+      net.ipv6.conf.default.accept_redirects = 0
+
+  # Read before the image's own files, and the first value wins. The router
+  # forwards nothing over SSH: routed sessions pass through it at the IP layer.
+  - path: /etc/ssh/sshd_config.d/10-aisec.conf
+    permissions: "0600"
+    content: |
+      PermitRootLogin no
+      AllowAgentForwarding no
+      AllowTcpForwarding no
+      X11Forwarding no
+      MaxAuthTries 3
+      MaxSessions 2
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+      TCPKeepAlive no
+      LogLevel VERBOSE
+      # The administrator account takes only a certificate signed by the
+      # operator's certificate authority, for the principal in the file (ADR
+      # 0022). First boot writes the empty revocation list.
+      Match User ${admin_username}
+        AuthorizedKeysFile none
+        TrustedUserCAKeys /etc/ssh/aisec-user-ca.pub
+        AuthorizedPrincipalsFile /etc/ssh/aisec-principals
+        RevokedKeys /etc/ssh/aisec-revoked.krl
+
+  - path: /etc/ssh/aisec-user-ca.pub
+    permissions: "0644"
+    content: |
+      ${operator_user_ca_public_key}
+
+  - path: /etc/ssh/aisec-principals
+    permissions: "0644"
+    content: |
+      aisec-operator
+
+  - path: /etc/modprobe.d/aisec-unused.conf
+    permissions: "0644"
+    content: |
+      install dccp /bin/false
+      install sctp /bin/false
+      install rds /bin/false
+      install tipc /bin/false
+      install usb-storage /bin/false
+
+  # The package's own defaults file, with log upload to the vendor off (ADR
+  # 0025). It is written before the package, which keeps it.
+  - path: /etc/default/tailscaled
+    permissions: "0644"
+    content: |
+      PORT="41641"
+      FLAGS="--no-logs-no-support"
+
+  # Single use. It is spent by the time anything else can read it, and the
+  # script removes the file.
+  - path: /run/aisec/tailscale-auth-key
+    permissions: "0600"
+    content: "${tailscale_auth_key}"
+
+  - path: /usr/local/sbin/aisec-first-boot
+    permissions: "0700"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      # An empty revocation list. Without the file, sshd refuses every
+      # certificate for the administrator account. Azure wrote the operator key
+      # to the account's authorized_keys, which sshd ignores for it. The file
+      # goes, so a key line there is a change to look at.
+      ssh-keygen -q -k -f /etc/ssh/aisec-revoked.krl
+      rm -f /home/${admin_username}/.ssh/authorized_keys
+      sysctl --system >/dev/null
+      systemctl daemon-reload
+      systemctl enable --now aisec-mss-clamp.service
+
+      # Tighter modes on files an audit flagged, and no assembler or linker.
+      chmod 600 /etc/crontab /etc/ssh/sshd_config
+      chmod 700 /etc/cron.d /etc/cron.daily /etc/cron.hourly /etc/cron.weekly /etc/cron.monthly
+      DEBIAN_FRONTEND=noninteractive apt-get remove -y -q -o DPkg::Lock::Timeout=120 binutils
+
+      # Mesh VPN, from the vendor's signed package repository, at a pinned version.
+      . /etc/os-release
+      install -d -m 0755 /usr/share/keyrings
+      curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/$VERSION_CODENAME.noarmor.gpg" \
+        -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+      curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/$VERSION_CODENAME.tailscale-keyring.list" \
+        -o /etc/apt/sources.list.d/tailscale.list
+      apt-get update -q
+      DEBIAN_FRONTEND=noninteractive apt-get install -y -q -o Dpkg::Options::=--force-confold \
+        "tailscale=${tailscale_version}"
+      apt-mark hold tailscale
+
+      # Tailscale SSH and the web client stay off: they are off unless asked for.
+      tailscale up \
+        --auth-key=file:/run/aisec/tailscale-auth-key \
+        --hostname=aisec-router \
+        --advertise-routes=${advertised_routes} \
+        --accept-dns=false
+      rm -f /run/aisec/tailscale-auth-key
+      # The hold stops apt, not the agent's own updater, and the tailnet turns
+      # that updater on by default. The version moves only with the pin (U.6).
+      tailscale set --auto-update=false
+
+      touch /var/lib/aisec-first-boot.done
+
+runcmd:
+  - [/usr/local/sbin/aisec-first-boot]

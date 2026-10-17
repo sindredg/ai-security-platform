@@ -1,49 +1,13 @@
 #cloud-config
-# First boot of the orchestrator: mesh VPN, then K3s. Everything fetched here is
-# either a signed package or checked against a pinned checksum before it runs.
+# First boot of the orchestrator: the package proxy, then K3s. Everything
+# fetched here is either a signed package or checked against a pinned checksum
+# before it runs. The orchestrator is not on the mesh VPN: operator sessions
+# reach it through the router (ADR 0025).
 write_files:
   - path: /etc/hosts
     append: true
     content: |
       ${worker_ip} aisec-worker
-
-  # The orchestrator routes for the mesh VPN.
-  - path: /etc/sysctl.d/90-aisec-router.conf
-    permissions: "0644"
-    content: |
-      net.ipv4.ip_forward = 1
-
-  # Routed TCP has to fit the mesh VPN's 1280-byte MTU. The worker and target
-  # machines never see the "fragmentation needed" replies, because their
-  # network security groups drop ICMP, so the orchestrator rewrites the
-  # segment size instead.
-  - path: /etc/aisec/mss-clamp.nft
-    permissions: "0644"
-    content: |
-      table inet aisec_mss
-      delete table inet aisec_mss
-      table inet aisec_mss {
-        chain forward {
-          type filter hook forward priority mangle; policy accept;
-          iifname "tailscale0" tcp flags syn tcp option maxseg size set 1240
-          oifname "tailscale0" tcp flags syn tcp option maxseg size set 1240
-        }
-      }
-
-  - path: /etc/systemd/system/aisec-mss-clamp.service
-    permissions: "0644"
-    content: |
-      [Unit]
-      Description=Clamp TCP segment size on routes through the mesh VPN
-      Before=tailscaled.service
-
-      [Service]
-      Type=oneshot
-      RemainAfterExit=yes
-      ExecStart=/usr/sbin/nft -f /etc/aisec/mss-clamp.nft
-
-      [Install]
-      WantedBy=multi-user.target
 
   # Pods reach other pods, and nothing else through this host. A pod's network
   # policy is written by kube-router after the pod starts, so this rule holds
@@ -224,8 +188,8 @@ write_files:
       disable:
         - traefik
         - servicelb
-      # Node ports answer on the private address only: not on loopback, not on
-      # the mesh interface. The tool service's port to the worker is one.
+      # Node ports answer on the private address only, not on loopback. The
+      # tool service's port to the worker is one.
       kube-proxy-arg:
         - nodeport-addresses=${orchestrator_ip}/32
       kube-apiserver-arg:
@@ -268,12 +232,6 @@ write_files:
               usernames: []
               runtimeClasses: []
               namespaces: []
-
-  # Single use. It is spent by the time anything else can read it, and the
-  # script removes the file.
-  - path: /run/aisec/tailscale-auth-key
-    permissions: "0600"
-    content: "${tailscale_auth_key}"
 
   # The audit copier (ADR 0019): the files from platform/logs/ in the
   # repository, in base64 so that nothing in them is read as YAML or template.
@@ -329,34 +287,12 @@ write_files:
       rm -f /home/${admin_username}/.ssh/authorized_keys
       sysctl --system >/dev/null
       systemctl daemon-reload
-      systemctl enable --now aisec-mss-clamp.service
       systemctl enable --now aisec-pod-egress.service
 
       # Tighter modes on files an audit flagged, and no assembler or linker.
       chmod 600 /etc/crontab /etc/ssh/sshd_config
       chmod 700 /etc/cron.d /etc/cron.daily /etc/cron.hourly /etc/cron.weekly /etc/cron.monthly
       DEBIAN_FRONTEND=noninteractive apt-get remove -y -q -o DPkg::Lock::Timeout=120 binutils
-
-      # Mesh VPN, from the vendor's signed package repository, at a pinned version.
-      . /etc/os-release
-      install -d -m 0755 /usr/share/keyrings
-      curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/$VERSION_CODENAME.noarmor.gpg" \
-        -o /usr/share/keyrings/tailscale-archive-keyring.gpg
-      curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/$VERSION_CODENAME.tailscale-keyring.list" \
-        -o /etc/apt/sources.list.d/tailscale.list
-      apt-get update -q
-      DEBIAN_FRONTEND=noninteractive apt-get install -y -q "tailscale=${tailscale_version}"
-      apt-mark hold tailscale
-
-      tailscale up \
-        --auth-key=file:/run/aisec/tailscale-auth-key \
-        --hostname=aisec-orchestrator \
-        --advertise-routes=${advertised_routes} \
-        --accept-dns=false
-      rm -f /run/aisec/tailscale-auth-key
-      # The hold stops apt, not the agent's own updater, and the tailnet turns
-      # that updater on by default. The version moves only with the pin (U.6).
-      tailscale set --auto-update=false
 
       # The package proxy for the worker. It keeps the configuration written
       # above. The archive drops old versions, so this one is not pinned.

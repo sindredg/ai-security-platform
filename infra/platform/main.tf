@@ -3,8 +3,24 @@ data "azurerm_resource_group" "this" {
 }
 
 locals {
-  orchestrator_prefix = cidrsubnet(var.address_space, 7, 0) # 10.40.0.0/27
-  worker_prefix       = cidrsubnet(var.address_space, 7, 1) # 10.40.0.32/27
+  orchestrator_prefix = cidrsubnet(var.address_space, 7, 0)      # 10.40.0.0/27
+  worker_prefix       = cidrsubnet(var.address_space, 7, 1)      # 10.40.0.32/27
+  edge_prefix         = cidrsubnet(var.edge_address_space, 3, 0) # 10.45.0.0/27
+  router_prefix       = cidrsubnet(var.edge_address_space, 3, 1) # 10.45.0.32/27
+
+  # Operator sessions arrive from the router, which translates them to its own
+  # address (ADR 0025). Every VM takes SSH from that subnet.
+  allow_ssh_from_router = {
+    name                       = "allow-ssh-from-router"
+    priority                   = 1020
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = local.router_prefix
+    destination_address_prefix = "*"
+    destination_port_range     = "22"
+    description                = "Operator sessions through the mesh VPN router."
+  }
 
   # Nothing that starts in the target network gets in, whatever else is allowed
   # later. This rule is on the platform side so no target change can remove it.
@@ -40,6 +56,7 @@ module "network" {
       address_prefix = local.orchestrator_prefix
       rules = [
         local.deny_from_targets,
+        local.allow_ssh_from_router,
         {
           name                       = "allow-package-proxy-from-worker"
           priority                   = 1000
@@ -93,7 +110,7 @@ module "network" {
           source_address_prefix      = local.orchestrator_prefix
           destination_address_prefix = "Internet"
           destination_port_range     = "443"
-          description                = "Egress. Downloads, registries, feeds, GitHub, and the mesh VPN relay and log servers."
+          description                = "Egress. Downloads, registries, feeds, and GitHub, until the edge VM takes them over."
         },
         {
           name                       = "allow-http-to-internet"
@@ -104,7 +121,7 @@ module "network" {
           source_address_prefix      = local.orchestrator_prefix
           destination_address_prefix = "Internet"
           destination_port_range     = "80"
-          description                = "Egress. Package mirrors that serve signed packages over plain HTTP, and the mesh VPN control connection."
+          description                = "Egress. Package mirrors that serve signed packages over plain HTTP."
         },
       ]
     }
@@ -113,6 +130,7 @@ module "network" {
       address_prefix = local.worker_prefix
       rules = [
         local.deny_from_targets,
+        local.allow_ssh_from_router,
         {
           name                       = "deny-to-targets"
           priority                   = 100
@@ -183,10 +201,18 @@ module "network" {
     }
   }
 
-  peering = var.targets_virtual_network_id == null ? null : {
-    name                      = "peer-platform-to-targets"
-    remote_virtual_network_id = var.targets_virtual_network_id
-  }
+  peerings = merge(
+    var.targets_virtual_network_id == null ? {} : {
+      peer-platform-to-targets = { remote_virtual_network_id = var.targets_virtual_network_id }
+    },
+    { peer-platform-to-edge = { remote_virtual_network_id = module.edge_network.virtual_network_id } },
+  )
 
   tags = local.tags
+}
+
+# The module held one peering in a list. It holds a map of them now.
+moved {
+  from = module.network.azurerm_virtual_network_peering.this[0]
+  to   = module.network.azurerm_virtual_network_peering.this["peer-platform-to-targets"]
 }

@@ -1,6 +1,7 @@
-# The one way out of the whole system. It is attached to the orchestrator
-# subnet and to nothing else. The worker and the targets are fed from the
-# orchestrator and never get an outbound method.
+# The orchestrator's way out. It is attached to the orchestrator subnet and to
+# nothing else. The worker and the targets are fed from the orchestrator and
+# never get an outbound method. The router has its own gateway in the edge
+# network (edge.tf), and the edge stage removes this one (ADR 0020).
 resource "azurerm_public_ip" "egress" {
   count = var.egress_enabled ? 1 : 0
 

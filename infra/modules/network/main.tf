@@ -39,12 +39,15 @@ resource "azurerm_virtual_network" "this" {
 # Rules are inline on purpose. That makes Terraform authoritative for the whole
 # rule set, so a rule added by hand shows up as drift and is removed on apply.
 #
-# AZU-0051 (egress to any address) is ignored for the orchestrator's group only.
-# Its HTTPS and HTTP rules to the internet are the platform's egress point,
-# carried as accepted risk T05 until the edge VM takes them over (ADR 0020).
-# The same finding on any other subnet still fails. The edge pull request
-# moves this key to the edge subnet.
+# AZU-0051 (egress to any address) is ignored for two groups. The
+# orchestrator's HTTPS and HTTP rules to the internet are the platform's egress
+# point, carried as accepted risk T05 until the edge VM takes them over (ADR
+# 0020). The router's reach the mesh VPN's coordination service and relays,
+# whose addresses the vendor changes without notice (ADR 0025). The same
+# finding on any other subnet still fails. The edge stage moves the
+# orchestrator's key to the edge subnet.
 #trivy:ignore:AZU-0051[each.key=orchestrator]
+#trivy:ignore:AZU-0051[each.key=router]
 resource "azurerm_network_security_group" "this" {
   for_each = var.subnets
 
@@ -92,14 +95,15 @@ resource "azurerm_subnet_network_security_group_association" "this" {
   network_security_group_id = azurerm_network_security_group.this[each.key].id
 }
 
-# One half of the link. The other half belongs to the other root.
+# One half of each link. The other half belongs to whoever owns the other
+# network.
 resource "azurerm_virtual_network_peering" "this" {
-  count = var.peering == null ? 0 : 1
+  for_each = var.peerings
 
-  name                      = var.peering.name
+  name                      = each.key
   resource_group_name       = var.resource_group_name
   virtual_network_name      = azurerm_virtual_network.this.name
-  remote_virtual_network_id = var.peering.remote_virtual_network_id
+  remote_virtual_network_id = each.value.remote_virtual_network_id
 
   allow_virtual_network_access = true
   allow_forwarded_traffic      = false
