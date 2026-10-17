@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The stack on each VM</title>
+  <title>The stack on the orchestrator and the worker</title>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -68,11 +68,11 @@
 <body>
   <div class="frame">
     <p class="eyebrow">Layer stack · Private AI security operations platform</p>
-    <h1>The stack on each VM</h1>
+    <h1>The stack on the orchestrator and the worker</h1>
     <div class="diagram-container">
       <svg viewBox="0 0 960 564" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="stack-title stack-desc">
-        <title id="stack-title">The stack on each VM</title>
-        <desc id="stack-desc">Layer stack diagram showing what the orchestrator and the AI worker share, from the private network up through the machine, Ubuntu 26.04, and host hardening, and where they differ: the orchestrator runs K3s with the tool service, the mesh VPN, and the package proxy, and the worker runs the model server and the agent runtime and gets packages through that proxy.</desc>
+        <title id="stack-title">The stack on the orchestrator and the worker</title>
+        <desc id="stack-desc">Layer stack diagram showing what the orchestrator and the AI worker share, from the private network up through the machine, Ubuntu 26.04, and host hardening, and where they differ: the orchestrator runs K3s with the tool service, is not on the mesh VPN, and has no way out of its own, and the worker runs the model server and the agent runtime and gets packages through the proxy on the edge VM.</desc>
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
           <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
@@ -103,15 +103,15 @@
         <rect x="152" y="152" width="384" height="64" fill="#2d3142"/>
         <rect x="152" y="152" width="384" height="64" fill="rgba(240,138,89,0.08)" stroke="#f08a59" stroke-width="1"/>
         <text x="40" y="188" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">L5 SERVICES</text>
-        <text x="344.0" y="180" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">K3s · mesh VPN · package proxy</text>
-        <text x="344.0" y="198" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">one server · subnet router · Squid</text>
-        <text x="728.0" y="180" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">apt, through the proxy</text>
+        <text x="344.0" y="180" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">K3s</text>
+        <text x="344.0" y="198" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">one server · not on the mesh · no way out</text>
+        <text x="728.0" y="180" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">apt, through the edge</text>
         <text x="728.0" y="198" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">no service listens but SSH</text>
         <line x1="152" y1="152" x2="920" y2="152" stroke="rgba(245,245,245,0.12)" stroke-width="1"/>
         <rect x="152" y="216" width="768" height="64" fill="#393e53"/>
         <text x="40" y="252" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">L4 HARDENING</text>
         <text x="536.0" y="244" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">SSH daemon · kernel settings · file modes · no toolchain</text>
-        <text x="536.0" y="262" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">the same on both VMs, from cloud-init</text>
+        <text x="536.0" y="262" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">the same on every VM, from cloud-init</text>
         <line x1="152" y1="216" x2="920" y2="216" stroke="rgba(245,245,245,0.12)" stroke-width="1"/>
         <rect x="152" y="280" width="768" height="64" fill="#393e53"/>
         <text x="40" y="316" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">L3 SYSTEM</text>
@@ -128,7 +128,7 @@
         <line x1="152" y1="344" x2="920" y2="344" stroke="rgba(245,245,245,0.12)" stroke-width="1"/>
         <rect x="152" y="408" width="768" height="64" fill="#393e53"/>
         <text x="40" y="444" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">L1 NETWORK</text>
-        <text x="536.0" y="436" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Private subnets · deny-by-default rules · one NAT gateway</text>
+        <text x="536.0" y="436" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Private subnets · deny-by-default rules · a NAT gateway</text>
         <text x="536.0" y="454" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">no public address on any VM, refused by policy</text>
         <line x1="152" y1="408" x2="920" y2="408" stroke="rgba(245,245,245,0.12)" stroke-width="1"/>
         <rect x="152" y="88" width="768" height="384" fill="none" stroke="#bfc0c0" stroke-width="1"/>

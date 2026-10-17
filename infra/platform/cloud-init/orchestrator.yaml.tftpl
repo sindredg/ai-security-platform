@@ -1,49 +1,31 @@
 #cloud-config
-# First boot of the orchestrator: mesh VPN, then K3s. Everything fetched here is
-# either a signed package or checked against a pinned checksum before it runs.
+# First boot of the orchestrator: K3s. Everything fetched here is either a
+# signed package or checked against a pinned checksum before it runs. The
+# orchestrator is not on the mesh VPN: operator sessions reach it through the
+# router (ADR 0025). Its only way out is Squid on the edge, so the operator
+# opens a fetch window on the edge before a rebuild (ADR 0020).
 write_files:
   - path: /etc/hosts
     append: true
     content: |
       ${worker_ip} aisec-worker
 
-  # The orchestrator routes for the mesh VPN.
-  - path: /etc/sysctl.d/90-aisec-router.conf
+  # Packages come through Squid on the edge, which forwards to this host's
+  # package mirror. Unattended upgrades use it too.
+  - path: /etc/apt/apt.conf.d/90aisec-proxy
     permissions: "0644"
     content: |
-      net.ipv4.ip_forward = 1
+      Acquire::http::Proxy "http://${edge_ip}:3128";
 
-  # Routed TCP has to fit the mesh VPN's 1280-byte MTU. The worker and target
-  # machines never see the "fragmentation needed" replies, because their
-  # network security groups drop ICMP, so the orchestrator rewrites the
-  # segment size instead.
-  - path: /etc/aisec/mss-clamp.nft
-    permissions: "0644"
+  # Everything else the operator fetches, and git and curl in the fetch
+  # scripts, goes through the same proxy. It forwards only while a fetch
+  # window is open. Nothing here resolves a public name.
+  - path: /etc/environment
+    append: true
     content: |
-      table inet aisec_mss
-      delete table inet aisec_mss
-      table inet aisec_mss {
-        chain forward {
-          type filter hook forward priority mangle; policy accept;
-          iifname "tailscale0" tcp flags syn tcp option maxseg size set 1240
-          oifname "tailscale0" tcp flags syn tcp option maxseg size set 1240
-        }
-      }
-
-  - path: /etc/systemd/system/aisec-mss-clamp.service
-    permissions: "0644"
-    content: |
-      [Unit]
-      Description=Clamp TCP segment size on routes through the mesh VPN
-      Before=tailscaled.service
-
-      [Service]
-      Type=oneshot
-      RemainAfterExit=yes
-      ExecStart=/usr/sbin/nft -f /etc/aisec/mss-clamp.nft
-
-      [Install]
-      WantedBy=multi-user.target
+      http_proxy=http://${edge_ip}:3128
+      https_proxy=http://${edge_ip}:3128
+      no_proxy=localhost,127.0.0.1,${platform_address_space},aisec-worker
 
   # Pods reach other pods, and nothing else through this host. A pod's network
   # policy is written by kube-router after the pod starts, so this rule holds
@@ -157,52 +139,6 @@ write_files:
       install tipc /bin/false
       install usb-storage /bin/false
 
-  # The worker's only way to a package repository. Squid forwards plain package
-  # downloads to two hosts and refuses everything else, tunnels included.
-  - path: /etc/squid/squid.conf
-    permissions: "0644"
-    content: |
-      http_port ${orchestrator_ip}:3128
-      acl worker src ${worker_prefix}
-      acl repositories dstdomain archive.ubuntu.com security.ubuntu.com
-      acl plain_http port 80
-      acl downloads method GET HEAD
-      http_access deny !worker
-      http_access deny CONNECT
-      http_access deny !plain_http
-      http_access deny !downloads
-      http_access allow repositories
-      http_access deny all
-      cache deny all
-      forwarded_for delete
-      access_log daemon:/var/log/squid/access.log squid
-      shutdown_lifetime 1 seconds
-
-  # Squid is the one service the untrusted side can reach, so it gets a sandbox.
-  - path: /etc/systemd/system/squid.service.d/10-aisec.conf
-    permissions: "0644"
-    content: |
-      [Service]
-      NoNewPrivileges=yes
-      CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
-      ProtectSystem=full
-      ProtectHome=yes
-      PrivateTmp=yes
-      PrivateDevices=yes
-      ProtectKernelTunables=yes
-      ProtectKernelModules=yes
-      ProtectKernelLogs=yes
-      ProtectControlGroups=yes
-      ProtectClock=yes
-      ProtectHostname=yes
-      RestrictNamespaces=yes
-      RestrictRealtime=yes
-      RestrictSUIDSGID=yes
-      LockPersonality=yes
-      MemoryDenyWriteExecute=yes
-      SystemCallArchitectures=native
-      RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
-
   # Kernel settings the kubelet expects when protect-kernel-defaults is on.
   - path: /etc/sysctl.d/90-aisec-kubelet.conf
     permissions: "0644"
@@ -224,8 +160,8 @@ write_files:
       disable:
         - traefik
         - servicelb
-      # Node ports answer on the private address only: not on loopback, not on
-      # the mesh interface. The tool service's port to the worker is one.
+      # Node ports answer on the private address only, not on loopback. The
+      # tool service's port to the worker is one.
       kube-proxy-arg:
         - nodeport-addresses=${orchestrator_ip}/32
       kube-apiserver-arg:
@@ -268,12 +204,6 @@ write_files:
               usernames: []
               runtimeClasses: []
               namespaces: []
-
-  # Single use. It is spent by the time anything else can read it, and the
-  # script removes the file.
-  - path: /run/aisec/tailscale-auth-key
-    permissions: "0600"
-    content: "${tailscale_auth_key}"
 
   # The audit copier (ADR 0019): the files from platform/logs/ in the
   # repository, in base64 so that nothing in them is read as YAML or template.
@@ -323,13 +253,13 @@ write_files:
 
       # An empty revocation list. Without the file, sshd refuses every
       # certificate for the administrator account. Azure wrote the operator key
-      # to the account's authorized_keys, which sshd ignores for it. The file
-      # goes, so a key line there is a change to look at (A.5).
+      # to the account's authorized_keys, which sshd ignores for it. The key
+      # goes. cloud-init's final stage writes the file back empty, so a key
+      # line there, not the file, is a change to look at (A.5).
       ssh-keygen -q -k -f /etc/ssh/aisec-revoked.krl
       rm -f /home/${admin_username}/.ssh/authorized_keys
       sysctl --system >/dev/null
       systemctl daemon-reload
-      systemctl enable --now aisec-mss-clamp.service
       systemctl enable --now aisec-pod-egress.service
 
       # Tighter modes on files an audit flagged, and no assembler or linker.
@@ -337,42 +267,25 @@ write_files:
       chmod 700 /etc/cron.d /etc/cron.daily /etc/cron.hourly /etc/cron.weekly /etc/cron.monthly
       DEBIAN_FRONTEND=noninteractive apt-get remove -y -q -o DPkg::Lock::Timeout=120 binutils
 
-      # Mesh VPN, from the vendor's signed package repository, at a pinned version.
-      . /etc/os-release
-      install -d -m 0755 /usr/share/keyrings
-      curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/$VERSION_CODENAME.noarmor.gpg" \
-        -o /usr/share/keyrings/tailscale-archive-keyring.gpg
-      curl -fsSL "https://pkgs.tailscale.com/stable/ubuntu/$VERSION_CODENAME.tailscale-keyring.list" \
-        -o /etc/apt/sources.list.d/tailscale.list
-      apt-get update -q
-      DEBIAN_FRONTEND=noninteractive apt-get install -y -q "tailscale=${tailscale_version}"
-      apt-mark hold tailscale
-
-      tailscale up \
-        --auth-key=file:/run/aisec/tailscale-auth-key \
-        --hostname=aisec-orchestrator \
-        --advertise-routes=${advertised_routes} \
-        --accept-dns=false
-      rm -f /run/aisec/tailscale-auth-key
-      # The hold stops apt, not the agent's own updater, and the tailnet turns
-      # that updater on by default. The version moves only with the pin (U.6).
-      tailscale set --auto-update=false
-
-      # The package proxy for the worker. It keeps the configuration written
-      # above. The archive drops old versions, so this one is not pinned.
-      DEBIAN_FRONTEND=noninteractive apt-get install -y -q -o Dpkg::Options::=--force-confold squid
-
-      # K3s. The binary and the install script are both checked before either runs.
+      # K3s. The binary and the install script are both checked before either
+      # runs. Both come through the edge, so a fetch window has to be open.
+      proxy="http://${edge_ip}:3128"
       work="$(mktemp -d)"
       release="https://github.com/k3s-io/k3s/releases/download/${urlencode(k3s_version)}"
-      curl -fsSL "$release/k3s" -o "$work/k3s"
+      curl -fsSL --proxy "$proxy" "$release/k3s" -o "$work/k3s"
       echo "${k3s_sha256}  $work/k3s" | sha256sum -c -
-      curl -fsSL "https://raw.githubusercontent.com/k3s-io/k3s/${urlencode(k3s_version)}/install.sh" -o "$work/install.sh"
+      curl -fsSL --proxy "$proxy" "https://raw.githubusercontent.com/k3s-io/k3s/${urlencode(k3s_version)}/install.sh" -o "$work/install.sh"
       echo "${k3s_install_sha256}  $work/install.sh" | sha256sum -c -
 
       install -d -m 0700 /var/lib/rancher/k3s/server/logs
       install -m 0755 "$work/k3s" /usr/local/bin/k3s
-      INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_VERSION='${k3s_version}' sh "$work/install.sh"
+      # The install script writes the CONTAINERD_ variables to k3s.service.env.
+      # They give containerd the proxy for image pulls, and leave K3s and the
+      # kubelet without one.
+      INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_VERSION='${k3s_version}' \
+        CONTAINERD_HTTP_PROXY="$proxy" CONTAINERD_HTTPS_PROXY="$proxy" \
+        CONTAINERD_NO_PROXY=localhost,127.0.0.0/8,10.0.0.0/8 \
+        sh "$work/install.sh"
       rm -rf "$work"
 
       # Two settings the Kubernetes benchmark asks for and K3s does not ship.

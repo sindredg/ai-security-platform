@@ -10,7 +10,7 @@ The machine that runs the agent and the model. It reads advisories, target evide
 | Image | Ubuntu 26.04 LTS, `Canonical:ubuntu-26_04-lts:server-arm64` |
 | Disk | 64 GB, Standard SSD |
 | Defined in | `infra/platform/compute.tf`, `infra/platform/cloud-init/worker.yaml.tftpl`, `worker/model-server/`, `worker/agent-runtime/`, `worker/log-export/` |
-| Decisions | [0005](../decisions/0005-ai-workers-on-a-separate-vm.md), [0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), [0011](../decisions/0011-package-proxy-for-the-worker.md), [0015](../decisions/0015-build-the-model-file-on-the-worker.md) |
+| Decisions | [0005](../decisions/0005-ai-workers-on-a-separate-vm.md), [0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), [0011](../decisions/0011-package-proxy-for-the-worker.md), [0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [0015](../decisions/0015-build-the-model-file-on-the-worker.md) |
 
 ## What it can reach
 
@@ -19,7 +19,7 @@ The machine that runs the agent and the model. It reads advisories, target evide
 | The internet | Nothing |
 | The target network | Nothing |
 | A name server | Nothing. It uses a hosts file |
-| The orchestrator, TCP 3128 | The package proxy |
+| The edge VM, TCP 3128 | Squid, the [package proxy](package-proxy.md), since 2026-10-17. Before that it ran on the orchestrator |
 | The orchestrator, TCP 30443 | The [tool service](../security/tool-service.md). Deployed, reached by `T.9` and the [round trip](../worklogs/0003-toolchain-integration.md#the-round-trip) |
 | The orchestrator, any other port | Nothing |
 

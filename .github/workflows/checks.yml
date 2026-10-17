@@ -154,16 +154,36 @@ jobs:
       # These scripts run as root on the VMs, and nothing else reads them
       # before they do. The image has no shell, so the runner finds the files.
       # -x follows the "source" of pins.env, which holds no secret. The journal
-      # export and the feed command have no extension: sshd runs each by that
-      # name as a forced command. .github/scripts holds the signature check.
-      - name: Lint the worker, platform, validation, and pipeline scripts
+      # export, the feed command, and the fetch window command have no
+      # extension: each runs by that name. .github/scripts holds the signature
+      # check and the renderer below.
+      - name: Lint the worker, platform, edge, validation, and pipeline scripts
         run: |
-          mapfile -t scripts < <(find worker platform validation .github/scripts \
+          mapfile -t scripts < <(find worker platform edge validation .github/scripts \
             \( -name '*.sh' -o -path worker/log-export/aisec-journal-export \
-            -o -path worker/feed/aisec-feed-receive \) | sort)
+            -o -path worker/feed/aisec-feed-receive -o -path edge/aisec-fetch-window \) | sort)
           [ "${#scripts[@]}" -gt 0 ]
           docker run --rm --volume "${PWD}:/mnt:ro" --workdir /mnt "${SHELLCHECK_IMAGE}" \
             -x -P SCRIPTDIR "${scripts[@]}"
+
+      # The first-boot scripts are written inline in the cloud-init templates,
+      # with template expressions in them. Terraform renders each one with
+      # placeholder values, and ShellCheck reads the result.
+      - name: Install Terraform
+        run: |
+          zip="terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+          curl -fsSLO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/${zip}"
+          echo "${TERRAFORM_SHA256}  ${zip}" | sha256sum -c -
+          unzip -q "${zip}" terraform -d "${RUNNER_TEMP}/bin"
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
+      - name: Lint the first-boot scripts in the cloud-init templates
+        run: |
+          .github/scripts/render-first-boot.sh "${RUNNER_TEMP}/first-boot"
+          mapfile -t scripts < <(find "${RUNNER_TEMP}/first-boot" -name '*.sh' | sort)
+          [ "${#scripts[@]}" -gt 0 ]
+          docker run --rm --volume "${RUNNER_TEMP}/first-boot:/mnt:ro" --workdir /mnt \
+            "${SHELLCHECK_IMAGE}" "${scripts[@]##*/}"
 
   ruff:
     name: Ruff

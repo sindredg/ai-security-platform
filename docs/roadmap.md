@@ -12,7 +12,7 @@ Security work has no milestone of its own. Each practice is part of the completi
 | 1. Network foundation | Done, with one check carried to milestone 2. [Worklog](worklogs/0001-network-foundation.md) |
 | 2. Platform compute | Done, with three stated gaps. No CIS result for the operating system, because no tool supports the release yet. Push protection is configured and not tested. No dependency update has been proposed yet. [Worklog](worklogs/0002-platform-compute.md) |
 | 3. Toolchain integration | In progress. The model server runs on the worker, and the agent runtime runs headless against it with a fixture tool. The tool service runs on the orchestrator and has answered tool calls from the worker with a job token. The audit lines and the worker's journal are copied to append-only files on the orchestrator. No workflow or dispatch step exists yet. Paused for milestone 3a. [Worklog](worklogs/0003-toolchain-integration.md) |
-| 3a. Edge network and monitoring | In progress since 2026-10-16. The orchestrator hardening slice and the SSH certificate slice are on the system. The signed commit check is required and has blocked a commit GitHub signed. The target network is in Poland Central, defined in its own repository. [Worklog](worklogs/0004-edge-network-and-monitoring.md) |
+| 3a. Edge network and monitoring | In progress since 2026-10-16. The orchestrator hardening slice and the SSH certificate slice are on the system. The signed commit check is required and has blocked a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The mesh VPN agent runs on a router VM, and the orchestrator is off the mesh. Squid runs on an edge VM, and the orchestrator reaches the internet only through it. Monitoring is not built. [Worklog](worklogs/0004-edge-network-and-monitoring.md) |
 | 4. NetBox target and exercise 1 investigation | Planned |
 | 5. Remediation, pull requests, and delivery | Planned |
 | 6. Operational and containment drills | Planned |
@@ -112,7 +112,7 @@ Every case ends the same way: the call is refused, nothing of the result goes ba
 
 Move the platform's way out and its mesh VPN node off the orchestrator, and send every log to a store outside the machines it describes. Comes between the log copies of milestone 3 and its dispatch work.
 
-The orchestrator holds every credential that matters and reaches any host on TCP 443 and 80 (T05). It is also the mesh VPN node, beside the operator's devices. Running exercises on top of that, with nothing recording what happens, would test a platform that cannot show what an agent did. Milestone 3 resumes with dispatch once this is done.
+When the milestone started, the orchestrator held every credential that matters, reached any host on TCP 443 and 80 (T05), and was the mesh VPN node, beside the operator's devices. Running exercises on top of that, with nothing recording what happens, would test a platform that cannot show what an agent did. Milestone 3 resumes with dispatch once this is done.
 
 **Depends on:** the decisions in ADRs [0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) to [0025](decisions/0025-the-mesh-node-on-its-own-vm.md): the edge VM and its rules, monitoring in Azure Monitor, SSH certificates for the operator, a host rule for pod traffic to the host, the targets in their own repository, and the mesh node on a router VM. The subscription's quota cannot be raised, so the edge and the router take Denmark East's 4 vCPUs, and the targets move to Poland Central.
 

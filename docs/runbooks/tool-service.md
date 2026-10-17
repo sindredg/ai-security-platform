@@ -81,7 +81,7 @@ No dispatch step exists yet. `register.sh` stands in for it: it starts one short
    REPLACE_WITH_SSH aisec-orchestrator 'sudo grep -A1 "^kube-proxy-arg" /etc/rancher/k3s/config.yaml'
    ```
 
-   Expected: `- nodeport-addresses=10.40.0.4/32`. First boot writes it. Without it, the node port also answers on the mesh address, and check `T.6` fails. That was seen on 2026-10-15.
+   Expected: `- nodeport-addresses=10.40.0.4/32`. First boot writes it. Without it, the node port also answers on other local addresses. On 2026-10-15 it answered on the mesh address, which check `T.6` caught. The orchestrator left the mesh on 2026-10-17, and `T.6` is retired.
 
 6. Confirm that the pod egress rule is loaded and starts at boot.
 
@@ -122,7 +122,7 @@ No dispatch step exists yet. `register.sh` stands in for it: it starts one short
    validation/platform-checks.sh
    ```
 
-   Expected: `PASS` for every `T` check, `E.5` to `E.8`, `M.5`, and `Z.13`. A `U` check can fail on the day a security update is published and before the next unattended run. That is not a deployment fault. [Tool service checks](../validation/tool-service.md) say what each one proves.
+   Expected: `PASS` for every `T` check, `E.6` to `E.8`, `M.5`, and `Z.13`. A `U` check can fail on the day a security update is published and before the next unattended run. That is not a deployment fault. [Tool service checks](../validation/tool-service.md) say what each one proves.
 
 ## Round trip
 

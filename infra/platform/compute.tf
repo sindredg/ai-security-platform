@@ -3,29 +3,32 @@ locals {
   # others by address and a hosts file.
   orchestrator_ip = cidrhost(local.orchestrator_prefix, 4) # 10.40.0.4
   worker_ip       = cidrhost(local.worker_prefix, 4)       # 10.40.0.36
+  router_ip       = cidrhost(local.router_prefix, 4)       # 10.45.0.36
+  edge_ip         = cidrhost(local.edge_prefix, 4)         # 10.45.0.4
 
   image = {
     publisher = "Canonical"
     offer     = "ubuntu-26_04-lts"
-    version   = var.image_version
   }
+
+  platform_location = data.azurerm_resource_group.this.location
 
   vms = {
     orchestrator = {
-      size      = var.orchestrator_size
-      subnet    = "orchestrator"
-      address   = local.orchestrator_ip
-      image_sku = "server"
-      disk_gb   = 64
+      location      = local.platform_location
+      size          = var.orchestrator_size
+      subnet_id     = module.network.subnet_ids["orchestrator"]
+      address       = local.orchestrator_ip
+      image_sku     = "server"
+      image_version = var.image_version
+      disk_gb       = 64
       cloud_init = templatefile("${path.module}/cloud-init/orchestrator.yaml.tftpl", {
         admin_username              = var.admin_username
         operator_user_ca_public_key = var.operator_user_ca_public_key
         orchestrator_ip             = local.orchestrator_ip
         worker_ip                   = local.worker_ip
-        worker_prefix               = local.worker_prefix
-        advertised_routes           = "${var.address_space},${var.targets_address_space}"
-        tailscale_version           = var.tailscale_version
-        tailscale_auth_key          = var.tailscale_auth_key
+        edge_ip                     = local.edge_ip
+        platform_address_space      = var.address_space
         k3s_version                 = var.k3s_version
         k3s_sha256                  = var.k3s_sha256
         k3s_install_sha256          = var.k3s_install_sha256
@@ -40,21 +43,62 @@ locals {
       })
     }
     worker = {
-      size      = var.worker_size
-      subnet    = "worker"
-      address   = local.worker_ip
-      image_sku = "server-arm64"
-      disk_gb   = 64
+      location      = local.platform_location
+      size          = var.worker_size
+      subnet_id     = module.network.subnet_ids["worker"]
+      address       = local.worker_ip
+      image_sku     = "server-arm64"
+      image_version = var.image_version
+      disk_gb       = 64
       cloud_init = templatefile("${path.module}/cloud-init/worker.yaml.tftpl", {
         admin_username              = var.admin_username
         operator_user_ca_public_key = var.operator_user_ca_public_key
         orchestrator_ip             = local.orchestrator_ip
+        edge_ip                     = local.edge_ip
         # The account the orchestrator pulls the journal through (ADR 0019).
         log_export_command = filebase64("${path.module}/../../worker/log-export/aisec-journal-export")
         log_export_install = filebase64("${path.module}/../../worker/log-export/install-log-export.sh")
         # The account the feed key logs in to (ADR 0026).
         feed_receive_command = filebase64("${path.module}/../../worker/feed/aisec-feed-receive")
         feed_receive_install = filebase64("${path.module}/../../worker/feed/install-feed-account.sh")
+      })
+    }
+    router = {
+      location      = var.edge_location
+      size          = var.router_size
+      subnet_id     = module.edge_network.subnet_ids["router"]
+      address       = local.router_ip
+      image_sku     = "server"
+      image_version = var.image_version
+      disk_gb       = 30
+      cloud_init = templatefile("${path.module}/cloud-init/router.yaml.tftpl", {
+        admin_username              = var.admin_username
+        operator_user_ca_public_key = var.operator_user_ca_public_key
+        # The edge subnet is advertised with the other two, so operator
+        # sessions reach the edge VM (ADR 0025).
+        advertised_routes  = "${var.address_space},${var.targets_address_space},${local.edge_prefix}"
+        tailscale_version  = var.tailscale_version
+        tailscale_auth_key = var.tailscale_auth_key
+      })
+    }
+    edge = {
+      location      = var.edge_location
+      size          = var.edge_size
+      subnet_id     = module.edge_network.subnet_ids["edge"]
+      address       = local.edge_ip
+      image_sku     = "server"
+      image_version = var.image_version
+      disk_gb       = 30
+      cloud_init = templatefile("${path.module}/cloud-init/edge.yaml.tftpl", {
+        admin_username              = var.admin_username
+        operator_user_ca_public_key = var.operator_user_ca_public_key
+        edge_ip                     = local.edge_ip
+        orchestrator_ip             = local.orchestrator_ip
+        worker_prefix               = local.worker_prefix
+        # The fetch window's command and host list, as they are in the
+        # repository (ADR 0020).
+        fetch_window = filebase64("${path.module}/../../edge/aisec-fetch-window")
+        fetch_hosts  = filebase64("${path.module}/../../edge/fetch-hosts")
       })
     }
   }
@@ -68,14 +112,14 @@ resource "azurerm_network_interface" "vm" {
 
   name                = "nic-${var.name_prefix}-${each.key}"
   resource_group_name = data.azurerm_resource_group.this.name
-  location            = data.azurerm_resource_group.this.location
+  location            = each.value.location
   tags                = local.tags
 
-  # No public address, and no IP forwarding. The orchestrator routes for the
-  # mesh VPN, but it translates what it forwards to its own address first.
+  # No public address, and no IP forwarding. The router forwards for the mesh
+  # VPN, but it translates what it forwards to its own address first.
   ip_configuration {
     name                          = "primary"
-    subnet_id                     = module.network.subnet_ids[each.value.subnet]
+    subnet_id                     = each.value.subnet_id
     private_ip_address_allocation = "Static"
     private_ip_address            = each.value.address
   }
@@ -88,7 +132,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
   name                = "vm-${var.name_prefix}-${each.key}"
   computer_name       = "${var.name_prefix}-${each.key}"
   resource_group_name = data.azurerm_resource_group.this.name
-  location            = data.azurerm_resource_group.this.location
+  location            = each.value.location
   zone                = var.zone
   size                = each.value.size
   tags                = local.tags
@@ -117,11 +161,11 @@ resource "azurerm_linux_virtual_machine" "vm" {
     publisher = local.image.publisher
     offer     = local.image.offer
     sku       = each.value.image_sku
-    version   = local.image.version
+    version   = each.value.image_version
   }
 
   # The serial console and its boot log, on managed storage. With run-command,
-  # this is the way in when the orchestrator's mesh VPN is down.
+  # this is the way in when the router is down.
   boot_diagnostics {}
 
   custom_data = base64encode(each.value.cloud_init)

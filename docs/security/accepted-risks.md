@@ -4,7 +4,6 @@
 
 These have no control and no gate. They are carried on purpose.
 
-- **T05:** a compromised orchestrator can send data to any internet host on TCP 443 or 80. Its UDP rules are removed ([ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md)), checked by `E.5`. Pods are kept off the internet by network policies ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)) and a host rule ([ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md)), checked by `T.8`, `E.6`, and `E.7`. So the risk is root on the orchestrator, not a compromised pod. Host access is unchanged. Closing port 80 prevented package downloads. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md). Carried until milestone 3a builds the edge proxy of [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md). This entry goes when the 3a criteria for the orchestrator's way out are tested. Because of this entry, Trivy's `AZU-0051` (egress to every address) is ignored on the orchestrator's security group ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-suppression)).
 - **T15, T30:** a takeover of the operator's GitHub or Azure account defeats the design.
 - **Provider compromise:** Azure, GitHub, and the mesh VPN provider are trusted.
 - **Single approver:** nobody checks the operator.
@@ -14,6 +13,8 @@ These have no control and no gate. They are carried on purpose.
 - **Eight advisories in the converter's packages.** None is reachable in how the model build uses them. The reason for each is [below](#advisories-in-the-converters-packages).
 - **The workstation:** out of scope. A deployment key taken from it is covered by T29.
 - **The tool service uses a pinned self-signed certificate.** The worker trusts a local copy rather than a certificate authority ([ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md)). If the private key is stolen, the server certificate and the worker's trusted copy both need to be replaced.
+
+T05 left this list on 2026-10-17. The orchestrator reaches the internet only through Squid on the edge VM, and its 3a criteria are tested ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm)). What remains of it, the upload hosts during a fetch window, is T40 in the [threat model](threat-model.md). Trivy's `AZU-0051` is no longer ignored on the orchestrator's security group.
 
 ## Advisories in the converter's packages
 
@@ -61,4 +62,4 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 | Repository app permissions | T12 | Milestone 5 |
 | Sign-in strength on the operator's accounts cannot be shown by a gate | T15, T30 | Not planned |
 
-Two items left this table on 2026-10-16. A rate limit for requests without a valid token is now a [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring) criterion. The mesh agent's log upload is turned off on the router by [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md).
+Two items left this table on 2026-10-16. A rate limit for requests without a valid token is now a [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring) criterion. The mesh agent's log upload is turned off on the router by [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md), since 2026-10-17 (`R.5`).

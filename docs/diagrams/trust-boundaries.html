@@ -72,7 +72,7 @@
     <div class="diagram-container">
       <svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="trust-boundaries-title trust-boundaries-desc">
         <title id="trust-boundaries-title">Trust boundaries</title>
-        <desc id="trust-boundaries-desc">Architecture diagram showing the six trust boundaries of the platform: operator access over the mesh VPN, internet egress through one NAT gateway, GitHub pull requests and approval, the untrusted AI worker, the targets, and the Azure APIs used to build it all, with the worker and the targets blocked from everything else.</desc>
+        <desc id="trust-boundaries-desc">Architecture diagram showing the six trust boundaries of the platform: operator access over the mesh VPN, internet egress through Squid on the edge VM, GitHub pull requests and approval, the untrusted AI worker, the targets, and the Azure APIs used to build it all, with the worker and the targets blocked from everything else.</desc>
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
           <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
@@ -89,15 +89,18 @@
         <rect width="100%" height="100%" fill="#2d3142"/>
 
         <!-- Zones -->
-        <rect x="216" y="56" width="224" height="440" rx="8" fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.10)" stroke-width="0.8"/>
-        <rect x="258" y="60" width="140" height="12" rx="2" fill="#2d3142"/>
-        <text x="328" y="69" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">PLATFORM · SWEDEN CENTRAL</text>
+        <rect x="224" y="60" width="208" height="100" rx="8" fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.10)" stroke-width="0.8"/>
+        <rect x="276" y="64" width="104" height="12" rx="2" fill="#2d3142"/>
+        <text x="328" y="73" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">EDGE · DENMARK EAST</text>
+        <rect x="216" y="168" width="224" height="328" rx="8" fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.10)" stroke-width="0.8"/>
+        <rect x="296" y="172" width="64" height="12" rx="2" fill="#2d3142"/>
+        <text x="328" y="181" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">PLATFORM</text>
         <rect x="584" y="160" width="248" height="220" rx="8" fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.10)" stroke-width="0.8"/>
         <rect x="644" y="164" width="128" height="12" rx="2" fill="#2d3142"/>
         <text x="708" y="173" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">TARGETS · POLAND CENTRAL</text>
         <!-- Permitted paths -->
         <line x1="168" y1="304" x2="240" y2="304" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
-        <line x1="328" y1="248" x2="328" y2="152" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <line x1="392" y1="248" x2="392" y2="152" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
         <line x1="240" y1="108" x2="168" y2="108" fill="none" stroke="#739fdf" stroke-width="1.2" marker-end="url(#arrow-link)"/>
         <path d="M 240,132 H 212 Q 204,132 204,140 V 184 Q 204,192 196,192 H 168" fill="none" stroke="#739fdf" stroke-width="1.2" marker-end="url(#arrow-link)"/>
         <line x1="300" y1="360" x2="300" y2="408" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
@@ -115,8 +118,8 @@
         <text x="204" y="293" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">B1 VPN</text>
         <rect x="184" y="88" width="40" height="12" rx="2" fill="#2d3142"/>
         <text x="204" y="97" fill="#739fdf" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">B3 PRS</text>
-        <rect x="336" y="194" width="60" height="12" rx="2" fill="#2d3142"/>
-        <text x="366" y="203" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">B2 EGRESS</text>
+        <rect x="322" y="194" width="60" height="12" rx="2" fill="#2d3142"/>
+        <text x="352" y="203" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">B2 EGRESS</text>
         <rect x="220" y="378" width="72" height="12" rx="2" fill="#2d3142"/>
         <text x="256" y="387" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">B4 DISPATCH</text>
         <rect x="364" y="378" width="72" height="12" rx="2" fill="#2d3142"/>
@@ -160,15 +163,15 @@
         <rect x="240" y="88" width="176" height="64" rx="6" fill="rgba(240,138,89,0.05)" stroke="rgba(240,138,89,0.50)" stroke-width="1" stroke-dasharray="4,4"/>
         <rect x="248" y="96" width="32" height="12" rx="2" fill="transparent" stroke="rgba(240,138,89,0.50)" stroke-width="0.8"/>
         <text x="264" y="105" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">GATE</text>
-        <text x="328" y="124" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">NAT gateway</text>
-        <text x="328" y="140" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">the only way out</text>
+        <text x="328" y="124" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Edge VM</text>
+        <text x="328" y="140" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Squid · NAT gateway</text>
         <rect x="240" y="248" width="176" height="112" rx="6" fill="#2d3142"/>
         <rect x="240" y="248" width="176" height="112" rx="6" fill="rgba(240,138,89,0.08)" stroke="#f08a59" stroke-width="1"/>
         <rect x="248" y="256" width="76" height="12" rx="2" fill="transparent" stroke="rgba(240,138,89,0.50)" stroke-width="0.8"/>
         <text x="286" y="265" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">K3S · TRUSTED</text>
         <text x="328" y="292" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Orchestrator VM</text>
         <text x="328" y="308" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Argo · collectors · delivery</text>
-        <text x="328" y="322" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">tool services · package proxy</text>
+        <text x="328" y="322" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">tool services · no way out</text>
         <text x="328" y="336" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.40.0.0/27</text>
         <rect x="240" y="408" width="176" height="64" rx="6" fill="#2d3142"/>
         <rect x="240" y="408" width="176" height="64" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>

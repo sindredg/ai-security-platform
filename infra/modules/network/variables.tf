@@ -76,13 +76,12 @@ variable "subnets" {
   }
 }
 
-variable "peering" {
-  description = "Remote virtual network to peer with. Leave null until the remote network exists."
-  type = object({
-    name                      = string
+variable "peerings" {
+  description = "Remote virtual networks to peer with, by the name of this side's peering. Add one only once the remote network exists."
+  type = map(object({
     remote_virtual_network_id = string
-  })
-  default = null
+  }))
+  default = {}
 }
 
 variable "tags" {
