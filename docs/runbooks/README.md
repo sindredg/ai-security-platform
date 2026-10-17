@@ -12,3 +12,4 @@ One operator procedure per milestone, or per slice of a milestone that is built 
 | [Audit log and journal copies](audit-log.md) | 3 | Implemented on 2026-10-16. Installed once. Archive not run |
 | [Orchestrator hardening](orchestrator-hardening.md) | 3a | Implemented on 2026-10-16. Applied once to a running orchestrator. First boot from the template not run |
 | [SSH certificates and the feed account](ssh-certificates.md) | 3a | Implemented on 2026-10-16. Applied once to both running VMs. Revocation, replacement of the authority, and first boot from the templates not run |
+| [Repository settings and signed commits](repository-settings.md) | 3a | Implemented on 2026-10-17. Settings made in the web interface and read back. Fail side run once. The API steps not run from the start |
