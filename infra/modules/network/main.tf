@@ -38,6 +38,13 @@ resource "azurerm_virtual_network" "this" {
 
 # Rules are inline on purpose. That makes Terraform authoritative for the whole
 # rule set, so a rule added by hand shows up as drift and is removed on apply.
+#
+# AZU-0051 (egress to any address) is ignored for the orchestrator's group only.
+# Its HTTPS and HTTP rules to the internet are the platform's egress point,
+# carried as accepted risk T05 until the edge VM takes them over (ADR 0020).
+# The same finding on any other subnet still fails. The edge pull request
+# moves this key to the edge subnet.
+#trivy:ignore:AZU-0051[each.key=orchestrator]
 resource "azurerm_network_security_group" "this" {
   for_each = var.subnets
 
