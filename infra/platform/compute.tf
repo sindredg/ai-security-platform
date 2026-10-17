@@ -66,7 +66,7 @@ locals {
       subnet_id     = module.edge_network.subnet_ids["router"]
       address       = local.router_ip
       image_sku     = "server"
-      image_version = var.router_image_version
+      image_version = var.image_version
       disk_gb       = 30
       cloud_init = templatefile("${path.module}/cloud-init/router.yaml.tftpl", {
         admin_username              = var.admin_username

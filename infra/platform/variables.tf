@@ -65,7 +65,7 @@ variable "worker_size" {
 }
 
 variable "image_version" {
-  description = "Ubuntu 26.04 LTS image version of the orchestrator and the worker, the same for both architectures."
+  description = "Ubuntu 26.04 LTS image version of every VM, the same for both architectures."
   type        = string
   default     = "26.04.202610070"
 }
@@ -74,14 +74,6 @@ variable "router_size" {
   description = "VM size for the mesh VPN router. x64, 1 GB (ADR 0025)."
   type        = string
   default     = "Standard_B2ats_v2"
-}
-
-# Its own pin, so that a newer image for the router does not rebuild the
-# orchestrator and the worker. image_version moves with their next rebuild.
-variable "router_image_version" {
-  description = "Ubuntu 26.04 LTS image version of the router."
-  type        = string
-  default     = "26.04.202610140"
 }
 
 variable "admin_username" {
