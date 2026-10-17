@@ -14,6 +14,7 @@
 #   AISEC_WORK  Worker address or host alias. Default: 10.40.0.36
 #   AISEC_ROUTER  Router address or host alias, on the mesh VPN.
 #               Default: aisec-router
+#   AISEC_EDGE  Edge VM address or host alias. Default: 10.45.0.4
 #   AISEC_USER_CA  The SSH certificate authority's public key file on the
 #               workstation. The VMs have to trust this one and no other.
 #
@@ -28,16 +29,19 @@ SSH=${AISEC_SSH:-ssh}
 ORCH=${AISEC_ORCH:-10.40.0.4}
 WORK=${AISEC_WORK:-10.40.0.36}
 ROUTER=${AISEC_ROUTER:-aisec-router}
+EDGE=${AISEC_EDGE:-10.45.0.4}
 # The fingerprint the VMs' certificate authority file has to show. Without the
 # file there is nothing to compare with, and the check fails.
 USER_CA_FP=$(ssh-keygen -l -f "${AISEC_USER_CA:-/nonexistent}" 2>/dev/null | cut -d " " -f 2)
 USER_CA_FP=${USER_CA_FP:-"AISEC_USER_CA not given or not a public key"}
 ORCH_IP=10.40.0.4
 WORK_IP=10.40.0.36
+EDGE_IP=10.45.0.4
 # What the router advertises (ADR 0025): the platform, the targets, and the
 # edge subnet.
 ROUTES="10.40.0.0/20 10.45.0.0/27 10.50.0.0/20"
-PROXY="http://$ORCH_IP:3128"
+# Squid on the edge, for the worker and the orchestrator (ADR 0020).
+PROXY="http://$EDGE_IP:3128"
 MODEL_UNIT=aisec-llama-server
 MODEL_PORT=8080
 TOOL_PORT=30443
@@ -48,6 +52,9 @@ here=$(cd "$(dirname "$0")" && pwd)
 TOOL_IMAGE_DIGEST=$(sed -n 's/^ *image: ghcr.io[^@]*@\(sha256:[0-9a-f]*\)$/\1/p' "$here/../platform/tool-service/tool-service.yaml")
 # The journal export command the worker should run, from this checkout.
 EXPORT_SHA=$(sha256sum "$here/../worker/log-export/aisec-journal-export" | cut -d " " -f 1)
+# The fetch window's command and host list, from this checkout.
+WINDOW_SHA=$(sha256sum "$here/../edge/aisec-fetch-window" | cut -d " " -f 1)
+HOSTS_SHA=$(sha256sum "$here/../edge/fetch-hosts" | cut -d " " -f 1)
 # The feed account's command, from this checkout.
 FEED_SHA=$(sha256sum "$here/../worker/feed/aisec-feed-receive" | cut -d " " -f 1)
 # The copiers' programs and units, in install order, from this checkout.
@@ -151,9 +158,7 @@ echo "revoked_keys=$(stat -c "%U %G" /etc/ssh/aisec-revoked.krl 2>/dev/null) $(s
 '
 
 probe_orchestrator="$probe_common"'
-for unit in k3s squid; do
-  echo "unit_$(echo $unit | tr - _)=$(systemctl is-active $unit)"
-done
+echo "unit_k3s=$(systemctl is-active k3s)"
 echo "node_ready=$(k3s kubectl get nodes --no-headers 2>/dev/null | grep -c " Ready ")"
 echo "pods_not_running=$(k3s kubectl get pods -A --no-headers 2>/dev/null | grep -v -c " Running ")"
 echo "secrets_encryption=$(k3s secrets-encrypt status 2>/dev/null | sed -n "s/^Encryption Status: //p")"
@@ -179,9 +184,15 @@ echo "system_deployments_not_ready=$(k3s kubectl get deployments -n kube-system 
 echo "pod_egress=$(nft list chain inet aisec_pod_egress forward 2>/dev/null | sed -n "s/^\t\t//p" | sed "s/counter packets [0-9]* bytes [0-9]* /counter /" | tr "\n" "|")"
 echo "pod_egress_input=$(nft list chain inet aisec_pod_egress input 2>/dev/null | sed -n "s/^\t\t//p" | sed "s/counter packets [0-9]* bytes [0-9]* /counter /" | tr "\n" "|")"
 echo "pod_egress_unit=$(systemctl is-enabled aisec-pod-egress 2>/dev/null)"
-echo "squid_listen=$(ss -ltn | awk "{print \$4}" | grep ":3128$" | tr "\n" " " | sed "s/ $//")"
-echo "squid_no_new_privileges=$(systemctl show squid -p NoNewPrivileges --value)"
-echo "squid_from_orchestrator=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 -x '"$PROXY"' http://archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
+# The one way out of the orchestrator is Squid on the edge.
+echo "squid_installed=$(dpkg-query -W -f="\${Status}" squid 2>/dev/null | grep -c " ok installed$")"
+code() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 "$@"; }
+echo "proxy_own_mirror=$(code -x '"$PROXY"' http://azure.archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
+echo "proxy_worker_mirror=$(code -x '"$PROXY"' http://archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
+echo "proxy_tunnel=$(curl -s -o /dev/null -w "%{http_connect}" --max-time 8 -x '"$PROXY"' https://github.com/ 2>/dev/null)"
+echo "apt_proxy=$(apt-config dump 2>/dev/null | grep -c "Acquire::http::Proxy \"'"$PROXY"'\"")"
+echo "containerd_proxy=$(tr "\0" "\n" < /proc/$(pidof containerd)/environ 2>/dev/null | sed -n "s/^HTTPS_PROXY=//p")"
+echo "azure_dns=$(tcp 168.63.129.16 53)"
 # The package, and the interface it makes. Both are gone once the orchestrator
 # leaves the mesh VPN (ADR 0025).
 echo "mesh_agent=$(dpkg-query -W -f="\${Status}" tailscale 2>/dev/null | grep -c " ok installed$") $(ip -br link show tailscale0 2>/dev/null | wc -l)"
@@ -263,7 +274,7 @@ timeout 6 getent hosts example.com >/dev/null 2>&1; echo "resolve_public_name_rc
 echo "orchestrator_ssh=$(tcp '"$ORCH_IP"' 22)"
 echo "orchestrator_api=$(tcp '"$ORCH_IP"' 6443)"
 echo "orchestrator_kubelet=$(tcp '"$ORCH_IP"' 10250)"
-echo "orchestrator_proxy=$(tcp '"$ORCH_IP"' 3128)"
+echo "edge_proxy=$(tcp '"$EDGE_IP"' 3128)"
 echo "proxy_archive=$(code -x '"$PROXY"' http://archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
 echo "proxy_security=$(code -x '"$PROXY"' http://security.ubuntu.com/ubuntu/dists/resolute-security/InRelease)"
 echo "proxy_other_host=$(code -x '"$PROXY"' http://example.com/)"
@@ -320,6 +331,21 @@ echo "unattended_upgrades=$(systemctl is-enabled unattended-upgrades 2>/dev/null
 echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
 '
 
+probe_edge="$probe_common"'
+code() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 "$@"; }
+echo "unit_squid=$(systemctl is-active squid)"
+echo "squid_listen=$(ss -ltn | awk "{print \$4}" | grep ":3128$" | tr "\n" " " | sed "s/ $//")"
+echo "squid_no_new_privileges=$(systemctl show squid -p NoNewPrivileges --value)"
+# The edge itself is neither client, so Squid refuses it.
+echo "squid_from_edge=$(code -x '"$PROXY"' http://azure.archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
+echo "window=$(stat -c "%U %a %s" /run/aisec/fetch-window.conf 2>/dev/null) $(systemctl is-active aisec-fetch-window-close.timer 2>/dev/null)"
+echo "window_command=$(stat -c "%U %a" /usr/local/sbin/aisec-fetch-window 2>/dev/null) $(sha256sum /usr/local/sbin/aisec-fetch-window 2>/dev/null | cut -d " " -f 1)"
+echo "fetch_hosts=$(sha256sum /etc/squid/aisec-fetch-hosts 2>/dev/null | cut -d " " -f 1)"
+echo "mesh_agent=$(dpkg-query -W -f="\${Status}" tailscale 2>/dev/null | grep -c " ok installed$")"
+echo "unattended_upgrades=$(systemctl is-enabled unattended-upgrades 2>/dev/null)"
+echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
+'
+
 common_checks() { # prefix
   check "$1.1" "No failed systemd unit" 0 "$(value failed_units)"
   check "$1.2" "SSH: no root login" no "$(value sshd_root)"
@@ -369,16 +395,23 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # A system pod that pod security refuses is never created, so K.3 does not
   # see it. Its deployment stays short of ready.
   check K.10 "Every system deployment is ready" 0 "$(value system_deployments_not_ready)"
-  check E.1 "The orchestrator reaches the internet on 443" open "$(value egress_https)"
+  # Both addresses answer when the path is open, so a timeout is the
+  # security group's deny. Before the way out closed, both were "open".
+  check E.12 "The orchestrator opens no connection to the internet" timeout "$(value egress_https)"
+  check E.13 "The orchestrator gets no answer from Azure DNS" timeout "$(value azure_dns)"
   check E.2 "The orchestrator reaches the worker on 22" open "$(value to_worker_ssh)"
   # Nothing listens on the worker's port 80. If its rules let the packet in,
   # the worker answers with a reset. Only a timeout shows the rules dropped it.
   check E.3 "The worker's rules drop the orchestrator on 80" timeout "$(value to_worker_http)"
   check E.4 "The feed key runs nothing but the feed command" 2 "$(value feed_refuses)"
-  check P.1 "Squid is active" active "$(value unit_squid)"
-  check P.2 "Squid listens on the private address only" "$ORCH_IP:3128" "$(value squid_listen)"
-  check P.3 "Squid cannot gain privileges" yes "$(value squid_no_new_privileges)"
-  check P.4 "Squid refuses a client outside the worker subnet" 403 "$(value squid_from_orchestrator)"
+  check P.12 "Squid is not installed on the orchestrator" 0 "$(value squid_installed)"
+  check P.13 "The edge serves the orchestrator's package mirror" 200 "$(value proxy_own_mirror)"
+  check P.14 "The edge refuses the orchestrator another host" 403 "$(value proxy_worker_mirror)"
+  # A procedure step opens a window and sees 200. The checks only read, so a
+  # window open while they run shows here as a failure.
+  check P.15 "The edge refuses the orchestrator a tunnel while no window is open" 403 "$(value proxy_tunnel)"
+  check U.10 "apt on the orchestrator uses the edge" 1 "$(value apt_proxy)"
+  check U.11 "containerd pulls images through the edge" "$PROXY" "$(value containerd_proxy)"
   # The model server listens on the worker's loopback address only (S.4), so
   # this is E.3 again on the port that matters: nothing answers on this
   # address, a packet the rules let in gets a reset, and only a timeout shows
@@ -464,7 +497,7 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check C.7 "No connection to the Kubernetes API" timeout "$(value orchestrator_api)"
   check C.8 "No connection to the kubelet" timeout "$(value orchestrator_kubelet)"
   check C.9 "The worker does not forward packets" 0 "$(value ip_forward)"
-  check P.5 "The worker reaches the proxy port" open "$(value orchestrator_proxy)"
+  check P.5 "The worker reaches the proxy port on the edge" open "$(value edge_proxy)"
   check P.6 "The proxy serves archive.ubuntu.com" 200 "$(value proxy_archive)"
   check P.7 "The proxy serves security.ubuntu.com" 200 "$(value proxy_security)"
   check P.8 "The proxy refuses another host" 403 "$(value proxy_other_host)"
@@ -503,7 +536,7 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
     "1 root root 644 from=\"$ORCH_IP\",restrict,command=\"/usr/local/sbin/aisec-feed-receive\"" "$(value feed_key)"
   check E.10 "The feed account has no other group, no sudo, and not its own home" "aisec-feed 0 root" "$(value feed_account)"
   check E.11 "The worker runs the feed command in this checkout" "$FEED_SHA" "$(value feed_command)"
-  check U.3 "apt on the worker uses the proxy" 1 "$(value apt_proxy)"
+  check U.3 "apt on the worker uses the edge" 1 "$(value apt_proxy)"
   check U.4 "Unattended upgrades are enabled on the worker" enabled "$(value unattended_upgrades)"
   check U.5 "No security update is pending on the worker" 0 "$(value security_updates_pending)"
   common_checks HW
@@ -551,6 +584,28 @@ else
   check A.12 "Reachable over the mesh VPN with the operator certificate" yes no
 fi
 
+echo
+echo "== Edge ($EDGE)"
+if probe=$($SSH "$EDGE" 'sudo bash -s' <<<"$probe_edge" 2>/dev/null) && [ -n "$probe" ]; then
+  check A.15 "Reachable through the router with the operator certificate" yes yes
+  check A.16 "No plain key is authorized for the administrator" 0 "$(value authorized_keys)"
+  check A.17 "The administrator forwards nothing on the edge" "no any" "$(value sshd_admin_forwarding)"
+  check A.18 "The edge is not on the mesh VPN" 0 "$(value mesh_agent)"
+  check P.1 "Squid is active" active "$(value unit_squid)"
+  check P.2 "Squid listens on the edge's private address only" "$EDGE_IP:3128" "$(value squid_listen)"
+  check P.3 "Squid cannot gain privileges" yes "$(value squid_no_new_privileges)"
+  check P.4 "Squid refuses a client outside the two subnets" 403 "$(value squid_from_edge)"
+  # Empty file, no close timer: no window is open while the checks run.
+  check P.16 "No fetch window is open" "root 644 0 inactive" "$(value window)"
+  check P.17 "The fetch window command is root's and the one in this checkout" "root 700 $WINDOW_SHA" "$(value window_command)"
+  check P.18 "Squid's fetch host list is the one in this checkout" "$HOSTS_SHA" "$(value fetch_hosts)"
+  check U.12 "Unattended upgrades are enabled on the edge" enabled "$(value unattended_upgrades)"
+  check U.13 "No security update is pending on the edge" 0 "$(value security_updates_pending)"
+  common_checks HE
+else
+  check A.15 "Reachable through the router with the operator certificate" yes no
+fi
+
 if [ "$workstation" = 1 ]; then
   echo
   echo "== Workstation, through the mesh VPN"
@@ -559,10 +614,11 @@ if [ "$workstation" = 1 ]; then
   # The API server listens on this address (K.1). The policy no longer grants
   # it: kubectl goes through an SSH tunnel to the orchestrator (A.8).
   check M.2 "The mesh policy drops the Kubernetes API" timeout "$(tcp $ORCH_IP 6443 6)"
-  # Squid and the kubelet both listen on this address (P.2, and C.8 above). The
-  # mesh drops what its policy does not grant, so a timeout is the policy.
-  # "refused" would mean the packet reached the orchestrator.
-  check M.3 "The mesh policy drops the proxy port" timeout "$(tcp $ORCH_IP 3128 6)"
+  # Squid listens on the edge (P.2), and the kubelet on the orchestrator (C.8
+  # above). The mesh drops what its policy does not grant, so a timeout is the
+  # policy. "refused" would mean the packet reached the VM.
+  check M.3 "The mesh policy drops the proxy port on the edge" timeout "$(tcp $EDGE_IP 3128 6)"
+  check M.8 "The mesh policy allows SSH to the edge" open "$(tcp $EDGE_IP 22 6)"
   check M.4 "The mesh policy drops the kubelet port" timeout "$(tcp $ORCH_IP 10250 6)"
   check M.5 "The mesh policy drops the tool port" timeout "$(tcp $ORCH_IP $TOOL_PORT 6)"
   check M.6 "The mesh policy allows SSH to the router" open "$(tcp "$ROUTER" 22 6)"
@@ -576,9 +632,8 @@ if [ "$azure" = 1 ]; then
   echo "== Azure, as the operator"
   check Z.1 "No VM has a public address" 0 \
     "$(az vm list -g $RG -d --query "length([?publicIps!=''])" -o tsv 2>/dev/null)"
-  # The orchestrator's gateway and the router's, until the edge stage removes
-  # the orchestrator's (ADR 0020).
-  check Z.2 "The platform group holds two public addresses, the NAT gateways'" 2 \
+  # The edge network's gateway is the platform's only way out (ADR 0020).
+  check Z.2 "The platform group holds one public address, the NAT gateway's" 1 \
     "$(az network public-ip list -g $RG --query "length(@)" -o tsv 2>/dev/null)"
   check Z.3 "The target group holds no public address" 0 \
     "$(az network public-ip list -g $RG_TARGETS --query "length(@)" -o tsv 2>/dev/null)"
@@ -653,7 +708,7 @@ print("\n".join(sorted(lines)))
   # So an answer has to arrive and hold rules before anything is compared. No
   # answer is a FAIL that says so.
   az_err=$(mktemp)
-  for row in Z.4:orchestrator:platform Z.5:worker:platform Z.16:router:edge; do
+  for row in Z.4:orchestrator:platform Z.5:worker:platform Z.16:router:edge Z.20:edge:edge; do
     IFS=: read -r id vm network <<<"$row"
     claim="Effective rules on the $vm interface equal the configured rules"
     : >"$az_err"
@@ -681,19 +736,30 @@ print("\n".join(sorted(lines)))
     elif [ "$vm" = router ]; then
       check Z.17 "Nothing is allowed into the router" 0 "no usable answer"
     fi
+    # Into the edge: Squid from the orchestrator and the worker subnets, and
+    # SSH from the router subnet. Nothing else.
+    if [ "$vm" = edge ] && [ -n "$effective" ]; then
+      check Z.21 "Only the proxy port and SSH from the router are allowed into the edge" \
+        "allow-proxy-from-orchestrator 3128-3128 allow-proxy-from-worker 3128-3128 allow-ssh-from-router 22-22" \
+        "$(printf '%s\n' "$effective" | awk '$1 == "Inbound" && $3 == "Allow" { print $4, $NF }' | sort | tr '\n' ' ' | sed 's/ $//')"
+    elif [ "$vm" = edge ]; then
+      check Z.21 "Only the proxy port and SSH from the router are allowed into the edge" allowed "no usable answer"
+    fi
   done
   rm -f "$az_err"
 
-  flow() { # remote address:port, printed as "Access rule"
-    az network watcher test-ip-flow -g $RG --vm vm-aisec-worker --direction Outbound --protocol TCP \
-      --local "$WORK_IP:50000" --remote "$1" --query "join(' ', [access, ruleName])" -o tsv 2>/dev/null |
+  flow() { # remote address:port [vm local-address], printed as "Access rule"
+    az network watcher test-ip-flow -g $RG --vm "vm-aisec-${2:-worker}" --direction Outbound --protocol TCP \
+      --local "${3:-$WORK_IP}:50000" --remote "$1" --query "join(' ', [access, ruleName])" -o tsv 2>/dev/null |
       sed 's#securityRules/##'
   }
   check Z.6 "Worker to the target network is denied by its own rule" "Deny deny-to-targets" "$(flow 10.50.0.4:22)"
   check Z.7 "Worker to the internet is denied by its own rule" "Deny deny-to-internet" "$(flow 1.1.1.1:443)"
-  check Z.8 "Worker to the proxy is allowed by its own rule" "Allow allow-package-proxy-to-orchestrator" "$(flow $ORCH_IP:3128)"
+  check Z.8 "Worker to the proxy on the edge is allowed by its own rule" "Allow allow-package-proxy-to-edge" "$(flow $EDGE_IP:3128)"
   check Z.9 "Worker to the Kubernetes API is denied" "Deny deny-all-outbound" "$(flow $ORCH_IP:6443)"
   check Z.13 "Worker to the tool port is allowed by its own rule" "Allow allow-tool-service-to-orchestrator" "$(flow $ORCH_IP:$TOOL_PORT)"
+  check Z.22 "Orchestrator to the internet is denied by its own rule" "Deny deny-to-internet" "$(flow 1.1.1.1:443 orchestrator $ORCH_IP)"
+  check Z.23 "Orchestrator to the proxy on the edge is allowed by its own rule" "Allow allow-proxy-to-edge" "$(flow $EDGE_IP:3128 orchestrator $ORCH_IP)"
 
   # A network interface with a public address, validated and never deployed.
   sub=$(az account show --query id -o tsv 2>/dev/null)
