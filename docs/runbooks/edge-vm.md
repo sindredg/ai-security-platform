@@ -13,7 +13,7 @@ The orchestrator keeps its own NAT gateway until step 8. Until then each step ca
 | The platform deployment identity | `REPLACE_WITH_CRED_DIR/platform.env`, as in the [platform compute runbook](platform-compute.md) |
 | `az`, signed in as the operator | Read-only queries, the serial log, and the checks |
 | A certificate signed today | As in the [SSH certificates runbook](ssh-certificates.md), with `source-address=10.45.0.32/27,100.64.0.0/10` |
-| Two checkouts of this repository | `REPLACE_WITH_EDGE_COMMIT`, the commit that adds the edge, and `REPLACE_WITH_CLOSE_COMMIT`, the one that closes the orchestrator's way out. A fresh build from scratch needs only the second |
+| A checkout of this repository, at two commits | `REPLACE_WITH_EDGE_COMMIT`, the commit that adds the edge, and `REPLACE_WITH_CLOSE_COMMIT`, the one that closes the orchestrator's way out. A fresh build from scratch needs only the second |
 | `REPLACE_WITH_SSH` | The operator's `ssh` command with its options. Host aliases `aisec-orchestrator`, `aisec-worker`, `aisec-router`, and `aisec-edge` (`10.45.0.4`) |
 
 ## Before the build

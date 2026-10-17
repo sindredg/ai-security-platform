@@ -36,7 +36,7 @@ The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.
 | Worker | Outbound | Deny | The target network, the internet, Azure DNS | `deny-to-targets`, `deny-to-internet`, `deny-to-azure-dns` |
 | Worker | Outbound | Allow | TCP 3128 to the edge subnet | `allow-package-proxy-to-edge` |
 | Worker | Outbound | Allow | TCP 30443 to the orchestrator subnet | `allow-tool-service-to-orchestrator` |
-| Router | Outbound | Allow | TCP 443 and 80 to the internet, through its own NAT gateway | `allow-https-to-internet`, `allow-http-to-internet` |
+| Router | Outbound | Allow | TCP 443 and 80 to the internet, through the edge network's NAT gateway | `allow-https-to-internet`, `allow-http-to-internet` |
 | Router | Outbound | Allow | TCP 22 to the platform network, the target network, and the edge subnet | `allow-ssh-to-platform`, `allow-ssh-to-targets`, `allow-ssh-to-edge` |
 | Router | Inbound | Allow | Nothing | |
 | Edge | Inbound | Deny | Anything from the target network | `deny-from-targets` |
