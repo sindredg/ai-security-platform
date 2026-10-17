@@ -18,12 +18,12 @@ updates:
       interval: weekly
 
   # The provider pin is the same in every root and in the shared module. One
-  # grouped pull request keeps them in step.
+  # grouped pull request keeps them in step. The target root is in the targets
+  # repository, which has its own Dependabot configuration and its own pin.
   - package-ecosystem: terraform
     directories:
       - /infra/bootstrap
       - /infra/platform
-      - /infra/targets
       - /infra/modules/network
     schedule:
       interval: weekly

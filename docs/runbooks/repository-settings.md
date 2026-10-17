@@ -1,6 +1,6 @@
 # Repository settings and signed commits: operator procedure
 
-Status: Implemented on 2026-10-17. The settings were made in the web interface that day and read back with the command in step 7. Steps 8 to 11 were run that day, with the results in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github). Steps 1 to 6 as written here, through the API, have not been run from the start.
+Status: Implemented on 2026-10-17. The settings were made in the web interface that day and read back with the command in step 7. Steps 8 to 11 were run that day, with the results in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github). On 2026-10-17 steps 4 to 11 were run as written, through the API, on the new [targets repository](https://github.com/sindredg/ai-security-platform-test), with its own list of checks in step 5 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-repositorys-settings)). Steps 1 to 3 were not repeated: the key and the allowed signers file were already in place.
 
 The repository is the approval channel, so its settings are part of the system ([pipeline](../components/pipeline.md#repository-settings), [ADR 0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)). These steps set up commit signing on the workstation, the allowed signers file, squash-only merges, the two rulesets, and then prove the fail side.
 
@@ -97,7 +97,7 @@ The repository is the approval channel, so its settings are part of the system (
    gh api -X POST repos/REPLACE_WITH_OWNER/REPLACE_WITH_REPO/rulesets --input protect-main.json --jq '{id,name,enforcement}'
    ```
 
-   Expected: the new ruleset's ID, `protect-main`, `active`. `15368` is the GitHub Actions app: a status with the same name from anything else does not count. The required checks are the [pipeline page's](../components/pipeline.md#checks-on-every-pull-request) list without the dependency scan. When a check is added there, it is added here.
+   Expected: the new ruleset's ID, `protect-main`, `active`. `15368` is the GitHub Actions app: a status with the same name from anything else does not count. The required checks are the [pipeline page's](../components/pipeline.md#checks-on-every-pull-request) list without the dependency scan. When a check is added there, it is added here. For the targets repository, the list is its own six: Terraform format and validate, Checkov, Trivy, Secret scan, ShellCheck, and Commit signatures ([pipeline](../components/pipeline.md#the-targets-repository)).
 
 6. Create the ruleset that refuses unsigned commits on every branch.
 

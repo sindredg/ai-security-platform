@@ -1,2 +1,0 @@
-# Copy to backend.hcl and replace the placeholder. The copy is ignored by Git.
-storage_account_name = "REPLACE_WITH_TARGETS_STATE_ACCOUNT"

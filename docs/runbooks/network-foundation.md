@@ -2,6 +2,8 @@
 
 Status: Implemented and validated on 2026-10-10. Built once, from an empty subscription. A second build from scratch has not been run. Results are in the [milestone 1 worklog](../worklogs/0001-network-foundation.md).
 
+On 2026-10-17 the target root moved to the [targets repository](https://github.com/sindredg/ai-security-platform-test), and steps 6, 8, 10, and 12 and the rotation now name its checkout as `$TARGETS`. They have not been run in that form. The [target network rebuild](#rebuild-the-target-network) was run that day.
+
 The state upload in step 5 was added and run on 2026-10-11. Key handling in steps 3 and 12 and in the rotation changed on 2026-10-11, to keep one key file per side. Checked that day: key generation with throwaway keys, and the sign-in from a temporary PEM for both identities. The rest of step 12 was not repeated.
 
 Run these steps to build or revalidate milestone 1: state storage, deployment identities, both virtual networks, their security groups, and the peering. Never commit local values, plans, state, keys, or raw output.
@@ -15,6 +17,7 @@ Run these steps to build or revalidate milestone 1: state storage, deployment id
 | `terraform` 1.16.6 | The roots refuse any other version |
 | `az` 2.88 or later, `openssl` 3, `jq` | Sign-in, checks, key generation, and reading Terraform outputs |
 | A private directory outside the repository, on an encrypted disk | Holds two private keys. Called `$CRED_DIR` below |
+| A checkout of the [targets repository](https://github.com/sindredg/ai-security-platform-test) | Holds the target root. `$TARGETS` below is its `infra/targets` directory, as an absolute path: `export TARGETS=REPLACE_WITH_TARGETS_CHECKOUT/infra/targets` |
 
 The design is in the [architecture](../architecture.md). The reasons for the identity setup are in [ADR 0008](../decisions/0008-deployment-identities-and-bootstrap-scope.md).
 
@@ -26,7 +29,7 @@ Three identities appear below. Keep track of which one a shell is using.
 | --- | --- | --- |
 | Operator | Steps 1 to 5, and the read-only checks | `az login` |
 | Platform deployment identity | `infra/platform` | Certificate, through `platform.env` |
-| Target deployment identity | `infra/targets` | Certificate, through `targets.env` |
+| Target deployment identity | `infra/targets` in the targets repository | Certificate, through `targets.env` |
 
 ## Prepare the subscription
 
@@ -115,6 +118,7 @@ Three identities appear below. Keep track of which one a shell is using.
 6. Write the local files the other two roots need. None of them is tracked.
 
    ```bash
+   declare -A root=([platform]=../platform [targets]="$TARGETS")
    for side in platform targets; do
      cat > "$CRED_DIR/$side.env" <<EOT
    export ARM_SUBSCRIPTION_ID="$ARM_SUBSCRIPTION_ID"
@@ -123,12 +127,12 @@ Three identities appear below. Keep track of which one a shell is using.
    export ARM_CLIENT_CERTIFICATE_PATH="$CRED_DIR/$side.pfx"
    EOT
      printf 'storage_account_name = "%s"\n' \
-       "$(terraform output -json state_storage_accounts | jq -r ".$side")" > "../$side/backend.hcl"
+       "$(terraform output -json state_storage_accounts | jq -r ".$side")" > "${root[$side]}/backend.hcl"
    done
-   chmod 600 "$CRED_DIR"/*.env ../platform/backend.hcl ../targets/backend.hcl
+   chmod 600 "$CRED_DIR"/*.env ../platform/backend.hcl "$TARGETS/backend.hcl"
    ```
 
-   Expected: `platform.env` and `targets.env` in `$CRED_DIR`, and a `backend.hcl` in each of `infra/platform` and `infra/targets`.
+   Expected: `platform.env` and `targets.env` in `$CRED_DIR`, and a `backend.hcl` in each of `infra/platform` and `$TARGETS`.
 
 ## Apply the networks
 
@@ -153,7 +157,7 @@ A fresh shell has no `CRED_DIR`. Export it again, as in step 3, before sourcing 
 8. Apply the target root, peering included.
 
    ```bash
-   cd ../targets
+   cd "$TARGETS"
    source "$CRED_DIR/targets.env"
    printf 'platform_virtual_network_id = "%s"\n' \
      "$(az network vnet show -g rg-aisec-platform -n vnet-aisec-platform --query id -o tsv)" > terraform.tfvars
@@ -163,12 +167,12 @@ A fresh shell has no `CRED_DIR`. Export it again, as in step 3, before sourcing 
    terraform apply targets.tfplan
    ```
 
-   Expected: the plan adds 14 resources: one virtual network, four subnets, four security groups, four associations, and one peering. The `az` command runs as the operator, because the target identity cannot read the platform network.
+   Expected: the plan adds 14 resources: one virtual network, four subnets, four security groups, four associations, and one peering. The `az` command runs as the operator, because the target identity cannot read the platform network. `init` also fetches the shared network module from the platform repository, at the commit `main.tf` pins.
 
 9. Apply the platform root again, now with its half of the peering.
 
    ```bash
-   cd ../platform
+   cd REPLACE_WITH_PLATFORM_CHECKOUT/infra/platform
    source "$CRED_DIR/platform.env"
    printf 'targets_virtual_network_id = "%s"\n' \
      "$(az network vnet show -g rg-aisec-targets -n vnet-aisec-targets --query id -o tsv)" > terraform.tfvars
@@ -185,7 +189,7 @@ A fresh shell has no `CRED_DIR`. Export it again, as in step 3, before sourcing 
 
     ```bash
     (cd ../platform && source "$CRED_DIR/platform.env" && terraform plan -detailed-exitcode)
-    (cd ../targets && source "$CRED_DIR/targets.env" && terraform plan -detailed-exitcode)
+    (cd "$TARGETS" && source "$CRED_DIR/targets.env" && terraform plan -detailed-exitcode)
     (cd ../bootstrap && terraform plan -detailed-exitcode)
     ```
 
@@ -223,6 +227,7 @@ A fresh shell has no `CRED_DIR`. Export it again, as in step 3, before sourcing 
 
     ```bash
     export TENANT_ID="$(az account show --query tenantId -o tsv)"
+    declare -A root=([platform]=../platform [targets]="$TARGETS")
     check() {
       side="$1"; other="$2"
       export AZURE_CONFIG_DIR="$(mktemp -d)"
@@ -230,7 +235,7 @@ A fresh shell has no `CRED_DIR`. Export it again, as in step 3, before sourcing 
       ( source "$CRED_DIR/$side.env"
         openssl pkcs12 -in "$CRED_DIR/$side.pfx" -passin pass: -noenc -out "$pem"
         az login --service-principal -u "$ARM_CLIENT_ID" --certificate "$pem" --tenant "$TENANT_ID" -o none
-        own_state="$(cut -d'"' -f2 "../$side/backend.hcl")"; other_state="$(cut -d'"' -f2 "../$other/backend.hcl")"
+        own_state="$(cut -d'"' -f2 "${root[$side]}/backend.hcl")"; other_state="$(cut -d'"' -f2 "${root[$other]}/backend.hcl")"
         az network vnet show -g "rg-aisec-$side" -n "vnet-aisec-$side" -o none                                  # allowed
         az storage blob list --account-name "$own_state" -c tfstate --auth-mode login -o none                 # allowed
         az network vnet show -g "rg-aisec-$other" -n "vnet-aisec-$other" -o none                                # denied
@@ -263,6 +268,57 @@ A fresh shell has no `CRED_DIR`. Export it again, as in step 3, before sourcing 
     ```
 
     Expected: `0`, `false`, `Connected`.
+
+## Rebuild the target network
+
+Run on 2026-10-17 to move the target network from Denmark East to Poland Central ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)), with the results in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-in-poland-central). The same steps rebuild it in place. Run each root as its own identity, in a fresh shell with `CRED_DIR` and `TARGETS` exported.
+
+A change of `location` alone does not work. The plan replaces the network and the security groups but not the subnets or the peering, because those name the network and the name does not change. Applied, it would leave state that points at deleted subnets.
+
+1. Destroy the target network.
+
+   ```bash
+   cd "$TARGETS"
+   source "$CRED_DIR/targets.env"
+   terraform plan -destroy -out=destroy.tfplan
+   terraform apply destroy.tfplan && rm destroy.tfplan
+   ```
+
+   Expected: 14 to destroy: the network, four subnets, four security groups, four associations, and the target half of the peering. Then, as the operator, `az network vnet peering show -g rg-aisec-platform --vnet-name vnet-aisec-platform -n peer-platform-to-targets --query peeringState -o tsv` prints `Disconnected`.
+
+2. Re-create the platform half of the peering.
+
+   ```bash
+   cd REPLACE_WITH_PLATFORM_CHECKOUT/infra/platform
+   source "$CRED_DIR/platform.env"
+   terraform plan -replace='module.network.azurerm_virtual_network_peering.this[0]' -out=platform.tfplan
+   terraform apply platform.tfplan && rm platform.tfplan
+   ```
+
+   Expected: 1 to add and 1 to destroy, the peering and nothing else. The half then reads `Initiated`. The rebuilt network keeps its name and so its ID, which is why a plain plan shows no change here and a forced replacement is needed ([troubleshooting 06](../troubleshooting/06-rebuilt-network-leaves-peering-disconnected.md)).
+
+3. Build the target network.
+
+   ```bash
+   cd "$TARGETS"
+   source "$CRED_DIR/targets.env"
+   terraform plan -out=targets.tfplan
+   terraform apply targets.tfplan && rm targets.tfplan
+   ```
+
+   Expected: 14 to add, in the region `location` names. Both halves of the peering then read `Connected`.
+
+   On 2026-10-17, steps 2 and 3 ran the other way round. The target apply created 13 resources and failed on its half of the peering with `RemotePeeringIsDisconnected`. After step 2, a second target plan added the one missing resource.
+
+4. Confirm that every root has converged, then run the checks.
+
+   ```bash
+   (cd REPLACE_WITH_PLATFORM_CHECKOUT/infra/platform && source "$CRED_DIR/platform.env" && terraform plan -detailed-exitcode)
+   (cd "$TARGETS" && source "$CRED_DIR/targets.env" && terraform plan -detailed-exitcode)
+   REPLACE_WITH_PLATFORM_CHECKOUT/validation/platform-checks.sh
+   ```
+
+   Expected: `No changes` and exit `0` twice. In the checks, `Z.14` and `Z.15` pass, with `Z.11` and the other `Z` checks that read the target group.
 
 ## Rotate a certificate
 
@@ -302,7 +358,8 @@ Rotate one side at a time, before that side's end date from step 4. Do not rerun
 4. Confirm the new key works, then delete the old one.
 
    ```bash
-   (cd ../$side && source "$CRED_DIR/$side.env" && terraform plan -detailed-exitcode)
+   declare -A root=([platform]=../platform [targets]="$TARGETS")
+   (cd "${root[$side]}" && source "$CRED_DIR/$side.env" && terraform plan -detailed-exitcode)
    rm -r "$CRED_DIR/previous"
    ```
 
@@ -314,7 +371,7 @@ This procedure has not been run yet.
 
 Removal has not been run. This is the intended order.
 
-1. Destroy `infra/platform`, then `infra/targets`, each as its own identity. Destroying either side breaks the peering.
+1. Destroy `infra/platform`, then `$TARGETS`, each as its own identity. Destroying either side breaks the peering.
 2. In `infra/bootstrap/main.tf`, remove `prevent_destroy` from the storage accounts. Then destroy the bootstrap root as the operator. This deletes both state accounts, both identities, the custom role, and all four resource groups.
 3. Delete `$CRED_DIR`.
 

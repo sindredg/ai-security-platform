@@ -30,7 +30,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | Page | Checks | What it covers |
 | --- | --- | --- |
 | [Access](access.md) | `A`, `M` | Who can get in, and through what |
-| [Containment](containment.md) | `C`, `E`, `R`, `Z.4` to `Z.9`, `Z.13` | What the worker cannot reach, and what the orchestrator can |
+| [Containment](containment.md) | `C`, `E`, `R`, `Z.4` to `Z.9`, `Z.13` to `Z.15` | What the worker cannot reach, and what the orchestrator can |
 | [Package proxy](package-proxy.md) | `P`, `U` | The worker's one path out, and whether updates arrive |
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |
@@ -67,6 +67,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-16 | 129 of 144 passed | Without the Azure checks, before the [SSH certificate rollout](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-of-each-new-check-1), with 14 new checks and 3 changed ones. The 15 that failed are the ones written down before the run |
 | 2026-10-16 | 144 of 144 passed | Without the Azure checks, after the [rollout](../worklogs/0004-edge-network-and-monitoring.md#rollout-1), from commit `53c921c` |
 | 2026-10-16 | 157 of 157 passed | Every check, the Azure ones included, at 21:44 UTC, from commit `2e2f6ff` |
+| 2026-10-17 | 159 of 159 passed | From the branch at `081eab2`, at 08:50 UTC, after the target network was rebuilt in Poland Central. First run with `Z.14` and `Z.15` ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-in-poland-central)) |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 

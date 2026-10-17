@@ -12,7 +12,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 
 | Check | What it does |
 | --- | --- |
-| Terraform format and validate | `terraform fmt -check` and `terraform validate` on every root |
+| Terraform format and validate | `terraform fmt -check` and `terraform validate` on the bootstrap and platform roots. The target root is checked in the [targets repository](https://github.com/sindredg/ai-security-platform-test) |
 | Checkov | Terraform and Kubernetes manifest misconfigurations |
 | Trivy | Terraform, Kubernetes manifest, and Dockerfile misconfigurations. For Terraform and the manifests, a second scanner beside Checkov. For the manifests, `.github/trivy-data/ksv0125.yaml` names `ghcr.io` as the trusted registry, with its reason |
 | Secret scan | gitleaks over the whole history |
@@ -48,9 +48,17 @@ Read from the GitHub API on 2026-10-17 at 07:10 UTC, after the changes for [0024
 
 The [repository settings runbook](../runbooks/repository-settings.md) sets these up and repeats the fail side.
 
+## The targets repository
+
+The [targets repository](https://github.com/sindredg/ai-security-platform-test) holds the target root ([0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) and has a pipeline of its own, at the same pins: Terraform format and validate, Checkov, Trivy, the secret scan, ShellCheck on the signature script, and "Commit signatures", a copy of this repository's check with the same allowed signer. The two scanners fetch the shared module first, because the rules are arguments to it, and a step fails each job when the module is missing.
+
+Its settings were set through the API with the runbook on 2026-10-17 and read back at 08:05 UTC: squash merges only, secret scanning with push protection, `protect-main` with the six checks above required, each from GitHub Actions, and a second ruleset that requires signed commits on every branch. Neither ruleset can be bypassed. The fail side was repeated there ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-in-poland-central)).
+
 ## Limits
 
 - **One person approves their own pull requests.**
+- **Checkov and Trivy do not judge the security group rules.** The network module builds them from a `for` expression that neither scanner evaluates. A rule that allows SSH from any source passed both, in the targets repository ([#96](https://github.com/sindredg/ai-security-platform/issues/96), [worklog](../worklogs/0004-edge-network-and-monitoring.md#the-scanners-and-the-module)). The live rules are compared with the configured ones by the [`Z` checks](../validation/containment.md#from-azures-side), after an apply.
+- **Two copies of the signature check.** A change to the script or the allowed signers file has to be made in both repositories.
 - **A change to the signature check takes effect only after it merges.** The pull request that changes it is judged by the version on `main`. The pull request that added it was not judged by it at all.
 - **The fail side on GitHub was run from branches of this repository.** A pull request that edits `signatures.yml` itself was blocked by the default branch's copy. A pull request from a fork was not tried ([#95](https://github.com/sindredg/ai-security-platform/issues/95), [worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github)).
 - **Every version update is made by hand.** Dependabot's commits are signed by GitHub, so its pull requests fail the signature check. The operator makes the same change in a pull request of their own.
