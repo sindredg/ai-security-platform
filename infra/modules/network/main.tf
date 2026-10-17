@@ -39,14 +39,15 @@ resource "azurerm_virtual_network" "this" {
 # Rules are inline on purpose. That makes Terraform authoritative for the whole
 # rule set, so a rule added by hand shows up as drift and is removed on apply.
 #
-# AZU-0051 (egress to any address) is ignored for two groups. The
-# orchestrator's HTTPS and HTTP rules to the internet are the platform's egress
-# point, carried as accepted risk T05 until the edge VM takes them over (ADR
-# 0020). The router's reach the mesh VPN's coordination service and relays,
-# whose addresses the vendor changes without notice (ADR 0025). The same
-# finding on any other subnet still fails. The edge stage moves the
-# orchestrator's key to the edge subnet.
+# AZU-0051 (egress to any address) is ignored for three groups. The
+# orchestrator's HTTPS and HTTP rules to the internet stay until its way out
+# is closed, in the next change (ADR 0020). The edge's carry Squid, which
+# filters by host name, and the hosts a fetch window opens sit behind CDNs
+# whose addresses change. The router's reach the mesh VPN's coordination
+# service and relays, whose addresses the vendor changes without notice (ADR
+# 0025). The same finding on any other subnet still fails.
 #trivy:ignore:AZU-0051[each.key=orchestrator]
+#trivy:ignore:AZU-0051[each.key=edge]
 #trivy:ignore:AZU-0051[each.key=router]
 resource "azurerm_network_security_group" "this" {
   for_each = var.subnets

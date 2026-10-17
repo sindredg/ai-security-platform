@@ -4,6 +4,7 @@ locals {
   orchestrator_ip = cidrhost(local.orchestrator_prefix, 4) # 10.40.0.4
   worker_ip       = cidrhost(local.worker_prefix, 4)       # 10.40.0.36
   router_ip       = cidrhost(local.router_prefix, 4)       # 10.45.0.36
+  edge_ip         = cidrhost(local.edge_prefix, 4)         # 10.45.0.4
 
   image = {
     publisher = "Canonical"
@@ -71,11 +72,31 @@ locals {
       cloud_init = templatefile("${path.module}/cloud-init/router.yaml.tftpl", {
         admin_username              = var.admin_username
         operator_user_ca_public_key = var.operator_user_ca_public_key
-        # The edge subnet is advertised before the edge VM exists, so the
-        # routes are approved once (ADR 0025).
+        # The edge subnet is advertised with the other two, so operator
+        # sessions reach the edge VM (ADR 0025).
         advertised_routes  = "${var.address_space},${var.targets_address_space},${local.edge_prefix}"
         tailscale_version  = var.tailscale_version
         tailscale_auth_key = var.tailscale_auth_key
+      })
+    }
+    edge = {
+      location      = var.edge_location
+      size          = var.edge_size
+      subnet_id     = module.edge_network.subnet_ids["edge"]
+      address       = local.edge_ip
+      image_sku     = "server"
+      image_version = var.image_version
+      disk_gb       = 30
+      cloud_init = templatefile("${path.module}/cloud-init/edge.yaml.tftpl", {
+        admin_username              = var.admin_username
+        operator_user_ca_public_key = var.operator_user_ca_public_key
+        edge_ip                     = local.edge_ip
+        orchestrator_ip             = local.orchestrator_ip
+        worker_prefix               = local.worker_prefix
+        # The fetch window's command and host list, as they are in the
+        # repository (ADR 0020).
+        fetch_window = filebase64("${path.module}/../../edge/aisec-fetch-window")
+        fetch_hosts  = filebase64("${path.module}/../../edge/fetch-hosts")
       })
     }
   }

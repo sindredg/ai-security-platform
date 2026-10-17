@@ -1,0 +1,179 @@
+#cloud-config
+# First boot of the edge VM: Squid and nothing else (ADR 0020). It holds no
+# credential and is not on the mesh VPN. Everything fetched here is a signed
+# package.
+write_files:
+  # The same hardening as the router. What was left alone, and why, is in the
+  # milestone 2 worklog.
+  - path: /etc/sysctl.d/90-aisec-hardening.conf
+    permissions: "0644"
+    content: |
+      kernel.sysrq = 0
+      kernel.kptr_restrict = 2
+      kernel.core_uses_pid = 1
+      fs.suid_dumpable = 0
+      fs.protected_fifos = 2
+      fs.protected_regular = 2
+      net.core.bpf_jit_harden = 2
+      net.ipv4.conf.all.accept_source_route = 0
+      net.ipv4.conf.default.accept_source_route = 0
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv4.conf.all.send_redirects = 0
+      net.ipv4.conf.default.send_redirects = 0
+      net.ipv4.conf.all.log_martians = 1
+      net.ipv4.conf.default.log_martians = 1
+      net.ipv6.conf.all.accept_redirects = 0
+      net.ipv6.conf.default.accept_redirects = 0
+
+  # Read before the image's own files, and the first value wins.
+  - path: /etc/ssh/sshd_config.d/10-aisec.conf
+    permissions: "0600"
+    content: |
+      PermitRootLogin no
+      AllowAgentForwarding no
+      AllowTcpForwarding no
+      X11Forwarding no
+      MaxAuthTries 3
+      MaxSessions 2
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+      TCPKeepAlive no
+      LogLevel VERBOSE
+      # The administrator account takes only a certificate signed by the
+      # operator's certificate authority, for the principal in the file (ADR
+      # 0022). First boot writes the empty revocation list.
+      Match User ${admin_username}
+        AuthorizedKeysFile none
+        TrustedUserCAKeys /etc/ssh/aisec-user-ca.pub
+        AuthorizedPrincipalsFile /etc/ssh/aisec-principals
+        RevokedKeys /etc/ssh/aisec-revoked.krl
+
+  - path: /etc/ssh/aisec-user-ca.pub
+    permissions: "0644"
+    content: |
+      ${operator_user_ca_public_key}
+
+  - path: /etc/ssh/aisec-principals
+    permissions: "0644"
+    content: |
+      aisec-operator
+
+  - path: /etc/modprobe.d/aisec-unused.conf
+    permissions: "0644"
+    content: |
+      install dccp /bin/false
+      install sctp /bin/false
+      install rds /bin/false
+      install tipc /bin/false
+      install usb-storage /bin/false
+
+  # Two clients. The worker gets two package hosts, as in ADR 0011. The
+  # orchestrator gets its own package host, and a tunnel to the hosts in the
+  # fetch list only while the operator holds a fetch window open. Squid
+  # resolves every name, so neither client needs DNS.
+  - path: /etc/squid/squid.conf
+    permissions: "0644"
+    content: |
+      http_port ${edge_ip}:3128
+      acl worker src ${worker_prefix}
+      acl orchestrator src ${orchestrator_ip}/32
+      acl worker_repositories dstdomain archive.ubuntu.com security.ubuntu.com
+      acl orchestrator_repositories dstdomain azure.archive.ubuntu.com
+      acl fetch_hosts dstdomain "/etc/squid/aisec-fetch-hosts"
+      acl plain_http port 80
+      acl tls_port port 443
+      acl downloads method GET HEAD
+      http_access deny !worker !orchestrator
+      include /run/aisec/fetch-window.conf
+      http_access deny CONNECT
+      http_access deny !plain_http
+      http_access deny !downloads
+      http_access allow worker worker_repositories
+      http_access allow orchestrator orchestrator_repositories
+      http_access deny all
+      cache deny all
+      forwarded_for delete
+      access_log daemon:/var/log/squid/access.log squid
+      shutdown_lifetime 1 seconds
+
+  - path: /etc/squid/aisec-fetch-hosts
+    encoding: b64
+    permissions: "0644"
+    content: ${fetch_hosts}
+
+  # The window starts closed: an empty file on every boot.
+  - path: /etc/tmpfiles.d/aisec-fetch-window.conf
+    permissions: "0644"
+    content: |
+      d /run/aisec 0755 root root -
+      f /run/aisec/fetch-window.conf 0644 root root -
+
+  - path: /usr/local/sbin/aisec-fetch-window
+    encoding: b64
+    permissions: "0700"
+    content: ${fetch_window}
+
+  # Squid is the one service the orchestrator and the worker can reach here,
+  # so it gets the sandbox it had on the orchestrator.
+  - path: /etc/systemd/system/squid.service.d/10-aisec.conf
+    permissions: "0644"
+    content: |
+      [Unit]
+      After=systemd-tmpfiles-setup.service
+
+      [Service]
+      NoNewPrivileges=yes
+      CapabilityBoundingSet=CAP_SETUID CAP_SETGID CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+      ProtectSystem=full
+      ProtectHome=yes
+      PrivateTmp=yes
+      PrivateDevices=yes
+      ProtectKernelTunables=yes
+      ProtectKernelModules=yes
+      ProtectKernelLogs=yes
+      ProtectControlGroups=yes
+      ProtectClock=yes
+      ProtectHostname=yes
+      RestrictNamespaces=yes
+      RestrictRealtime=yes
+      RestrictSUIDSGID=yes
+      LockPersonality=yes
+      MemoryDenyWriteExecute=yes
+      SystemCallArchitectures=native
+      RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+
+  - path: /usr/local/sbin/aisec-first-boot
+    permissions: "0700"
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+
+      # An empty revocation list. Without the file, sshd refuses every
+      # certificate for the administrator account. Azure wrote the operator key
+      # to the account's authorized_keys, which sshd ignores for it. The file
+      # goes, so a key line there is a change to look at.
+      ssh-keygen -q -k -f /etc/ssh/aisec-revoked.krl
+      rm -f /home/${admin_username}/.ssh/authorized_keys
+      sysctl --system >/dev/null
+      systemd-tmpfiles --create /etc/tmpfiles.d/aisec-fetch-window.conf
+      systemctl daemon-reload
+
+      # Tighter modes on files an audit flagged, and no assembler or linker.
+      chmod 600 /etc/crontab /etc/ssh/sshd_config
+      chmod 700 /etc/cron.d /etc/cron.daily /etc/cron.hourly /etc/cron.weekly /etc/cron.monthly
+      DEBIAN_FRONTEND=noninteractive apt-get remove -y -q -o DPkg::Lock::Timeout=120 binutils
+
+      # It keeps the configuration written above. The archive drops old
+      # versions, so this one is not pinned (ADR 0011).
+      apt-get update -q
+      DEBIAN_FRONTEND=noninteractive apt-get install -y -q -o Dpkg::Options::=--force-confold squid
+
+      # The image is days old, and the daily upgrade first runs up to a day
+      # after boot (U.9 on the router).
+      unattended-upgrade
+
+      touch /var/lib/aisec-first-boot.done
+
+runcmd:
+  - [/usr/local/sbin/aisec-first-boot]

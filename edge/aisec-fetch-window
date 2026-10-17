@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Opens and closes the orchestrator's fetch window on the edge (ADR 0020).
+#
+# While the window is open, Squid lets the orchestrator open a tunnel on port
+# 443 to the hosts in /etc/squid/aisec-fetch-hosts. A timer closes it after at
+# most 60 minutes. Closing stops new tunnels. A tunnel already open runs until
+# its download ends.
+#
+# The window is one line in a file under /run, which Squid includes. A reboot
+# empties /run, so the window starts closed.
+#
+# Usage: aisec-fetch-window open [MINUTES] | close | status
+set -euo pipefail
+
+window=/run/aisec/fetch-window.conf
+rule='http_access allow orchestrator CONNECT tls_port fetch_hosts'
+timer=aisec-fetch-window-close
+max_minutes=60
+
+say() {
+  logger -t aisec-fetch-window -- "$*"
+  echo "$*"
+}
+
+# Squid reads the window when it reloads its configuration.
+write_window() {
+  local tmp
+  tmp=$(mktemp /run/aisec/fetch-window.XXXXXX)
+  printf '%s' "$1" >"$tmp"
+  chmod 0644 "$tmp"
+  mv -f "$tmp" "$window"
+  systemctl reload squid
+}
+
+# A failed close leaves its transient units behind, and systemd-run refuses a
+# name that is still taken.
+stop_timer() {
+  systemctl stop "$timer.timer" 2>/dev/null || true
+  systemctl reset-failed "$timer.timer" "$timer.service" 2>/dev/null || true
+}
+
+if [ "$(id -u)" != 0 ]; then
+  echo "aisec-fetch-window: run as root" >&2
+  exit 1
+fi
+
+case "${1:-}" in
+  open)
+    minutes=${2:-$max_minutes}
+    if ! [[ $minutes =~ ^[0-9]+$ ]] || [ "$minutes" -lt 1 ] || [ "$minutes" -gt "$max_minutes" ]; then
+      echo "aisec-fetch-window: minutes must be 1 to $max_minutes" >&2
+      exit 2
+    fi
+    # A second open starts the count again. The window never lasts longer
+    # than the last open asked for.
+    stop_timer
+    systemd-run --quiet --unit="$timer" --on-active="${minutes}m" \
+      --timer-property=AccuracySec=1s /usr/local/sbin/aisec-fetch-window close
+    write_window "$rule"$'\n'
+    say "open for $minutes minutes, by ${SUDO_USER:-root}"
+    ;;
+  close)
+    write_window ''
+    stop_timer
+    say "closed, by ${SUDO_USER:-timer or root}"
+    ;;
+  status)
+    if [ -s "$window" ]; then
+      echo "open, closes $(systemctl show "$timer.timer" -p NextElapseUSecRealtime --value)"
+    else
+      echo closed
+    fi
+    ;;
+  *)
+    echo "usage: aisec-fetch-window open [MINUTES] | close | status" >&2
+    exit 2
+    ;;
+esac

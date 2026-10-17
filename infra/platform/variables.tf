@@ -76,6 +76,12 @@ variable "router_size" {
   default     = "Standard_B2ats_v2"
 }
 
+variable "edge_size" {
+  description = "VM size for the edge VM, which runs Squid. x64, 4 GB until its footprint is measured (ADR 0020)."
+  type        = string
+  default     = "Standard_B2als_v2"
+}
+
 variable "admin_username" {
   description = "Administrator account on every VM. Certificate authentication only (ADR 0022)."
   type        = string

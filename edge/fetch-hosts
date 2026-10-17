@@ -1,0 +1,28 @@
+# Hosts the orchestrator may open a tunnel to while a fetch window is open
+# (ADR 0020). Squid reads this as a dstdomain list: one name per line, and a
+# leading dot takes the name and every name under it. Two entries that overlap
+# make Squid warn, so a name is listed once.
+#
+# The names come from what the orchestrator fetches. The hosts those names
+# redirect to are read from Squid's log on a window, and added here then.
+
+# K3s, its install script, and the model converter's source.
+github.com
+raw.githubusercontent.com
+release-assets.githubusercontent.com
+objects.githubusercontent.com
+
+# The tool service image.
+ghcr.io
+pkg-containers.githubusercontent.com
+
+# The cluster's system images.
+registry-1.docker.io
+auth.docker.io
+production.cloudflare.docker.com
+
+# Model and agent inputs.
+huggingface.co
+.hf.co
+files.pythonhosted.org
+download.pytorch.org

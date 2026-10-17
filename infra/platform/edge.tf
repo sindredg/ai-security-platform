@@ -3,8 +3,8 @@
 # bind its resources, and Sweden Central's quota is full.
 #
 # The router subnet holds the mesh VPN node and nothing else. No subnet has a
-# rule that reaches it: the tunnel is opened outbound. The edge subnet, with
-# Squid and the platform's way out, comes in the next stage.
+# rule that reaches it: the tunnel is opened outbound. The edge subnet holds
+# Squid, the one proxy the orchestrator and the worker may use.
 module "edge_network" {
   source = "../modules/network"
 
@@ -14,6 +14,58 @@ module "edge_network" {
   address_space       = var.edge_address_space
 
   subnets = {
+    edge = {
+      address_prefix = local.edge_prefix
+      rules = [
+        local.deny_from_targets,
+        local.allow_ssh_from_router,
+        {
+          name                       = "allow-proxy-from-orchestrator"
+          priority                   = 1000
+          direction                  = "Inbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = local.orchestrator_prefix
+          destination_address_prefix = local.edge_prefix
+          destination_port_range     = "3128"
+          description                = "The orchestrator's packages, and its fetches while a fetch window is open."
+        },
+        {
+          name                       = "allow-proxy-from-worker"
+          priority                   = 1010
+          direction                  = "Inbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = local.worker_prefix
+          destination_address_prefix = local.edge_prefix
+          destination_port_range     = "3128"
+          description                = "The worker's packages. Squid forwards them to two package hosts and nothing else."
+        },
+        {
+          name                       = "allow-https-to-internet"
+          priority                   = 1000
+          direction                  = "Outbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = local.edge_prefix
+          destination_address_prefix = "Internet"
+          destination_port_range     = "443"
+          description                = "Squid's tunnels during a fetch window."
+        },
+        {
+          name                       = "allow-http-to-internet"
+          priority                   = 1010
+          direction                  = "Outbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = local.edge_prefix
+          destination_address_prefix = "Internet"
+          destination_port_range     = "80"
+          description                = "Ubuntu mirrors, which serve signed packages over plain HTTP."
+        },
+      ]
+    }
+
     router = {
       address_prefix = local.router_prefix
       rules = [
@@ -86,8 +138,8 @@ module "edge_network" {
   tags = local.tags
 }
 
-# The router's way out. The edge stage attaches the edge subnet to it too, and
-# removes the orchestrator's gateway in Sweden Central.
+# The platform's way out. The router and the edge VM use it, and no other
+# subnet has an outbound method.
 resource "azurerm_public_ip" "edge_egress" {
   count = var.egress_enabled ? 1 : 0
 
@@ -123,5 +175,14 @@ resource "azurerm_subnet_nat_gateway_association" "router" {
   nat_gateway_id = azurerm_nat_gateway.edge_egress[0].id
 
   # A gateway without an address drops everything it is given.
+  depends_on = [azurerm_nat_gateway_public_ip_association.edge_egress]
+}
+
+resource "azurerm_subnet_nat_gateway_association" "edge" {
+  count = var.egress_enabled ? 1 : 0
+
+  subnet_id      = module.edge_network.subnet_ids["edge"]
+  nat_gateway_id = azurerm_nat_gateway.edge_egress[0].id
+
   depends_on = [azurerm_nat_gateway_public_ip_association.edge_egress]
 }

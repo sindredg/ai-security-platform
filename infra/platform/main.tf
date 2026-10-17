@@ -102,6 +102,17 @@ module "network" {
           description                = "Administration through the orchestrator."
         },
         {
+          name                       = "allow-proxy-to-edge"
+          priority                   = 1020
+          direction                  = "Outbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = local.orchestrator_prefix
+          destination_address_prefix = local.edge_prefix
+          destination_port_range     = "3128"
+          description                = "Squid on the edge: packages always, other downloads during a fetch window."
+        },
+        {
           name                       = "allow-https-to-internet"
           priority                   = 1100
           direction                  = "Outbound"
@@ -174,6 +185,17 @@ module "network" {
           destination_address_prefix = local.orchestrator_prefix
           destination_port_range     = "3128"
           description                = "Package updates."
+        },
+        {
+          name                       = "allow-package-proxy-to-edge"
+          priority                   = 1020
+          direction                  = "Outbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = local.worker_prefix
+          destination_address_prefix = local.edge_prefix
+          destination_port_range     = "3128"
+          description                = "Package updates, through Squid on the edge."
         },
         {
           name                       = "allow-tool-service-to-orchestrator"
