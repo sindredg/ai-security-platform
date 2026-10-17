@@ -645,8 +645,13 @@ print("\n".join(sorted(lines)))
   n=10
   for side in platform targets; do
     subnet=$(az network vnet subnet list -g "rg-aisec-$side" --vnet-name "vnet-aisec-$side" --query "[0].id" -o tsv 2>/dev/null)
+    # The interface goes where its network is, so the public address is the
+    # template's only fault. The target group is in Denmark East and its
+    # network in Poland Central. With the group's region, Azure still reports
+    # the policy first (seen 2026-10-17), but the check would rest on that order.
+    region=$(az network vnet show -g "rg-aisec-$side" -n "vnet-aisec-$side" --query location -o tsv 2>/dev/null)
     cat >"$template" <<EOF
-{"\$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#","contentVersion":"1.0.0.0","resources":[{"type":"Microsoft.Network/networkInterfaces","apiVersion":"2024-05-01","name":"nic-policy-check","location":"[resourceGroup().location]","properties":{"ipConfigurations":[{"name":"c","properties":{"subnet":{"id":"$subnet"},"privateIPAllocationMethod":"Dynamic","publicIPAddress":{"id":"/subscriptions/$sub/resourceGroups/rg-aisec-$side/providers/Microsoft.Network/publicIPAddresses/pip-policy-check"}}}]}}]}
+{"\$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#","contentVersion":"1.0.0.0","resources":[{"type":"Microsoft.Network/networkInterfaces","apiVersion":"2024-05-01","name":"nic-policy-check","location":"$region","properties":{"ipConfigurations":[{"name":"c","properties":{"subnet":{"id":"$subnet"},"privateIPAllocationMethod":"Dynamic","publicIPAddress":{"id":"/subscriptions/$sub/resourceGroups/rg-aisec-$side/providers/Microsoft.Network/publicIPAddresses/pip-policy-check"}}}]}}]}
 EOF
     check "Z.$n" "A public address on an interface is refused by policy in the $side group" 1 \
       "$(az deployment group validate -g "rg-aisec-$side" --template-file "$template" -o json 2>&1 | grep -c -m 1 RequestDisallowedByPolicy)"
@@ -655,6 +660,18 @@ EOF
   rm -f "$template"
   check Z.12 "The policy check left nothing behind" 0 \
     "$(az resource list --query "length([?contains(name,'policy-check')])" -o tsv 2>/dev/null)"
+
+  # ADR 0020 moves the target network to Poland Central. Its resource group and
+  # state stay in Denmark East, so the group's location proves nothing here.
+  check Z.14 "The target network is in Poland Central" polandcentral \
+    "$(az network vnet show -g $RG_TARGETS -n vnet-aisec-targets --query location -o tsv 2>/dev/null)"
+  # Each side holds its own half of the peering. When one network is rebuilt,
+  # the other half shows Disconnected, even though the name and ID are the
+  # same, until that half is re-created.
+  check Z.15 "Both halves of the peering are connected" "Connected Connected" \
+    "$(az network vnet peering show -g $RG --vnet-name vnet-aisec-platform -n peer-platform-to-targets \
+      --query peeringState -o tsv 2>/dev/null) $(az network vnet peering show -g $RG_TARGETS \
+      --vnet-name vnet-aisec-targets -n peer-targets-to-platform --query peeringState -o tsv 2>/dev/null)"
 fi
 
 echo

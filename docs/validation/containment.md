@@ -45,6 +45,8 @@ A timeout proves a packet was dropped. It does not say which rule dropped it, an
 | `Z.8` | Worker to the proxy is allowed by `allow-package-proxy-to-orchestrator` | IP flow verify |
 | `Z.9` | Worker to the Kubernetes API is denied by `deny-all-outbound` | IP flow verify |
 | `Z.13` | Worker to the tool port is allowed by `allow-tool-service-to-orchestrator` | IP flow verify. See [tool service](tool-service.md) |
+| `Z.14` | The target network is in Poland Central | The network's location, not the group's: the group stays in Denmark East ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)) |
+| `Z.15` | Both halves of the peering are connected | `peeringState` of each half. A rebuilt network leaves the other half `Disconnected` ([troubleshooting 06](../troubleshooting/06-rebuilt-network-leaves-peering-disconnected.md)) |
 
 ### What `Z.4` and `Z.5` compare
 
