@@ -46,27 +46,24 @@ resource "azurerm_network_security_group" "this" {
   location            = var.location
   tags                = var.tags
 
-  security_rule = [
-    for rule in concat(each.value.rules, local.baseline_rules) : {
-      name                       = rule.name
-      description                = rule.description
-      priority                   = rule.priority
-      direction                  = rule.direction
-      access                     = rule.access
-      protocol                   = rule.protocol
-      source_address_prefix      = rule.source_address_prefix
-      source_port_range          = try(rule.source_port_range, "*")
-      destination_address_prefix = rule.destination_address_prefix
-      destination_port_range     = rule.destination_port_range
-
-      source_address_prefixes                    = []
-      source_port_ranges                         = []
-      source_application_security_group_ids      = []
-      destination_address_prefixes               = []
-      destination_port_ranges                    = []
-      destination_application_security_group_ids = []
+  # A dynamic block, not a list assigned to security_rule. Trivy reads the
+  # rules in a dynamic block and skips a list built by a for expression.
+  # Checkov reads neither here: it does not resolve each.value in for_each.
+  dynamic "security_rule" {
+    for_each = concat(each.value.rules, local.baseline_rules)
+    content {
+      name                       = security_rule.value.name
+      description                = security_rule.value.description
+      priority                   = security_rule.value.priority
+      direction                  = security_rule.value.direction
+      access                     = security_rule.value.access
+      protocol                   = security_rule.value.protocol
+      source_address_prefix      = security_rule.value.source_address_prefix
+      source_port_range          = try(security_rule.value.source_port_range, "*")
+      destination_address_prefix = security_rule.value.destination_address_prefix
+      destination_port_range     = security_rule.value.destination_port_range
     }
-  ]
+  }
 }
 
 resource "azurerm_subnet" "this" {
