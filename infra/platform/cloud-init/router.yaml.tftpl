@@ -165,6 +165,12 @@ write_files:
       # that updater on by default. The version moves only with the pin (U.6).
       tailscale set --auto-update=false
 
+      # The image is days old, and the daily upgrade first runs up to a day
+      # after boot. The first build found 16 security updates pending, sshd and
+      # sudo among them (U.9). The agent is held and its repository is not one
+      # unattended-upgrade takes from.
+      unattended-upgrade
+
       touch /var/lib/aisec-first-boot.done
 
 runcmd:
