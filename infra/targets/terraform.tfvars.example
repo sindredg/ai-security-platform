@@ -1,3 +1,0 @@
-# Copy to terraform.tfvars and replace the placeholder. The copy is ignored by Git.
-# terraform -chdir=../platform output -raw virtual_network_id
-platform_virtual_network_id = "REPLACE_WITH_PLATFORM_VIRTUAL_NETWORK_ID"

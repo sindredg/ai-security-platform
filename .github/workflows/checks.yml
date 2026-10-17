@@ -65,9 +65,11 @@ jobs:
       - name: Format
         run: terraform fmt -check -recursive infra
 
+      # The target root is in the targets repository, with its own pipeline
+      # (ADR 0024).
       - name: Validate
         run: |
-          for root in bootstrap platform targets; do
+          for root in bootstrap platform; do
             echo "::group::${root}"
             terraform -chdir="infra/${root}" init -backend=false -input=false -lockfile=readonly
             terraform -chdir="infra/${root}" validate
