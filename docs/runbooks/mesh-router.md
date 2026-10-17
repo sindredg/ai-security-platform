@@ -246,7 +246,13 @@ The orchestrator and the router are both on the mesh until step 13. Until then, 
     }
     ```
 
-    Expected: the console saves it. A copy with a grant from `tag:aisec-router` to `autogroup:member` is refused with a failed test. Try that once, and do not save it.
+    Replace every `REPLACE_WITH_OPERATOR_LOGIN` first. The console accepts the placeholder, and with it the tests check a user who does not exist, so they pass whatever the grants say. The login is the `LoginName` of the operator's user:
+
+    ```bash
+    REPLACE_WITH_SSH aisec-router 'tailscale status --json' | python3 -c 'import json,sys; print(sorted({u["LoginName"] for u in json.load(sys.stdin)["User"].values()}))'
+    ```
+
+    Expected: the console saves it. Then the same policy with one more grant, from `tag:aisec-router` to `autogroup:member` on `tcp:22`, is refused with `test(s) failed for user: tag:aisec-router`. Do not keep that copy.
 
     The tests name single ports, because the policy language takes no port range in a test. They catch a grant that names the router's tag. Each operator device also runs with `shields-up`, which refuses every incoming connection whatever the policy says. Check it on each device: `tailscale debug prefs` shows `"ShieldsUp": true`.
 

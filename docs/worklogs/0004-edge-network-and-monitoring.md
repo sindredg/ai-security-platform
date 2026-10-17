@@ -14,7 +14,7 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | The orchestrator is not on the mesh VPN | **Tested** on the live system: `A.11` reads `0 0` after the agent was removed, and read `1 1` before ([the router](#the-router)) |
 | The mesh agent runs only on the router, with its own updates and its log upload off | **Tested** on the live system: `A.11` on the orchestrator, `U.6` and `R.5` on the router, and `Z.17` shows no inbound allow on the router ([the router](#the-router)). `R.5`'s fail side was seen on the orchestrator, `U.6`'s on 2026-10-16 |
 | A check fails when the mesh agent is behind the current stable release | **Tested** with `U.7`: passes on the live router at 1.104.1, as on the orchestrator before it, and fails locally on an older version and on no answer from the package site ([fail side](#the-fail-side-of-each-new-check)) |
-| The router cannot open a connection to an operator device | **Configured, not tested**: the policy grants `tag:aisec-router` no destination and its `tests` were saved in the console. Operator devices run `shields-up`, a device setting. No check opens a connection from the router to a device that listens ([limits](#limits-2)) |
+| The router cannot open a connection to an operator device | **Tested** for the policy: the console refused a policy with a grant from `tag:aisec-router` to `autogroup:member`, with `test(s) failed for user: tag:aisec-router` ([the policy tests](#the-policy-tests)). **Configured, not tested** for a connection: operator devices run `shields-up`, a device setting, and no check opens a connection from the router to a device that listens ([limits](#limits-2)) |
 | The Kubernetes API is not reachable over the mesh VPN | **Tested** on the live system: `M.2` times out after the final policy, and was `open` at 08:50 the same day. The API answers through `ssh -L` to the orchestrator ([the router](#the-router)) |
 | Operator SSH logins use certificates that expire within a day | **Tested** on the live system: a login with a 12-hour certificate works on both VMs, and the plain key, an expired certificate, one from another address, and one for another principal are refused, each with its reason in sshd's log ([slice (b)](#rollout-1)). `HO.17` to `HO.20` and `HW.17` to `HW.20` pass |
 | A pod reaches the host only on the ports the host rule lists, from its first packet | **Tested** on the live system: a new pod reached SSH before the change and timed out after it, while 6443 and 10250 stayed open, and `E.8` passes ([rollout](#rollout)). The rule loads before K3s, so it holds from the first packet. That ordering is read from the unit, not observed on a boot |
@@ -476,11 +476,26 @@ The auth key was not spent by the failed apply: the VM was never created.
 | The API server through `ssh -L` to the orchestrator, without credentials | TLS verifies against the cluster's certificate authority for `127.0.0.1`, and the answer is 401 | `ssl_verify_result=0`, HTTP 401. `openssl s_client -verify_ip 127.0.0.1`: `Verify return code: 0 (ok)` |
 | Four failed logins to the worker through the router, then the feed key from the orchestrator | A penalty for `10.45.0.36` only, and the feed key accepted, exit 2 | `activating ipv4 penalty of 16 seconds` for `10.45.0.36`. Inside that window: `Accepted publickey for aisec-feed from 10.40.0.4`, exit 2 |
 | The agent removed from the orchestrator, and its node removed in the admin console | No package, no interface, no clamp table | `A.11` reads `0 0` |
-| The final access policy, with `tests` | Saved | Saved |
+| The final access policy, with `tests` | Saved | Saved, with a placeholder where the operator's login belongs. See below |
 
 The penalty result settles [#87](https://github.com/sindredg/ai-security-platform/issues/87). Operator sessions reach the worker from the router's address now, and the feed and the journal pull from the orchestrator's, so a failed operator login no longer blocks either. No exemption is needed.
 
 The `kubectl` step ran without a kubeconfig: none exists on the workstation for this cluster, and copying the cluster administrator's credential off the orchestrator to show the path was not worth it. A request without credentials proves the tunnel, the certificate, and the API server. It does not prove a `kubectl` command.
+
+### The policy tests
+
+Written before the run: a policy that adds a grant from `tag:aisec-router` to `autogroup:member` on TCP 22 is refused by the second test, which denies the router the operator's login on 22, 80, 443, 445, and 3389.
+
+The final policy was first saved with `REPLACE_WITH_YOUR_LOGIN` in place of the operator's login, in all six places. The console accepted it. With no such user, the router's `deny` entries pass whatever the grants say, so that policy proved nothing. The first test, which expects that user to reach the router on 22, passed too, though the name is not a member. That is read from the save, not explained.
+
+The login was read from the router's own peer list (`tailscale status --json`, `LoginName`), filled in, and saved. Then the same policy with the bad grant added:
+
+| Policy | Result |
+| --- | --- |
+| Final, with the operator's login | Saved |
+| The same, plus a grant from `tag:aisec-router` to `autogroup:member` on `tcp:22` | Refused: `Error: test(s) failed`, `test(s) failed for user: tag:aisec-router` |
+
+The bad policy was never in force. The console's error names the test's source and not the port.
 
 ### Checks
 
@@ -509,7 +524,7 @@ Written before each run: the value that proves the claim, and an input that has 
 ### Limits
 
 - First boot from the router's template ran once, without the `unattended-upgrade` line. The orchestrator's template without the mesh has not run on a first boot.
-- Each operator device has to run with `shields-up`, a device setting that no check reads. The policy's `tests` were saved in the console; whether they refuse a bad change was not shown by a check in the repository.
+- Each operator device has to run with `shields-up`, a device setting that no check reads. The policy's `tests` refused a bad change once, in the console. Nothing in the repository reads the policy, so a later edit that drops the tests goes unseen.
 - The edge-to-targets peering is `Initiated`. The target repository adds its half, and an SSH rule from the router subnet, after this pull request merges.
 - No `kubectl` command ran through the tunnel.
 - The edge VM, Squid on it, the fetch window, and the orchestrator's loss of the internet are the next stage. Until then the orchestrator keeps its NAT gateway and its rules to the internet (T05).
