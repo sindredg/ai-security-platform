@@ -41,7 +41,7 @@ Run these steps once on VMs built before this change. They add two things that f
    ssh-keygen -s REPLACE_WITH_CA_KEY -I "aisec-operator-$(date -u +%F)" -n aisec-operator \
      -z "$(date -u +%s)" -V -5m:+11h55m \
      -O clear -O permit-pty -O permit-port-forwarding \
-     -O source-address=100.64.0.0/10,10.40.0.4/32 \
+     -O source-address=10.45.0.32/27,100.64.0.0/10 \
      REPLACE_WITH_OPERATOR_KEY.pub
    mv REPLACE_WITH_OPERATOR_KEY-cert.pub REPLACE_WITH_OPERATOR_KEY.aisec-cert.pub
    ssh-keygen -L -f REPLACE_WITH_OPERATOR_KEY.aisec-cert.pub
@@ -49,7 +49,9 @@ Run these steps once on VMs built before this change. They add two things that f
 
    Expected: one passphrase prompt, then a certificate with the key ID of the day, a serial, `Valid: from` five minutes ago for 12 hours, principal `aisec-operator`, the `source-address` option, and only `permit-port-forwarding` and `permit-pty`. The serial is the time in seconds, so each certificate has its own and can be revoked alone.
 
-   The start is five minutes back so that a workstation clock a little ahead is not refused. `10.40.0.4/32` is there until the router exists ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)). After that, the option is `source-address=10.45.0.32/27,100.64.0.0/10`.
+   The start is five minutes back so that a workstation clock a little ahead is not refused. `10.45.0.32/27` is the router subnet, where routed sessions come from, and `100.64.0.0/10` the tailnet range, for logins to the router itself. Until the router existed on 2026-10-17, the option named `10.40.0.4/32` instead of the router subnet ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md), [router runbook](mesh-router.md)).
+
+   Keep `ForwardAgent` off for every host, the worker above all. A forwarded agent lets root on the far end sign in as the operator wherever the certificate works, for as long as the session lasts.
 
    The certificate is kept beside the key under another name, so that `ssh` loads it only where the config says. Step 10 needs a login without it.
 
@@ -139,7 +141,7 @@ Run steps 7 to 12 for the worker first, then for the orchestrator. If something 
 
     ```bash
     ssh-keygen -s REPLACE_WITH_CA_KEY -I test-expired -n aisec-operator -z "$(date -u +%s)" -V -2h:-1h \
-      -O clear -O permit-pty -O source-address=100.64.0.0/10,10.40.0.4/32 \
+      -O clear -O permit-pty -O source-address=10.45.0.32/27,100.64.0.0/10 \
       REPLACE_WITH_OPERATOR_KEY.pub && mv REPLACE_WITH_OPERATOR_KEY-cert.pub test-expired-cert.pub
     # The same for test-wrong-source-cert.pub with -O source-address=192.0.2.1/32,
     # and for test-wrong-principal-cert.pub with -n aisec.

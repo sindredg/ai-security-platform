@@ -5,17 +5,17 @@ Milestone: 3a, edge network and monitoring
 
 ## Summary
 
-The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The edge, the router, and monitoring are not built. The gate is not met.
+The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The mesh VPN agent runs on a router VM of its own, and the orchestrator is off the mesh. The edge VM and monitoring are not built. The gate is not met.
 
 | Criterion | Result |
 | --- | --- |
 | The orchestrator reaches the internet only through the edge proxy, and only the hosts on its list | Open |
 | Only the edge resolves public names | Open |
-| The orchestrator is not on the mesh VPN | Open |
-| The mesh agent runs only on the router, with its own updates and its log upload off | Open |
-| A check fails when the mesh agent is behind the current stable release | **Tested** with `U.7`: passes on the live orchestrator at 1.104.1, and fails locally on an older version and on no answer from the package site ([fail side](#the-fail-side-of-each-new-check)) |
-| The router cannot open a connection to an operator device | Open |
-| The Kubernetes API is not reachable over the mesh VPN | Open |
+| The orchestrator is not on the mesh VPN | **Tested** on the live system: `A.11` reads `0 0` after the agent was removed, and read `1 1` before ([the router](#the-router)) |
+| The mesh agent runs only on the router, with its own updates and its log upload off | **Tested** on the live system: `A.11` on the orchestrator, `U.6` and `R.5` on the router, and `Z.17` shows no inbound allow on the router ([the router](#the-router)). `R.5`'s fail side was seen on the orchestrator, `U.6`'s on 2026-10-16 |
+| A check fails when the mesh agent is behind the current stable release | **Tested** with `U.7`: passes on the live router at 1.104.1, as on the orchestrator before it, and fails locally on an older version and on no answer from the package site ([fail side](#the-fail-side-of-each-new-check)) |
+| The router cannot open a connection to an operator device | **Configured, not tested**: the policy grants `tag:aisec-router` no destination and its `tests` were saved in the console. Operator devices run `shields-up`, a device setting. No check opens a connection from the router to a device that listens ([limits](#limits-2)) |
+| The Kubernetes API is not reachable over the mesh VPN | **Tested** on the live system: `M.2` times out after the final policy, and was `open` at 08:50 the same day. The API answers through `ssh -L` to the orchestrator ([the router](#the-router)) |
 | Operator SSH logins use certificates that expire within a day | **Tested** on the live system: a login with a 12-hour certificate works on both VMs, and the plain key, an expired certificate, one from another address, and one for another principal are refused, each with its reason in sshd's log ([slice (b)](#rollout-1)). `HO.17` to `HO.20` and `HW.17` to `HW.20` pass |
 | A pod reaches the host only on the ports the host rule lists, from its first packet | **Tested** on the live system: a new pod reached SSH before the change and timed out after it, while 6443 and 10250 stayed open, and `E.8` passes ([rollout](#rollout)). The rule loads before K3s, so it holds from the first packet. That ordering is read from the unit, not observed on a boot |
 | Every namespace rejects a privileged pod, whether or not it has a pod security label | **Tested** on the live system: `K.9` failed on `default`, `kube-node-lease`, `kube-public`, and `kube-system` before the change and passes after it ([rollout](#rollout)) |
@@ -434,3 +434,82 @@ The targets repository still pins the old module commit. Its pin moves in a pull
 - Checkov does not judge the security group rules ([#99](https://github.com/sindredg/ai-security-platform/issues/99)).
 - `AZU-0051` is ignored for every rule on the orchestrator's security group, not only the two rules to the internet.
 - The broken SSH rule was run locally, not on GitHub. The targets repository's pipeline gets the new module when its pin moves.
+
+## The router
+
+The mesh VPN agent moved from the orchestrator to a router VM of its own in Denmark East ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)). The orchestrator is off the mesh. Run on 2026-10-17 between 13:40 and 14:35 UTC, through the steps of the [router runbook](../runbooks/mesh-router.md). This is the first of two stages of the edge network. The edge VM is not built.
+
+### What changed
+
+| Change | Where |
+| --- | --- |
+| The edge network, `10.45.0.0/24` in Denmark East, in the platform resource group, with the router subnet `10.45.0.32/27`. Outbound TCP 443 and 80 to the internet and TCP 22 to the platform, the targets, and the edge subnet. No inbound allow. Its own NAT gateway | `infra/platform/edge.tf` |
+| The router VM, `Standard_B2ats_v2` in zone 1 at `10.45.0.36`, the same image as the other VMs. First boot installs the mesh agent at the held version with log upload off (`--no-logs-no-support`) and its own updater off, and advertises `10.40.0.0/20`, `10.50.0.0/20`, and `10.45.0.0/27` | `infra/platform/compute.tf`, `infra/platform/cloud-init/router.yaml.tftpl` |
+| `allow-ssh-from-router` on the orchestrator's and the worker's security groups | `infra/platform/main.tf` |
+| Peerings from the platform network to the edge network and back, and from the edge network to the target network | The same files. The network module takes a map of peerings now, with a `moved` block for the existing one |
+| The orchestrator's template no longer installs the mesh agent, the segment size clamp, or IP forwarding | `infra/platform/cloud-init/orchestrator.yaml.tftpl` |
+| The mesh checks read the router. New: `A.11` to `A.14`, `R.4` to `R.7`, `U.8`, `U.9`, `HR`, `M.6`, `M.7`, `Z.16` to `Z.19`. `M.2` now expects a timeout. `T.6` is retired | `validation/platform-checks.sh`, [access](../validation/access.md) |
+
+The access policy grants operator devices TCP 22 to `tag:aisec-router` as well as to its three routes. ADR 0025 names the routes only, which leaves no way to administer the router itself over SSH.
+
+### The applies
+
+Written before the plan: 13 to add, 2 to change, 0 to destroy, and the existing peering moved in state, not replaced.
+
+| Step | Plan | Result |
+| --- | --- | --- |
+| 1 | `13 to add, 2 to change, 0 to destroy`. `peering.this[0] has moved to ...this["peer-platform-to-targets"]` | 12 created, 2 changed. The VM failed: `PlatformImageNotFound: The platform image 'Canonical:ubuntu-26_04-lts:server:26.04.202610140' is not available` |
+| 2 | `1 to add`, the VM, at `26.04.202610070` | `1 added, 0 changed, 0 destroyed` |
+| After | `plan -detailed-exitcode` at 14:34 | `No changes`, exit 0 |
+
+The first version gave the router `26.04.202610140`, read that morning with `az vm image list --publisher Canonical --offer ubuntu-26_04-lts --sku server --all`. That command matches `--offer` and `--sku` as prefixes. The version came from `ubuntu-26_04-lts-daily`, Canonical's daily builds, and from `server-gen1`. The newest release of `ubuntu-26_04-lts:server` was `26.04.202610070`, the pin the other VMs already had, so the router got that one. The runbook's first step now filters on the exact offer and SKU.
+
+The auth key was not spent by the failed apply: the VM was never created.
+
+### First boot and the change-over
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| Host key from the serial log, against a scan through the mesh | The same fingerprint | `SHA256:NsnbS5Js...` both times |
+| First boot on the router | Marker, `status: done`, `/run/aisec` empty, units active, signed, the flag on the agent's command line | All as expected. `This node is accessible under Tailnet Lock`. `--no-logs-no-support` on the running `tailscaled`. `AdvertiseRoutes` the three networks |
+| The orchestrator stops advertising its routes, from a detached unit | `AdvertiseRoutes` empty on the orchestrator, and both VMs see the router as the client | `"AdvertiseRoutes":null`. `SSH_CLIENT` `10.45.0.36` on the worker and on the orchestrator |
+| The API server through `ssh -L` to the orchestrator, without credentials | TLS verifies against the cluster's certificate authority for `127.0.0.1`, and the answer is 401 | `ssl_verify_result=0`, HTTP 401. `openssl s_client -verify_ip 127.0.0.1`: `Verify return code: 0 (ok)` |
+| Four failed logins to the worker through the router, then the feed key from the orchestrator | A penalty for `10.45.0.36` only, and the feed key accepted, exit 2 | `activating ipv4 penalty of 16 seconds` for `10.45.0.36`. Inside that window: `Accepted publickey for aisec-feed from 10.40.0.4`, exit 2 |
+| The agent removed from the orchestrator, and its node removed in the admin console | No package, no interface, no clamp table | `A.11` reads `0 0` |
+| The final access policy, with `tests` | Saved | Saved |
+
+The penalty result settles [#87](https://github.com/sindredg/ai-security-platform/issues/87). Operator sessions reach the worker from the router's address now, and the feed and the journal pull from the orchestrator's, so a failed operator login no longer blocks either. No exemption is needed.
+
+The `kubectl` step ran without a kubeconfig: none exists on the workstation for this cluster, and copying the cluster administrator's credential off the orchestrator to show the path was not worth it. A request without credentials proves the tunnel, the certificate, and the API server. It does not prove a `kubectl` command.
+
+### Checks
+
+`validation/platform-checks.sh` from this branch:
+
+| When (UTC) | Result |
+| --- | --- |
+| 14:24 | `193 passed, 1 failed`. `U.9`: 16 security updates pending on the router, `openssh-server` and `sudo` among them |
+| 14:34, after `unattended-upgrade` on the router | `194 passed, 0 failed` |
+
+The image is ten days old, and the daily upgrade first runs up to a day after boot: the timer was set for 06:13 the next morning. The router's template now runs `unattended-upgrade` at the end of first boot. That change has not run on a first boot.
+
+### The fail side of each new check
+
+Written before each run: the value that proves the claim, and an input that has to fail.
+
+| Check | Pass | Fail seen |
+| --- | --- | --- |
+| `A.11` | Live after the change-over: `0 0` | Live on the orchestrator before it: `1 1`. The first version matched `install ok installed` and read `0 1` there, because a held package's status is `hold ok installed`. Half the check would have passed with the agent installed. It matches ` ok installed` now |
+| `A.14`, `R.4`, `R.5` | Live on the router | Locally, with the orchestrator standing in as the router before the build: `local 127.0.0.1:6443`, two routes, and `0` |
+| `M.2` | Live after the final policy: `timeout` | Live at 08:50 the same day, under the old claim: `open` |
+| `U.9` | Live at 14:34: `0` | Live at 14:24: `16` |
+| `Z.17` | Live: `0` | Locally, on the router's live effective rules with one inbound allow added: `1` |
+| `A.2` to `A.4`, `A.12`, `A.13`, `R.1` to `R.3`, `R.6`, `R.7`, `E.5`, `U.2`, `U.6` to `U.8`, `HR`, `M.6`, `M.7`, `Z.16`, `Z.18`, `Z.19` | Live | On absence only: before the build, nothing answered. `R.6`, `R.7`, `U.6`, and `E.5` passed on the orchestrator before the change-over, the same values. No changed field was tried |
+
+### Limits
+
+- First boot from the router's template ran once, without the `unattended-upgrade` line. The orchestrator's template without the mesh has not run on a first boot.
+- Each operator device has to run with `shields-up`, a device setting that no check reads. The policy's `tests` were saved in the console; whether they refuse a bad change was not shown by a check in the repository.
+- The edge-to-targets peering is `Initiated`. The target repository adds its half, and an SSH rule from the router subnet, after this pull request merges.
+- No `kubectl` command ran through the tunnel.
+- The edge VM, Squid on it, the fetch window, and the orchestrator's loss of the internet are the next stage. Until then the orchestrator keeps its NAT gateway and its rules to the internet (T05).

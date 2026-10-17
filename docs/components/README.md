@@ -4,7 +4,7 @@ The stack, one page per part. Each page says what the part does, where it is def
 
 The [architecture](../architecture.md) is the overview: trust, flows, and boundaries. This folder is the detail.
 
-![The stack on each VM: both share the private network, the machine type, Ubuntu 26.04, and host hardening. The orchestrator runs K3s with the tool service, the mesh VPN, and the package proxy. The worker runs the model server and the agent runtime](../diagrams/stack.svg)
+![The stack on the orchestrator and the worker: both share the private network, the machine type, Ubuntu 26.04, and host hardening. The orchestrator runs K3s with the tool service and the package proxy, and is not on the mesh VPN. The worker runs the model server and the agent runtime](../diagrams/stack.svg)
 
 The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 
@@ -15,8 +15,8 @@ The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 | [Orchestrator](orchestrator.md) | The one trusted VM | Sweden Central |
 | [AI worker](ai-worker.md) | The contained VM for the agent and the model | Sweden Central |
 | [K3s](k3s.md) | The cluster | Orchestrator |
-| [Mesh VPN](mesh-vpn.md) | The only way in | Orchestrator, operator devices |
-| [Egress and policy](egress-and-policy.md) | The one outbound path, and what blocks outbound access everywhere else | Azure |
+| [Mesh VPN](mesh-vpn.md) | The only way in | The router VM, operator devices |
+| [Egress and policy](egress-and-policy.md) | The outbound paths, and what blocks outbound access everywhere else | Azure |
 | [Package proxy](package-proxy.md) | The worker's updates | Orchestrator |
 | [Deployment identities and state](identities-and-state.md) | Who can change which side | Azure, Microsoft Entra ID |
 | [Repository and pipeline](pipeline.md) | The approval channel and its checks | GitHub |
@@ -34,7 +34,7 @@ Candidates, not selections, except the rows that name a decision record. Each ha
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
 | Edge VM | Squid and the NAT gateway on their own VM, [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md). Decided | That the orchestrator reaches only the hosts on the list, and only the edge resolves public names | 3a |
-| Mesh router VM | The mesh VPN agent alone on a VM no subnet reaches, [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md). Decided | That the operator gets in through it, and it cannot reach an operator device | 3a |
+| Mesh router VM | The mesh VPN agent alone on a VM no subnet reaches, [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md). Built on 2026-10-17 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-router)) | Shown: the operator gets in through it, and nothing is allowed into it (`Z.17`). Not shown by a check: that it cannot reach an operator device | 3a |
 | SSH certificates | OpenSSH's own certificate authority, [ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md). On both VMs since 2026-10-16 | Shown: a key without a certificate, and an expired certificate, are refused ([worklog](../worklogs/0004-edge-network-and-monitoring.md#rollout-1)). Still to show: a revocation, and a replacement of the authority | 3a |
 | Monitoring | Azure Monitor, with a log agent on the orchestrator, the edge, and the router, [ADR 0021](../decisions/0021-monitoring-in-azure-monitor-over-private-link.md). Decided | That logs and alerts stay out of reach of the machines they describe, and the agent's footprint | 3a |
 | First target | NetBox | See [ADR 0004](../decisions/0004-netbox-as-first-target.md) | 4 |

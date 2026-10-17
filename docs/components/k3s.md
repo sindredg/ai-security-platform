@@ -20,7 +20,7 @@ The cluster on the orchestrator. One server, no agents. The tool service is the 
 | Audit log at metadata level | Who called what, without payloads. 30 days, 10 files of 100 MB |
 | `traefik` and `servicelb` disabled | No ingress and no load balancer until something needs one |
 | `write-kubeconfig-mode: "0600"` | The administrator kubeconfig is root only |
-| `kube-proxy-arg: nodeport-addresses=` the private address | Node ports answer on the private address only, not on the mesh address. Checked by `T.6` |
+| `kube-proxy-arg: nodeport-addresses=` the private address | Node ports answer on the private address only, not on loopback. `T.6` checked it on the mesh address until the orchestrator left the mesh |
 | Default service accounts mount no token | Applied after install, per namespace |
 | Certificate files at `600` | Applied after install. K3s keeps the mode |
 | `admission-control-config-file`, pod security defaults | A namespace without a label enforces `restricted`. No namespace is exempt. Checked by `K.9` |

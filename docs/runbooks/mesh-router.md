@@ -1,6 +1,6 @@
 # Mesh VPN router: operator procedure
 
-Status: Written on 2026-10-17, not run. The router is not built.
+Status: Implemented on 2026-10-17. Run once, on the live platform, between 13:40 and 14:35 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-router). Steps 1, 5, 11, 12, and 13 were corrected after that run to the commands that ran, and step 17 was added for a failure it found. The `unattended-upgrade` line in the router's first boot was added after it, and has not run on a first boot.
 
 This builds the router VM in Denmark East, moves the mesh VPN onto it, and takes the orchestrator off the mesh ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)). It is the first of two stages of the edge network. The second, the edge VM with Squid and the platform's way out ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)), has its own steps.
 
@@ -20,16 +20,20 @@ The orchestrator and the router are both on the mesh until step 13. Until then, 
 
 ## Before the build
 
-1. Check that the router's size is offered in Denmark East, zone 1, and that the region has room.
+1. Check that the router's size is offered in Denmark East, zone 1, that the region has room, and which image version is the newest release.
 
    ```bash
+   az vm image list --publisher Canonical --offer ubuntu-26_04-lts --sku server --all -l denmarkeast \
+     --query "[?offer=='ubuntu-26_04-lts' && sku=='server'].version" -o tsv | sort -V | tail -n 1
    az vm list-skus -l denmarkeast --resource-type virtualMachines \
      --query "[?name=='Standard_B2ats_v2'].{zones:locationInfo[0].zones, restrictions:restrictions}" -o json
    az vm list-usage -l denmarkeast \
      --query "[?name.value=='cores' || name.value=='standardBASv2Family'].{name:name.value, used:currentValue, limit:limit}" -o table
    ```
 
-   Expected: zone `1` listed, restrictions `[]`, and at least 2 cores free in each row.
+   Expected: one image version, the same as `image_version` in `infra/platform/variables.tf` or newer. Zone `1` listed, restrictions `[]`, and at least 2 cores free in each row.
+
+   `--offer` and `--sku` match as prefixes, so without the filter the list also holds Canonical's daily builds (`ubuntu-26_04-lts-daily`) and other SKUs such as `server-gen1`. A version from those is refused at apply with `PlatformImageNotFound`, as on 2026-10-17.
 
 2. In the admin console, add the router's tag and grants to the access policy. Keep the orchestrator's entries for now: they go in step 15.
 
@@ -94,19 +98,17 @@ The orchestrator and the router are both on the mesh until step 13. Until then, 
 
 ## Build
 
-5. Plan with the signed key, read the plan, and apply it. Run in `infra/platform` as the platform identity.
+5. Apply with the signed key, after reading the plan. Run in `infra/platform` as the platform identity.
 
    ```bash
    cd REPLACE_WITH_PLATFORM_CHECKOUT/infra/platform
    source REPLACE_WITH_CRED_DIR/platform.env
-   read -rs TF_VAR_tailscale_auth_key && export TF_VAR_tailscale_auth_key
-   terraform plan -out=router.tfplan
-   terraform apply router.tfplan
-   rm router.tfplan
-   unset TF_VAR_tailscale_auth_key
+    TF_VAR_tailscale_auth_key='REPLACE_WITH_SIGNED_AUTH_KEY' terraform apply
    ```
 
-   Expected: `13 to add, 2 to change, 0 to destroy`. The additions are the edge network, the router subnet, its security group and association, the peerings from the edge to the platform and to the targets and from the platform to the edge, the NAT gateway with its address and two associations, and the router's interface and VM. The changes are the orchestrator and worker security groups: `allow-ssh-from-router` on each, and new descriptions on the orchestrator's two internet rules. The platform-to-targets peering moves to a new address in state and is not replaced. The saved plan holds the auth key, so it is deleted.
+   The line starts with a space, which keeps it out of the shell history with Ubuntu's default `HISTCONTROL`. `terraform apply` shows the plan and waits for `yes`, and writes no plan file that would hold the key. Read the plan before typing `yes`.
+
+   Expected: `13 to add, 2 to change, 0 to destroy`. The additions are the edge network, the router subnet, its security group and association, the peerings from the edge to the platform and to the targets and from the platform to the edge, the NAT gateway with its address and two associations, and the router's interface and VM. The changes are the orchestrator and worker security groups: `allow-ssh-from-router` on each, and new descriptions on the orchestrator's two internet rules. The platform-to-targets peering moves to a new address in state and is not replaced.
 
    The edge-to-targets peering stays `Initiated` until the target repository adds its half.
 
@@ -159,47 +161,50 @@ The orchestrator and the router are both on the mesh until step 13. Until then, 
 
     To go back: `tailscale set --advertise-routes=10.40.0.0/20,10.50.0.0/20` on the orchestrator through the serial console, or through the router once it works.
 
-11. Reach the Kubernetes API through an SSH tunnel to the orchestrator.
+11. Reach the Kubernetes API through an SSH tunnel to the orchestrator. Without a kubeconfig on the workstation, a request without credentials shows the path.
 
     ```bash
-    REPLACE_WITH_SSH -f -N -L 6443:127.0.0.1:6443 aisec-orchestrator
-    kubectl --kubeconfig REPLACE_WITH_KUBECONFIG --server https://127.0.0.1:6443 get nodes
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo cat /var/lib/rancher/k3s/server/tls/server-ca.crt' > k3s-server-ca.crt
+    REPLACE_WITH_SSH -f -N -o ExitOnForwardFailure=yes -L 16443:127.0.0.1:6443 aisec-orchestrator
+    curl -s -o /dev/null -w 'tls_verify=%{ssl_verify_result} http=%{http_code}\n' --cacert k3s-server-ca.crt https://127.0.0.1:16443/version
+    ss -ltnp | grep 16443   # then kill that ssh process by its ID
     ```
 
-    Expected: the node `Ready`. The API server's certificate names `127.0.0.1`.
+    Expected: `tls_verify=0 http=401`. TLS verifies against the cluster's certificate authority for `127.0.0.1`, and the API server refuses an anonymous request. With a kubeconfig, `kubectl --server https://127.0.0.1:16443 get nodes` shows the node `Ready`. That form has not been run.
 
 12. Check that failed logins through the router no longer block the orchestrator's own sessions to the worker ([#87](https://github.com/sindredg/ai-security-platform/issues/87)). Run four logins that fail, then the feed key and the journal pull from the orchestrator.
 
     ```bash
+    ssh-keygen -q -t ed25519 -N "" -f throwaway
     for _ in 1 2 3 4; do
-      ssh -o BatchMode=yes -o IdentitiesOnly=yes -i REPLACE_WITH_OPERATOR_KEY -o CertificateFile=none aisec@10.40.0.36 true
+      ssh -F /dev/null -o UserKnownHostsFile=REPLACE_WITH_KNOWN_HOSTS_FILE -o BatchMode=yes -o IdentitiesOnly=yes -i throwaway aisec@10.40.0.36 true
     done
-    REPLACE_WITH_SSH aisec-orchestrator '
-      sudo -u aisec ssh -n -i ~aisec/.ssh/aisec-feed -o BatchMode=yes aisec-feed@aisec-worker id; echo "feed=$?"
-      sudo systemctl start aisec-journal-pull.service; systemctl show aisec-journal-pull.service -p Result'
-    REPLACE_WITH_SSH aisec-worker 'sudo journalctl -u ssh --since -5min | grep -E "penalty|Accepted"'
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes aisec-feed@aisec-worker id >/dev/null 2>&1; echo "feed=$?"'
+    sleep 25
+    REPLACE_WITH_SSH aisec-worker 'sudo journalctl -u ssh --since -5min -o cat | grep -E "penal|Accepted"'
     ```
 
-    Expected: four refusals. `feed=2`, the feed command refusing `id`, and `Result=success`. The worker's log has a penalty for `10.45.0.36` and none for `10.40.0.4`.
+    Expected: four `Permission denied (publickey)`. `feed=2`, the feed command refusing `id`. The worker's log has a penalty for `10.45.0.36`, the feed key accepted from `10.40.0.4` inside it, and no penalty for `10.40.0.4`. The `sleep` waits out the penalty, which also holds the next operator login.
 
 ## Take the orchestrator off the mesh
 
 13. Remove the agent from the orchestrator. The session reaches it through the router now, so logging the agent out does not drop it. The unit runs detached anyway, so a dropped session cannot stop it halfway.
 
     ```bash
-    REPLACE_WITH_SSH aisec-orchestrator 'sudo systemd-run --unit=aisec-mesh-off bash -c "
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo systemd-run --unit=aisec-mesh-off --wait --collect --property=Type=oneshot bash -c "
+      set -e
       tailscale logout
       apt-mark unhold tailscale
       DEBIAN_FRONTEND=noninteractive apt-get purge -y -q tailscale
       rm -f /etc/apt/sources.list.d/tailscale.list /usr/share/keyrings/tailscale-archive-keyring.gpg
       systemctl disable --now aisec-mss-clamp.service
-      nft delete table inet aisec_mss
+      nft delete table inet aisec_mss || true
       rm -f /etc/systemd/system/aisec-mss-clamp.service /etc/aisec/mss-clamp.nft /etc/sysctl.d/90-aisec-router.conf
       systemctl daemon-reload"'
-    REPLACE_WITH_SSH aisec-orchestrator 'systemctl show aisec-mesh-off -p Result; dpkg-query -W tailscale; ip -br link show tailscale0'
+    REPLACE_WITH_SSH aisec-orchestrator 'dpkg-query -W -f="\${Status}\n" tailscale; ip -br link show tailscale0'
     ```
 
-    Expected: `Result=success`, `no packages found matching tailscale`, and `Device "tailscale0" does not exist`. K3s sets IP forwarding itself, so the removed sysctl file changes nothing it needs.
+    Expected: `systemd-run` exits 0. `dpkg-query` prints nothing that ends in `ok installed`, and `Device "tailscale0" does not exist`. K3s sets IP forwarding itself, so the removed sysctl file changes nothing it needs.
 
 14. Remove `aisec-orchestrator` in the admin console if it is still listed.
 
@@ -255,7 +260,15 @@ The orchestrator and the router are both on the mesh until step 13. Until then, 
 
 ## Verify
 
-17. Run every check.
+17. Apply the router's pending security updates. The image is days old, and the router's first daily upgrade runs up to a day after boot. A router built from the current template runs this at first boot, so the step finds nothing.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-router 'sudo unattended-upgrade -v | grep -E "^(Packages that will be upgraded|All upgrades installed|No packages found)"; apt list --upgradable 2>/dev/null | grep -c -- -security'
+    ```
+
+    Expected: `All upgrades installed` or `No packages found`, then `0`. The mesh agent is held and stays at its version.
+
+18. Run every check.
 
     ```bash
     AISEC_SSH="REPLACE_WITH_SSH" AISEC_ORCH=aisec-orchestrator AISEC_WORK=aisec-worker AISEC_ROUTER=aisec-router \
@@ -264,7 +277,7 @@ The orchestrator and the router are both on the mesh until step 13. Until then, 
 
     Expected: every check passes. `A.11` reads `0 0`. The router's section passes, including `R.4` with three routes, `R.5`, and `Z.17`. `M.2` times out.
 
-18. Confirm that every root has converged.
+19. Confirm that every root has converged.
 
     ```bash
     (cd REPLACE_WITH_PLATFORM_CHECKOUT/infra/platform && source REPLACE_WITH_CRED_DIR/platform.env && terraform plan -detailed-exitcode)

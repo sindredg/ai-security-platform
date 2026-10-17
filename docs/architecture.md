@@ -1,6 +1,6 @@
 # Architecture
 
-This page describes the current system and its planned design. The network foundation and platform VMs are deployed: state storage, deployment identities, both virtual networks, security groups, peering, the NAT gateway, the orchestrator with the mesh VPN and K3s, and the AI worker.
+This page describes the current system and its planned design. The network foundation and platform VMs are deployed: state storage, deployment identities, the platform, target, and edge virtual networks, security groups, peerings, two NAT gateways, the orchestrator with K3s, the AI worker, and the router with the mesh VPN.
 
 The model server and agent runtime run on the worker. The agent has only used a local test tool. The tool service runs in K3s on the orchestrator, and has answered tool calls from the worker made with `curl` and a job token. Automated job dispatch and all targets are still planned. Each section distinguishes implemented controls, decisions, and open work.
 
@@ -24,7 +24,7 @@ This is an infrastructure project. The work is Terraform, Kubernetes operations,
 
 ![Target architecture: a trusted orchestrator VM holds the secrets and has no direct way out. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](diagrams/target-architecture.svg)
 
-The diagram shows the design after milestone 3a ([0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md), [0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). The edge, the router, and monitoring are not built yet. Status is in the [roadmap](roadmap.md).
+The diagram shows the design after milestone 3a ([0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md), [0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). The router is built. The edge and monitoring are not built yet. Status is in the [roadmap](roadmap.md).
 
 Note the dotted line from the AI worker: it ends at a stop bar. The worker cannot reach the target region at all. Everything it knows about the target, it was handed by a tool service on the orchestrator.
 
@@ -81,15 +81,15 @@ Deployed. Every subnet has its own network security group and no default outboun
 | `10.50.1.0/27` | Poland Central | Rehearsal copy |
 | `10.42.0.0/16`, `10.43.0.0/16` | In cluster | K3s default pod and service ranges, never routed between networks |
 
-Decided for [milestone 3a](roadmap.md#3a-edge-network-and-monitoring), not built: an edge network, `10.45.0.0/24` in Denmark East, with the edge at `10.45.0.4` and the router at `10.45.0.36` ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md)). A private endpoint subnet for monitoring, `10.40.0.64/27` ([ADR 0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md)).
+The edge network, `10.45.0.0/24` in Denmark East, holds the router subnet `10.45.0.32/27` with the router at `10.45.0.36`, built on 2026-10-17 ([ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md), [worklog](worklogs/0004-edge-network-and-monitoring.md#the-router)). Decided for [milestone 3a](roadmap.md#3a-edge-network-and-monitoring), not built: the edge subnet `10.45.0.0/27` with the edge at `10.45.0.4` ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)). A private endpoint subnet for monitoring, `10.40.0.64/27` ([ADR 0021](decisions/0021-monitoring-in-azure-monitor-over-private-link.md)).
 
 ### Connectivity
 
-Global virtual network peering joins the two networks. Peering is plumbing, not a filter: once it exists, everything can route to everything. Network security groups on both sides deny by default and allow only what is listed here.
+Global virtual network peering joins the networks: platform to targets, platform to edge, and edge to targets. The target half of the last is not built, so that peering is `Initiated`. Peering is plumbing, not a filter: once it exists, everything can route to everything. Network security groups on both sides deny by default and allow only what is listed here.
 
 Each security group ends in a deny-all rule in both directions at priority 4096. That rule is the point: Azure's built-in rules allow everything inside the `VirtualNetwork` tag, and peering puts the other network inside that tag.
 
-The table is the design. Rules exist for what is built: SSH from the orchestrator subnet to the worker and to the target network, the package proxy and tool service ports from the worker to the orchestrator, and outbound internet access from the orchestrator. The other allowed flows get their rules with the service that listens on them. The denied flows are enforced now.
+The table is the design. Rules exist for what is built: SSH from the orchestrator subnet to the worker and to the target network, SSH from the router subnet to the orchestrator and the worker, the package proxy and tool service ports from the worker to the orchestrator, and outbound internet access from the orchestrator and the router. The other allowed flows get their rules with the service that listens on them. The denied flows are enforced now.
 
 | Source | Destination | Purpose | State |
 | --- | --- | --- | --- |
@@ -99,23 +99,26 @@ The table is the design. Rules exist for what is built: SSH from the orchestrato
 | AI worker subnet | Orchestrator subnet | The package proxy and the tool service, both built | Allowed, fixed ports: TCP 3128 and 30443 |
 | AI worker subnet | Target network | None | Denied, by an explicit rule on the platform side |
 | AI worker subnet | Internet | None. The orchestrator pushes what the worker needs | Denied, by an explicit rule on the platform side |
-| Orchestrator subnet | Internet | Mesh VPN, downloads, security feeds, GitHub | Allowed, through the NAT gateway: TCP 443 and 80 ([ADR 0017](decisions/0017-no-udp-from-the-orchestrator.md)) |
+| Orchestrator subnet | Internet | Downloads, security feeds, GitHub | Allowed, through its NAT gateway: TCP 443 and 80 ([ADR 0017](decisions/0017-no-udp-from-the-orchestrator.md)) |
+| Router subnet | Internet | The mesh VPN's coordination service and relays, packages | Allowed, through its own NAT gateway: TCP 443 and 80 |
+| Router subnet | Platform network, edge subnet | Routed operator sessions | Allowed, TCP 22. The target network's side of this is not built |
+| Any subnet | Router subnet | None | Denied. The router has no inbound allow (`Z.17`) |
 | Target network | Internet | None. The orchestrator pushes what the targets need | Denied, by explicit rules and by a policy that refuses public IP resources on the target side |
 | Target network | Platform network | None | Denied for new connections, by an explicit rule on the platform side |
-| Operator device | Orchestrator, then other VMs | Administration over the mesh VPN | Allowed for the operator's signed devices, on SSH and the Kubernetes API |
+| Operator device | Router, then other VMs | Administration over the mesh VPN | Allowed for the operator's devices, on SSH only. The Kubernetes API through an SSH tunnel to the orchestrator |
 | Internet | Any | None | Denied inbound |
 
 An allowed route is not authorization. Every allowed flow still needs application authentication and TLS.
 
 ### Administrative access
 
-No VM has a public address. The operator gets in over a mesh VPN: the orchestrator runs the agent and routes to both networks. No firewall rule names an operator address, because none is needed. Detail: [mesh VPN](components/mesh-vpn.md).
+No VM has a public address. The operator gets in over a mesh VPN: a router VM runs the agent and nothing else, and routes to the platform network, the target network, and the edge subnet. The orchestrator is not on the mesh. No firewall rule names an operator address, because none is needed. Detail: [mesh VPN](components/mesh-vpn.md).
 
-On both VMs since 2026-10-16, the administrator account takes only an SSH certificate that expires after 12 hours ([ADR 0022](decisions/0022-short-lived-ssh-certificates-for-the-operator.md), [worklog](worklogs/0004-edge-network-and-monitoring.md#rollout-1)). The orchestrator's feed key logs in to an account of its own on the worker, which can only unpack staged files ([ADR 0026](decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)). Decided for milestone 3a, not built: the agent moves to a router VM that no subnet can reach ([ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md)).
+On every VM, the administrator account takes only an SSH certificate that expires after 12 hours ([ADR 0022](decisions/0022-short-lived-ssh-certificates-for-the-operator.md), [worklog](worklogs/0004-edge-network-and-monitoring.md#rollout-1)). The orchestrator's feed key logs in to an account of its own on the worker, which can only unpack staged files ([ADR 0026](decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)). Since 2026-10-17 the agent runs on a router VM that no subnet can reach ([ADR 0025](decisions/0025-the-mesh-node-on-its-own-vm.md), [worklog](worklogs/0004-edge-network-and-monitoring.md#the-router)).
 
 ### Egress
 
-The system has one outbound path to the internet: a NAT gateway on the orchestrator subnet. The orchestrator is the only machine that downloads anything. The worker and the targets get their software from the orchestrator, and three controls block their outbound access, because any one alone leaves a path open: no outbound method, explicit deny rules, and Azure Policy assigned outside both roots.
+The system has two outbound paths to the internet: a NAT gateway on the orchestrator subnet, and one on the router subnet for the mesh agent and the router's packages. The orchestrator is the only machine that downloads anything for the others. The worker and the targets get their software from the orchestrator, and three controls block their outbound access, because any one alone leaves a path open: no outbound method, explicit deny rules, and Azure Policy assigned outside both roots.
 
 The worker has one exception: a proxy on the orchestrator that forwards package downloads to two hosts. The targets do not get it.
 
@@ -127,7 +130,7 @@ Decided for milestone 3a, not built: the NAT gateway and the package proxy move 
 
 ### Orchestrator
 
-One K3s server on one VM runs everything that is trusted. It also routes for the mesh VPN and serves the worker's package proxy. Detail: [orchestrator](components/orchestrator.md), [K3s](components/k3s.md).
+One K3s server on one VM runs everything that is trusted. It also serves the worker's package proxy. Detail: [orchestrator](components/orchestrator.md), [K3s](components/k3s.md).
 
 ### AI worker
 

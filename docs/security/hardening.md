@@ -34,7 +34,7 @@ The orchestrator was rebuilt on 2026-10-13. kube-bench and Lynis have not been r
 
 | Setting | Reason |
 | --- | --- |
-| IP forwarding on the orchestrator | It is the subnet router |
+| IP forwarding on the router | It is the subnet router. K3s turns it on for the orchestrator's pod network |
 | Loose reverse path filtering | Strict mode breaks the tunnel and the pod network |
 | Module loading after boot | K3s and the mesh VPN agent load modules |
 | `k3s`, `tailscaled`, and `ssh` without a systemd sandbox | Each needs root and broad access to do its job |

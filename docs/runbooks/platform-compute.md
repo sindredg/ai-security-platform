@@ -1,6 +1,6 @@
 # Platform compute: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). On 2026-10-16 the logins changed to SSH certificates and the feed key to an account of its own on the worker ([SSH certificates runbook](ssh-certificates.md)). Steps 12, 14, 19, 24, and 29 and the feed key and operator key rotations were rewritten for that and have not been run in that form.
+Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). On 2026-10-16 the logins changed to SSH certificates and the feed key to an account of its own on the worker ([SSH certificates runbook](ssh-certificates.md)). Steps 12, 14, 19, 24, and 29 and the feed key and operator key rotations were rewritten for that and have not been run in that form. On 2026-10-17 the mesh VPN moved to a router VM ([router runbook](mesh-router.md)), and the orchestrator's template no longer joins the mesh. The mesh steps below describe the build as it was run. They are superseded, not rewritten: the notes at each say what changes.
 
 Run these steps to build milestone 2: the public address policy, the NAT gateway, the orchestrator and AI worker VMs, the mesh VPN, and K3s. Never commit local values, plans, state, keys, or raw output.
 
@@ -58,6 +58,8 @@ The addresses below are the ones the configuration assigns: `10.40.0.4` for the 
    Expected: both sizes with `0` restrictions, and at least 4 unused in `cores` and 2 unused in each family.
 
 ## Prepare the mesh VPN
+
+Superseded on 2026-10-17. The orchestrator does not join the mesh. On a build from scratch, apply without an auth key, then build the router with steps 2 to 8 of the [router runbook](mesh-router.md) before the Connect steps, and skip the route approval in step 11. Steps 4 and 5 are kept as they were run.
 
 4. In the mesh VPN admin console, create a tag for the orchestrator, owned by the administrators group. Then generate an auth key with these settings.
 
@@ -516,6 +518,8 @@ Expected: each hostname with the new key. The plan reports `No changes` and exit
 The authority itself is replaced with step 15 of the [SSH certificates runbook](ssh-certificates.md).
 
 ### Mesh VPN node key
+
+Superseded on 2026-10-17. The node key is the router's: re-enroll it with a new auth key as in the [router runbook](mesh-router.md). The orchestrator's command below was run once, before the move, and is kept as it was run.
 
 Needs a new single-use, tagged auth key from the admin console. The session drops while the orchestrator rejoins, so the command runs detached.
 

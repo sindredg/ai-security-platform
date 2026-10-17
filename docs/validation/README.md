@@ -68,6 +68,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-16 | 144 of 144 passed | Without the Azure checks, after the [rollout](../worklogs/0004-edge-network-and-monitoring.md#rollout-1), from commit `53c921c` |
 | 2026-10-16 | 157 of 157 passed | Every check, the Azure ones included, at 21:44 UTC, from commit `2e2f6ff` |
 | 2026-10-17 | 159 of 159 passed | From the branch at `081eab2`, at 08:50 UTC, after the target network was rebuilt in Poland Central. First run with `Z.14` and `Z.15` ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-in-poland-central)) |
+| 2026-10-17 | 193 of 194 passed | From the branch at `797d217`, at 14:24 UTC, after the [router](../worklogs/0004-edge-network-and-monitoring.md#the-router) took over the mesh. First run with the router's checks. `U.9` failed: 16 security updates pending on the new router |
+| 2026-10-17 | 194 of 194 passed | At 14:34 UTC, after `unattended-upgrade` on the router |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 

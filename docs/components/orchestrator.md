@@ -1,6 +1,6 @@
 # Orchestrator
 
-The one trusted machine. It runs the cluster, routes for the mesh VPN, copies software to the other machines, and is the only one that reaches the internet.
+The one trusted machine. It runs the cluster, copies software to the other machines, and is the only one that downloads for them. It is not on the mesh VPN: operator sessions reach it through the router.
 
 | | |
 | --- | --- |
@@ -18,8 +18,6 @@ The one trusted machine. It runs the cluster, routes for the mesh VPN, copies so
 | Service | Job | Page |
 | --- | --- | --- |
 | `k3s` | The cluster. One server. The tool service runs in it | [K3s](k3s.md) |
-| `tailscaled` | Mesh VPN agent and subnet router for both networks | [Mesh VPN](mesh-vpn.md) |
-| `aisec-mss-clamp` | Rewrites the TCP segment size on routed connections | [Mesh VPN](mesh-vpn.md) |
 | `aisec-pod-egress` | Loads the host rule that drops forwarded traffic from pods to anything but pods, and traffic from pods to the host except ports 6443 and 10250 | [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md), [ADR 0023](../decisions/0023-the-host-rule-limits-what-pods-reach-on-the-host.md), [containment](../validation/containment.md#the-orchestrators-side) |
 | `squid` | Package proxy for the worker | [Package proxy](package-proxy.md) |
 | `aisec-audit-copy` | Copies the tool service's audit lines into an append-only file. Running since 2026-10-16 (`L.1`) | [Audit log](../security/audit-log.md) |
@@ -45,7 +43,7 @@ About 20 minutes after boot, with an empty cluster: 1.0 of 7.9 GiB memory used, 
 ## Limits
 
 - **It is the supply chain.** What it copies to the worker and the targets is what runs there.
-- **A compromise of it is not contained.** It holds every credential that matters and reaches any host on TCP 443 and 80. Milestone 3a takes away its way out and its mesh node ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)). Not built.
+- **A compromise of it is not contained.** It holds every credential that matters and reaches any host on TCP 443 and 80. Its mesh node moved to the router on 2026-10-17 ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)). Milestone 3a takes away its way out ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)). Not built.
 - **No encryption at host.** The subscription feature is not registered.
 - **Rebuilt once, with an empty cluster.** The [rebuild](../worklogs/0002-platform-compute.md#orchestrator-rebuild) on 2026-10-13 proves the template. It says nothing about bringing workloads back.
 

@@ -19,26 +19,30 @@ One outbound path for the whole system: a NAT gateway on the orchestrator subnet
 
 ## Rules on the platform side
 
-![Network flows: the operator reaches the orchestrator on ports 22 and 6443, the orchestrator reaches the worker and the targets on port 22 and the internet through one NAT gateway, the worker reaches only ports 3128 and 30443 on the orchestrator, and everything else is denied](../diagrams/network-flows.svg)
+![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator and the worker on port 22 and the internet through its own NAT gateway, the orchestrator reaches the worker and the targets on port 22 and the internet through its NAT gateway, the worker reaches only ports 3128 and 30443 on the orchestrator, and everything else is denied](../diagrams/network-flows.svg)
 
 The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). The table below names the rule behind each path.
 
 | Security group | Direction | Access | What | Rule |
 | --- | --- | --- | --- | --- |
 | Orchestrator | Inbound | Deny | Anything from the target network | `deny-from-targets` |
+| Orchestrator | Inbound | Allow | TCP 22 from the router subnet | `allow-ssh-from-router` |
 | Orchestrator | Inbound | Allow | TCP 3128 from the worker subnet | `allow-package-proxy-from-worker` |
 | Orchestrator | Inbound | Allow | TCP 30443 from the worker subnet, the tool service's node port | `allow-tool-service-from-worker` |
 | Orchestrator | Outbound | Allow | TCP 22 to the worker subnet and the target network | `allow-ssh-to-worker`, `allow-ssh-to-targets` |
-| Orchestrator | Outbound | Allow | TCP 443 and 80 to the internet. Port 80 also carries the mesh agent's control connection | `allow-https-to-internet`, `allow-http-to-internet` |
+| Orchestrator | Outbound | Allow | TCP 443 and 80 to the internet | `allow-https-to-internet`, `allow-http-to-internet` |
 | Worker | Inbound | Deny | Anything from the target network | `deny-from-targets` |
-| Worker | Inbound | Allow | TCP 22 from the orchestrator subnet | `allow-ssh-from-orchestrator` |
+| Worker | Inbound | Allow | TCP 22 from the orchestrator subnet and the router subnet | `allow-ssh-from-orchestrator`, `allow-ssh-from-router` |
 | Worker | Outbound | Deny | The target network, the internet, Azure DNS | `deny-to-targets`, `deny-to-internet`, `deny-to-azure-dns` |
 | Worker | Outbound | Allow | TCP 3128 and 30443 to the orchestrator subnet | `allow-package-proxy-to-orchestrator`, `allow-tool-service-to-orchestrator` |
-| Both | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
+| Router | Outbound | Allow | TCP 443 and 80 to the internet, through its own NAT gateway | `allow-https-to-internet`, `allow-http-to-internet` |
+| Router | Outbound | Allow | TCP 22 to the platform network, the target network, and the edge subnet | `allow-ssh-to-platform`, `allow-ssh-to-targets`, `allow-ssh-to-edge` |
+| Router | Inbound | Allow | Nothing | |
+| All three | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
 
-The table is read from `infra/platform/main.tf`. The rules for port 30443, and the removal of the mesh agent's UDP rules in [ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md), were applied on 2026-10-15. `Z.13` and `E.5` check them.
+The table is read from `infra/platform/main.tf` and `infra/platform/edge.tf`. The rules for port 30443, and the removal of the mesh agent's UDP rules in [ADR 0017](../decisions/0017-no-udp-from-the-orchestrator.md), were applied on 2026-10-15. `Z.13` and `Z.4` check them.
 
-The orchestrator has no inbound allow for administration. That arrives inside the mesh VPN tunnel, which the orchestrator opens outbound.
+Administration arrives from the router subnet, translated to the router's address. The router has no inbound allow: its mesh tunnel is opened outbound (`Z.17`).
 
 ## Validation
 
