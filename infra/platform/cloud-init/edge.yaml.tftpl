@@ -151,8 +151,9 @@ write_files:
 
       # An empty revocation list. Without the file, sshd refuses every
       # certificate for the administrator account. Azure wrote the operator key
-      # to the account's authorized_keys, which sshd ignores for it. The file
-      # goes, so a key line there is a change to look at.
+      # to the account's authorized_keys, which sshd ignores for it. The key
+      # goes. cloud-init's final stage writes the file back empty, so a key
+      # line there, not the file, is a change to look at.
       ssh-keygen -q -k -f /etc/ssh/aisec-revoked.krl
       rm -f /home/${admin_username}/.ssh/authorized_keys
       sysctl --system >/dev/null
