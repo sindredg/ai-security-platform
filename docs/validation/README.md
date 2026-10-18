@@ -6,7 +6,7 @@ The [worklogs](../worklogs/README.md) are history: what was run on which day. Th
 
 ## Run the checks
 
-From a workstation on the mesh VPN, signed in to Azure as the operator. The `Z` checks need `python3`. `P.19` needs `terraform`, on the `PATH` or named by `TERRAFORM`, to render the edge template:
+From a workstation on the mesh VPN, signed in to Azure as the operator. The `Z` checks need `python3`. `P.19` and `P.21` need `terraform`, on the `PATH` or named by `TERRAFORM`, to render the edge template:
 
 ```bash
 export AISEC_SSH="ssh -o UserKnownHostsFile=REPLACE_WITH_KNOWN_HOSTS_FILE -o StrictHostKeyChecking=yes -i REPLACE_WITH_OPERATOR_KEY -o CertificateFile=REPLACE_WITH_OPERATOR_KEY.aisec-cert.pub -o IdentitiesOnly=yes"
@@ -33,6 +33,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.25` | What the worker and the orchestrator cannot reach, and what they can |
 | [Package proxy](package-proxy.md) | `P`, `U` | Squid on the edge, the one path out for the orchestrator and the worker, the fetch window, and whether updates arrive |
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
+| [Agent runtime](agent-runtime.md) | `G` | The Goose binary and the fixture are the pinned ones, and no finished job leaves its unit or its files |
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |
 | [Tool service](tool-service.md) | `T` | The deployed tool service: its pod, namespaces, network paths, and certificate |
 | [Audit log](audit-log.md) | `L`, `J` | The copier that stores the tool service's audit lines, the pull of the worker's journal, and the append-only files they write |
@@ -75,6 +76,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-17 | 252 of 252 passed | At 23:39 UTC, after the [monitoring](../worklogs/0004-edge-network-and-monitoring.md#the-applies-3) apply |
 | 2026-10-18 | 256 of 256 passed | At 09:07 UTC, after the [alert drills](../worklogs/0004-edge-network-and-monitoring.md#the-drills), with `O.14` to `O.17`. `O.17` then counted rows from any flow log. Since changed to name each flow log, it fails on the platform's |
 | 2026-10-18 | 257 of 257 passed | From the branch at 14:00 UTC, after `O.17` changed to the edge flow log alone ([the platform flow log](../worklogs/0004-edge-network-and-monitoring.md#the-platform-flow-log)). A run from `main` just before it: 256 of 257, `O.17` the failure |
+| 2026-10-18 | 257 of 257 passed | At 18:45 UTC, with the check script of `main` at `7f4a198`, in a review of the platform before the AI part |
+| 2026-10-18 | 263 of 264 passed | From the branch at 19:03 UTC. First run with `G.1` to `G.4` and `P.20` to `P.22`. `G.2` failed, as written down before the run: the fixture on the worker predates a reformat of two of its files in the repository ([worklog](../worklogs/0004-edge-network-and-monitoring.md#before-the-ai-part)) |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
@@ -97,7 +100,7 @@ The second run on 2026-10-12 adds the seven `S` checks, which brings the script 
 
 - **A rebuild of everything at once.** Each VM has been rebuilt from its template and passed every check, the worker on 2026-10-11 and the orchestrator on 2026-10-13. Both together, or from an empty subscription, has not been run.
 - **The target side.** No target exists yet.
-- **The agent runtime.** Its install and its cleanup were checked by hand and are not in the script.
+- **The agent runtime during a run.** The [`G` checks](agent-runtime.md) read what is installed and what a finished job leaves. The transient unit's sandbox and the tools a run loads are not checked.
 - **The tool service's round trip and audit lines.** They are steps in the [runbook](../runbooks/tool-service.md#round-trip), because they register and revoke jobs. Its rejection cases are tested in CI. The deployment itself is checked by the [tool service checks](tool-service.md).
 - **Anything a benchmark tool finds.** kube-bench and Lynis results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). The checks here hold the fixes in place.
 - **Clean Terraform plans.** `terraform plan -detailed-exitcode` needs each root's own identity. The [runbook](../runbooks/platform-compute.md) has that step.

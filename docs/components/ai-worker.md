@@ -51,7 +51,7 @@ The diagram source is [`diagrams/agent-run.html`](../diagrams/agent-run.html). I
 
 | | |
 | --- | --- |
-| Binary | `/opt/aisec/goose/goose-1.54.0/goose`, the project's release build, checked against the release's digest on the orchestrator and again on the worker |
+| Binary | `/opt/aisec/goose/goose-1.54.0/goose`, the project's release build, checked against the release's digest on the orchestrator and again on the worker. The unpacked binary has its own pin, which `G.1` compares on every check run |
 | Unit | `aisec-agent-job`, transient: a throwaway account, a read-only file system, localhost only, a 2 GB memory limit, a 15-minute time limit. Exposure score 1.3, the same as the model server |
 | Tools | One, and only the ones named on the command line. `--no-profile` keeps Goose from loading its own, including the one that runs shell commands. That option also disables tools declared in a recipe. The planned tool service integration will omit it and use an empty configuration directory. This approach was tested on a workstation; it has not been tested on the worker |
 | Session | Goose writes a session database and a log of every prompt, even when told to keep no session. Both land in the unit's private `/tmp`, which systemd deletes when the unit stops |
@@ -96,7 +96,7 @@ A workflow hands a job to this machine over SSH, with a key that can only run th
 
 ## Validation
 
-`C`, `P.5` to `P.11`, `U.3` to `U.5`, `S`, `T.9` to `T.13`, `J.7` to `J.9`, and `HW` in the [validation pages](../validation/README.md). No check covers the agent runtime yet.
+`C`, `P.5` to `P.11`, `U.3` to `U.5`, `S`, `T.9` to `T.13`, `J.7` to `J.9`, `G`, and `HW` in the [validation pages](../validation/README.md). The `G` checks read what is installed and what a finished job leaves. Nothing checks a run while it lasts.
 
 ## Limits
 
