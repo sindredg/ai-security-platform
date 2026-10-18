@@ -1,16 +1,16 @@
 # A private AI-driven security platform
 
-Self-hosted AI workers investigate security findings on a target service they cannot reach directly, and propose fixes that are tested before review. No change reaches the target service without human approval of that exact change.
+An AI agent on a self-hosted model investigates security findings on a target service it cannot reach directly, and proposes fixes that are tested before review. No change reaches the target service without human approval of that exact change.
 
-The split of work is strict. Ordinary tools collect evidence and establish facts. AI interprets the evidence and proposes a change within defined limits. Neither gets to approve anything.
+The split of work is strict. Ordinary tools collect evidence and establish facts. The agent interprets the evidence and proposes a change within defined limits. Neither gets to approve anything.
 
 What is built today, and what each milestone has to prove, is in the [roadmap](docs/roadmap.md#status).
 
 ## Architecture
 
-This is what gets built. The cluster runs the trusted side: the workflow engine, the collectors, the tool services, and the pull request broker. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
+This is what gets built. K3s on the orchestrator runs the trusted side: the workflow engine, the collectors, the tool service, and the pull request broker. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
 
-![Architecture: a trusted orchestrator VM holds the secrets and has no direct way out. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](docs/diagrams/target-architecture.svg)
+![Architecture: a trusted orchestrator VM holds the secrets and has no direct internet access. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](docs/diagrams/target-architecture.svg)
 
 The names in the diagram:
 
@@ -18,7 +18,7 @@ The names in the diagram:
 | --- | --- |
 | Orchestrator | The trusted VM. It runs K3s and the workflow, and holds the secrets |
 | AI worker | The VM that runs the model and the agent. The design assumes it can be compromised |
-| Edge VM | The egress proxy: a NAT gateway and a Squid forward proxy, the only way out to the internet |
+| Edge VM | The egress proxy: a NAT gateway and a Squid forward proxy, the platform's only outbound path to the internet |
 | Router | The mesh VPN's subnet router, and the only mesh node in Azure. The operator reaches every other VM through it |
 | Fetch window | A time-limited allowlist: an operator command on the edge VM that opens code and package hosts for at most 60 minutes |
 
@@ -26,7 +26,7 @@ The mesh VPN service is a third party. The operator's device and the router VM b
 
 The blocked paths matter as much as the open ones:
 
-- **The AI worker reaches two services and nothing else:** the tool services on the orchestrator, and a package proxy limited to two hosts. No target, no internet, no name server. Rules in [`infra/platform/main.tf`](infra/platform/main.tf). Checks on [containment](docs/validation/containment.md#from-the-worker).
+- **The AI worker reaches two services and nothing else:** the tool service on the orchestrator, and a package proxy limited to two hosts. No target, no internet, no name server. Rules in [`infra/platform/main.tf`](infra/platform/main.tf). Checks on [containment](docs/validation/containment.md#from-the-worker).
 - **The targets reach nothing outside their own network.** They cannot open a connection into the platform, and they have no internet path. Rules in [`infra/targets/main.tf`](https://github.com/sindredg/ai-security-platform-test/blob/main/infra/targets/main.tf), in the targets repository.
 - **No VM has a public address, on either side.** The policy that refuses one is in [`infra/bootstrap/policy.tf`](infra/bootstrap/policy.tf), and the [Azure policy checks](docs/validation/azure-policy.md) test it.
 - **The two sides cross only over network peering.** They share an Azure subscription, with separate Terraform roots, state, resource groups, networks, and deployment identities. Every crossing starts on the orchestrator, except the operator's SSH sessions through the router. See [identities and state](docs/components/identities-and-state.md) and [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md).
@@ -37,11 +37,11 @@ A suggested fix and a fix that can be trusted are different things. Three failur
 
 - **The model is wrong.** It proposes a fix that clears the finding and breaks the service.
 - **The evidence lies.** A compromised target reports whatever it likes, and an advisory can carry instructions.
-- **A worker dies halfway.** The change ends up half applied, or applied twice.
+- **A job dies halfway.** The change ends up half applied, or applied twice.
 
-The design is built around those failures. Workers get narrowly scoped tools and no cloud, repository, or delivery credentials, and every proposal is rehearsed against the service's real consumer before a person sees it.
+The design is built around those failures. The agent gets narrowly scoped tools and no cloud, repository, or delivery credentials, and every proposal is rehearsed against the service's real consumer before a person sees it.
 
-The AI also has to earn its place. Each result is compared with the same workflow run without it.
+The agent also has to earn its place. Each result is compared with the same workflow run without it.
 
 Three exercises test this on one target, a NetBox inventory service with a real API consumer that must keep working ([ADR 0004](docs/decisions/0004-netbox-as-first-target.md)):
 
@@ -53,7 +53,7 @@ Three exercises test this on one target, a NetBox inventory service with a real 
 
 - **Regions:** the orchestrator and the AI worker in Sweden Central, the edge VM and the router in Denmark East, the targets in Poland Central.
 - **Workflow:** collect evidence, investigate, propose, rehearse on a disposable copy, open a pull request, wait for approval, deliver, verify.
-- **Inference:** open-weight models on CPU, inside the platform. No external model API. The starting model is Qwen3.5-4B, served by llama.cpp, and the agent runtime is Goose, on a 2-vCPU Arm64 worker. Versions, limits, and measured speed are on the [AI worker page](docs/components/ai-worker.md).
+- **Inference:** open-weight models on CPU, inside the platform. No external model API. The starting model is Qwen3.5-4B, served by llama.cpp, and the agent runtime is Goose, on the AI worker, a 2-vCPU Arm64 VM. Versions, limits, and measured speed are on the [AI worker page](docs/components/ai-worker.md).
 
 ## Find your way around
 
@@ -78,11 +78,11 @@ Three exercises test this on one target, a NetBox inventory service with a real 
 | [`infra/platform/`](infra/platform/) | Terraform for the platform side: networks, security group rules, the NAT gateway, all four VMs, and their first-boot templates | [Egress and policy](docs/components/egress-and-policy.md), [orchestrator](docs/components/orchestrator.md), [AI worker](docs/components/ai-worker.md) |
 | [`ai-security-platform-test`](https://github.com/sindredg/ai-security-platform-test) | A separate repository. Terraform for the target network, and NetBox and its consumer | [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md), [ADR 0024](docs/decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
 | [`infra/modules/network/`](infra/modules/network/) | The network module both sides use | [Architecture](docs/architecture.md) |
-| [`platform/logs/`](platform/logs/) | Host units and scripts on the orchestrator that copy the tool service's audit lines and pull the worker's journal into append-only files, and their tests | [Audit log](docs/security/audit-log.md) |
+| [`platform/logs/`](platform/logs/) | Host units and scripts on the orchestrator that copy the tool service's audit lines and pull the AI worker's journal into append-only files, and their tests | [Audit log](docs/security/audit-log.md) |
 | [`platform/tool-service/`](platform/tool-service/) | Kubernetes manifests and scripts that deploy the tool service to K3s: namespaces, network policies, the pod, the certificate, and job registration | [Tool service](docs/security/tool-service.md#deployment-controls), [checks](docs/validation/tool-service.md) |
 | [`edge/`](edge/) | The fetch window command and the list of hosts Squid opens during a window, both installed on the edge VM | [Package proxy](docs/components/package-proxy.md#the-fetch-window) |
-| [`worker/model-server/`](worker/model-server/) | Pins, download, build, and install scripts for the model server on the worker | [Runbook](docs/runbooks/model-server.md) |
-| [`worker/log-export/`](worker/log-export/) | The forced command on the worker that hands its journal to the orchestrator's pull, and its install script | [Audit log](docs/security/audit-log.md#the-workers-journal) |
+| [`worker/model-server/`](worker/model-server/) | Pins, download, build, and install scripts for the model server on the AI worker | [Runbook](docs/runbooks/model-server.md) |
+| [`worker/log-export/`](worker/log-export/) | The forced command on the AI worker that hands its journal to the orchestrator's pull, and its install script | [Audit log](docs/security/audit-log.md#the-workers-journal) |
 | [`worker/agent-runtime/`](worker/agent-runtime/) | Pins, install, and run scripts for the agent runtime, and the fixture tool | [Runbook](docs/runbooks/agent-runtime.md) |
 | [`tool-service/`](tool-service/) | The tool service: its code, tests, and Dockerfile | [Tool service](docs/security/tool-service.md) |
 | [`policies/`](policies/) | The tool service policy: the tools and arguments each job may use | [Tool service](docs/security/tool-service.md) |
