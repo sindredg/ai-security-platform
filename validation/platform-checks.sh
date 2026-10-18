@@ -898,6 +898,58 @@ print(\"\\n\".join(lines))
   check O.12 "The log agents' identities hold no role" "orchestrator 0; edge 0; router 0; " "$roles"
   check O.13 "The worker has no managed identity" none \
     "$(az vm show -g $RG -n vm-aisec-worker --query "identity.type || 'none'" -o tsv 2>/dev/null)"
+
+  # The alert rules (ADR 0021, ADR 0028). The names come from this checkout,
+  # each with "on stateful none": enabled, resolving itself, and no action
+  # group. A rule missing in Azure, or one that sends something, differs.
+  sub_id=$(az account show --query id -o tsv 2>/dev/null)
+  rule_names=$(grep -E '^    [a-z-]+ = \{$' "$here/../infra/platform/alerts.tf" | awk '{print $1}' | sort)
+  want_rules=$(for r in $rule_names; do printf 'alert-aisec-%s on stateful none; ' "$r"; done)
+  got_rules=$(az rest --method get \
+    --url "https://management.azure.com/subscriptions/${sub_id:-none}/resourceGroups/$RG/providers/Microsoft.Insights/scheduledQueryRules?api-version=2023-12-01" \
+    -o json 2>/dev/null | python3 -I -c "
+import json, sys
+try:
+    rules = json.load(sys.stdin)['value']
+except (ValueError, KeyError):
+    rules = []
+for r in sorted(rules, key=lambda r: r['name']):
+    p = r['properties']
+    groups = (p.get('actions') or {}).get('actionGroups') or []
+    print(r['name'], 'on' if p.get('enabled') else 'off', 'stateful' if p.get('autoMitigate') else 'stateless',
+          'none' if not groups else 'sends', end='; ')
+" 2>/dev/null)
+  check O.14 "Every alert rule in this checkout is on, resolves itself, and sends nothing" "${want_rules:-no rules in the checkout}" "$got_rules"
+  # The subscription's control changes, in the platform state group, where no
+  # deployment identity has a role.
+  check O.15 "Four Activity Log rules watch the controls and send nothing" \
+    "alert-aisec-policy-assignments on none; alert-aisec-role-assignments on none; alert-aisec-security-groups on none; alert-aisec-security-rules on none; " \
+    "$(az rest --method get \
+      --url "https://management.azure.com/subscriptions/${sub_id:-none}/resourceGroups/rg-aisec-platform-state/providers/Microsoft.Insights/activityLogAlerts?api-version=2020-10-01" \
+      -o json 2>/dev/null | python3 -I -c "
+import json, sys
+try:
+    rules = json.load(sys.stdin)['value']
+except (ValueError, KeyError):
+    rules = []
+for r in sorted(rules, key=lambda r: r['name']):
+    p = r['properties']
+    groups = (p.get('actions') or {}).get('actionGroups') or []
+    print(r['name'], 'on' if p.get('enabled') else 'off', 'none' if not groups else 'sends', end='; ')
+" 2>/dev/null)"
+  flows=""
+  for region in swedencentral denmarkeast; do
+    flows="$flows$(az network watcher flow-log list -l $region \
+      --query "[?name=='fl-aisec-$([ $region = swedencentral ] && echo platform || echo edge)'].join(' ', [name, to_string(enabled), to_string(flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.enabled), to_string(flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.trafficAnalyticsInterval)])" \
+      -o tsv 2>/dev/null); "
+  done
+  check O.16 "Flow logs are on for both networks, with traffic analytics every 10 minutes" \
+    "fl-aisec-platform true true 10; fl-aisec-edge true true 10; " "$flows"
+  # Traffic analytics writes every 10 minutes, and the checks themselves make
+  # flows. An hour is six intervals. Each flow log has to show, so rows from
+  # one cannot stand in for the other.
+  check O.17 "Traffic analytics wrote flows from each flow log in the last hour" "fl-aisec-edge fl-aisec-platform" \
+    "$(kql "NTANetAnalytics | where TimeGenerated > ago(1h) and SubType == 'FlowLog' | extend log = tostring(split(FlowLogResourceId, '/')[-1]) | distinct log | order by log asc")"
 fi
 
 echo
