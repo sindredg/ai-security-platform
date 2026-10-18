@@ -14,7 +14,7 @@ The diagram source is [`diagrams/log-copies.html`](../diagrams/log-copies.html).
 
 1. The tool service prints the line on standard output. It opens no file.
 2. The container runtime writes it to the pod's log under `/var/log/pods/`, with a time stamp and the stream name in front. The kubelet rotates that log at 10 MiB and keeps five files, and deletes it with the pod. Both are K3s defaults that this project does not set. They were not read from the running kubelet.
-3. Every two seconds, `aisec-audit-copy` reads the pod's log files, current and rotated, and appends each new line to `/var/log/aisec/tool-audit.jsonl`.
+3. Every two seconds, `aisec-audit-copy` reads the pod's log files, current and rotated, and appends each new line to `/var/log/aisec/tool-audit.jsonl`. It skips the file the kubelet writes while it compresses a rotated log (`NAME.tmp`, renamed to `NAME.gz` when whole). The rotated file stays until then, so the lines are read from it.
 
 ## Who can change what
 

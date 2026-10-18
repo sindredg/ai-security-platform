@@ -62,6 +62,19 @@ class Copier(unittest.TestCase):
         self.assertEqual(copier.one_pass(), 1)
         self.assertEqual(self.copied(), [LINE_1])
 
+    def test_the_kubelets_file_in_compression_is_skipped(self):
+        # The kubelet writes the compressed copy to NAME.tmp and renames it to
+        # NAME.gz when it is done (issue 81). The rotated file stays meanwhile.
+        line = runtime("2026-10-16T05:00:01Z", LINE_1)
+        self.write("0.log.20261016-050002", line)
+        compressed = gzip.compress(line * 50, mtime=0)
+        # Read as text, compressed data has to hold a line break to fail a pass.
+        self.assertIn(b"\n", compressed)
+        self.write("0.log.20261016-050002.tmp", compressed)
+        self.write("0.log", runtime("2026-10-16T05:00:03Z", LINE_2))
+        self.assertEqual(copier.one_pass(), 2)
+        self.assertEqual(self.copied(), [LINE_1, LINE_2])
+
     def test_a_line_still_being_written_is_copied_once_it_is_whole(self):
         line = runtime("2026-10-16T05:00:01.5Z", LINE_1)
         self.write("0.log", line[:45])
