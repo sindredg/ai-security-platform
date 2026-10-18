@@ -982,3 +982,51 @@ Two inputs needed a second try. With the `Include` line in place, Ubuntu's defau
 
 - "Request changed" means the check's own probe ran with a different request, against controls that were not changed. It shows the check reads the failing value when a request meets an open path. It does not show the check failing while the control is wrong. `M.3` and `M.8` have the limit of `M.5` in [#64](https://github.com/sindredg/ai-security-platform/issues/64): changing the mesh policy is not a read-only step.
 - The H checks on the workstation and with stubs ran the probe's lines outside a VM. The lines are the same on every VM.
+
+## Before the AI part
+
+Date: 2026-10-18. Four open issues closed before milestone 3 resumes with dispatch and the agent. Nothing on the VMs or in Azure changed.
+
+### What changed
+
+| Issue | Change |
+| --- | --- |
+| [#31](https://github.com/sindredg/ai-security-platform/issues/31) | The [agent runtime checks](../validation/agent-runtime.md), `G.1` to `G.4`: the Goose binary against a pin of its own, the fixture against the checkout, and no unit or private directory left by a finished job. `pins.env` holds the binary's SHA-256, read from the release archive on the workstation after the archive matched `artifacts.tsv` |
+| [#114](https://github.com/sindredg/ai-security-platform/issues/114) | `P.20` to `P.22` on the [package proxy](../validation/package-proxy.md): Squid's running command line, its one drop-in against the template, and a configuration load later than the last change to any of its three files |
+| [#118](https://github.com/sindredg/ai-security-platform/issues/118) | The ShellCheck job finds a script by a `.sh` name or by a first line that starts a shell, instead of a list of four paths |
+| [#119](https://github.com/sindredg/ai-security-platform/issues/119) | The [log copies diagram](../security/audit-log.md) shows the log agent sending both files to the workspace |
+
+### The fail side of each new check
+
+Written down before the runs: the value each check reads on the live system, and the broken input that has to make it fail. Each probe line ran on its broken input on the live VMs at 19:04 UTC, read-only.
+
+| Check | Broken input | Read | How |
+| --- | --- | --- | --- |
+| `G.1` | `/usr/bin/python3`, and a version that is not installed | `root 777 d1b87c36...`, empty | Live, input changed |
+| `G.2` | None: it fails on the live worker | See below | Live |
+| `G.3` | The model server's unit | `loaded` | Live, input changed |
+| `G.4` | The model server's unit | `2` | Live, input changed |
+| `P.20` | The `chrony` unit's main process | `/bin/sh /usr/lib/systemd/scripts/chronyd-starter.sh -n -F 1` | Live, input changed |
+| `P.21` | The `ssh` unit, which has no drop-in | Empty | Live, input changed |
+| `P.21` | The template with `NoNewPrivileges=no` | A different SHA-256, `3eca73f2...` | Locally |
+| `P.22` | Squid's access log added to the files compared, which changes on every request | `no` | Live, input changed |
+| `P.22` | A load line that never appears | `no` | Live, input changed |
+| ShellCheck selection | A new script without an extension that starts with `#!/bin/sh` and has an unquoted `$1` | Selected, `SC2086`, exit `1`. A Python file next to it was not selected | Locally, ShellCheck 0.11.0 |
+
+On today's tree the new selection lists the same 25 files as the old one, and ShellCheck passes on them.
+
+### What `G.2` found
+
+The fixture on the worker is the one installed on 2026-10-12, from commit `3eaa3ca`. Two of its files, `check_answer.py` and `evidence_tool.py`, were reformatted in the repository two days later by `683ee71`, which added the formatter to the pipeline. The change is layout only. Nothing installed them again, so `G.2` fails: the digest the worker reports, `c41699a2...`, equals the digest of the four files as of `3eaa3ca`, computed on the workstation.
+
+It stays failing until the agent runtime is installed again, with the Goose update in [#83](https://github.com/sindredg/ai-security-platform/issues/83).
+
+### Checks
+
+`validation/platform-checks.sh` from the branch, finished at 19:03 UTC: `263 passed, 1 failed`. The failure is `G.2`, as written down before the run. `P.22` passed by a margin of 66 ms: Squid read its files at `.82` of the second in which the fetch window command wrote the window file, at `.75`. Whole seconds would have compared equal.
+
+### Limits
+
+- `G.3` and `G.4` assume no job runs during a check run. With dispatch, a check run can meet a job.
+- `P.22` trusts Squid's journal and the files' change times, which root on the edge can change.
+- The diagram change needs a look before it merges.
