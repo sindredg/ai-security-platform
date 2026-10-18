@@ -6,7 +6,7 @@ State: **Verified** on 2026-10-16. The copier, its unit, and its install script 
 
 The worker's journal is the second log in ADR 0019. See [the worker's journal](#the-workers-journal) below.
 
-![The two copies on the orchestrator: the tool service pod writes audit lines to standard output, the container runtime keeps them in the pod log, and the audit copier reads that log every two seconds and appends each line to an append-only audit file. The journal pull asks the worker's forced export command for journal lines after a saved cursor, over SSH every five minutes, and appends them to an append-only journal file](../diagrams/log-copies.svg)
+![The two copies on the orchestrator: the tool service pod writes audit lines to standard output, the container runtime keeps them in the pod log, and the audit copier reads that log every two seconds and appends each line to an append-only audit file. The journal pull asks the worker's forced export command for journal lines after a saved cursor, over SSH every five minutes, and appends them to an append-only journal file. The orchestrator's log agent sends each line of both files over Private Link to a Log Analytics workspace where no VM holds a role](../diagrams/log-copies.svg)
 
 The diagram source is [`diagrams/log-copies.html`](../diagrams/log-copies.html).
 
