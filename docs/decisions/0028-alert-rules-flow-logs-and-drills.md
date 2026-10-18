@@ -1,6 +1,6 @@
 # 0028. Alert rules, flow logs, and their drills: flow logs in the bootstrap root, stateful rules, and a drill file
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-18
 
 Adds to [0021](0021-monitoring-in-azure-monitor-over-private-link.md) and [0027](0027-how-the-monitoring-is-built.md): how the alert rules, the flow logs, and the Activity Log rules are built, and how each alert is fired on purpose. Changes one part of 0021: the daily cap is set from one day of volume.
@@ -40,7 +40,7 @@ For the drills:
 - **The Activity Log rules sit in the platform state group**, where neither deployment identity holds a role. One rule each for security groups, security rules, role assignments, and policy assignments, on successful writes and deletes in the whole subscription.
 - **The drill file is `/var/log/aisec/alert-drill.jsonl` on the orchestrator.** The audit collection rule reads it into the audit table beside the real copy. Its lines carry a `start` that begins with `drill-`. The sequence rule groups by start and file, so a drill line never makes a hole in a real start.
 - **The daily cap is set from one day of volume, not a week.** 0021 measures a week. The platform's traffic is the checks, the copies, and the agents' own load, which repeat every day, and the project is near its end. One full day of `Usage`, with the agents' footprint read across the same day, sets the cap at three times the day's volume.
-- **Alerts that the checks fire are left to fire.** The checks request a tunnel from the orchestrator (`P.15`), open connections to the internet from the worker and the orchestrator (`C.1`, `E.12`), and log in. Each run raises the Squid, denied flow, and login alerts. An exception for the checks would also be an exception for someone who imitates them.
+- **Alerts that the checks fire are left to fire.** The checks request a tunnel from the orchestrator (`P.15`), open connections to the internet from the worker and the orchestrator (`C.1`, `E.12`), and log in. Each run raises the Squid and login alerts. Its denied flows reach the denied flow alert only if traffic analytics processes the platform network's flow log, which it does not ([accepted risks](../security/accepted-risks.md)). An exception for the checks would also be an exception for someone who imitates them.
 
 ## Trade-offs
 

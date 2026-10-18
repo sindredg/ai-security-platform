@@ -31,7 +31,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0025](0025-the-mesh-node-on-its-own-vm.md) | The mesh node on its own router VM, which no subnet can reach, with the agent's updates and log upload off. Replaces the mesh node in 0020 | Accepted |
 | [0026](0026-the-feed-key-gets-its-own-account-on-the-worker.md) | The feed key logs in to an account of its own on the worker, with no sudo and a command that only unpacks the staged files. The scripts come from the operator. Changes two parts of 0022 | Accepted |
 | [0027](0027-how-the-monitoring-is-built.md) | How the monitoring is built: a collection endpoint in each region with an agent, the login facilities from info, and hosts entries written through the VM agent. Changes three parts of 0021 | Accepted |
-| [0028](0028-alert-rules-flow-logs-and-drills.md) | Alert rules that fire once and resolve, flow logs written by the bootstrap root as the operator, Activity Log rules where no deployment identity reaches, and a drill file for firing the audit alerts on purpose. Adds to 0021 and 0027 | Proposed |
+| [0028](0028-alert-rules-flow-logs-and-drills.md) | Alert rules that fire once and resolve, flow logs written by the bootstrap root as the operator, Activity Log rules where no deployment identity reaches, and a drill file for firing the audit alerts on purpose. Adds to 0021 and 0027 | Accepted |
 
 ## Format
 
