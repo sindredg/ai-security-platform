@@ -20,6 +20,16 @@ That is what this platform does, for a service it does not host:
 
 This is an infrastructure project. The work is Terraform, Kubernetes operations, model hosting, identity, networking, isolation, and drills. Existing software supplies the workflow engine, the agent runtime, and the user interfaces. Custom code stays small: collectors, adapters, and enforcement checks.
 
+### Why the model runs inside the platform
+
+The model is open-weight and runs on CPU on the AI worker. There is no external model API, for three reasons:
+
+- **The evidence stays inside.** Findings, target configuration, and tool output never reach a model vendor. A model with no internet path has nowhere to send what it reads.
+- **Every layer under the agent is the project's.** The operating system, the network rules, the model server, and the model are configured here and checked here, not taken on a provider's word.
+- **The model can change.** Swapping it, tuning its settings, or fine-tuning it needs no vendor's terms or quota.
+
+The cost is quality and speed. A small model on 2 vCPUs proves the integration, and says little about how good or fast an investigation can be ([limitations](#limitations)).
+
 ## System overview
 
 ![Architecture: a trusted orchestrator VM holds the secrets and has no direct internet access. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](diagrams/target-architecture.svg)
