@@ -8,14 +8,14 @@ The method is in [ADR 0010](../decisions/0010-threat-model-and-security-checks-p
 
 | Topic | What it holds | State |
 | --- | --- | --- |
-| [Threat model](threat-model.md) | Scope, assets, attackers, six trust boundaries, and 43 threats with the control and the gate for each | First pass. States reviewed on 2026-10-15. Rows decided by ADRs 0020 to 0025 moved, and T37 to T43 added, on 2026-10-16 |
-| [AI-specific threats](ai-threats.md) | Eight threats that exist because a model reads untrusted text and can act on it | First pass. States reviewed on 2026-10-15 |
+| [Threat model](threat-model.md) | Scope, assets, attackers, six trust boundaries, and the threats at each, with the control and the gate for each | First pass. States reviewed on 2026-10-15, and revised on 2026-10-16 to 2026-10-18 as milestone 3a was decided, built, and reviewed |
+| [AI-specific threats](ai-threats.md) | Threats that exist because a model reads untrusted text and can act on it | First pass. States reviewed on 2026-10-15. A4 and A6 moved on 2026-10-18 |
 | [Tool service and job identity](tool-service.md) | Job authentication, tool authorization, and audit fields | Deployed on 2026-10-15, redeployed on 2026-10-16 with numbered audit lines. The deployment and one round trip from the worker are tested on the running system |
-| [Credential inventory](credentials.md) | Every secret: where it lives, who can read it, how it is rotated | Current on 2026-10-16. The SSH certificate authority and its certificates are in use. The dispatch key and the other milestone 3a credentials are decided and have not been created |
-| [Hardening](hardening.md) | The baseline on the VMs and the cluster, benchmark results, what was left alone, and what is open | Current on 2026-10-16. The benchmark results predate the orchestrator rebuild |
-| [Accepted risks and open items](accepted-risks.md) | Risks carried on purpose, and threats that no decision covers yet | Current on 2026-10-16 |
-| [Audit log](audit-log.md) | Where the tool service's audit lines are stored, and who can change them | Verified on 2026-10-16: both copies run on the live VMs ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)) |
-| [Lab against production](lab-vs-production.md) | Controls to retain, lab limitations, and risks that production infrastructure cannot remove | Rewritten on 2026-10-14. States moved on 2026-10-16 |
+| [Credential inventory](credentials.md) | Every secret: where it lives, who can read it, how it is rotated | Current on 2026-10-18. The milestone 3a credentials are in use: the SSH certificate authority and its certificates, the router's mesh node key, and the managed identities of the log agents. The dispatch key is decided and has not been created |
+| [Hardening](hardening.md) | The baseline on the VMs and the cluster, benchmark results, what was left alone, and what is open | Current on 2026-10-18. The benchmark results predate the orchestrator rebuild ([#43](https://github.com/sindredg/ai-security-platform/issues/43)) |
+| [Accepted risks and open items](accepted-risks.md) | Risks carried on purpose, and threats that no decision covers yet | Current on 2026-10-18 |
+| [Audit log](audit-log.md) | Where the tool service's audit lines are stored, and who can change them | Verified on 2026-10-16: both copies run on the live VMs ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). Verified on 2026-10-17: each line also reaches Azure Monitor ([worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring)) |
+| [Lab against production](lab-vs-production.md) | Controls to retain, lab limitations, and risks that production infrastructure cannot remove | Rewritten on 2026-10-14. States moved on 2026-10-16 and 2026-10-18 |
 
 ## Planned topics
 
@@ -44,4 +44,4 @@ The short list, for a reader who opens only this page. Detail is in the topic pa
 2. **One operator.** One Azure account owns both sides and one GitHub account approves every change. Accepted.
 3. **Tool authorization relies on custom code.** The service is implemented, its rejection cases are tested in CI, and it is deployed. One round trip from the worker is tested on the running platform. Dispatch is not built. See [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md).
 4. **Monitoring is incomplete.** The audit lines, the worker's journal, Squid's log, logins, and load reach a Log Analytics workspace over Private Link, which no VM can read or delete from ([monitoring](../components/monitoring.md)). Alert rules show in the portal and send nothing, so an alert waits for someone to look. No audit daemon runs, and a denied flow from the orchestrator or the worker raises no alert, an [accepted gap](accepted-risks.md).
-5. **Each VM has been rebuilt once, and never both together.** The worker and the orchestrator were each rebuilt from their templates and passed every check. A full rebuild from an empty subscription has not been tested. Accepted.
+5. **The platform has never been rebuilt as a whole.** The worker and the orchestrator were each rebuilt once, on 2026-10-11 and 2026-10-13, and passed every check. Their templates have changed since, and neither has booted from the current one. The router and the edge were built once, on 2026-10-17. A full rebuild from an empty subscription has not been tested. Accepted.

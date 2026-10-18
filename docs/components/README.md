@@ -56,7 +56,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | `acl` package | Whatever the archive serves. Sets the default ACL on the pod logs for the audit copier | Not pinned. The archive drops old versions, as for Squid | Unattended upgrades | |
 | kube-bench | 0.16.0 | The [runbook](../runbooks/platform-compute.md) | By hand, at each run | 2026-10-18 |
 | Lynis | 3.1.7 | The runbook | By hand, at each run | 2026-10-18 |
-| llama.cpp | Build `b11429`. Since 2026-10-15 the project marks its numbered builds as prereleases and publishes versioned releases, the first being v0.7.0 ([#82](https://github.com/sindredg/ai-security-platform/issues/82)) | `worker/model-server/pins.env` and `artifacts.tsv`, with a checksum | By hand | 2026-10-16 |
+| llama.cpp | Build `b11429`. Since 2026-10-15 the project marks its numbered builds as prereleases and publishes versioned releases. The newest is v0.7.0 ([#82](https://github.com/sindredg/ai-security-platform/issues/82)) | `worker/model-server/pins.env` and `artifacts.tsv`, with a checksum | By hand | 2026-10-18 |
 | Model | Qwen3.5-4B, revision `851bf6e8`, built to `Q4_K_M` on the worker | `worker/model-server/artifacts.tsv`, with a checksum per file | By hand | 2026-10-11 |
 | Converter packages | 27, PyTorch 2.11.0 the largest | `worker/model-server/artifacts.tsv` and `converter-requirements.txt` | By hand. Used only during a build | 2026-10-11 |
 | Goose | 1.54.0, one static binary. 1.55.0 released 2026-10-16 ([#83](https://github.com/sindredg/ai-security-platform/issues/83)) | `worker/agent-runtime/pins.env` and `artifacts.tsv`, with a checksum | By hand | 2026-10-18 |
