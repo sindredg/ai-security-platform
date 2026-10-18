@@ -4,7 +4,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 
 | | |
 | --- | --- |
-| State | Built |
+| State | Built. Verified on GitHub on 2026-10-17: the required signature check blocked a pull request with a commit GitHub signed ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github)). Settings read on 2026-10-18 ([repository settings](#repository-settings)) |
 | Defined in | `.github/workflows/checks.yml`, `.github/workflows/signatures.yml`, `.github/allowed_signers`, `.github/dependabot.yml`, and repository settings |
 | Decision | [0010](../decisions/0010-threat-model-and-security-checks-per-milestone.md), [0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
 

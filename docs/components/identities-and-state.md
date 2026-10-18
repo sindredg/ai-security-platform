@@ -4,7 +4,7 @@ Two sides, two identities, two state stores. The platform identity cannot change
 
 | | |
 | --- | --- |
-| State | Built |
+| State | Built. Verified on 2026-10-10: each identity was refused on the other side ([identity separation](../worklogs/0001-network-foundation.md#identity-separation)) |
 | Roots | `infra/bootstrap` (operator, local state), `infra/platform`, and `infra/targets` in the [targets repository](https://github.com/sindredg/ai-security-platform-test) |
 | Identities | One app registration per side, signed in by certificate |
 | State | One storage account per side. Shared keys off, access by role |
