@@ -47,6 +47,8 @@ Read from the GitHub API on 2026-10-17 at 07:10 UTC, after the changes for [0024
 - A second ruleset, on every branch, requires signed commits and nothing else. No one can bypass it.
 - In the repository settings, squash is the only merge method. Merge commits and rebase merges are off. On `main`, the ruleset allows squash only as well.
 
+Read again on 2026-10-18 at 12:52 UTC, after "Squid configuration" was made required: the same, with that check in the list, twelve checks, each from GitHub Actions.
+
 The [repository settings runbook](../runbooks/repository-settings.md) sets these up and repeats the fail side.
 
 ## The targets repository
@@ -58,7 +60,7 @@ Its settings were set through the API with the runbook on 2026-10-17 and read ba
 ## Limits
 
 - **One person approves their own pull requests.**
-- **Checkov does not judge the security group rules.** It does not resolve the rules the network module receives as a variable, so a rule that allows SSH from any source passes it. Trivy fails that rule ([#99](https://github.com/sindredg/ai-security-platform/issues/99), [worklog](../worklogs/0004-edge-network-and-monitoring.md#the-security-group-rules-in-the-scanners)), and the module refuses it at plan, which its test shows on every pull request. Other rule content, such as a port opened wider than needed, has only Trivy. The live rules are compared with the configured ones by the [`Z` checks](../validation/containment.md#from-azures-side), after an apply.
+- **Checkov does not judge the security group rules.** It does not resolve the rules the network module receives as a variable, so a rule that allows SSH from any source passes it. Trivy fails that rule ([#99](https://github.com/sindredg/ai-security-platform/issues/99), [worklog](../worklogs/0004-edge-network-and-monitoring.md#the-security-group-rules-in-the-scanners)), and the module refuses it at plan, which its test shows on every pull request. The target root gets the refusal through its module pin, moved to `2114890` in [targets PR 6](https://github.com/sindredg/ai-security-platform-test/pull/6), with a plan of no changes. Other rule content, such as a port opened wider than needed, has only Trivy. The live rules are compared with the configured ones by the [`Z` checks](../validation/containment.md#from-azures-side), after an apply.
 - **The Squid job parses with the runner's Squid.** The edge installs Squid unpinned at first boot and updates it daily, so the two match only while both are current.
 - **Two copies of the signature check.** A change to the script or the allowed signers file has to be made in both repositories.
 - **A change to the signature check takes effect only after it merges.** The pull request that changes it is judged by the version on `main`. The pull request that added it was not judged by it at all.

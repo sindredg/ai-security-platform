@@ -877,6 +877,20 @@ The Squid job ran on GitHub only, since the workstation has no Squid. The runner
 
 `terraform plan` on the platform root with the module's new validation: `No changes`. Trivy and Checkov on a clean copy of `infra/`: no finding, `Passed checks: 56, Failed checks: 0, Skipped checks: 18`.
 
+### On the live system
+
+The fixed copier was installed on the orchestrator from `main` at `2114890`, at about 11:22 UTC, with the install script from the [runbook](../runbooks/audit-log.md). `L.8` failed before the install, as it should with the old copier in place, and passes after it. The unit was `active`, and the installed program holds the `.tmp` skip. A refused request from the worker afterwards was copied: the file went from 138 to 139 lines, and the last line is the refusal, `seq` 85.
+
+The whole check run after it: `255 passed, 2 failed`. `O.17` is [#111](https://github.com/sindredg/ai-security-platform/issues/111). `O.16` failed because the platform flow log was on a 60-minute interval at the time, a test for #111.
+
+### The target root's pin
+
+The target root pinned the module at `77803d8`, from before the refusal, so the targets did not get it. [Targets PR 6](https://github.com/sindredg/ai-security-platform-test/pull/6) moves the pin to `2114890`. `terraform plan` with the new pin: `No changes`, exit 0.
+
+### Review
+
+A review of these changes on 2026-10-18 found the pin above, this section's missing install result, a stale settings date on the [pipeline page](../components/pipeline.md#repository-settings), and an overstated `P.19` description: its addresses are constants in the check script, not read from Terraform. All four are fixed. It also found that the renderer took an override name no template has, and rendered the placeholder for the name meant. It now refuses one: `edge_iip=10.45.0.4` exits 1 with `no template variable named edge_iip`, and the edge's real addresses still render to the hash `P.19` passed on. `P.19` reads the file, not the configuration Squid runs ([#114](https://github.com/sindredg/ai-security-platform/issues/114)).
+
 ### Limits
 
 - `P.19` needs `terraform` on the workstation that runs the checks.
