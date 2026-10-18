@@ -4,7 +4,7 @@ The platform's one way to the internet for the orchestrator and the worker. Squi
 
 | | |
 | --- | --- |
-| State | Built. Verified by `P` and `U` on 2026-10-17 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm)) |
+| State | Built. Verified by `P` and `U` on 2026-10-17 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm)). Since 2026-10-18, `P.20` to `P.22` also show that Squid runs the reviewed configuration, not only that the file is the reviewed one ([worklog](../worklogs/0004-edge-network-and-monitoring.md#before-the-ai-part)) |
 | Runs on | The edge VM, `Standard_B2als_v2` at `10.45.0.4` in Denmark East. Squid and nothing else: no mesh agent, no workload, no credential |
 | Software | Squid 7.2, from the Ubuntu `main` repository |
 | Version | Not pinned. The archive drops superseded versions, and a pin would hold back security fixes |

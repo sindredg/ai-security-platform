@@ -67,6 +67,13 @@ if squid_conf=$("$here/../.github/scripts/render-cloud-init-file.sh" edge /etc/s
 else
   SQUID_CONF_SHA="the edge template did not render"
 fi
+# The unit drop-in that sandboxes Squid, as the edge template writes it.
+if squid_dropin=$("$here/../.github/scripts/render-cloud-init-file.sh" edge \
+  /etc/systemd/system/squid.service.d/10-aisec.conf && echo x); then
+  SQUID_DROPIN_SHA=$(printf '%s' "${squid_dropin%x}" | sha256sum | cut -d " " -f 1)
+else
+  SQUID_DROPIN_SHA="the edge template did not render"
+fi
 # The agent runtime's paths and binary pin, and its fixture, from this checkout.
 agent="$here/../worker/agent-runtime"
 # shellcheck source=../worker/agent-runtime/pins.env
@@ -378,6 +385,17 @@ echo "window=$(stat -c "%U %a %s" /run/aisec/fetch-window.conf 2>/dev/null) $(sy
 echo "window_command=$(stat -c "%U %a" /usr/local/sbin/aisec-fetch-window 2>/dev/null) $(sha256sum /usr/local/sbin/aisec-fetch-window 2>/dev/null | cut -d " " -f 1)"
 echo "fetch_hosts=$(sha256sum /etc/squid/aisec-fetch-hosts 2>/dev/null | cut -d " " -f 1)"
 echo "squid_conf=$(stat -c "%U %a" /etc/squid/squid.conf 2>/dev/null) $(sha256sum /etc/squid/squid.conf 2>/dev/null | cut -d " " -f 1)"
+echo "squid_command=$(tr "\0" " " < /proc/$(systemctl show squid -p MainPID --value)/cmdline 2>/dev/null | sed "s/ $//")"
+dropin=/etc/systemd/system/squid.service.d/10-aisec.conf
+echo "squid_dropins=$(systemctl show squid -p DropInPaths --value 2>/dev/null) $(sha256sum $dropin 2>/dev/null | cut -d " " -f 1)"
+# When Squid last read squid.conf, at start or reload, against the newest
+# change to any file its configuration reads. A file changed after that is not
+# what Squid runs.
+loaded=$(journalctl -u squid -b -o short-unix --no-pager 2>/dev/null |
+  grep -F "Processing Configuration File: /etc/squid/squid.conf (depth 0)" | tail -n 1 | cut -d " " -f 1)
+changed=$(find /etc/squid/squid.conf /etc/squid/aisec-fetch-hosts /run/aisec/fetch-window.conf -maxdepth 0 \
+  -printf "%C@\n" 2>/dev/null | sort -n | tail -n 1)
+echo "squid_loaded_after_change=$(awk -v l="$loaded" -v c="$changed" "BEGIN { print (l != \"\" && c != \"\" && l + 0 > c + 0) ? \"yes\" : \"no\" }")"
 echo "mesh_agent=$(dpkg-query -W -f="\${Status}" tailscale 2>/dev/null | grep -c " ok installed$")"
 echo "unattended_upgrades=$(systemctl is-enabled unattended-upgrades 2>/dev/null)"
 echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
@@ -654,6 +672,17 @@ if probe=$($SSH "$EDGE" 'sudo bash -s' <<<"$probe_edge" 2>/dev/null) && [ -n "$p
   check P.17 "The fetch window command is root's and the one in this checkout" "root 700 $WINDOW_SHA" "$(value window_command)"
   check P.18 "Squid's fetch host list is the one in this checkout" "$HOSTS_SHA" "$(value fetch_hosts)"
   check P.19 "Squid's configuration is root's and the edge template's" "root 644 $SQUID_CONF_SHA" "$(value squid_conf)"
+  # The running process, so a unit changed to start Squid with -f and another
+  # file shows. The command line is the Ubuntu package's unit. A package
+  # update that changes it needs a look.
+  check P.20 "Squid runs with the default configuration file" "/usr/sbin/squid --foreground -sYC" "$(value squid_command)"
+  check P.21 "Squid's only unit drop-in is the edge template's" \
+    "/etc/systemd/system/squid.service.d/10-aisec.conf $SQUID_DROPIN_SHA" "$(value squid_dropins)"
+  # P.19 reads the file. This shows Squid read it after its last change, so the
+  # file is what runs. A configuration edited, reloaded, and put back fails
+  # here until Squid is reloaded again. So does a fetch window file emptied
+  # without the reload the window command does.
+  check P.22 "Squid loaded its configuration after the files last changed" yes "$(value squid_loaded_after_change)"
   check U.12 "Unattended upgrades are enabled on the edge" enabled "$(value unattended_upgrades)"
   check U.13 "No security update is pending on the edge" 0 "$(value security_updates_pending)"
   check O.2 "The log agent is installed and active on the edge" "1 active" "$(value monitor_agent)"
