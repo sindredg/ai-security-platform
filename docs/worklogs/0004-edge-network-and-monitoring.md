@@ -755,7 +755,7 @@ From a new pod in `default`, with the probe from the [orchestrator hardening run
 ### Limits
 
 - No alert rule exists. A stopped agent, a hole in the sequence, or a refused request shows only when someone queries or runs the checks.
-- The footprint is one reading. The 3a criterion asks for a measurement, and the week of volume for the cap is still to come.
+- The footprint is one reading. The 3a criterion asks for a measurement, and the day of volume for the cap is still to come ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md)).
 - Lines written before the agent started are not in the workspace.
 - The edge and the router can still reach the internet on TCP 443. Nothing stops root on either from sending to another workspace.
 - The first boot of a VM with the agent, and the runbook's undo step, have not run.

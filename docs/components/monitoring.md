@@ -86,13 +86,13 @@ The workspace takes no shared key (`O.8`). Every writer and reader is an Entra i
 
 ## Footprint
 
-Read once, about ten minutes after the install on 2026-10-17, with `ps`: the agent's processes held about 199 MB on the orchestrator, 192 MB on the edge, and 88 MB on the router, each near 0.3 percent CPU. The router had 396 MB available of 836 MB. A week of readings is still to come ([roadmap](../roadmap.md#3a-edge-network-and-monitoring)).
+Read once, about ten minutes after the install on 2026-10-17, with `ps`: the agent's processes held about 199 MB on the orchestrator, 192 MB on the edge, and 88 MB on the router, each near 0.3 percent CPU. The router had 396 MB available of 836 MB. A full day of readings is still to come ([roadmap](../roadmap.md#3a-edge-network-and-monitoring)).
 
 ## Limits
 
 - **Alerts wait for someone to look.** Nothing is sent. A fired alert at night is seen in the morning.
 - **Root on a monitored VM can stop its agent or send false lines.** It cannot change or delete what arrived ([T42](../security/threat-model.md)).
-- **The daily cap stops ingestion for the rest of the day.** It is 1 GB until a week of volume is measured ([T41](../security/threat-model.md)).
+- **The daily cap stops ingestion for the rest of the day.** It is 1 GB until a day of volume is measured, then three times that day ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md), [T41](../security/threat-model.md)).
 - **A new endpoint name from Azure breaks ingestion** until the hosts block is written again. A plan shows the change, and `O.5` to `O.7` fail.
 - **The edge and the router have outbound TCP 443.** Nothing stops root on either from sending to another workspace over the internet. Private Link closes that path for the orchestrator only, which has no other way out.
 

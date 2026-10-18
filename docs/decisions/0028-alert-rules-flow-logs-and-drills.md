@@ -3,7 +3,7 @@
 Status: Proposed
 Date: 2026-10-18
 
-Adds to [0021](0021-monitoring-in-azure-monitor-over-private-link.md) and [0027](0027-how-the-monitoring-is-built.md): how the alert rules, the flow logs, and the Activity Log rules are built, and how each alert is fired on purpose.
+Adds to [0021](0021-monitoring-in-azure-monitor-over-private-link.md) and [0027](0027-how-the-monitoring-is-built.md): how the alert rules, the flow logs, and the Activity Log rules are built, and how each alert is fired on purpose. Changes one part of 0021: the daily cap is set from one day of volume.
 
 ## Context
 
@@ -39,6 +39,7 @@ For the drills:
 - **Every log alert rule is stateful.** It fires when its condition starts and resolves when it ends. A condition that lasts is one alert.
 - **The Activity Log rules sit in the platform state group**, where neither deployment identity holds a role. One rule each for security groups, security rules, role assignments, and policy assignments, on successful writes and deletes in the whole subscription.
 - **The drill file is `/var/log/aisec/alert-drill.jsonl` on the orchestrator.** The audit collection rule reads it into the audit table beside the real copy. Its lines carry a `start` that begins with `drill-`. The sequence rule groups by start and file, so a drill line never makes a hole in a real start.
+- **The daily cap is set from one day of volume, not a week.** 0021 measures a week. The platform's traffic is the checks, the copies, and the agents' own load, which repeat every day, and the project is near its end. One full day of `Usage`, with the agents' footprint read across the same day, sets the cap at three times the day's volume.
 - **Alerts that the checks fire are left to fire.** The checks request a tunnel from the orchestrator (`P.15`), open connections to the internet from the worker and the orchestrator (`C.1`, `E.12`), and log in. Each run raises the Squid, denied flow, and login alerts. An exception for the checks would also be an exception for someone who imitates them.
 
 ## Trade-offs
@@ -48,4 +49,5 @@ For the drills:
 - **A check run raises three or four alerts.** The portal's alert list needs reading with that in mind. A fired alert outside a check run is the one that matters.
 - **A drill line is a real row.** The workbook counts it, and the table keeps it for 31 days. Its `start` and `FilePath` mark it.
 - **Traffic analytics runs every 10 minutes.** A denied flow shows up to 40 minutes after it happened: the interval, ingestion, and a rule that runs every 10 minutes over 30.
+- **One day is a small sample.** An exercise or a fetch window can make a day larger than the one measured. Three times the measured day leaves room for that, and `daily-cap` fires if it is not enough.
 - **The traffic analytics table appears only after its first write.** That rule skips query validation when it is created, so a typo in it shows only when it runs.
