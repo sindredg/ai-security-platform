@@ -75,7 +75,7 @@ Two differences are allowed. Azure's default rules appear in every effective lis
 
 A failed or empty answer from Azure is a `FAIL` with the error. Two empty answers used to compare as equal and pass.
 
-Limit: service tags such as `Internet` are compared by name. The addresses a tag expands to are not checked.
+Limit: service tags such as `Internet` are compared by name. The addresses a tag expands to are not checked, and that stays a limit. Azure owns the expansion and changes it without a change here, so a check on it would fail on Azure's schedule and say nothing about this configuration. What a tag rule claims is the tag, and that is what `Z.4` and `Z.5` compare. The traffic checks (`C.*`, `E.*`) show what the tags block in practice.
 
 ## The orchestrator's side
 
