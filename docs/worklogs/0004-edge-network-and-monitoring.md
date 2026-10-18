@@ -931,3 +931,54 @@ What remains, and the trigger to look again, are in [accepted risks](../security
 ### Checks
 
 `validation/platform-checks.sh` from `main`, finished at about 13:54 UTC, after the interval went back: `256 passed, 1 failed`. `O.16` passed. `O.17` failed on its old expected value, both flow logs. From the branch with the changed `O.17`, at 14:00 UTC: `257 passed, 0 failed`.
+
+## Review of the milestone
+
+A review of the milestone's claims on 2026-10-18, against the code, the pipeline, and the live system. Read and found as the pages say: plans of the platform, bootstrap, and target roots (`No changes`), every check ID the pages cite (each exists, or is named as retired), links and anchors in every tracked page, the repository settings, the security rules, the outbound gateways, Squid's host lists, the version pins against each upstream, and the numbers the pages give for the daily cap, the certificate lifetime, the rate limit, and the fetch window.
+
+### Fixed
+
+| Finding | Change |
+| --- | --- |
+| The threat model said no alert fires on a hole in the audit sequence | `T21` names `audit-sequence`. `T35` names the spent enrollment keys of both the router and the orchestrator |
+| The version table named a daily build as the newest Ubuntu image | The pin is the newest release. Rows read again on 2026-10-18 carry that date |
+| Lab against production said deny by default was tested on the worker only, and that a rebuild loses the journal copy | Both rows name the orchestrator's checks and the copy in Azure Monitor |
+| The architecture's threat model row stopped at 2026-10-16 | It names the revisions of 2026-10-17 and 2026-10-18 |
+| Four component pages gave "Built" with no evidence | Each names its checks or worklog |
+| The tool service diagram showed a mesh device stopped by "no node port on the mesh address" | It shows the device coming through the router, stopped by the mesh policy and the orchestrator's security group |
+| The credential inventory said a certificate expires on 2026-10-18 | It says the certificate expired |
+| Two monitoring failures had no troubleshooting entry | [08](../troubleshooting/08-monitoring-providers-not-registered.md) and [09](../troubleshooting/09-traffic-analytics-refuses-the-platform-identity.md) |
+| Edge checks recorded as passing without a fail side, and host hardening `.1` to `.16` with none on any VM | Run against broken inputs, below |
+
+Two findings became issues: [#118](https://github.com/sindredg/ai-security-platform/issues/118) and [#119](https://github.com/sindredg/ai-security-platform/issues/119).
+
+### The fail side of the edge checks
+
+Written before each run: the broken input, and the value the check would then read. Each check's own probe line or comparison ran on that input, read-only, on 2026-10-18.
+
+| Check | Broken input | Read | How |
+| --- | --- | --- | --- |
+| `A.15` | A host name that does not exist | `no` | Live |
+| `A.16` | A file with one key line | `1` | Locally |
+| `A.17` | The orchestrator, where the administrator may forward to the API server | `local 127.0.0.1:6443` | Live |
+| `A.18`, `P.1`, `P.2`, `U.10` | The router, which has the mesh agent and no Squid or proxy setting | `1`, `inactive`, empty, `0` | Live |
+| `U.11` | The router, which runs no containerd | empty | Live, on absence |
+| `P.3` | The `ssh` unit on the edge, which lacks the setting | `no` | Live |
+| `U.12` | A unit name that does not exist on the edge | `not-found` | Live, on absence |
+| `P.4` | The same request from the orchestrator, an allowed client | `200` | Live, request changed |
+| `P.13`, `P.14` | Each check's request with the other check's host | `403`, `200` | Live, request changed |
+| `M.3`, `M.8` | Each check's port swapped with the other's | `open`, `timeout` | Live, request changed |
+| `Z.20` | The edge's live effective rules with one port changed | `different` | Locally, on live answers |
+| `Z.23` | IP flow verify to port 3129, which no rule allows | `Deny deny-all-outbound` | Live, request changed |
+| `.2` to `.6` | Ubuntu's default `sshd_config` on the edge, without its `Include` line | `prohibit-password`, `yes`, `yes`, `yes`, `6` | Live |
+| `.7`, `.8`, `.10` to `.14` | The same lines on the workstation, which is not hardened | `176`, `1`, empty, `644`, empty, `755`, `4` | Locally |
+| `.1`, `.9`, `.15`, `.16` | Stubbed commands that print a failed unit, redirects on, `sctp` loaded, and no time sync | `1`, `1`, `1`, `no` | Stubs |
+
+`U.13` shares its line with `U.9`, which failed live on 2026-10-17. `.17` to `.20` failed live before the rollout of 2026-10-16 ([fail side](#the-fail-side-of-each-new-check-1)).
+
+Two inputs needed a second try. With the `Include` line in place, Ubuntu's default configuration reads the edge's hardening drop-in, so `.2` to `.6` passed. The workstation already ignores ICMP redirects, so `.9` passed there and moved to the stubs. The expected value for `.2` was reasoned as `without-password`. OpenSSH prints `prohibit-password`, which fails the check the same way.
+
+### Limits
+
+- "Request changed" means the check's own probe ran with a different request, against controls that were not changed. It shows the check reads the failing value when a request meets an open path. It does not show the check failing while the control is wrong. `M.3` and `M.8` have the limit of `M.5` in [#64](https://github.com/sindredg/ai-security-platform/issues/64): changing the mesh policy is not a read-only step.
+- The H checks on the workstation and with stubs ran the probe's lines outside a VM. The lines are the same on every VM.
