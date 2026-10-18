@@ -269,16 +269,18 @@ locals {
     orchestrator = {
       vm          = "orchestrator"
       description = "The audit copy and the worker's journal copy (ADR 0019)."
+      # The drill file takes the lines that fire the sequence and marker
+      # alerts on purpose, so the real copy keeps no false line (ADR 0028).
       files = {
-        tool_audit     = "/var/log/aisec/tool-audit.jsonl"
-        worker_journal = "/var/log/aisec/worker-journal.jsonl"
+        tool_audit     = ["/var/log/aisec/tool-audit.jsonl", "/var/log/aisec/alert-drill.jsonl"]
+        worker_journal = ["/var/log/aisec/worker-journal.jsonl"]
       }
     }
     edge = {
       vm          = "edge"
       description = "Squid's access log: both clients, refusals included."
       files = {
-        squid_access = "/var/log/squid/access.log"
+        squid_access = ["/var/log/squid/access.log"]
       }
     }
   }
@@ -324,7 +326,7 @@ resource "azurerm_monitor_data_collection_rule" "files" {
       content {
         name          = replace(log_file.key, "_", "-")
         format        = "text"
-        file_patterns = [log_file.value]
+        file_patterns = log_file.value
         streams       = ["Custom-${local.custom_tables[log_file.key].name}"]
       }
     }
