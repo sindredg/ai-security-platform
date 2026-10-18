@@ -873,7 +873,7 @@ Run locally on 2026-10-18, against the live edge where a VM is involved.
 | The module test | `terraform test`: `6 passed, 0 failed` | With the validation removed: `allow_from_any_is_refused` fails, `2 passed, 1 failed, 3 skipped` |
 | The copier test | `29` tests pass with the fix | Before the fix the new test fails with `a line without the runtime's prefix`. A first version passed on the old code: its `.tmp` held a 10-byte gzip header with no line break, so the copier read no line from it. The test now asserts the compressed data holds one |
 
-The Squid job was not run locally: the workstation has no Squid. Its result is the pull request's run.
+The Squid job ran on GitHub only, since the workstation has no Squid. The runner's Squid is `7.2`, as on the edge, and both window states parsed with no warning. A commit that added `cdn-lfs.hf.co` to `edge/fetch-hosts`, under `.hf.co`, failed the job with `WARNING: Ignoring cdn-lfs.hf.co because it is already covered by .hf.co`, exit 1. The next commit reverted it. The module test passed on GitHub too: `6 passed, 0 failed`.
 
 `terraform plan` on the platform root with the module's new validation: `No changes`. Trivy and Checkov on a clean copy of `infra/`: no finding, `Passed checks: 56, Failed checks: 0, Skipped checks: 18`.
 
