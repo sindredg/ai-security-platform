@@ -8,25 +8,10 @@
 set -euo pipefail
 
 out=${1:?usage: render-first-boot.sh OUT_DIR}
-templates=$(cd "$(dirname "$0")/../../infra/platform/cloud-init" && pwd)
+here=$(cd "$(dirname "$0")" && pwd)
+templates=$(cd "$here/../../infra/platform/cloud-init" && pwd)
 script_path=/usr/local/sbin/aisec-first-boot
 
-# Every variable any template takes. A template ignores the ones it does not
-# use, and fails on one that is missing here.
-vars='{
-  admin_username = "aisec", operator_user_ca_public_key = "ssh-ed25519 AAAA placeholder",
-  orchestrator_ip = "10.0.0.4", worker_ip = "10.0.0.36", worker_prefix = "10.0.0.32/27",
-  edge_ip = "10.0.1.4", platform_address_space = "10.0.0.0/20", k3s_version = "v0.0.0+k3s1",
-  k3s_sha256 = "0", k3s_install_sha256 = "0", advertised_routes = "10.0.0.0/20",
-  tailscale_version = "0.0.0", tailscale_auth_key = "placeholder",
-  audit_copy_py = "", audit_copy_unit = "", audit_copy_install = "",
-  journal_pull_py = "", journal_pull_unit = "", journal_pull_timer = "",
-  journal_pull_install = "", log_export_command = "", log_export_install = "",
-  feed_receive_command = "", feed_receive_install = "", fetch_window = "", fetch_hosts = ""
-}'
-
-work=$(mktemp -d)
-trap 'rm -rf -- "$work"' EXIT
 mkdir -p "$out"
 
 count=0
@@ -38,17 +23,7 @@ for template in "$templates"/*.yaml.tftpl; do
     echo "skipped $name: no first-boot script"
     continue
   fi
-  expr="jsonencode([for f in yamldecode(templatefile(\"$template\", $vars)).write_files : f.content if f.path == \"$script_path\"])"
-  # An empty configuration, so console needs no provider and no init.
-  json=$(tr '\n' ' ' <<<"$expr" | terraform -chdir="$work" console)
-  # console prints the JSON as a quoted string. One script, or a failure.
-  python3 -I -c '
-import json, sys
-scripts = json.loads(json.loads(sys.stdin.read()))
-if len(scripts) != 1:
-    sys.exit(f"{sys.argv[1]}: expected one first-boot script, found {len(scripts)}")
-sys.stdout.write(scripts[0])
-' "$name" <<<"$json" >"$out/$name.sh"
+  "$here/render-cloud-init-file.sh" "$name" "$script_path" >"$out/$name.sh"
   echo "rendered $name"
   count=$((count + 1))
 done
