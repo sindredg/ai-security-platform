@@ -51,6 +51,6 @@ The orchestrator was rebuilt on 2026-10-13. kube-bench and Lynis have not been r
 | No CIS result for the operating system | The audit that ran is not the benchmark the plan named | When a tool supports Ubuntu 26.04 |
 | The 50 kube-bench warnings are not reviewed one by one | Some are manual checks that could be real findings | Milestone 3, when the cluster has workloads |
 | Held and pinned software gets no security fix until someone moves the pin | The mesh VPN agent and K3s run all the time. `U.7` fails when the agent is behind the stable release. Nothing does the same for K3s | Each milestone start, from the [version table](../components/README.md#versions) |
-| Nothing alerts when updates stop, a service dies, or a disk fills | Silent failure. A failure shows only when someone runs the [checks](../validation/README.md) | [Milestone 3a](../roadmap.md#3a-edge-network-and-monitoring): alert rules in Azure Monitor, shown in the portal. They send no notification |
+| Nothing alerts when updates stop | Silent failure until someone runs the [checks](../validation/README.md) (`U` checks). A failed unit and a full disk raise an alert in the portal since 2026-10-18 ([monitoring](../components/monitoring.md#alert-rules)) | Not planned. A rule on the package lists' age would need the lists in the workspace |
 
 One row left this table on 2026-10-16: one long-lived operator SSH key on every VM. The administrator account now takes only a certificate that expires after 12 hours ([worklog](../worklogs/0004-edge-network-and-monitoring.md#rollout-1)).

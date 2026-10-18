@@ -1,6 +1,6 @@
 # 0027. How the monitoring is built: two collection endpoints, logins at info, and hosts entries through the VM agent
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-17
 
 Changes three parts of [0021](0021-monitoring-in-azure-monitor-over-private-link.md), found while building it.

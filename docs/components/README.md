@@ -22,7 +22,7 @@ The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 | [Repository and pipeline](pipeline.md) | The approval channel and its checks | GitHub |
 | [Tool service](../security/tool-service.md) | A small MCP server written for this project. Authorizes every tool call from the worker | Orchestrator, in K3s |
 | SSH certificates | OpenSSH's own certificate authority. The administrator account takes only a certificate that expires within 12 hours, [ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md), [credentials](../security/credentials.md) | Every VM |
-| [Monitoring](monitoring.md) | The Azure Monitor Agent and a Log Analytics workspace reached over Private Link. Alert rules not built | The orchestrator, the edge, the router, and Azure |
+| [Monitoring](monitoring.md) | The Azure Monitor Agent and a Log Analytics workspace reached over Private Link, alert rules shown in the portal, flow logs, and a workbook | The orchestrator, the edge, the router, and Azure |
 
 ## Planned
 

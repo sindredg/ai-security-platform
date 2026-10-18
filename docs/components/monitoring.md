@@ -4,7 +4,7 @@ Logs and load from the orchestrator, the edge, and the router, kept in a Log Ana
 
 | | |
 | --- | --- |
-| State | Built on 2026-10-17. Verified by `O.1` to `O.13` ([validation](../validation/monitoring.md), [worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring)). Alert rules, flow logs, and the workbook are not built |
+| State | Built on 2026-10-17 and 2026-10-18. Verified by `O.1` to `O.16` ([validation](../validation/monitoring.md), [worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring)). Each alert rule fired once on purpose except `denied-flow-to-internet` and `daily-cap` ([drills](../worklogs/0004-edge-network-and-monitoring.md#the-drills)). The platform network's flow log is written and not processed by traffic analytics (`O.17` fails, [#111](https://github.com/sindredg/ai-security-platform/issues/111)) |
 | Runs on | The Azure Monitor Agent on the orchestrator, the edge, and the router. The workspace, the Private Link Scope, and both collection endpoints are Azure resources in the platform group |
 | Software | Azure Monitor Agent, extension `1.45`. Azure served `1.45.1` on 2026-10-17 |
 | Version | The minor version is pinned in `monitor_agent_version`, with automatic upgrades off. Azure picks the patch release within it, which the extension cannot pin |
@@ -34,6 +34,44 @@ AisecToolAudit_CL
 
 The agent starts reading a file at its end. Lines written before the install are in the files on the orchestrator and the edge, not in the workspace.
 
+## Alert rules
+
+In `infra/platform/alerts.tf`, on the workspace. Each fires once when its condition starts and resolves when it ends. None has an action group: a fired alert shows under **Monitor, Alerts** in the portal, and nothing is sent ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md)).
+
+| Rule | Fires when | Severity | Runs every, over |
+| --- | --- | --- | --- |
+| `heartbeat-missing` | The orchestrator, the edge, or the router sent no heartbeat for 10 minutes | 1 | 5 min, 10 min |
+| `audit-sequence` | An audit start has a hole in its sequence, or a new start does not begin at 1 | 1 | 5 min, 2 days |
+| `copy-marker` | A marker line in the audit copy or the journal copy | 1 | 5 min, 15 min |
+| `journal-missing` | No row from the worker's journal copy | 2 | 5 min, 15 min |
+| `squid-refused-orchestrator` | Squid refused a request from the orchestrator | 1 | 5 min, 15 min |
+| `fetch-window-opened` | A fetch window opened on the edge | 3 | 5 min, 15 min |
+| `denied-flow-to-internet` | A denied flow from the orchestrator or worker subnet to a public address | 1 | 10 min, 30 min |
+| `ssh-login-accepted` | An SSH login was accepted | 3 | 5 min, 15 min |
+| `ssh-login-failed` | An SSH login failed, or a certificate was refused | 2 | 5 min, 15 min |
+| `tool-refusal-burst` | More than 20 tool service refusals in one 5-minute bin | 2 | 5 min, 15 min |
+| `daily-cap` | The daily cap was reached | 1 | 15 min, 15 min |
+| `disk-or-memory` | `/`, `/boot`, or `/boot/efi` over 85 percent, or memory over 90 percent | 2 | 15 min, 15 min |
+| `failed-unit` | A systemd unit failed | 2 | 5 min, 15 min |
+
+A check run fires `squid-refused-orchestrator`, `denied-flow-to-internet`, and `ssh-login-accepted` on purpose: `P.15`, `C.1`, `E.12`, and the logins themselves.
+
+The audit lines that fire `audit-sequence` and `copy-marker` in a drill go to `/var/log/aisec/alert-drill.jsonl`, which the same rule collects into the audit table. Their `start` begins with `drill-`. The real copy keeps no false line.
+
+## Activity Log rules
+
+In `infra/bootstrap/monitoring.tf`, in the platform state group, where neither deployment identity holds a role. Each watches the whole subscription for a successful write or delete of one kind of control: security groups, security rules, role assignments, and policy assignments. They cost nothing and have no action group. The portal shows them without a severity: Activity Log rules have none.
+
+## Flow logs
+
+Virtual network flow logs on the platform and edge networks, version 2, kept 90 days in a storage account in each network's region, with Entra authentication only. Traffic analytics processes them every 10 minutes into `NTANetAnalytics`. They are in the bootstrap root, `infra/bootstrap/monitoring.tf`, written as the operator: the platform identity cannot enable traffic analytics, and cannot turn the flow logs off. The storage accounts are in the platform state group ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md)).
+
+Traffic analytics creates a collection rule and endpoint of its own in the platform group, prefixed `NWTA`. Terraform does not manage them.
+
+## Workbook
+
+"AI security platform", in the platform group: tool calls by decision, Squid requests by client and result, flows by source subnet and status, and CPU and memory by VM. It is `infra/platform/workbook.tf`, so a change to it is reviewed like a rule.
+
 ## Who can do what
 
 | Identity | Can | Cannot |
@@ -52,7 +90,7 @@ Read once, about ten minutes after the install on 2026-10-17, with `ps`: the age
 
 ## Limits
 
-- **No alerts yet.** Nothing fires on a missing heartbeat, a hole in the audit sequence, or a refused request until the alert rules are built.
+- **Alerts wait for someone to look.** Nothing is sent. A fired alert at night is seen in the morning.
 - **Root on a monitored VM can stop its agent or send false lines.** It cannot change or delete what arrived ([T42](../security/threat-model.md)).
 - **The daily cap stops ingestion for the rest of the day.** It is 1 GB until a week of volume is measured ([T41](../security/threat-model.md)).
 - **A new endpoint name from Azure breaks ingestion** until the hosts block is written again. A plan shows the change, and `O.5` to `O.7` fail.
