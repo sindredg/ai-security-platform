@@ -76,6 +76,13 @@ jobs:
             echo "::endgroup::"
           done
 
+      # The network module's refusals, against a mocked provider. Checkov does
+      # not read the rules the module builds (issue 99).
+      - name: Test the network module
+        run: |
+          terraform -chdir=infra/modules/network init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/modules/network test
+
   checkov:
     name: Checkov
     runs-on: ubuntu-26.04
@@ -185,6 +192,50 @@ jobs:
           [ "${#scripts[@]}" -gt 0 ]
           docker run --rm --volume "${RUNNER_TEMP}/first-boot:/mnt:ro" --workdir /mnt \
             "${SHELLCHECK_IMAGE}" "${scripts[@]##*/}"
+
+  squid:
+    name: Squid configuration
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The edge installs Squid from the Ubuntu archive at first boot, without
+      # a pin (ADR 0011). The runner runs the same release, so the parser here
+      # is the one the edge gets, as long as both are up to date.
+      - name: Install Squid and Terraform
+        run: |
+          sudo apt-get update -q
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q squid
+          squid -v | head -n 1
+          zip="terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+          curl -fsSLO "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/${zip}"
+          echo "${TERRAFORM_SHA256}  ${zip}" | sha256sum -c -
+          unzip -q "${zip}" terraform -d "${RUNNER_TEMP}/bin"
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
+      # The configuration as the edge template writes it, with placeholder
+      # addresses, and the two files it reads in the places it names. Squid
+      # parses it with the fetch window closed and open. A warning fails the
+      # step too: two overlapping names in the host list only warn.
+      - name: Parse the configuration
+        run: |
+          conf="${RUNNER_TEMP}/squid.conf"
+          .github/scripts/render-cloud-init-file.sh edge /etc/squid/squid.conf >"${conf}"
+          sudo install -m 0644 edge/fetch-hosts /etc/squid/aisec-fetch-hosts
+          sudo install -d -m 0755 /run/aisec
+          rule=$(sed -n "s/^rule='\(.*\)'$/\1/p" edge/aisec-fetch-window)
+          [ -n "${rule}" ]
+          for window in "" "${rule}"; do
+            printf '%s\n' "${window}" | sudo tee /run/aisec/fetch-window.conf >/dev/null
+            echo "::group::window: ${window:-closed}"
+            out=$(sudo squid -k parse -f "${conf}" 2>&1)
+            printf '%s\n' "${out}"
+            echo "::endgroup::"
+            if grep -Eq 'WARNING|ERROR|FATAL' <<<"${out}"; then exit 1; fi
+          done
 
   ruff:
     name: Ruff
