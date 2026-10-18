@@ -1,6 +1,6 @@
 # A private AI-driven security platform
 
-Self-hosted AI workers investigate security findings on a target service they cannot reach directly, and propose fixes that are tested before review. No proposed change is delivered to the target service without human approval of that exact change.
+Self-hosted AI workers investigate security findings on a target service they cannot reach directly, and propose fixes that are tested before review. No change reaches the target service without human approval of that exact change.
 
 The split of work is strict. Ordinary tools collect evidence and establish facts. AI interprets the evidence and proposes a change within defined limits. Neither gets to approve anything.
 
@@ -22,14 +22,14 @@ The names in the diagram:
 | Router | The mesh VPN's subnet router, and the only mesh node in Azure. The operator reaches every other VM through it |
 | Fetch window | A time-limited allowlist: an operator command on the edge VM that opens code and package hosts for at most 60 minutes |
 
-The mesh VPN service is a third party. The operator's device and the router VM both connect out to it, and it relays the encrypted tunnel between them. From the router, the operator's sessions continue as SSH to each VM, with a certificate that expires within 12 hours. Nothing in Azure accepts a connection from the internet. The [mesh VPN page](docs/components/mesh-vpn.md) has the detail.
+The mesh VPN service is a third party. The operator's device and the router VM both connect out to it, and it relays the encrypted tunnel between them. From the router, the operator's sessions continue as SSH to each VM, with a certificate that expires within 12 hours. The [mesh VPN page](docs/components/mesh-vpn.md) has the detail.
 
 The blocked paths matter as much as the open ones:
 
 - **The AI worker reaches two services and nothing else:** the tool services on the orchestrator, and a package proxy limited to two hosts. No target, no internet, no name server. Rules in [`infra/platform/main.tf`](infra/platform/main.tf). Checks on [containment](docs/validation/containment.md#from-the-worker).
-- **The targets reach nothing outside their own network.** They cannot open a connection into the platform, and they have no internet path. Rules in [`infra/targets/main.tf`](https://github.com/sindredg/ai-security-platform-test/blob/main/infra/targets/main.tf), in the targets repository. The [Azure policy checks](docs/validation/azure-policy.md) show it has no public address and cannot get one.
-- **No VM has a public address.** The operator comes in over the mesh VPN. Outbound traffic leaves through the NAT gateway in the edge network, and the orchestrator and the AI worker reach the internet only through the edge VM's proxy. The policy that refuses an address is in [`infra/bootstrap/policy.tf`](infra/bootstrap/policy.tf), and the [Azure policy checks](docs/validation/azure-policy.md) test it.
-- **The two sides cross only over network peering**, between separate Terraform roots, state, and deployment identities. Every crossing starts on the orchestrator, except the operator's SSH sessions through the router. See [identities and state](docs/components/identities-and-state.md) and [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md).
+- **The targets reach nothing outside their own network.** They cannot open a connection into the platform, and they have no internet path. Rules in [`infra/targets/main.tf`](https://github.com/sindredg/ai-security-platform-test/blob/main/infra/targets/main.tf), in the targets repository.
+- **No VM has a public address, on either side.** The policy that refuses one is in [`infra/bootstrap/policy.tf`](infra/bootstrap/policy.tf), and the [Azure policy checks](docs/validation/azure-policy.md) test it.
+- **The two sides cross only over network peering.** They share an Azure subscription, with separate Terraform roots, state, resource groups, networks, and deployment identities. Every crossing starts on the orchestrator, except the operator's SSH sessions through the router. See [identities and state](docs/components/identities-and-state.md) and [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md).
 
 ## What can go wrong
 
@@ -39,11 +39,11 @@ A suggested fix and a fix that can be trusted are different things. Three failur
 - **The evidence lies.** A compromised target reports whatever it likes, and an advisory can carry instructions.
 - **A worker dies halfway.** The change ends up half applied, or applied twice.
 
-The design is built around those failures. Models run inside the platform, so inference does not send evidence to an external model provider. Workers get narrowly scoped tools and no cloud, repository, or delivery credentials. Every proposal is rehearsed against the service's real consumer before a person sees it, and nothing is delivered without approval of the exact change.
+The design is built around those failures. Workers get narrowly scoped tools and no cloud, repository, or delivery credentials, and every proposal is rehearsed against the service's real consumer before a person sees it.
 
 The AI also has to earn its place. Each result is compared with the same workflow run without it.
 
-Three exercises test this on one target, a NetBox inventory service with a real API consumer ([ADR 0004](docs/decisions/0004-netbox-as-first-target.md)):
+Three exercises test this on one target, a NetBox inventory service with a real API consumer that must keep working ([ADR 0004](docs/decisions/0004-netbox-as-first-target.md)):
 
 1. **Excess inventory access.** The consumer's permissions expose records outside its approved scope.
 2. **Excess network access.** NetBox is reachable from a network viewpoint that policy forbids.
@@ -51,9 +51,7 @@ Three exercises test this on one target, a NetBox inventory service with a real 
 
 ## Design in brief
 
-- **Platform:** a small K3s cluster for trusted orchestration, plus a separate VM for AI workers and model inference, in Sweden Central. An edge VM for the way out and a router VM for the mesh VPN, in Denmark East.
-- **Target:** a NetBox inventory service with a real API consumer that must keep working. Poland Central, on its own network, in [its own repository](https://github.com/sindredg/ai-security-platform-test).
-- **Separation:** platform and targets share an Azure subscription, with separate Terraform roots, state, resource groups, networks, and deployment identities.
+- **Regions:** the orchestrator and the AI worker in Sweden Central, the edge VM and the router in Denmark East, the targets in Poland Central.
 - **Workflow:** collect evidence, investigate, propose, rehearse on a disposable copy, open a pull request, wait for approval, deliver, verify.
 - **Inference:** open-weight models on CPU, inside the platform. No external model API. The starting model is Qwen3.5-4B, served by llama.cpp, and the agent runtime is Goose, on a 2-vCPU Arm64 worker. Versions, limits, and measured speed are on the [AI worker page](docs/components/ai-worker.md).
 
