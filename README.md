@@ -8,11 +8,12 @@ What is built today, and what each milestone has to prove, is in the [roadmap](d
 
 ## Architecture
 
-This is what gets built. K3s on the orchestrator runs the trusted side: the workflow engine, the collectors, the tool service, and the pull request broker. Component detail and the reasoning are in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
+This is what gets built. K3s on the orchestrator runs the trusted side: the workflow engine, the collectors, the tool service, and the pull request broker. Component detail is in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
 
 ![Architecture: a trusted orchestrator VM holds the secrets and has no direct internet access. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](docs/diagrams/target-architecture.svg)
 
-The names in the diagram:
+<details>
+<summary><strong>The names in the diagram</strong></summary>
 
 | Term | What it is |
 | --- | --- |
@@ -22,14 +23,22 @@ The names in the diagram:
 | Router | The mesh VPN's subnet router, and the only mesh node in Azure. The operator reaches every other VM through it |
 | Fetch window | A time-limited allowlist: an operator command on the edge VM that opens code and package hosts for at most 60 minutes |
 
-The mesh VPN service is a third party. The operator's device and the router VM both connect out to it, and it relays the encrypted tunnel between them. From the router, the operator's sessions continue as SSH to each VM, with a certificate that expires within 12 hours. The [mesh VPN page](docs/components/mesh-vpn.md) has the detail.
+</details>
 
-The blocked paths matter as much as the open ones:
+## Why it looks like this
 
-- **The AI worker reaches two services and nothing else:** the tool service on the orchestrator, and a package proxy limited to two hosts. No target, no internet, no name server. Rules in [`infra/platform/main.tf`](infra/platform/main.tf). Checks on [containment](docs/validation/containment.md#from-the-worker).
-- **The targets reach nothing outside their own network.** They cannot open a connection into the platform, and they have no internet path. Rules in [`infra/targets/main.tf`](https://github.com/sindredg/ai-security-platform-test/blob/main/infra/targets/main.tf), in the targets repository.
-- **No VM has a public address, on either side.** The policy that refuses one is in [`infra/bootstrap/policy.tf`](infra/bootstrap/policy.tf), and the [Azure policy checks](docs/validation/azure-policy.md) test it.
-- **The two sides cross only over network peering.** They share an Azure subscription, with separate Terraform roots, state, resource groups, networks, and deployment identities. Every crossing starts on the orchestrator, except the operator's SSH sessions through the router. See [identities and state](docs/components/identities-and-state.md) and [ADR 0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md).
+Each part of the setup answers one concern. The decision record has the options that were weighed and what the choice costs.
+
+| Concern | Design answer | Decided in |
+| --- | --- | --- |
+| Findings and target evidence reaching a model vendor | An open-weight model on CPU, on the AI worker. No external model API. The project controls the operating system, the model server, and the model, and can swap or tune it. Versions and measured speed are on the [AI worker page](docs/components/ai-worker.md) | [Architecture](docs/architecture.md#why-the-model-runs-inside-the-platform) |
+| The agent compromised by what it reads | The AI worker is its own VM, not a cluster node, with no cluster credentials. It reaches the tool service on the orchestrator and two Ubuntu package hosts through the edge proxy. No target, no internet, no name server ([checks](docs/validation/containment.md#from-the-worker)) | [0005](docs/decisions/0005-ai-workers-on-a-separate-vm.md), [0011](docs/decisions/0011-package-proxy-for-the-worker.md) |
+| Root on the host that holds the secrets | The orchestrator has no direct internet access. Its only outbound path is Squid on the edge VM, and code hosts open only in a fetch window | [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) |
+| The mesh VPN, a third-party service and the part the project controls least | Its only node in Azure is the router, a VM apart from the proxy and the secrets. The operator's sessions continue from there as SSH, with certificates that expire within 12 hours ([mesh VPN page](docs/components/mesh-vpn.md)) | [0025](docs/decisions/0025-the-mesh-node-on-its-own-vm.md), [0022](docs/decisions/0022-short-lived-ssh-certificates-for-the-operator.md) |
+| A compromised target | The targets reach nothing outside their own network and cannot open a connection into the platform. They have their own repository, Terraform root, state, and deployment identity. Every crossing starts on the orchestrator, except the operator's sessions through the router ([identities and state](docs/components/identities-and-state.md)) | [0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md), [0024](docs/decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
+| A VM exposed to the internet | No VM has a public address, on either side. An Azure policy refuses one ([checks](docs/validation/azure-policy.md)) | [0009](docs/decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) |
+
+The three regions follow quota, not preference: the subscription allows 4 vCPUs per region. The orchestrator and the AI worker run in Sweden Central, the edge VM and the router in Denmark East, and the targets in Poland Central ([0003](docs/decisions/0003-region-pair.md), [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)).
 
 ## What can go wrong
 
@@ -39,7 +48,7 @@ A suggested fix and a fix that can be trusted are different things. Three failur
 - **The evidence lies.** A compromised target reports whatever it likes, and an advisory can carry instructions.
 - **A job dies halfway.** The change ends up half applied, or applied twice.
 
-The design is built around those failures. The agent gets narrowly scoped tools and no cloud, repository, or delivery credentials, and every proposal is rehearsed against the service's real consumer before a person sees it.
+The workflow is built around those failures: collect evidence, investigate, propose, rehearse on a disposable copy, open a pull request, wait for approval, deliver, verify. The agent gets narrowly scoped tools and no cloud, repository, or delivery credentials, and every proposal is rehearsed against the service's real consumer before a person sees it.
 
 The agent also has to earn its place. Each result is compared with the same workflow run without it.
 
@@ -48,12 +57,6 @@ Three exercises test this on one target, a NetBox inventory service with a real 
 1. **Excess inventory access.** The consumer's permissions expose records outside its approved scope.
 2. **Excess network access.** NetBox is reachable from a network viewpoint that policy forbids.
 3. **Vulnerable image or dependency.** A pinned artifact is affected by a real public advisory.
-
-## Design in brief
-
-- **Regions:** the orchestrator and the AI worker in Sweden Central, the edge VM and the router in Denmark East, the targets in Poland Central.
-- **Workflow:** collect evidence, investigate, propose, rehearse on a disposable copy, open a pull request, wait for approval, deliver, verify.
-- **Inference:** open-weight models on CPU, inside the platform. No external model API. The starting model is Qwen3.5-4B, served by llama.cpp, and the agent runtime is Goose, on the AI worker, a 2-vCPU Arm64 VM. Versions, limits, and measured speed are on the [AI worker page](docs/components/ai-worker.md).
 
 ## Find your way around
 
@@ -72,6 +75,9 @@ Three exercises test this on one target, a NetBox inventory service with a real 
 
 ## Repository layout
 
+<details>
+<summary>Each directory, what it holds, and the page that describes it</summary>
+
 | Path | What it holds | Described in |
 | --- | --- | --- |
 | [`infra/bootstrap/`](infra/bootstrap/) | Terraform for what the other roots depend on: resource groups, state storage, the two deployment identities, and the public address policy. Applied by the operator | [Identities and state](docs/components/identities-and-state.md) |
@@ -89,6 +95,8 @@ Three exercises test this on one target, a NetBox inventory service with a real 
 | [`validation/`](validation/) | The script that runs every check against the live system | [Validation](docs/validation/README.md) |
 | [`.github/`](.github/) | The checks on every pull request, the image build, and the signature check with its allowed signers | [Pipeline](docs/components/pipeline.md) |
 | [`docs/`](docs/) | Everything in [Find your way around](#find-your-way-around) | |
+
+</details>
 
 ## What this is not
 
