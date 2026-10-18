@@ -33,21 +33,26 @@ vars='{
 }'
 
 # The overrides as an HCL object. A value is a JSON string, which HCL reads
-# the same way, as long as it holds no template sequence. The Python is
-# single-quoted on purpose: its ${ is a string to look for, not an expansion.
+# the same way, as long as it holds no template sequence. A name the list
+# above does not hold is refused: a typo would leave the placeholder. The
+# Python is single-quoted on purpose: its ${ is a string to look for, not an
+# expansion.
 # shellcheck disable=SC2016
 overrides=$(python3 -I -c '
 import json, re, sys
+known = set(re.findall(r"([a-z_]+) =", sys.argv[1]))
 pairs = {}
-for arg in sys.argv[1:]:
+for arg in sys.argv[2:]:
     key, sep, value = arg.partition("=")
     if not sep or not re.fullmatch(r"[a-z_]+", key):
         sys.exit(f"not NAME=VALUE: {arg}")
+    if key not in known:
+        sys.exit(f"no template variable named {key}")
     if "${" in value or "%{" in value:
         sys.exit(f"template sequence in the value of {key}")
     pairs[key] = value
 print("{" + ", ".join(f"{k} = {json.dumps(v)}" for k, v in pairs.items()) + "}")
-' "$@")
+' "$vars" "$@")
 
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
