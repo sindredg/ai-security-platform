@@ -2,13 +2,13 @@
 
 An AI agent on a self-hosted model investigates security findings on a target service it cannot reach directly, and proposes fixes that are tested before review. No change reaches the target service without human approval of that exact change.
 
-The split of work is strict. Ordinary tools collect evidence and establish facts. The agent interprets the evidence and proposes a change within defined limits. Neither gets to approve anything.
+Tools establish facts. The agent proposes changes. Neither approves anything.
 
-What is built today, and what each milestone has to prove, is in the [roadmap](docs/roadmap.md#status).
+Status: [roadmap](docs/roadmap.md#status).
 
 ## Architecture
 
-This is what gets built. K3s on the orchestrator runs the trusted side: the workflow engine, the collectors, the tool service, and the pull request broker. Component detail is in the [architecture](docs/architecture.md). The diagram source is [`docs/diagrams/target-architecture.html`](docs/diagrams/target-architecture.html).
+Detailed breakdown in [Architecture](docs/architecture.md).
 
 ![Architecture: a trusted orchestrator VM holds the secrets and has no direct internet access. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](docs/diagrams/target-architecture.svg)
 
@@ -27,56 +27,46 @@ This is what gets built. K3s on the orchestrator runs the trusted side: the work
 
 ## Why it looks like this
 
-Each part of the setup answers one concern. The decision record has the options that were weighed and what the choice costs.
-
 | Concern | Design answer | Decided in |
 | --- | --- | --- |
-| Findings and target evidence reaching a model vendor | An open-weight model on CPU, on the AI worker. No external model API. The project controls the operating system, the model server, and the model, and can swap or tune it. Versions and measured speed are on the [AI worker page](docs/components/ai-worker.md) | [Architecture](docs/architecture.md#why-the-model-runs-inside-the-platform) |
-| The agent compromised by what it reads | The AI worker is its own VM, not a cluster node, with no cluster credentials. It reaches the tool service on the orchestrator and two Ubuntu package hosts through the edge proxy. No target, no internet, no name server ([checks](docs/validation/containment.md#from-the-worker)) | [0005](docs/decisions/0005-ai-workers-on-a-separate-vm.md), [0011](docs/decisions/0011-package-proxy-for-the-worker.md) |
-| Root on the host that holds the secrets | The orchestrator has no direct internet access. Its only outbound path is Squid on the edge VM, and code hosts open only in a fetch window | [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) |
-| The mesh VPN, a third-party service and the part the project controls least | Its only node in Azure is the router, a VM apart from the proxy and the secrets. The operator's sessions continue from there as SSH, with certificates that expire within 12 hours ([mesh VPN page](docs/components/mesh-vpn.md)) | [0025](docs/decisions/0025-the-mesh-node-on-its-own-vm.md), [0022](docs/decisions/0022-short-lived-ssh-certificates-for-the-operator.md) |
-| A compromised target | The targets reach nothing outside their own network and cannot open a connection into the platform. They have their own repository, Terraform root, state, and deployment identity. Every crossing starts on the orchestrator, except the operator's sessions through the router ([identities and state](docs/components/identities-and-state.md)) | [0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md), [0024](docs/decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
-| A VM exposed to the internet | No VM has a public address, on either side. An Azure policy refuses one ([checks](docs/validation/azure-policy.md)) | [0009](docs/decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) |
+| Evidence reaching a model vendor | Open-weight model on CPU, inside the platform. No external model API | [Architecture](docs/architecture.md#why-the-model-runs-inside-the-platform) |
+| The agent compromised by what it reads | Own VM, no cluster credentials. Reaches only the tool service and two package hosts | [0005](docs/decisions/0005-ai-workers-on-a-separate-vm.md), [0011](docs/decisions/0011-package-proxy-for-the-worker.md) |
+| Root on the host with the secrets | No direct internet. The only way out is the edge VM's proxy | [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) |
+| The mesh VPN vendor | Its only node is a separate router VM. SSH certificates expire within 12 hours | [0025](docs/decisions/0025-the-mesh-node-on-its-own-vm.md), [0022](docs/decisions/0022-short-lived-ssh-certificates-for-the-operator.md) |
+| A compromised target | Reaches nothing outside its own network. Own repository, state, and identity | [0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md), [0024](docs/decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
+| Exposure to the internet | No VM has a public address. An Azure policy refuses one | [0009](docs/decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) |
 
-The three regions follow quota, not preference: the subscription allows 4 vCPUs per region. The orchestrator and the AI worker run in Sweden Central, the edge VM and the router in Denmark East, and the targets in Poland Central ([0003](docs/decisions/0003-region-pair.md), [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)).
+Three regions, because each allows only 4 vCPUs ([0003](docs/decisions/0003-region-pair.md), [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)).
 
 ## What can go wrong
 
-A suggested fix and a fix that can be trusted are different things. Three failures separate them:
+- **The model is wrong.** The fix clears the finding and breaks the service.
+- **The evidence lies.** A compromised target or an advisory carries false data or instructions.
+- **A job dies halfway.** The change is half applied, or applied twice.
 
-- **The model is wrong.** It proposes a fix that clears the finding and breaks the service.
-- **The evidence lies.** A compromised target reports whatever it likes, and an advisory can carry instructions.
-- **A job dies halfway.** The change ends up half applied, or applied twice.
+So the agent gets narrow tools and no cloud, repository, or delivery credentials, every proposal is rehearsed against the service's real consumer before review, and each result is compared with the same run without the agent.
 
-The workflow is built around those failures: collect evidence, investigate, propose, rehearse on a disposable copy, open a pull request, wait for approval, deliver, verify. The agent gets narrowly scoped tools and no cloud, repository, or delivery credentials, and every proposal is rehearsed against the service's real consumer before a person sees it.
-
-The agent also has to earn its place. Each result is compared with the same workflow run without it.
-
-Three exercises test this on one target, a NetBox inventory service with a real API consumer that must keep working ([ADR 0004](docs/decisions/0004-netbox-as-first-target.md)):
-
-1. **Excess inventory access.** The consumer's permissions expose records outside its approved scope.
-2. **Excess network access.** NetBox is reachable from a network viewpoint that policy forbids.
-3. **Vulnerable image or dependency.** A pinned artifact is affected by a real public advisory.
+Three exercises test this on a NetBox target ([ADR 0004](docs/decisions/0004-netbox-as-first-target.md)): excess inventory access, excess network access, and a vulnerable image or dependency.
 
 ## Find your way around
 
-| To see | Go to |
+| Topic | Page |
 | --- | --- |
-| What exists today, and what each milestone has to prove | [Roadmap](docs/roadmap.md#status) |
-| How the system is built | [Architecture](docs/architecture.md), then the [components](docs/components/README.md), one page per part with every version pin |
-| Why each choice was made, and what it costs | [Decision records](docs/decisions/README.md) |
-| The check behind a claim about the running system | [Validation](docs/validation/README.md): one page per area, each claim with its check and the last run |
-| The commands and output behind a result | [Worklogs](docs/worklogs/README.md), one per milestone |
-| The security reasoning | [Security](docs/security/README.md): the threat model, AI-specific threats, credentials, hardening, and [accepted risks](docs/security/accepted-risks.md) |
-| How to rebuild it | [Runbooks](docs/runbooks/README.md), one per milestone |
-| Failures and what they showed | [Troubleshooting](docs/troubleshooting/README.md) |
-| Known defects and follow-up | [Open issues](https://github.com/sindredg/ai-security-platform/issues) |
-| The code | [Repository layout](#repository-layout), below |
+| Status and milestones | [Roadmap](docs/roadmap.md#status) |
+| How it is built | [Architecture](docs/architecture.md), [components](docs/components/README.md) |
+| Why each choice | [Decision records](docs/decisions/README.md) |
+| The check behind each claim | [Validation](docs/validation/README.md) |
+| Commands and output per milestone | [Worklogs](docs/worklogs/README.md) |
+| Threats and controls | [Security](docs/security/README.md) |
+| Rebuild steps | [Runbooks](docs/runbooks/README.md) |
+| Failures and causes | [Troubleshooting](docs/troubleshooting/README.md) |
+| Known defects | [Open issues](https://github.com/sindredg/ai-security-platform/issues) |
+| The code | [Repository layout](#repository-layout) |
 
 ## Repository layout
 
 <details>
-<summary>Each directory, what it holds, and the page that describes it</summary>
+<summary>Show the directories</summary>
 
 | Path | What it holds | Described in |
 | --- | --- | --- |
@@ -100,9 +90,9 @@ Three exercises test this on one target, a NetBox inventory service with a real 
 
 ## What this is not
 
-- Not production. One node, one operator, no high availability, no compliance claim.
-- Not real data. All inventory in the target is synthetic.
-- Not protection from the cloud provider. The design trusts Azure and the platform administrator, and says so. See [trust boundaries](docs/architecture.md#trust-boundaries).
+- **Not production:** one node, one operator, no high availability.
+- **Not real data:** the target's inventory is synthetic.
+- **Not protection from Azure:** the provider and the platform administrator are trusted ([trust boundaries](docs/architecture.md#trust-boundaries)).
 
 ## License
 
