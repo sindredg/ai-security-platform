@@ -3,7 +3,7 @@
 Status: Accepted
 Date: 2026-10-16
 
-Adds to [0019](0019-how-the-audit-lines-and-the-worker-journal-are-copied.md): where the copies go after the orchestrator. Builds on [0020](0020-an-edge-vm-for-the-way-out-and-the-mesh.md), which removes the orchestrator's way out. [0027](0027-how-the-monitoring-is-built.md) changes the number of collection endpoints, the syslog levels, and how the hosts entries are written.
+Adds to [0019](0019-how-the-audit-lines-and-the-worker-journal-are-copied.md): where the copies go after the orchestrator. Builds on [0020](0020-an-edge-vm-for-the-way-out-and-the-mesh.md), which removes the orchestrator's way out. [0027](0027-how-the-monitoring-is-built.md) changes the number of collection endpoints, the syslog levels, and how the hosts entries are written. [0028](0028-alert-rules-flow-logs-and-drills.md) sets the daily cap from one day of volume instead of a week.
 
 ## Context
 

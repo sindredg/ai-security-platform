@@ -15,6 +15,12 @@ variable "platform_location" {
   default     = "swedencentral"
 }
 
+variable "edge_location" {
+  description = "Region of the platform's edge network. Its network watcher takes the platform's flow logs there."
+  type        = string
+  default     = "denmarkeast"
+}
+
 variable "targets_location" {
   description = "Azure region for target resources."
   type        = string

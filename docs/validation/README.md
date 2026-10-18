@@ -72,6 +72,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-17 | 193 of 194 passed | From the branch at `797d217`, at 14:24 UTC, after the [router](../worklogs/0004-edge-network-and-monitoring.md#the-router) took over the mesh. First run with the router's checks. `U.9` failed: 16 security updates pending on the new router |
 | 2026-10-17 | 194 of 194 passed | At 14:34 UTC, after `unattended-upgrade` on the router |
 | 2026-10-17 | 241 of 252 passed | From the branch with the 13 new `O` checks, at 22:50 UTC, before the [monitoring](../worklogs/0004-edge-network-and-monitoring.md#monitoring) apply. The 11 that failed are the ones written down before the run, each on absence. `O.4` and `O.13` passed |
+| 2026-10-17 | 252 of 252 passed | At 23:39 UTC, after the [monitoring](../worklogs/0004-edge-network-and-monitoring.md#the-applies-3) apply |
+| 2026-10-18 | 256 of 256 passed | At 09:07 UTC, after the [alert drills](../worklogs/0004-edge-network-and-monitoring.md#the-drills), with `O.14` to `O.17`. `O.17` then counted rows from any flow log. Since changed to name each flow log, it fails on the platform's |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 

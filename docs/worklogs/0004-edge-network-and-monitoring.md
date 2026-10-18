@@ -5,7 +5,7 @@ Milestone: 3a, edge network and monitoring
 
 ## Summary
 
-The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The mesh VPN agent runs on a router VM of its own, and the orchestrator is off the mesh. Squid runs on an edge VM, the orchestrator reaches the internet only through it, and only Squid resolves public names for the platform. The target network has its own peering with the edge network and takes SSH from the router. The audit lines, the worker's journal, and the edge's and the router's logs reach a Log Analytics workspace over Private Link. Alert rules and flow logs are not built. The gate is not met.
+The milestone is built in slices. The first, orchestrator hardening, is on the system: pods reach the host only on the API server and kubelet ports, and every namespace refuses a privileged pod. The tool service limits requests without a valid token. The second is on the system too: the administrator account on both VMs takes only a certificate that expires within 12 hours, and the feed key logs in to an account of its own on the worker. The check that every commit in a pull request is signed by the operator's key is required, and on GitHub it blocks a pull request with a commit GitHub signed. The target network is in Poland Central, defined in its own repository. The mesh VPN agent runs on a router VM of its own, and the orchestrator is off the mesh. Squid runs on an edge VM, the orchestrator reaches the internet only through it, and only Squid resolves public names for the platform. The target network has its own peering with the edge network and takes SSH from the router. The audit lines, the worker's journal, and the edge's and the router's logs reach a Log Analytics workspace over Private Link, and 15 alert rules each fired once on purpose. The platform network's flow log is not yet processed. The gate is not met.
 
 | Criterion | Result |
 | --- | --- |
@@ -22,8 +22,8 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | Every namespace rejects a privileged pod, whether or not it has a pod security label | **Tested** on the live system: `K.9` failed on `default`, `kube-node-lease`, `kube-public`, and `kube-system` before the change and passes after it ([rollout](#rollout)) |
 | Requests to the tool service without a valid token are rate-limited | **Tested** on the live system: 33 requests without a token from the worker got 30 × 401 and 3 × 429, with 31 audit lines, one of them for the limit ([the rate limit](#on-the-live-system)) |
 | The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from | **Tested** on the live system on 2026-10-17: rows from all three agents, two audit rows equal to the file's lines, and no role for any VM identity (`O.1` to `O.13`). The orchestrator's only path is the private endpoint ([monitoring](#monitoring)) |
-| Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | Open |
-| Flow logs are recorded for the platform subnets | Open |
+| Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | **Tested** on the live system on 2026-10-18: each fired once on purpose, `heartbeat-missing`, `audit-sequence`, `journal-missing`, `squid-refused-orchestrator`, `security-groups`, `security-rules`, and `role-assignments`, with nine other rules ([the drills](#the-drills)). `denied-flow-to-internet` and `daily-cap` have not fired |
+| Flow logs are recorded for the platform subnets | **Tested** for the records on the live system on 2026-10-18: the platform flow log's blobs hold the drill's denied connections from the orchestrator and the worker. Traffic analytics has not processed them, so no alert reads them yet ([traffic analytics](#traffic-analytics), [#111](https://github.com/sindredg/ai-security-platform/issues/111)) |
 | The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | **Tested** for the targets on the live system: `Z.14` reads `polandcentral`, after it read `denmarkeast` before the move, and the target root is in [its own repository](https://github.com/sindredg/ai-security-platform-test) ([the move](#the-targets-in-poland-central)). **Tested** for the signature check on GitHub: a pull request with a commit GitHub signed is blocked, also next to a passing job of the same name, and an unsigned push is refused ([fail side](#the-fail-side-on-github)) |
 | Log volume per day is measured, and a daily cap is set from it | Open |
 | The orchestrator's memory and CPU use with the log agent are measured | Open. One reading on 2026-10-17: 199 MB and 0.3 % CPU ([footprint](#footprint)) |
@@ -755,7 +755,94 @@ From a new pod in `default`, with the probe from the [orchestrator hardening run
 ### Limits
 
 - No alert rule exists. A stopped agent, a hole in the sequence, or a refused request shows only when someone queries or runs the checks.
-- The footprint is one reading. The 3a criterion asks for a measurement, and the week of volume for the cap is still to come.
+- The footprint is one reading. The 3a criterion asks for a measurement, and the day of volume for the cap is still to come ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md)).
 - Lines written before the agent started are not in the workspace.
 - The edge and the router can still reach the internet on TCP 443. Nothing stops root on either from sending to another workspace.
 - The first boot of a VM with the agent, and the runbook's undo step, have not run.
+
+## Alert rules and flow logs
+
+The alert rules, the Activity Log rules, the flow logs, and the workbook of [ADR 0021](../decisions/0021-monitoring-in-azure-monitor-over-private-link.md), as built by [ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md), and one drill for each rule.
+
+### What changed
+
+| Change | Where |
+| --- | --- |
+| 13 log alert rules on the workspace, stateful, with no action group | `infra/platform/alerts.tf` |
+| The workbook: tool calls, Squid requests, flows, and load | `infra/platform/workbook.tf` |
+| The drill file `/var/log/aisec/alert-drill.jsonl`, collected into the audit table | `infra/platform/monitoring.tf` |
+| Four Activity Log rules on the subscription, in the platform state group | `infra/bootstrap/monitoring.tf` |
+| Flow logs with traffic analytics on the platform and edge networks, and their storage in the platform state group | The same |
+| `O.14` to `O.17` | `validation/platform-checks.sh` |
+| ADR 0027 accepted. ADR 0028 proposed | `docs/decisions/` |
+
+### The applies
+
+| Step | Result |
+| --- | --- |
+| Bootstrap, the four Activity Log rules, as the operator, at about 00:00 UTC | `Apply complete! Resources: 4 added` |
+| Bootstrap, a custom role with the flow log actions on the two network watchers, assigned to the platform identity | First run: refused with `AuthorizationFailed` on `roleDefinitions/write`, because platform identity variables left in the operator's shell made Terraform sign in as the platform identity. The runbook now clears them. Second run at 07:51: `3 added`, state copy checksums equal |
+| Platform, alert rules, flow logs, storage, workbook | 16 of 18 created. Both flow logs failed with `TAUserDoesNotHavePermissions`. Traffic analytics creates a collection rule and endpoint of its own, and Azure checks that permission on the workspace's subscription. Azure kept both flow logs, in state `Failed` |
+| The redesign | The flow logs and their storage moved to the bootstrap root, written as the operator ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md)). Platform: `2 destroyed`, the empty storage accounts. Bootstrap: the role and its two assignments destroyed, two storage accounts created. The flow logs collided with the two `Failed` ones, which were deleted with `az network watcher flow-log delete`. Bootstrap again: `2 added`. State copy checksums equal |
+| `terraform plan` on both roots | `No changes` |
+
+The role's assignments and their deletion fired `role-assignments` four times, at 07:55 and 08:25.
+
+### The drills
+
+Run from a script with the commands in the [runbook](../runbooks/monitoring.md#alert-rules-flow-logs-and-drills), step 11. The three long drills started at 08:33:27 UTC. The script stopped at the next step: `az network nsg update --set tags.aisec-drill=1` was refused, `Expect <class 'str'>, got 1`. A second script with the value `drill` resumed at 08:47:34. Everything was put back at 08:55: the router's agent and the journal timer `active`, the edge's disk at 12 percent.
+
+| Rule | Drill, UTC | Fired, UTC | Severity |
+| --- | --- | --- | --- |
+| `role-assignments` | The flow log role's two assignments, created at about 07:55 and deleted at about 08:25 | 07:55:34, 07:55:36, 08:25:33, 08:25:33 | Sev4 |
+| `ssh-login-accepted` | The script's logins, from 08:33 | 08:39:38 | Sev3 |
+| `disk-or-memory` | `/` on the edge at 88 percent from 08:33:27 | 08:45:27 | Sev2 |
+| `heartbeat-missing` | The router's agent stopped at 08:33:27 | 08:46:03, resolved after the restart at 08:55 | Sev1 |
+| `audit-sequence` | `seq` 1 and 3 of one `drill-` start, 08:47:57 | 08:49:47 | Sev1 |
+| `tool-refusal-burst` | 25 calls without a token, 08:48:17 | 08:50:23 | Sev2 |
+| `security-groups` | A tag written and removed, 08:47:36 and 08:47:41 | 08:50:32 twice, and 09:05:33 | Sev4 |
+| `security-rules` | A description written and put back, 08:47:47 and 08:47:51 | 08:50:32 twice | Sev4 |
+| `policy-assignments` | A description written and put back | 08:50:32 twice | Sev4 |
+| `fetch-window-opened` | Opened for one minute and closed, 08:48:01 | 08:50:54 | Sev3 |
+| `failed-unit` | `/bin/false` as a transient unit on the edge, 08:48:19 | 08:52:01 | Sev2 |
+| `squid-refused-orchestrator` | A tunnel to `example.com` from the orchestrator, 08:47:59, `403` | 08:52:40 | Sev1 |
+| `copy-marker` | A line with `"event":"copy"` in the drill file, 08:47:57 | 08:53:07 | Sev1 |
+| `journal-missing` | The journal timer stopped at 08:33:27. The last row was collected at 08:32:51 | 08:53:57, resolved after the restart | Sev2 |
+| `ssh-login-failed` | An expired certificate offered to the router, 08:48:16 | 09:00:13 | Sev2 |
+| `denied-flow-to-internet` | TCP to `1.1.1.1:443` from the worker and the orchestrator, 08:48:03 | Not fired. See below | |
+| `daily-cap` | Not drilled. Lowering the cap stops ingestion for the rest of the day | | |
+
+What the drills showed beyond the firing:
+
+- **`ssh-login-failed` came late for a reason.** The router's agent was stopped when the certificate was refused. The line was collected at 08:55:30, when the agent started again. The agent catches up on syslog after a stop instead of losing it, and the row carries the collection time, not the event's.
+- **`journal-missing` fired 21 minutes after the last row**: the 15-minute window, and the rule's own delay. A rule that watches for silence, with no rows to count, did fire.
+- **A third `security-groups` alert at 09:05 came from the drill.** The Activity Log holds a second `Succeeded` event for the tag removal, at 08:57:42, with the same correlation ID as the call at 08:47:41. One write can fire the rule twice.
+- **Activity Log alerts show as Sev4.** They have no severity setting, as ADR 0028 expected.
+
+### Traffic analytics
+
+Traffic analytics wrote 206 flow rows by 09:13, every one from `fl-aisec-edge`. The platform network's flow log is enabled and `Succeeded`, and Network Watcher writes to its storage: 128 successful transactions between 08:15 and 09:15, against 271 on the edge's account. None of it has been processed. Each interval's status row says `Completed`. Traffic analytics created four `NWTA` resources in the platform group at 08:26, when the operator's apply created the flow logs: a collection rule and a collection endpoint for each flow log. The cause is not known.
+
+The records exist. With Storage Blob Data Reader on the platform flow log's account, granted to the operator for this, the 08:00 UTC blobs, one per network interface, hold the drill's connections: 5 tuples from `10.40.0.4` and 5 from `10.40.0.36` to `1.1.1.1:443`, outbound, under `UserRule_deny-to-internet`. Recording works and processing does not. So the denied flows are not in the workspace, and `denied-flow-to-internet` has not fired. The router's denied flows, UDP that its rules do not allow, are there, from the edge flow log.
+
+### The fail side of each new check
+
+Each check's lines were run alone against the live system with one input changed, on 2026-10-18.
+
+| Check | Pass | Fail seen |
+| --- | --- | --- |
+| `O.14` | The 13 rules, each `on stateful none` | A rule name added to the checkout: different. One rule's answer edited to `stateless`: different |
+| `O.15` | The four rules in the platform state group | The same query on the platform group: 0 rules |
+| `O.16` | Both flow logs, `true true 10` | A name that does not exist: an empty answer |
+| `O.17` | Not yet seen | `fl-aisec-edge` alone, live, since the platform flow log is not processed |
+
+### Checks
+
+`validation/platform-checks.sh` at 09:07 UTC: `256 passed, 0 failed`. `O.17` then counted rows from any flow log, and passed on the edge's alone. It now names each flow log.
+
+### Limits
+
+- The platform network's flows are not processed through 10:00 UTC ([#111](https://github.com/sindredg/ai-security-platform/issues/111)). `denied-flow-to-internet` has never fired, and `O.17` fails on it.
+- `daily-cap` and the memory half of `disk-or-memory` were not fired.
+- A drill line stays in the audit table for 31 days.
+- Flow records are kept 90 days, the scanners' floor (Checkov `CKV_AZURE_12`, Trivy `AZU-0049`). They were set to 31 at first.
