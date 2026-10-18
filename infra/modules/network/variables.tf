@@ -77,6 +77,22 @@ variable "subnets" {
     ]))
     error_message = "Use direction Inbound or Outbound, access Allow or Deny, and protocol Tcp, Udp, Icmp, Esp, Ah, or *."
   }
+
+  # No VM in either network takes a connection from the internet: the
+  # operator comes in over the mesh VPN, which the router opens from inside.
+  # Checkov cannot read these rules (issue 99), so the module refuses an
+  # inbound allow from any address itself, and tests/rules.tftest.hcl checks
+  # that it does.
+  validation {
+    condition = alltrue(flatten([
+      for subnet in values(var.subnets) : [
+        for rule in subnet.rules :
+        !(rule.direction == "Inbound" && rule.access == "Allow" &&
+        contains(["*", "any", "internet", "0.0.0.0/0", "::/0"], lower(rule.source_address_prefix)))
+      ]
+    ]))
+    error_message = "An inbound Allow rule cannot take any source, Internet, 0.0.0.0/0, or ::/0."
+  }
 }
 
 variable "peerings" {
