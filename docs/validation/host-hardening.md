@@ -2,6 +2,8 @@
 
 The same settings on every VM, from cloud-init. They came out of the Lynis audit in [milestone 2](../worklogs/0002-platform-compute.md#operating-system-audit). The checks are the same list on each: `HO` on the orchestrator, `HW` on the worker, `HR` on the router, `HE` on the edge.
 
+Each check was seen to fail. `.17` to `.20` failed live before the rollout of 2026-10-16. The rest failed on 2026-10-18: `.2` to `.6` against Ubuntu's default SSH configuration on the edge, `.7`, `.8`, and `.10` to `.14` on a machine that is not hardened, and `.1`, `.9`, `.15`, and `.16` with stubbed commands ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-of-the-edge-checks)).
+
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
 | `.1` | No failed systemd unit | A unit that failed at boot is the first sign of a broken rebuild | `systemctl --failed` |
