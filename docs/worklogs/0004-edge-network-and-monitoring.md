@@ -22,8 +22,8 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | Every namespace rejects a privileged pod, whether or not it has a pod security label | **Tested** on the live system: `K.9` failed on `default`, `kube-node-lease`, `kube-public`, and `kube-system` before the change and passes after it ([rollout](#rollout)) |
 | Requests to the tool service without a valid token are rate-limited | **Tested** on the live system: 33 requests without a token from the worker got 30 × 401 and 3 × 429, with 31 audit lines, one of them for the limit ([the rate limit](#on-the-live-system)) |
 | The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from | **Tested** on the live system on 2026-10-17: rows from all three agents, two audit rows equal to the file's lines, and no role for any VM identity (`O.1` to `O.13`). The orchestrator's only path is the private endpoint ([monitoring](#monitoring)) |
-| Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | **Tested** on the live system on 2026-10-18: each fired once on purpose, `heartbeat-missing`, `audit-sequence`, `journal-missing`, `squid-refused-orchestrator`, `security-groups`, `security-rules`, and `role-assignments`, with nine other rules ([the drills](#the-drills)). `denied-flow-to-internet` and `daily-cap` have not fired |
-| Flow logs are recorded for the platform subnets | **Tested** for the records on the live system on 2026-10-18: the platform flow log's blobs hold the drill's denied connections from the orchestrator and the worker. Traffic analytics has not processed them, so no alert reads them yet ([traffic analytics](#traffic-analytics), [#111](https://github.com/sindredg/ai-security-platform/issues/111)) |
+| Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | **Tested** on the live system on 2026-10-18: each fired once on purpose, `heartbeat-missing`, `audit-sequence`, `journal-missing`, `squid-refused-orchestrator`, `security-groups`, `security-rules`, and `role-assignments`, with nine other rules ([the drills](#the-drills)). `daily-cap` has not fired. `denied-flow-to-internet` cannot fire while the platform's flow log is not processed |
+| Flow logs are recorded for the platform subnets | **Tested** for the records on the live system on 2026-10-18: the platform flow log's blobs hold the drill's denied connections from the orchestrator and the worker. **Accepted gap** for the alert: traffic analytics does not process them, so no alert reads them ([the platform flow log](#the-platform-flow-log), [accepted risks](../security/accepted-risks.md)) |
 | The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | **Tested** for the targets on the live system: `Z.14` reads `polandcentral`, after it read `denmarkeast` before the move, and the target root is in [its own repository](https://github.com/sindredg/ai-security-platform-test) ([the move](#the-targets-in-poland-central)). **Tested** for the signature check on GitHub: a pull request with a commit GitHub signed is blocked, also next to a passing job of the same name, and an unsigned push is refused ([fail side](#the-fail-side-on-github)) |
 | Log volume per day is measured, and a daily cap is set from it | Open |
 | The orchestrator's memory and CPU use with the log agent are measured | Open. One reading on 2026-10-17: 199 MB and 0.3 % CPU ([footprint](#footprint)) |
@@ -897,3 +897,37 @@ A review of these changes on 2026-10-18 found the pin above, this section's miss
 - The Squid job parses with the runner's Squid. The edge's is the same release only while both are current.
 - The module refuses four ways of writing "any source". A rule from a wide private range, or a port opened wider than needed, is still judged by Trivy alone.
 - The copier fix is reasoned from the kubelet's source on `master`, as in #81. The pod's log has not rotated on the live orchestrator yet.
+
+## The platform flow log
+
+Traffic analytics never processed the platform network's flow log ([#111](https://github.com/sindredg/ai-security-platform/issues/111), [traffic analytics](#traffic-analytics)). Two changes on 2026-10-18 did not help, and the gap was accepted that day.
+
+| Change | When, UTC | Result |
+| --- | --- | --- |
+| `fl-aisec-platform` replaced through the bootstrap root | 10:37 | No platform row by 11:25 |
+| Traffic analytics interval 60 minutes instead of 10, applied from a local change to the bootstrap root that was not committed | 11:28 to about 13:45 | No platform row by 13:41, in two separate queries |
+
+Read on the live system between 13:30 and 13:41, as the operator:
+
+- The flow log is enabled and `Succeeded`. Its blobs are written every hour, the last one at 13:30.
+- `NTANetAnalytics` status rows (`SubType == "StatusMessage"`) came every 10 minutes, each `Completed`. None came on the hour while the platform's flow log ran at 60 minutes. Status rows name no flow log, so the link to the edge's 10-minute interval is inferred from the timing. Traffic analytics records nothing for the platform's flow log, not even a failure.
+- The platform network, its flow log, and its storage account are in Sweden Central, the workspace's region. The edge's are in Denmark East. Both storage accounts have the same network and authentication settings: public network access on, default action `Allow`, Azure services allowed, shared key off. Sweden Central supports traffic analytics ([supported regions](https://learn.microsoft.com/azure/network-watcher/supported-region-traffic-analytics), read on 2026-10-18). The cause is not known.
+
+The interval went back to 10 afterwards. A bootstrap plan from the committed code showed one change, `interval_in_minutes = 60 -> 10`, and its apply ended with `1 changed`. The flow log then read `10 Succeeded`. The state copy was uploaded, and its `content_md5` equals the file's MD5.
+
+What remains, and the trigger to look again, are in [accepted risks](../security/accepted-risks.md). `denied-flow-to-internet` stays in place.
+
+### The fail side of the changed check
+
+`O.17` now expects `fl-aisec-edge` alone. Its lines were run alone against the live workspace at 13:50 UTC.
+
+| Input | Result |
+| --- | --- |
+| The real query | Pass: `fl-aisec-edge` |
+| No answer, a workspace that does not exist | Fail: empty |
+| No rows, a window of 0 seconds | Fail: empty |
+| A platform row, added to the answer with `union` | Fail: `fl-aisec-edge fl-aisec-platform` |
+
+### Checks
+
+`validation/platform-checks.sh` from `main`, finished at about 13:54 UTC, after the interval went back: `256 passed, 1 failed`. `O.16` passed. `O.17` failed on its old expected value, both flow logs. From the branch with the changed `O.17`, at 14:00 UTC: `257 passed, 0 failed`.

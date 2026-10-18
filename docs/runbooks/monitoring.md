@@ -157,7 +157,7 @@ This builds the log store of [ADR 0021](../decisions/0021-monitoring-in-azure-mo
       --query "value[].[properties.essentials.alertRule, properties.essentials.monitorCondition, properties.essentials.startDateTime]" -o tsv
     ```
 
-    Expected: one alert for each rule in step 11, within 40 minutes of its drill. The stateful rules resolve once the drill is put back.
+    Expected: one alert for each rule in step 11, within 40 minutes of its drill, except `denied-flow-to-internet`. Traffic analytics does not process the platform network's flow log, so that rule has no rows ([accepted risks](../security/accepted-risks.md)). The stateful rules resolve once the drill is put back.
 
 13. Run the checks.
 

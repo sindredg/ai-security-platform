@@ -50,4 +50,5 @@ For the drills:
 - **A drill line is a real row.** The workbook counts it, and the table keeps it for 31 days. Its `start` and `FilePath` mark it.
 - **Traffic analytics runs every 10 minutes.** A denied flow shows up to 40 minutes after it happened: the interval, ingestion, and a rule that runs every 10 minutes over 30.
 - **One day is a small sample.** An exercise or a fetch window can make a day larger than the one measured. Three times the measured day leaves room for that, and `daily-cap` fires if it is not enough.
+- **Traffic analytics does not process the platform network's flow log.** Found when the flow logs were built, and not fixed. The denied flow alert has no rows for the subnets it watches, so a check run does not raise it. Accepted, with what still holds, in [accepted risks](../security/accepted-risks.md).
 - **The traffic analytics table appears only after its first write.** That rule skips query validation when it is created, so a typo in it shows only when it runs.
