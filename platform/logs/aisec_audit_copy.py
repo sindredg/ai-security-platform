@@ -93,7 +93,9 @@ def read(path):
 
 def collect(after):
     """Lines newer than `after`, oldest first, each once."""
-    files = glob.glob(PODS)
+    # The kubelet compresses a rotated log into NAME.tmp and renames it to
+    # NAME.gz once it is whole. The rotated file stays until then.
+    files = [path for path in glob.glob(PODS) if not path.endswith(".tmp")]
     if not files:
         raise Failed("no log file of the tool service")
     found = set()

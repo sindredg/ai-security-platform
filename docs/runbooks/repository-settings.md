@@ -90,6 +90,7 @@ The repository is the approval channel, so its settings are part of the system (
            {"context": "Tool service tests", "integration_id": 15368},
            {"context": "Kubernetes manifests", "integration_id": 15368},
            {"context": "Log copier tests", "integration_id": 15368},
+           {"context": "Squid configuration", "integration_id": 15368},
            {"context": "Commit signatures", "integration_id": 15368}]}}
      ]
    }
@@ -122,7 +123,7 @@ The repository is the approval channel, so its settings are part of the system (
    gh api $R --jq '{allow_squash_merge,allow_merge_commit,allow_rebase_merge,push_protection:.security_and_analysis.secret_scanning_push_protection.status}'
    ```
 
-   Expected: two rulesets, both `active` with an empty bypass list. `protect-main` on `~DEFAULT_BRANCH` with `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks`, `required_signatures`. The second on `~ALL` with `required_signatures` only. Eleven checks, each `@15368`. Squash only, and push protection `enabled`.
+   Expected: two rulesets, both `active` with an empty bypass list. `protect-main` on `~DEFAULT_BRANCH` with `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks`, `required_signatures`. The second on `~ALL` with `required_signatures` only. Twelve checks, each `@15368`. Squash only, and push protection `enabled`.
 
 ## The fail side
 

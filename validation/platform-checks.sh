@@ -17,6 +17,8 @@
 #   AISEC_EDGE  Edge VM address or host alias. Default: 10.45.0.4
 #   AISEC_USER_CA  The SSH certificate authority's public key file on the
 #               workstation. The VMs have to trust this one and no other.
+#   TERRAFORM   The terraform command, to render a cloud-init template.
+#               Default: terraform
 #
 #   validation/platform-checks.sh [--no-azure] [--no-workstation]
 
@@ -37,6 +39,7 @@ USER_CA_FP=${USER_CA_FP:-"AISEC_USER_CA not given or not a public key"}
 ORCH_IP=10.40.0.4
 WORK_IP=10.40.0.36
 EDGE_IP=10.45.0.4
+WORK_PREFIX=10.40.0.32/27
 # What the router advertises (ADR 0025): the platform, the targets, and the
 # edge subnet.
 ROUTES="10.40.0.0/20 10.45.0.0/27 10.50.0.0/20"
@@ -55,6 +58,15 @@ EXPORT_SHA=$(sha256sum "$here/../worker/log-export/aisec-journal-export" | cut -
 # The fetch window's command and host list, from this checkout.
 WINDOW_SHA=$(sha256sum "$here/../edge/aisec-fetch-window" | cut -d " " -f 1)
 HOSTS_SHA=$(sha256sum "$here/../edge/fetch-hosts" | cut -d " " -f 1)
+# Squid's configuration as the edge template writes it, with the platform's
+# addresses. The x keeps the trailing newline. A failed rendering leaves a
+# value no file can hash to.
+if squid_conf=$("$here/../.github/scripts/render-cloud-init-file.sh" edge /etc/squid/squid.conf \
+  edge_ip=$EDGE_IP orchestrator_ip=$ORCH_IP worker_prefix=$WORK_PREFIX && echo x); then
+  SQUID_CONF_SHA=$(printf '%s' "${squid_conf%x}" | sha256sum | cut -d " " -f 1)
+else
+  SQUID_CONF_SHA="the edge template did not render"
+fi
 # The feed account's command, from this checkout.
 FEED_SHA=$(sha256sum "$here/../worker/feed/aisec-feed-receive" | cut -d " " -f 1)
 # The copiers' programs and units, in install order, from this checkout.
@@ -353,6 +365,7 @@ echo "squid_from_edge=$(code -x '"$PROXY"' http://azure.archive.ubuntu.com/ubunt
 echo "window=$(stat -c "%U %a %s" /run/aisec/fetch-window.conf 2>/dev/null) $(systemctl is-active aisec-fetch-window-close.timer 2>/dev/null)"
 echo "window_command=$(stat -c "%U %a" /usr/local/sbin/aisec-fetch-window 2>/dev/null) $(sha256sum /usr/local/sbin/aisec-fetch-window 2>/dev/null | cut -d " " -f 1)"
 echo "fetch_hosts=$(sha256sum /etc/squid/aisec-fetch-hosts 2>/dev/null | cut -d " " -f 1)"
+echo "squid_conf=$(stat -c "%U %a" /etc/squid/squid.conf 2>/dev/null) $(sha256sum /etc/squid/squid.conf 2>/dev/null | cut -d " " -f 1)"
 echo "mesh_agent=$(dpkg-query -W -f="\${Status}" tailscale 2>/dev/null | grep -c " ok installed$")"
 echo "unattended_upgrades=$(systemctl is-enabled unattended-upgrades 2>/dev/null)"
 echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
@@ -621,6 +634,7 @@ if probe=$($SSH "$EDGE" 'sudo bash -s' <<<"$probe_edge" 2>/dev/null) && [ -n "$p
   check P.16 "No fetch window is open" "root 644 0 inactive" "$(value window)"
   check P.17 "The fetch window command is root's and the one in this checkout" "root 700 $WINDOW_SHA" "$(value window_command)"
   check P.18 "Squid's fetch host list is the one in this checkout" "$HOSTS_SHA" "$(value fetch_hosts)"
+  check P.19 "Squid's configuration is root's and the edge template's" "root 644 $SQUID_CONF_SHA" "$(value squid_conf)"
   check U.12 "Unattended upgrades are enabled on the edge" enabled "$(value unattended_upgrades)"
   check U.13 "No security update is pending on the edge" 0 "$(value security_updates_pending)"
   check O.2 "The log agent is installed and active on the edge" "1 active" "$(value monitor_agent)"

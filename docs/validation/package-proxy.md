@@ -13,6 +13,7 @@ The orchestrator's and the worker's only outbound access: Squid on the edge VM, 
 | `P.16` | No fetch window is open | The checks run between windows. A window left open is an upload path left open (T40) | `/run/aisec/fetch-window.conf` is root's, mode `644`, and empty, and the close timer is `inactive`. During a window this check fails, on purpose |
 | `P.17` | The fetch window command is root's and the one in this checkout | Root on the edge is the only one who opens a window. The command has to be the reviewed one | Owner and mode `root 700`, and the SHA-256 of `/usr/local/sbin/aisec-fetch-window` equals that of `edge/aisec-fetch-window` |
 | `P.18` | Squid's fetch host list is the one in this checkout | A name added on the edge alone would open a host nobody reviewed | The SHA-256 of `/etc/squid/aisec-fetch-hosts` equals that of `edge/fetch-hosts` |
+| `P.19` | Squid's configuration is root's and the edge template's | An `http_access allow` added on the edge alone would pass every other check while no window is open | Owner and mode `root 644`, and the SHA-256 of `/etc/squid/squid.conf` equals that of the file `infra/platform/cloud-init/edge.yaml.tftpl` writes, rendered by Terraform with the platform's addresses (`.github/scripts/render-cloud-init-file.sh`). The check needs `terraform` on the workstation, and fails without it |
 
 ## From the worker
 
