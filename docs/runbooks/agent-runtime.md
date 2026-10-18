@@ -55,7 +55,7 @@ Run these steps to put Goose on the AI worker and prove one headless run against
    REPLACE_WITH_SSH aisec-worker 'cd feed/agent-runtime && sudo scripts/install-agent.sh /home/aisec-feed/agent-runtime/stage'
    ```
 
-   Expected: `the archive matches artifacts.tsv`, then one checksum line for `goose`. The script checks the archive again, takes the one file out of it, and does not run it.
+   Expected: `the archive matches artifacts.tsv`, then one checksum line for `goose`, equal to `GOOSE_BINARY_SHA256` in `pins.env`. The script checks the archive again, takes the one file out of it, and does not run it. On the next check run, `G.1` and `G.2` pass ([agent runtime checks](../validation/agent-runtime.md)).
 
 ## Run and measure
 
@@ -105,4 +105,11 @@ A rebuilt worker is empty. Run the [model server runbook](model-server.md) first
 
 ## Changing the pin
 
-Change `artifacts.tsv` and `pins.env` together, in a pull request. Read the new checksum from the release's asset digest. Then run this procedure from step 1. A new release can change the prompt Goose sends and the files it writes, so step 5's numbers are part of the review.
+Change `artifacts.tsv` and `pins.env` together, in a pull request. Read the new checksum from the release's asset digest. Read `GOOSE_BINARY_SHA256` from the archive itself, after its checksum matched, on the workstation:
+
+```bash
+echo "REPLACE_WITH_ARCHIVE_SHA256  goose-aarch64-unknown-linux-musl.tar.gz" | sha256sum --check
+tar -xzf goose-aarch64-unknown-linux-musl.tar.gz -O ./goose | sha256sum
+```
+
+Expected: `OK`, then the binary's checksum. Then run this procedure from step 1. A new release can change the prompt Goose sends and the files it writes, so step 5's numbers are part of the review.

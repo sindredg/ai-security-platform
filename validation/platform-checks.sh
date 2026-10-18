@@ -67,6 +67,14 @@ if squid_conf=$("$here/../.github/scripts/render-cloud-init-file.sh" edge /etc/s
 else
   SQUID_CONF_SHA="the edge template did not render"
 fi
+# The agent runtime's paths and binary pin, and its fixture, from this checkout.
+agent="$here/../worker/agent-runtime"
+# shellcheck source=../worker/agent-runtime/pins.env
+read -r GOOSE_BIN GOOSE_BIN_SHA FIXTURE_DIR < <(. "$agent/pins.env" &&
+  echo "$GOOSE_DIR/goose $GOOSE_BINARY_SHA256 $FIXTURE_DIR")
+FIXTURE_FILES="check_answer.py evidence_tool.py question.txt system.txt"
+# shellcheck disable=SC2086 # the file names are one word each
+FIXTURE_SHA=$(cd "$agent/fixture" && sha256sum $FIXTURE_FILES | sha256sum | cut -d " " -f 1)
 # The feed account's command, from this checkout.
 FEED_SHA=$(sha256sum "$here/../worker/feed/aisec-feed-receive" | cut -d " " -f 1)
 # The copiers' programs and units, in install order, from this checkout.
@@ -330,6 +338,10 @@ keys=/home/aisec-feed/.ssh/authorized_keys
 echo "feed_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
 echo "feed_account=$(id -nG aisec-feed 2>/dev/null) $(sudo -n -l -U aisec-feed 2>/dev/null | grep -c "may run") $(stat -c %U /home/aisec-feed 2>/dev/null)"
 echo "feed_command=$(sha256sum /usr/local/sbin/aisec-feed-receive 2>/dev/null | cut -d " " -f 1)"
+echo "goose_binary=$(stat -c "%U %a" '"$GOOSE_BIN"' 2>/dev/null) $(sha256sum '"$GOOSE_BIN"' 2>/dev/null | cut -d " " -f 1)"
+echo "fixture=$(cd '"$FIXTURE_DIR"' 2>/dev/null && sha256sum '"$FIXTURE_FILES"' 2>/dev/null | sha256sum | cut -d " " -f 1)"
+echo "agent_job_unit=$(systemctl show aisec-agent-job -p LoadState --value 2>/dev/null)"
+echo "agent_job_tmp=$(ls -d /tmp/systemd-private-*-aisec-agent-job.service-* /var/tmp/systemd-private-*-aisec-agent-job.service-* 2>/dev/null | wc -l)"
 '
 
 probe_router="$probe_common"'
@@ -567,6 +579,13 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
     "1 root root 644 from=\"$ORCH_IP\",restrict,command=\"/usr/local/sbin/aisec-feed-receive\"" "$(value feed_key)"
   check E.10 "The feed account has no other group, no sudo, and not its own home" "aisec-feed 0 root" "$(value feed_account)"
   check E.11 "The worker runs the feed command in this checkout" "$FEED_SHA" "$(value feed_command)"
+  # The agent runtime. The binary against its pin, not against the checksum
+  # file the install wrote beside it.
+  check G.1 "The Goose binary is root's and the one pinned in this checkout" "root 755 $GOOSE_BIN_SHA" "$(value goose_binary)"
+  check G.2 "The fixture tool and its prompts are the ones in this checkout" "$FIXTURE_SHA" "$(value fixture)"
+  # The checks run between jobs. During a job these read "loaded" and 2.
+  check G.3 "No agent job unit is loaded" not-found "$(value agent_job_unit)"
+  check G.4 "No agent job left its private directories" 0 "$(value agent_job_tmp)"
   check U.3 "apt on the worker uses the edge" 1 "$(value apt_proxy)"
   check U.4 "Unattended upgrades are enabled on the worker" enabled "$(value unattended_upgrades)"
   check U.5 "No security update is pending on the worker" 0 "$(value security_updates_pending)"

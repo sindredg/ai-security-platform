@@ -22,7 +22,7 @@ These controls are part of the design. Their current implementation and evidence
 | One deployment identity per side, each unable to change the other | Verified by the [identity separation test](../worklogs/0001-network-foundation.md#identity-separation) |
 | Every tool call authorized on the server, from a scope the caller cannot widen | Verified on the live system for a tool outside the job's scope and a revoked or expired token: [worklog](../worklogs/0003-toolchain-integration.md#the-round-trip). See [tool service](tool-service.md) |
 | Read-only tools. A separate trusted runner applies approved changes | Built for one [evidence tool](tool-service.md), deployed. The runner is planned |
-| Downloaded artifacts are pinned by digest and verified before use | Built for the model server and agent runtime: [milestone 3 worklog](../worklogs/0003-toolchain-integration.md). Tool service dependencies install by hash. Its image is pulled by digest, checked by `T.2` |
+| Downloaded artifacts are pinned by digest and verified before use | Built for the model server and agent runtime: [milestone 3 worklog](../worklogs/0003-toolchain-integration.md). Tool service dependencies install by hash. Its image is pulled by digest, checked by `T.2`. The installed Goose binary is compared with its own pin, `G.1`, since 2026-10-18 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#before-the-ai-part)) |
 | A target change requires an approved pull request | Built for the repository rules: [pipeline settings](../components/pipeline.md#repository-settings). Delivery is planned |
 | Threats documented before implementation, with validation tied to each control | Decided in [ADR 0010](../decisions/0010-threat-model-and-security-checks-per-milestone.md) |
 
