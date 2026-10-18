@@ -160,17 +160,21 @@ jobs:
 
       # These scripts run as root on the VMs, and nothing else reads them
       # before they do. The image has no shell, so the runner finds the files.
-      # -x follows the "source" of pins.env, which holds no secret. The journal
-      # export, the feed command, the fetch window command, and the monitoring
-      # hosts script have no extension: each runs by that name.
+      # -x follows the "source" of pins.env, which holds no secret. A script
+      # that runs by its own name has no extension, so a file is a script when
+      # it ends in .sh or its first line starts a shell.
       # .github/scripts holds the signature check and the renderer below.
       - name: Lint the worker, platform, edge, validation, and pipeline scripts
         run: |
-          mapfile -t scripts < <(find worker platform edge validation .github/scripts \
-            \( -name '*.sh' -o -path worker/log-export/aisec-journal-export \
-            -o -path worker/feed/aisec-feed-receive -o -path edge/aisec-fetch-window \
-            -o -path platform/monitoring/aisec-monitor-hosts \) | sort)
+          mapfile -t scripts < <(find worker platform edge validation .github/scripts -type f |
+            while read -r file; do
+              case "$file" in
+                *.sh) echo "$file" ;;
+                *) head -n 1 "$file" | grep -qE '^#!.*[/ ](ba|da)?sh([[:space:]]|$)' && echo "$file" ;;
+              esac
+            done | sort)
           [ "${#scripts[@]}" -gt 0 ]
+          printf '%s\n' "${scripts[@]}"
           docker run --rm --volume "${PWD}:/mnt:ro" --workdir /mnt "${SHELLCHECK_IMAGE}" \
             -x -P SCRIPTDIR "${scripts[@]}"
 
