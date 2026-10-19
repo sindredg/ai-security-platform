@@ -22,12 +22,13 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Kubernetes manifests | kubeconform over every manifest under `platform/`, strict, against the cluster's Kubernetes release. Then every image line has to name a digest that is not the placeholder of zeros |
 | Tool service tests | The line count against the limit of 300, then the tests, on the pinned Python image with every package installed by hash |
 | Log copier tests | The unit tests of the audit copier and the journal puller under `platform/logs/`, on the pinned Python image. They use the standard library only, so nothing is installed |
-| Job runner tests | The unit tests of the job runner and the job program under `worker/agent-runtime/job/`, on the pinned Python image, with a fake Goose, a stub model server, and a socket in a temporary directory. Standard library only |
+| Dispatch tests | The unit tests of the job runner and the job program under `worker/agent-runtime/job/`, then the dispatch step's under `platform/dispatch/`, which run the real job runner and job program behind a fake `ssh`. On the pinned Python image, with a fake Goose and stubs for registration and the model server. Standard library only |
 | Tool service image | hadolint on the Dockerfile, a build from the pinned base image, and a Trivy scan of the image that blocks on any finding with a fix. On `main`, the job pushes the image to the repository's package registry and writes its digest to the run summary |
+| Dispatch image | The same for `platform/dispatch/`, from the same base image, plus a check that `ssh` starts as the image's user |
 | Dependency scan | Trivy over the converter's Python pins: reports, never blocks. Trivy over the tool service's pins: blocks |
 | Commit signatures | `git verify-commit` on every commit in the pull request, against `.github/allowed_signers`: the public half of the operator's signing key, nothing else. A commit signed by GitHub, by another key, or not at all fails. See [below](#the-signature-check) |
 
-All but the dependency scan and the job runner tests are required by the ruleset on `main`. The job runner tests are new since 2026-10-19, and are not in the ruleset yet. The dependency scan runs on every pull request and does not block a merge. The image job is the only job with write permission. It can write packages to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
+All but the dependency scan, the dispatch tests, and the dispatch image are required by the ruleset on `main`. Those two are new since 2026-10-19, and are not in the ruleset yet. The dependency scan runs on every pull request and does not block a merge. The two image jobs are the only jobs with write permission. Each can write its package to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
 
 ## The signature check
 
