@@ -19,7 +19,7 @@ T05 left this list on 2026-10-17. The orchestrator reaches the internet only thr
 
 ## Advisories in the converter's packages
 
-The pipeline's dependency scan lists eight advisories against `worker/model-server/converter-requirements.txt`. Read on 2026-10-12 with Trivy 0.75.0. The versions are llama.cpp's own pins for its converter, so the fix for most of them is a version the converter was not written against.
+The pipeline's dependency scan lists eight advisories against `worker/model-server/converter-requirements.txt`. Read on 2026-10-12 with Trivy 0.75.0, and again on 2026-10-19 with Trivy 0.76.0 in the pipeline run on `main` at `64b2e71`: the same eight. The versions are llama.cpp's own pins for its converter, so the fix for most of them is a version the converter was not written against.
 
 They are accepted because the code each one needs is never called. The converter's source at the pinned commit was searched for every call below:
 
@@ -28,7 +28,7 @@ grep -rnE 'from_pretrained|save_pretrained|AutoModel|Trainer|torch\.load|torch\.
   convert_hf_to_gguf.py conversion gguf-py/gguf
 ```
 
-The only calls into `transformers` are `AutoTokenizer.from_pretrained` and one `AutoConfig.from_pretrained` with `trust_remote_code=False`. Every `torch.load` passes `weights_only=True`.
+The only calls into `transformers` are `AutoTokenizer.from_pretrained` and one `AutoConfig.from_pretrained` with `trust_remote_code=False`. Every `torch.load` passes `weights_only=True`. The search ran first at commit `d8123504`, build `b11429`, and again on 2026-10-19 at `620d2225`, build `b11669`, with the same result.
 
 | Advisory | Package | Severity | Needs | Here |
 | --- | --- | --- | --- | --- |
