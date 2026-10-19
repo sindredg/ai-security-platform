@@ -4,7 +4,7 @@ Logs and load from the orchestrator, the edge, and the router, kept in a Log Ana
 
 | | |
 | --- | --- |
-| State | Built on 2026-10-17 and 2026-10-18. Verified by `O.1` to `O.17` ([validation](../validation/monitoring.md), [worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring)). Each alert rule fired once on purpose except `denied-flow-to-internet` and `daily-cap` ([drills](../worklogs/0004-edge-network-and-monitoring.md#the-drills)). Traffic analytics does not process the platform network's flow log, so `denied-flow-to-internet` cannot fire. Accepted on 2026-10-18 ([accepted risks](../security/accepted-risks.md)) |
+| State | Built on 2026-10-17 and 2026-10-18. Verified by `O.1` to `O.17` ([validation](../validation/monitoring.md), [worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring)). Each alert rule fired once on purpose except `denied-flow-to-internet` ([drills](../worklogs/0004-edge-network-and-monitoring.md#the-drills)). `daily-cap` fired on 2026-10-19, and the cap is set from the day measured then ([the measured day](../worklogs/0004-edge-network-and-monitoring.md#the-measured-day-and-the-daily-cap)). Traffic analytics does not process the platform network's flow log, so `denied-flow-to-internet` cannot fire. Accepted on 2026-10-18 ([accepted risks](../security/accepted-risks.md)) |
 | Runs on | The Azure Monitor Agent on the orchestrator, the edge, and the router. The workspace, the Private Link Scope, and both collection endpoints are Azure resources in the platform group |
 | Software | Azure Monitor Agent, extension `1.45`. Azure served `1.45.1` on 2026-10-17 |
 | Version | The minor version is pinned in `monitor_agent_version`, with automatic upgrades off. Azure picks the patch release within it, which the extension cannot pin |
@@ -86,13 +86,21 @@ The workspace takes no shared key (`O.8`). Every writer and reader is an Entra i
 
 ## Footprint
 
-Read once, about ten minutes after the install on 2026-10-17, with `ps`: the agent's processes held about 199 MB on the orchestrator, 192 MB on the edge, and 88 MB on the router, each near 0.3 percent CPU. The router had 396 MB available of 836 MB. A full day of readings is still to come ([roadmap](../roadmap.md#3a-edge-network-and-monitoring)).
+Read across one day to 2026-10-19 10:00 UTC, from the systemd counters of the agent's six units ([worklog](../worklogs/0004-edge-network-and-monitoring.md#footprint-1)):
+
+| VM | CPU, of one core | Memory | Share of the VM's memory |
+| --- | --- | --- | --- |
+| Orchestrator | 0.42 % | 290 MiB | 4 % |
+| Edge | 0.55 % | 253 MiB | 7 % |
+| Router | 0.51 % | 223 MiB | 27 % |
+
+The router is the tight one. Its lowest free memory in any minute of the day was 339 MB of 836 MB.
 
 ## Limits
 
 - **Alerts wait for someone to look.** Nothing is sent. A fired alert at night is seen in the morning.
 - **Root on a monitored VM can stop its agent or send false lines.** It cannot change or delete what arrived ([T42](../security/threat-model.md)).
-- **The daily cap stops ingestion for the rest of the day.** It is 1 GB until a day of volume is measured, then three times that day ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md), [T41](../security/threat-model.md)).
+- **The daily cap stops ingestion until the reset hour, 17:00 UTC.** It is 0.21 GB, three times the day measured on 2026-10-19 ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md), [T41](../security/threat-model.md)). Rows sent after it is reached are lost, and the agents see no error. On 2026-10-19, ingestion came back 44 minutes after the cap was raised, after nine more stops ([troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)).
 - **A new endpoint name from Azure breaks ingestion** until the hosts block is written again. A plan shows the change, and `O.5` to `O.7` fail.
 - **The edge and the router have outbound TCP 443.** Nothing stops root on either from sending to another workspace over the internet. Private Link closes that path for the orchestrator only, which has no other way out.
 

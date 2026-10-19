@@ -1,6 +1,6 @@
 # Monitoring: operator procedure
 
-Status: Implemented on 2026-10-17 and 2026-10-18. Steps 1 to 8 ran once, on the live platform, between 22:50 and 23:50 UTC on 2026-10-17. Steps 9 to 13 ran on 2026-10-18 from a script with the same commands. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring). The first platform apply stopped on two unregistered resource providers. Step 1 was added for that and ran before the second apply. Steps 6 to 8 ran with the same queries in a longer form. 
+Status: Implemented on 2026-10-17 to 2026-10-19. Steps 1 to 8 ran once, on the live platform, between 22:50 and 23:50 UTC on 2026-10-17. Steps 9 to 13 ran on 2026-10-18 from a script with the same commands. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring). The first platform apply stopped on two unregistered resource providers. Step 1 was added for that and ran before the second apply. Steps 6 to 8 ran with the same queries in a longer form. Steps 14 to 17 ran on 2026-10-19 between 13:53 and 14:23 UTC. The drill in step 16 ran about three hours before the reset hour. The 30 minutes the step now gives come from that run ([troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)).
 
 This builds the log store of [ADR 0021](../decisions/0021-monitoring-in-azure-monitor-over-private-link.md), as changed by [ADR 0027](../decisions/0027-how-the-monitoring-is-built.md): a Log Analytics workspace that takes ingestion only through a private endpoint, and the Azure Monitor Agent on the orchestrator, the edge, and the router. The worker gets nothing.
 
@@ -163,9 +163,56 @@ This builds the log store of [ADR 0021](../decisions/0021-monitoring-in-azure-mo
 
     Expected: every check passes, `O.14` to `O.17` included. `O.17` needs traffic analytics' first write, up to an hour after step 10.
 
+## Daily cap
+
+The cap is three times one measured day ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md)). Measure a day with no change to the VMs and one run of the checks in it, since the checks repeat every day.
+
+14. Read the day's billable volume, with the operator's sign-in. `REPLACE_WITH_DAY_START` is the start of the 24 hours, in UTC.
+
+    ```bash
+    WS=$(az monitor log-analytics workspace show -g rg-aisec-platform -n log-aisec --query customerId -o tsv)
+    az rest --method post --resource https://api.loganalytics.io \
+      --url "https://api.loganalytics.io/v1/workspaces/$WS/query" \
+      --body '{"query":"Usage | where TimeGenerated >= datetime(REPLACE_WITH_DAY_START) and TimeGenerated < datetime(REPLACE_WITH_DAY_START) + 1d | where IsBillable == true | summarize MB = sum(Quantity) by DataType"}' \
+      --query 'tables[0].rows' -o tsv
+    ```
+
+    Expected: one row for each billable table. On 2026-10-19, 67 MB in all, two thirds of it the worker's journal. An empty answer or 0 means the window is wrong: the agents send every minute.
+
+15. Read the log agent's footprint across the same day, on the orchestrator, the edge, and the router. The worker has no agent.
+
+    ```bash
+    for vm in orchestrator edge router; do
+      REPLACE_WITH_SSH "aisec-$vm" 'systemctl show -p Id,ActiveEnterTimestamp,CPUUsageNSec,MemoryCurrent,MemoryPeak \
+        azuremonitoragent azuremonitor-coreagent azuremonitor-agentlauncher azuremonitor-astextension metrics-extension metrics-sourcer; free -m'
+    done
+    ```
+
+    Expected: every unit started before the day did, so its counters cover the day. CPU is `CPUUsageNSec` over the time since `ActiveEnterTimestamp`. On 2026-10-19, under 0.6 percent of one core on each VM, and about 290 MiB on the orchestrator, 250 MiB on the edge, and 220 MiB on the router.
+
+16. Drill the cap before setting it. Read the reset hour, then plan and apply the platform root with a cap of 23 MB, about 30 minutes before the reset hour. By then the workspace has taken more than that since the last reset. After step 17 raises the cap, ingestion can start and stop for a while: 44 minutes on 2026-10-19 ([troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)). The reset hour should end that at the latest, which limits the loss. That part is reasoned, not observed.
+
+    ```bash
+    az monitor log-analytics workspace show -g rg-aisec-platform -n log-aisec \
+      --query workspaceCapping.quotaNextResetTime -o tsv
+    terraform plan -var log_daily_cap_gb=0.023 -out=cap-drill.tfplan
+    terraform apply cap-drill.tfplan
+    ```
+
+    Expected: the plan changes `daily_quota_gb` on `log-aisec` and nothing else. Within about 10 minutes, a `Warning` row in `_LogOperation`, category `Ingestion`, with `OverQuota` in its detail, and the workspace's `dataIngestionStatus` reads `OverQuota`. `daily-cap` fires within 15 minutes of the row. `journal-missing` follows about 20 minutes after the last journal row. `heartbeat-missing` does not fire: heartbeats are not billable and keep arriving.
+
+17. Once `daily-cap` has fired, set the cap. Write three times the day, in GB (MB divided by 1,000), as the default of `log_daily_cap_gb` in `infra/platform/variables.tf`, then plan and apply without the variable.
+
+    ```bash
+    terraform plan -out=cap.tfplan
+    terraform apply cap.tfplan
+    ```
+
+    Expected: the plan changes `daily_quota_gb` from 0.023 to the new cap and nothing else. Ingestion may start and stop again, for 44 minutes on 2026-10-19. After its last start, `_LogOperation` has no new `OverQuota` row, rows arrive from all three VMs, and `journal-missing` and `daily-cap` resolve, within about an hour. Then run the checks, as in step 13.
+
 ## Undo
 
-14. To take the monitoring away, remove `monitoring.tf`, `alerts.tf`, `flow-logs.tf`, and `workbook.tf` from the platform root and `monitoring.tf` from the bootstrap root, the `monitoring` subnet, the `allow_monitoring_out` rules, and the identity block, and apply. Azure refuses to delete a workspace or collection endpoint that is still in a Private Link Scope. Terraform removes the scoped resources first, from the dependency order.
+18. To take the monitoring away, remove `monitoring.tf`, `alerts.tf`, `flow-logs.tf`, and `workbook.tf` from the platform root and `monitoring.tf` from the bootstrap root, the `monitoring` subnet, the `allow_monitoring_out` rules, and the identity block, and apply. Azure refuses to delete a workspace or collection endpoint that is still in a Private Link Scope. Terraform removes the scoped resources first, from the dependency order.
 
    Expected: the agents are removed with their extensions. The hosts block stays in `/etc/hosts` until it is removed by hand. It points names nobody uses at an address nothing answers on.
 
