@@ -32,7 +32,7 @@ A workflow step opens an SSH session from the orchestrator to the worker. The se
 - **Cancel.** Stopping the workflow ends the step, which closes the session. The runner treats a closed session as a cancel: it stops the unit and deletes the session directory. The time limit on the unit catches a runner that misses it.
 - **One at a time.** The workflow holds a mutex, and the runner refuses to start while a job's unit exists.
 
-The existing rule for TCP 22 from the orchestrator subnet to the worker subnet covers this. No rule is added for dispatch.
+The existing rule for TCP 22 from the orchestrator subnet to the worker subnet covers this. No rule is added for dispatch. [0030](0030-how-a-job-reaches-the-worker.md) changes three parts of this decision: the host rule of 0018 drops the session and gets one rule, the step runs an image of its own, and the job account connects to a socket that starts the unit, because an account without sudo cannot.
 
 ## Trade-offs
 

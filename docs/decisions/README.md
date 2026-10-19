@@ -32,6 +32,8 @@ One record per consequential architecture choice. A record states the context, t
 | [0026](0026-the-feed-key-gets-its-own-account-on-the-worker.md) | The feed key logs in to an account of its own on the worker, with no sudo and a command that only unpacks the staged files. The scripts come from the operator. Changes two parts of 0022 | Accepted |
 | [0027](0027-how-the-monitoring-is-built.md) | How the monitoring is built: a collection endpoint in each region with an agent, the login facilities from info, and hosts entries written through the VM agent. Changes three parts of 0021 | Accepted |
 | [0028](0028-alert-rules-flow-logs-and-drills.md) | Alert rules that fire once and resolve, flow logs written by the bootstrap root as the operator, Activity Log rules where no deployment identity reaches, and a drill file for firing the audit alerts on purpose. Adds to 0021 and 0027 | Accepted |
+| [0029](0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) | Argo Workflows v4.1.5: the controller in its own namespace, managing `orchestration` only, images pinned by digest after a signature check, and the UI run by the operator on the workstation | Proposed |
+| [0030](0030-how-a-job-reaches-the-worker.md) | How a job reaches the worker: one host rule exception for the worker's SSH port, a dispatch image of its own, and a socket on the worker that starts the job's sandboxed unit. Changes three parts of 0012, adds to 0018 | Proposed |
 
 ## Format
 
