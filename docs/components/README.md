@@ -57,7 +57,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | kube-bench | 0.16.0 | The [runbook](../runbooks/platform-compute.md) | By hand, at each run | 2026-10-19 |
 | Lynis | 3.1.7 | The runbook | By hand, at each run | 2026-10-19 |
 | llama.cpp | v0.7.0, the newest stable release, as build `b11669`, the same commit. The release carries no binaries, its numbered build does | `worker/model-server/pins.env` and `artifacts.tsv`, with a checksum | By hand | 2026-10-19 |
-| Model | Qwen3.5-4B, revision `851bf6e8`, built to `Q4_K_M` on the worker | `worker/model-server/artifacts.tsv`, with a checksum per file | By hand | 2026-10-11 |
+| Model | Qwen3.5-4B, revision `851bf6e8`, built to `Q4_K_M` on the worker. Two more models are pinned beside it for a [comparison](../worklogs/0003-toolchain-integration.md#model-comparison) | `worker/model-server/models/Qwen3.5-4B.tsv`, with a checksum per file. `MODEL_NAME` in `pins.env` picks the list | By hand | 2026-10-19 |
 | Converter packages | 27, PyTorch 2.11.0 the largest | `worker/model-server/artifacts.tsv` and `converter-requirements.txt` | By hand. Used only during a build | 2026-10-11 |
 | Goose | 1.55.0, one static binary | `worker/agent-runtime/pins.env` and `artifacts.tsv`, with a checksum for the archive and one for the binary | By hand | 2026-10-19 |
 | `actions/checkout` | v7.0.1, by commit | The checks workflow | Dependabot, weekly | 2026-10-19 |

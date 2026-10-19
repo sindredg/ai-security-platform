@@ -41,12 +41,12 @@ The only calls into `transformers` are `AutoTokenizer.from_pretrained` and one `
 | CVE-2026-59890 | `setuptools` 81.0.0 | Medium | Building a source distribution on macOS | Nothing is built. Wheels only, on Linux |
 | CVE-2025-3000 | `torch` 2.11.0 | Low | `torch.jit.script` | Never called |
 
-Some converter classes for other model families load a tokenizer with `trust_remote_code=True`. The nine files staged from the publisher hold no Python file, so there is nothing for that to run.
+Some converter classes for other model families load a tokenizer with `trust_remote_code=True`. The files staged from each publisher hold no Python file, so there is nothing for that to run. Granite's repository has one, `granite_thinking_parser.py`, which its list in `models/` leaves out.
 
 Limits:
 
 - **A source search, not a traced run.** It covers the converter's own code. It does not prove that `transformers` never reaches one of these functions internally while it loads a tokenizer.
-- **It holds for one commit and one model.** A change to `pins.env` or `artifacts.tsv` means running the scan and this search again, in the same pull request.
+- **It holds for one commit and the models pinned in `models/`.** A change to `pins.env`, `artifacts.tsv`, or a list in `models/` means running the scan and this search again, in the same pull request. A new model also means reading which converter class and tokenizer path it takes, as for the [model comparison](../worklogs/0003-toolchain-integration.md#will-the-pinned-converter-build-them).
 - **It covers known advisories.** The tokenizer loader still parses the publisher's files, which is the trust in the publisher that [ADR 0015](../decisions/0015-build-the-model-file-on-the-worker.md) already states.
 
 ## Open items
