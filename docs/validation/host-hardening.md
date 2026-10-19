@@ -2,7 +2,7 @@
 
 The same settings on every VM, from cloud-init. They came out of the Lynis audit in [milestone 2](../worklogs/0002-platform-compute.md#operating-system-audit). The checks are the same list on each: `HO` on the orchestrator, `HW` on the worker, `HR` on the router, `HE` on the edge.
 
-Each check was seen to fail. `.17` to `.20` failed live before the rollout of 2026-10-16. The rest failed on 2026-10-18: `.2` to `.6` against Ubuntu's default SSH configuration on the edge, `.7`, `.8`, and `.10` to `.14` on a machine that is not hardened, and `.1`, `.9`, `.15`, and `.16` with stubbed commands ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-of-the-edge-checks)).
+Each check was seen to fail. `.21` failed live on all four VMs before the rollout of 2026-10-19, and on a misspelled unit name. `.17` to `.20` failed live before the rollout of 2026-10-16. The rest failed on 2026-10-18: `.2` to `.6` against Ubuntu's default SSH configuration on the edge, `.7`, `.8`, and `.10` to `.14` on a machine that is not hardened, and `.1`, `.9`, `.15`, and `.16` with stubbed commands ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-of-the-edge-checks)).
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
@@ -24,6 +24,7 @@ Each check was seen to fail. `.17` to `.20` failed live before the rollout of 20
 | `.18` | The certificate authority is the operator's | Whoever holds the key in that file can sign a login | The fingerprint of `/etc/ssh/aisec-user-ca.pub`, which holds one key, equals that of the file `AISEC_USER_CA` names on the workstation. Without that variable the check fails |
 | `.19` | One principal, in a file root owns | A principal in a file the account can write is a name anyone signs for | `stat` and the file's content: `root root 644 aisec-operator` |
 | `.20` | The revocation list is root's and loads | sshd refuses every certificate if the list is missing or cannot be read, and a list the account can write revokes nothing | `stat`, and `ssh-keygen -Q -l` reads it |
+| `.21` | Ubuntu's news, Pro status, and release checks are off | They ask Canonical's hosts for data on a timer or at login. Behind Squid each refusal is an alert that nobody caused ([#124](https://github.com/sindredg/ai-security-platform/issues/124)) | `systemctl is-enabled` reads `masked` for `esm-cache.service`, `apt-news.service`, `motd-news.timer`, and `update-notifier-motd.timer`, and `stat` reads `644` on `/etc/update-motd.d/91-release-upgrade` |
 
 ## Accepted, and not checked
 

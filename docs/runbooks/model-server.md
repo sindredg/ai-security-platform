@@ -1,6 +1,6 @@
 # Model server: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Steps 1 to 8 were run during that build. A second build from the same pins has not been run. The cleanup after a failed build and the `libgomp1` version line were added to the build script afterwards and have not been run on the worker. The unit was changed and installed again once, on 2026-10-12, to turn thinking off. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md). Steps 4, 5, and 10 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the scripts go to the worker from the checkout, the staged files to the feed account, and the build refuses a staged file that `artifacts.tsv` does not name. The converter's source archive got its own pin, checked by step 3 and the build. Not yet run in that form.
+Status: Implemented on 2026-10-11. Built once. Steps 1 to 8 were run during that build. A second build from the same pins has not been run. The cleanup after a failed build and the `libgomp1` version line were added to the build script afterwards and have not been run on the worker. The unit was changed and installed again once, on 2026-10-12, to turn thinking off. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md). Steps 4, 5, and 10 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the scripts go to the worker from the checkout, the staged files to the feed account, and the build refuses a staged file that `artifacts.tsv` does not name. The converter's source archive got its own pin, checked by step 3 and the build. Steps 2 to 10 ran in that form on 2026-10-19, for the move to llama.cpp v0.7.0 as a pin change on a running worker, with the two extra steps under [Changing a pin](#changing-a-pin) ([worklog](../worklogs/0003-toolchain-integration.md#llamacpp-and-goose-on-the-worker)).
 
 Run these steps to put llama.cpp and the starting model on the AI worker: download and verify on the orchestrator, push, build the model file on the worker, start the server, and measure it. No cloud resource changes.
 
@@ -24,12 +24,14 @@ The download leaves through the NAT gateway and is billed per GB.
 
    ```bash
    curl -sS https://huggingface.co/api/models/Qwen/Qwen3.5-4B | jq -r .sha
-   gh api repos/ggml-org/llama.cpp/releases/tags/b11429 \
-     -q '.assets[] | select(.name == "llama-b11429-bin-ubuntu-arm64.tar.gz") | .digest'
+   gh api 'repos/ggml-org/llama.cpp/releases?per_page=100' \
+     -q '[.[] | select(.prerelease == false)][0] | .tag_name'
+   gh api repos/ggml-org/llama.cpp/releases/tags/b11669 \
+     -q '.assets[] | select(.name == "llama-b11669-bin-ubuntu-arm64.tar.gz") | .digest'
    grep -E 'qwen/config.json|ubuntu-arm64' worker/model-server/artifacts.tsv | cut -f1,2
    ```
 
-   Expected: the revision in the `artifacts.tsv` URLs, and the release digest equal to the checksum on the `llama/` line. A newer revision or build is a decision, not a step: change the pins in a pull request first.
+   Expected: the revision in the `artifacts.tsv` URLs, `v0.7.0` as the newest stable release, and the build's digest equal to the checksum on the `llama/` line. A stable release carries no binaries: its tag points at the commit of a numbered build, whose release has them. A newer revision or build is a decision, not a step: change the pins in a pull request first.
 
 ## Download and verify on the orchestrator
 
@@ -49,7 +51,7 @@ The download leaves through the NAT gateway and is billed per GB.
    REPLACE_WITH_SSH aisec-orchestrator 'cd feed/model-server && scripts/fetch.sh stage'
    ```
 
-   Expected: one `ok` line per file, 38 in all, then `ok    converter-src.tar (commit d81235049384534c167caea52b85a694f6103d14)`. About 9 GB, three minutes here. A `checksum mismatch` line stops the run and deletes the file. Do not go on.
+   Expected: one `ok` line per file, 38 in all, then `ok    converter-src.tar (commit 620d2225cc436ab0b001e3200e590e3b286ef9ab)`. A file already staged with the right checksum prints `have` instead. About 9 GB, three minutes here. A `checksum mismatch` line stops the run and deletes the file. Do not go on.
 
    The orchestrator only hashes these files. It never unpacks, imports, or loads one.
 
@@ -80,7 +82,7 @@ The download leaves through the NAT gateway and is billed per GB.
 
    - `all files match artifacts.tsv and pins.env, and nothing else is staged`
    - `libgomp1` and the installed version
-   - `version: 0.6.0-dev (build 11429, commit d81235049)`
+   - `version: 0.7.0-dev (build 11669, commit 620d2225c)`
    - `Model successfully exported to /var/lib/aisec-model-build/Qwen3.5-4B-F16.gguf`
    - `llama_model_quantize_impl: quant size  =  2644.04 MiB (5.13 BPW)`
    - a last line with the checksum and `Qwen3.5-4B-Q4_K_M.gguf`
@@ -95,7 +97,7 @@ The download leaves through the NAT gateway and is billed per GB.
    REPLACE_WITH_SSH aisec-worker 'cat /opt/aisec/models/SHA256SUMS; ls /var/lib/aisec-model-build; id aisec-build'
    ```
 
-   Expected: one checksum line, then `No such file or directory` and `no such user`. The first build produced `e9aee5c7eedb88bab8415f4d768c6348e7083d7ca661950ab82a2bd84cfd38c4`. Whether a second build gives the same value is untested. Record what it gives.
+   Expected: one checksum line, then `No such file or directory` and `no such user`. The build with `b11669` produced `85e5f901e58b042ddd5c82bf4c6c942c18367b23d5e28e061108ecae5c685af7`, and the first build, with `b11429`, `e9aee5c7...`. Whether a second build from the same pins gives the same value is untested. Record what it gives.
 
 ## Start the server
 
@@ -105,7 +107,7 @@ The download leaves through the NAT gateway and is billed per GB.
    REPLACE_WITH_SSH aisec-worker 'cd feed/model-server && sudo scripts/install-server.sh'
    ```
 
-   Expected: `Active: active (running)`, and a command line that ends `--cache-ram 0 --reasoning off --no-ui --offline`. The script checks the model file against `SHA256SUMS` first and waits until `http://127.0.0.1:8080/health` answers.
+   Expected: `Active: active (running)`, and a command line from `/opt/aisec/llama.cpp/llama-b11669` that ends `--cache-ram 0 --reasoning off --no-ui --offline`. The script checks the model file against `SHA256SUMS` first and waits until `http://127.0.0.1:8080/health` answers.
 
 8. Confirm that the port is closed to everything but the worker itself.
 
@@ -129,9 +131,9 @@ The download leaves through the NAT gateway and is billed per GB.
      'sudo grep -E "^(Rss|Pss_Anon|Pss_File)" /proc/$(pgrep -x llama-server)/smaps_rollup; free -m | sed -n 2p'
    ```
 
-   Expected: twelve lines with `"ok": true`, then a table. On `Standard_D2ps_v6` the first run gave about 19 prompt tokens and 6 output tokens per second, and 5.96 GB resident.
+   Expected: twelve lines with `"ok": true`, then a table. On `Standard_D2ps_v6` with `b11669`, on 2026-10-19: about 19 prompt tokens and 6 output tokens per second, and 5.30 GB resident.
 
-   That run was made before the unit had `--reasoning off`. The script asks for thinking per request in half its turns. Whether the server honours that with the flag set is untested, so the two thinking rows may now show the same output as the others.
+   The script asks for thinking per request in half its turns. With `--reasoning off` on the server, those turns still think: on 2026-10-19 they gave three times the output tokens of the others, and took 36 seconds for a tool call against 25.
 
 ## Clean up
 
@@ -163,4 +165,11 @@ Thinking is off through `--reasoning off`. Take the option out to get the model'
 
 ## Changing a pin
 
-Change `artifacts.tsv`, `pins.env`, and `converter-requirements.txt` together, in a pull request. Read each new checksum from the publisher: the model repository's file listing, the release's asset digest, the package index. Then run this procedure from step 1.
+Change `artifacts.tsv`, `pins.env`, and `converter-requirements.txt` together, in a pull request. Read each new checksum from the publisher: the model repository's file listing, the release's asset digest, the package index. The converter source's pin is the SHA-256 of the `git archive` command in `fetch.sh`, run on the workstation. Run the same command on the old commit first: it has to give the old pin. Then run this procedure from step 1.
+
+On a running worker, two more steps:
+
+- Before step 3, remove the old llama.cpp archive from the orchestrator's stage: `REPLACE_WITH_SSH aisec-orchestrator 'rm -f feed/model-server/stage/llama/llama-REPLACE_WITH_OLD_BUILD-bin-ubuntu-arm64.tar.gz'`. The build refuses a staged file that `artifacts.tsv` does not name.
+- Before step 5, stop the server: `REPLACE_WITH_SSH aisec-worker 'sudo systemctl stop aisec-llama-server'`. The converter needs the memory it holds. Step 7 starts it again.
+
+Afterwards, remove the old version's directory from `/opt/aisec/llama.cpp`.

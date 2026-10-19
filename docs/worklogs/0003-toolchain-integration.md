@@ -913,3 +913,140 @@ Installed on the live orchestrator from commit `9541326` at 19:07 UTC, with the 
 | Every check | All pass | `138 passed, 0 failed`, `L.8` included |
 
 The count after the request was 49, not 48. The extra line is `seq` 27 at 19:07:41, the `T.10` request of the check run in the first step: the count was read before the next pass copied it. Read afterwards, `seq` 26 to 29 are in the file with no gap, and `L.6` passes.
+
+## Before dispatch
+
+Date: 2026-10-19. Milestone 3a is done, and milestone 3 resumes with dispatch. First, everything the AI part runs on was brought up to date and checked again: the version pins, the image's own requests to Canonical, the benchmarks on the rebuilt orchestrator and the two new VMs, the router's break-glass path, and the pending security updates. The live steps ran from three scripts with the commands below, each with its expected result printed before the step.
+
+### What changed
+
+| Change | Where |
+| --- | --- |
+| Ubuntu's news, Pro status, and release check units masked on all four VMs, and the login release check not executable ([#124](https://github.com/sindredg/ai-security-platform/issues/124)). `.21` checks it | The four cloud-init templates, `validation/platform-checks.sh`, [host hardening](../validation/host-hardening.md) |
+| llama.cpp v0.7.0, as build `b11669`, and the model file built again with its converter ([#82](https://github.com/sindredg/ai-security-platform/issues/82)) | `worker/model-server/pins.env`, `artifacts.tsv` |
+| Goose 1.55.0 ([#83](https://github.com/sindredg/ai-security-platform/issues/83)) | `worker/agent-runtime/pins.env`, `artifacts.tsv` |
+| `install-agent.sh` refuses a binary that does not match `GOOSE_BINARY_SHA256`, and removes it | `worker/agent-runtime/install-agent.sh` |
+
+### Versions
+
+The pins in the [component index](../components/README.md#versions) were read against their official sources on 2026-10-19, except the model, the converter packages, and the tool service's packages and image. Two had moved: llama.cpp and Goose. K3s's `stable` channel still serves `v1.36.5+k3s1`. A newer Ubuntu image, `26.04.202610180`, is out, and the pin moves only at a rebuild.
+
+llama.cpp publishes versioned stable releases since 2026-10-15, and v0.7.0 is the newest. The release has one file, `nightly-tag.txt`, which reads `b11669`. The `v0.7.0` tag points at commit `620d2225cc436ab0b001e3200e590e3b286ef9ab`, which is the commit of build `b11669`, and that build's release has `llama-b11669-bin-ubuntu-arm64.tar.gz` with a published digest. So the binaries pin `b11669`, at the same tree as v0.7.0.
+
+| Input | How the pin was read | Value |
+| --- | --- | --- |
+| llama.cpp archive | The release's asset digest, and the file downloaded and checked on the workstation | `9ac6fda2...4a99` |
+| Converter source | `git archive` of the commit, with the command in `fetch.sh`, git 2.43. The same command on the previous commit gives the previous pin, `cd546e25...`, so the packing has not changed | `f0a5cfc2...900c` |
+| Converter packages | `requirements-convert_hf_to_gguf.txt`, `requirements-convert_legacy_llama.txt`, and `gguf-py/pyproject.toml` have the same Git blob at both commits | Unchanged |
+| Goose archive | The release's asset digest, and the file checked on the workstation | `56b1f792...7786` |
+| Goose binary | Read from that archive after it matched | `2741b43d...7312` |
+
+The release notes of v0.7.0 change the server's default port to 9931. The unit passes `--port 8080`. Every other flag the unit passes exists in `common/arg.cpp` at the new commit. Goose 1.55.0 prefers OpenAI's Responses API, and the server has served `/v1/responses` since before the previous pin.
+
+### Ubuntu's own requests
+
+The sources, read on the orchestrator: on the daily apt run, the Pro client's `esm-cache.service` asks `esm.ubuntu.com`. The login message's `91-release-upgrade` script runs `check-new-release` once a day, at a login or from `update-notifier-motd.timer`, and asks `changelogs.ubuntu.com`. `motd-news.timer` and `apt-news.service` ask `motd.ubuntu.com`. Editing the packages' configuration files would turn them off too, but unattended upgrades skip a package whose configuration file was changed. So the units are masked, and the script loses its execute bit.
+
+| Step, 17:48 UTC | Expected | Result |
+| --- | --- | --- |
+| Read before, on each VM | The fail side of `.21` | `static static enabled enabled 755` on all four |
+| `systemctl mask --now` on the six units, `chmod 644` on the script | `masked masked masked masked 644` | As expected on all four |
+| `systemctl start esm-cache.service` | Refused | `masked` on all four |
+
+The check run afterwards failed `.1` on all four: `motd-news.timer` and `update-notifier-motd.timer` had failed, `Unit to trigger vanished`, result `resources`. Masking a service while its timer runs fails the timer, and a first boot from the template would have done the same. The templates now stop the two timers before masking ([troubleshooting 11](../troubleshooting/11-masking-a-timers-service-fails-the-timer.md)).
+
+The new order was tested on each VM at 18:43: the failed timers reset, the units unmasked, both timers started, as after a boot. Then the template's two commands. Expected and read on all four: 2 failed units before, `active active` while running, 0 failed after, and `masked masked masked masked 644`.
+
+### llama.cpp and Goose on the worker
+
+The [model server runbook](../runbooks/model-server.md), steps 2 to 10, and the [agent runtime runbook](../runbooks/agent-runtime.md), steps 2 to 7, from the branch with the new pins, from 17:55 to 18:22 UTC. Two steps were added for a pin change on a running worker: the old llama.cpp archive was removed from the orchestrator's stage, since the build refuses a staged file the pins do not name, and the model server was stopped during the build, since the converter needs the memory it holds.
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| Fetch window | Opens, and closes after the downloads | Open at 17:55:11 for 20 minutes, closed at 17:56:38 |
+| Fetch on the orchestrator | `have` for the 37 unchanged files, `ok` for the new archive and the converter source | As expected |
+| Goose on the orchestrator | `ok` for the archive | As expected |
+| Push | 9.0 GB and 49 MB | `9.0G` and `47M` |
+| Build | The staged files match, the new version, the export and quantization, a checksum | `version: 0.7.0-dev (build 11669, commit 620d2225c)`, `quant size = 2644.04 MiB (5.13 BPW)`. The model file is `85e5f901...5af7`. The first build, with `b11429`, gave `e9aee5c7...`. A new converter gives a new file |
+| Build cleanup | No build directory, no build account | As expected |
+| Server | Running from `llama-b11669`, same command line | As expected |
+| Port | `127.0.0.1:8080` only. `000` and `rc=28` from the orchestrator | As expected |
+| Goose install | The archive and the binary match their pins | `the archive matches artifacts.tsv`, `the binary matches GOOSE_BINARY_SHA256` |
+| Fixture, three runs | 3 of 3 correct, one tool call, no thinking parts, nothing left behind | As expected |
+| Cleanup | The stages and the old version directories gone | `llama-b11669` and `goose-1.55.0` only, 5.1 GB used |
+
+`measure.py --runs 3` against the new server:
+
+| Mode | Turn | Correct | Output tokens | Prompt tokens/s | Output tokens/s | Seconds per turn |
+| --- | --- | --- | --- | --- | --- | --- |
+| No thinking | Tool call | 3 of 3 | 32 | 19.1 | 6.0 | 25.4 |
+| No thinking | Verdict | 3 of 3 | 45 | 18.9 | 5.8 | 20.8 |
+| Thinking | Tool call | 3 of 3 | 98 | 19.0 | 6.0 | 36.4 |
+| Thinking | Verdict | 3 of 3 | 115 | 19.1 | 5.9 | 32.2 |
+
+The speed is the same as before: about 19 prompt and 6 output tokens per second. The server holds 5.30 GB resident, of which 2.0 GB is the mapped model file, against 5.96 GB before. The thinking rows differ from the others: three times the output tokens, and 36 seconds for a tool call against 25, close to the 37 measured with thinking on 2026-10-11. So a request's own `enable_thinking` still turns thinking on with `--reasoning off` on the server ([#34](https://github.com/sindredg/ai-security-platform/issues/34)). What the extra tokens hold was not read.
+
+The fixture's first run took 86 seconds, against about 60 before. The second and third took 25 and 28. Memory peak 56 to 59 MB per run.
+
+### Benchmarks
+
+Lynis 3.1.7 on all four VMs, kube-bench 0.16.0 on the orchestrator ([#43](https://github.com/sindredg/ai-security-platform/issues/43)), from 17:48 to 17:55 UTC. The orchestrator has had no direct way to the internet since milestone 3a, and the Lynis download site is not on the fetch list, so both archives were downloaded on the workstation, checked there against the publisher's checksum, copied to each VM, and checked again before they were unpacked. The worker's run skipped `PKGS-7392`, which stalls for six minutes without a repository.
+
+| VM | Tests | Hardening index | Warnings | Suggestions |
+| --- | --- | --- | --- | --- |
+| Orchestrator | 252 | 72. 76 on the VM before the rebuild | 2 | 27 |
+| Worker | 247 | 79. 77 on 2026-10-11 | 0 | 29 |
+| Edge | 259 | 72 | 3 | 28 |
+| Router | 249 | 72 | 2 | 25 |
+
+The warnings:
+
+| Warning | VMs | Outcome |
+| --- | --- | --- |
+| `PKGS-7388`, no security repository found | Orchestrator, edge, router | False positive, as in milestone 2. The sources are in the deb822 file, which Lynis does not read |
+| `PKGS-7392`, vulnerable packages | Orchestrator, edge, router | Real. Three security updates, `cifs-utils`, `git`, and `git-man`, waited for the next daily run. Installed, below |
+| `SQD-3613`, `squid.conf` not restrictive | Edge | Accepted. The file is root's and 644, as `P.19` expects, and holds the host lists and private addresses, which are in the repository |
+
+Of the suggestions, eight IDs were not triaged in milestone 2:
+
+| Suggestion | VMs | Outcome |
+| --- | --- | --- |
+| `BOOT-5180`, runlevel and services at startup | All four | Accepted. Lynis cannot read the runlevel under systemd. Failed units are checked by `.1` |
+| `PKGS-7346`, purge removed packages | All four | Accepted. The package is `binutils`, which first boot removes. `.14` checks that no assembler or linker is left |
+| `HOME-9304`, `HOME-9306`, home directory modes and owners | Worker | Accepted. `/home/aisec-feed` is root's, so the feed account cannot change its own keys ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)) |
+| `SQD-3624`, Squid's safe ports | Edge | Accepted. Squid allows port 80 for the listed hosts and tunnels to 443 only in a window, narrower than a safe ports list |
+| `SQD-3630`, `reply_body_max_size` | Edge | Accepted. A model weight file is 4.5 GB, so a limit that stops a large download would stop the model build |
+| `SQD-3680`, suppress the version string | Edge | Accepted. Only the platform's own VMs reach Squid, and its version is in the repository |
+
+kube-bench, `k3s-cis-1.9`: 64 pass, 2 fail, 50 warn, 14 info. Reasoned in the runbook, not observed before: 65 pass and 1 fail. The fails:
+
+- **1.2.26**, the etcd CA flag. As on 2026-10-11: the cluster has no etcd. The check's audit, run alone, finds no `etcd-cafile` in the API server's command line.
+- **5.1.6**, service account tokens only where needed. New. The check's audit, run alone, lists the tool service pod as compliant, with no token mounted, and three `kube-system` pods whose accounts the benchmark exempts. Why kube-bench counts a fail is not known ([#127](https://github.com/sindredg/ai-security-platform/issues/127)).
+
+### The router's break-glass path
+
+Threat T03: the router is the operator's only way in, and is down. Azure run command, as the operator, at 17:55 UTC:
+
+```bash
+az vm run-command invoke -g rg-aisec-platform -n vm-aisec-router --command-id RunShellScript \
+  --scripts 'id -un; systemctl is-active tailscaled ssh; tailscale status --self --peers=false | head -n 1'
+```
+
+Expected: `root`, `active active`, and the router's tailnet line, with no SSH and no mesh in the path. Result: as expected. The serial log is readable through the API: `az vm boot-diagnostics get-boot-log` returned 1,108 lines of boot output. The serial console itself offers no login, because no account has a password. Run command is the way in.
+
+### Security updates
+
+`unattended-upgrade` at 18:44 UTC on each VM: 3 pending on the orchestrator, the edge, and the router, 0 on the worker. Afterwards 0 everywhere, no restart required, no failed unit, and K3s, the mesh agent, and Squid active.
+
+### Checks
+
+`validation/platform-checks.sh` from the branch, at 18:30 UTC, after the first two scripts: `261 passed, 7 failed`. Written down before the run: 268 of 268. The seven: `.1` on all four, the failed timers above, and `U.1`, `U.9`, and `U.13`, the three pending updates, which the run before had not seen. `HO.21` to `HE.21`, `G.1`, and `G.2` passed. `G.2` had failed since 2026-10-18 on the old fixture.
+
+The same, at 18:55 to 19:00 UTC, after the third script. Written down before the run: 268 of 268. Result: `268 passed, 0 failed`.
+
+### Limits
+
+- **`.21` reads the units, not the traffic.** That Squid sees no more requests for `esm.ubuntu.com` and `changelogs.ubuntu.com` shows only after the next daily runs.
+- **The break-glass test read the router, it did not rescue it.** The mesh agent and SSH were up during the test.
+- **The Lynis suggestions triaged in milestone 2 were not reviewed again.** Their IDs are the same, and the eight new ones are above.
+- **A second model build from the same pins has still not run.** The checksum above is from a new converter.

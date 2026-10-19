@@ -1,6 +1,6 @@
 # Agent runtime: operator procedure
 
-Status: Implemented on 2026-10-12. Installed once. Every step below was run during that install. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-agent-runtime). Steps 2 to 4 and 7 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the worker gets the scripts from the checkout and the staged archive in the feed account's directory. Not yet run in that form.
+Status: Implemented on 2026-10-12. Installed once. Every step below was run during that install. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-agent-runtime). Steps 2 to 4 and 7 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the worker gets the scripts from the checkout and the staged archive in the feed account's directory. Steps 2 to 7 ran in that form on 2026-10-19, for Goose 1.55.0 ([worklog](../worklogs/0003-toolchain-integration.md#llamacpp-and-goose-on-the-worker)).
 
 Run these steps to put Goose on the AI worker and prove one headless run against the local model server: download and verify on the orchestrator, push, install, run, and measure. No cloud resource changes. Nothing is left running: the agent is a program that runs once per job, not a service.
 
@@ -17,7 +17,7 @@ Run these steps to put Goose on the AI worker and prove one headless run against
 1. Compare the pinned checksum with the digest the release lists.
 
    ```bash
-   gh api repos/aaif-goose/goose/releases/tags/v1.54.0 \
+   gh api repos/aaif-goose/goose/releases/tags/v1.55.0 \
      -q '.assets[] | select(.name == "goose-aarch64-unknown-linux-musl.tar.gz") | .digest'
    grep -v '^#' worker/agent-runtime/artifacts.tsv | cut -f1
    ```
@@ -55,7 +55,7 @@ Run these steps to put Goose on the AI worker and prove one headless run against
    REPLACE_WITH_SSH aisec-worker 'cd feed/agent-runtime && sudo scripts/install-agent.sh /home/aisec-feed/agent-runtime/stage'
    ```
 
-   Expected: `the archive matches artifacts.tsv`, then one checksum line for `goose`, equal to `GOOSE_BINARY_SHA256` in `pins.env`. The script checks the archive again, takes the one file out of it, and does not run it. On the next check run, `G.1` and `G.2` pass ([agent runtime checks](../validation/agent-runtime.md)).
+   Expected: `the archive matches artifacts.tsv`, one checksum line for `goose`, then `the binary matches GOOSE_BINARY_SHA256`. The script checks the archive again, takes the one file out of it, checks that file against its own pin, and does not run it. A binary that does not match is removed and the script fails. On the next check run, `G.1` and `G.2` pass ([agent runtime checks](../validation/agent-runtime.md)).
 
 ## Run and measure
 
@@ -74,7 +74,7 @@ Run these steps to put Goose on the AI worker and prove one headless run against
    - `unit: inactive` and `private tmp directories: 0` after each run
    - `3 of 3 runs correct`
 
-   The first run after the model server starts takes about 60 seconds. Later runs take 23 to 30, because the server still holds the start of the prompt. With thinking on, the figures were 97 and 56 to 73.
+   The first run after the model server starts takes about 60 seconds, and took 86 with Goose 1.55.0 and llama.cpp `b11669` on 2026-10-19. Later runs take 23 to 30, because the server still holds the start of the prompt. With thinking on, the figures were 97 and 56 to 73.
 
 6. Confirm that a run cannot start while another exists, and that the session directory exists only during a run.
 

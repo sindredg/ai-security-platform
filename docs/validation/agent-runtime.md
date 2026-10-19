@@ -2,7 +2,7 @@
 
 Goose on the AI worker, one static binary that runs once per job in a transient unit. Nothing about it runs between jobs, so the checks read what is installed and what a finished job leaves behind. The procedure is the [agent runtime runbook](../runbooks/agent-runtime.md), and the component is described on the [AI worker page](../components/ai-worker.md#the-agent-runtime).
 
-Status: **tested** on the running system on 2026-10-18. `G.1`, `G.3`, and `G.4` pass. `G.2` fails: the fixture on the worker is the one installed on 2026-10-12, and two of its files were reformatted in the repository afterwards ([worklog](../worklogs/0004-edge-network-and-monitoring.md#before-the-ai-part)).
+Status: **tested** on the running system on 2026-10-19. `G.1` to `G.4` pass, with Goose 1.55.0 and the fixture installed again that day ([worklog](../worklogs/0003-toolchain-integration.md#llamacpp-and-goose-on-the-worker)). `G.2` failed from 2026-10-18 until then: the fixture on the worker was the one installed on 2026-10-12, and two of its files had been reformatted in the repository afterwards ([worklog](../worklogs/0004-edge-network-and-monitoring.md#before-the-ai-part)).
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |

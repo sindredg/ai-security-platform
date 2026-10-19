@@ -10,7 +10,7 @@ What has been tightened on the machines and the cluster, what was left alone on 
 | Network | Deny by default in both directions on every subnet. Explicit denies for the internet and Azure DNS on the orchestrator and the worker, and for the target network on the worker. Only the router and the edge have an outbound method | [`C` and `Z` checks](../validation/containment.md) |
 | SSH daemon | Keys only, and only a certificate for the administrator account. No root login, three tries. No forwarding, except the administrator's tunnel to the API server on the orchestrator | [`HO`, `HW`, `HR`, and `HE` checks](../validation/host-hardening.md), [`A.8` to `A.10`, `A.14`, `A.17`](../validation/access.md) |
 | Kernel | SysRq off, pointers hidden, no redirects or source routing, hardened BPF JIT, five unused modules kept from loading | The same |
-| Files and packages | Cron and SSH configuration closed to group and world. No compiler, assembler, or linker. Unattended security upgrades | The same, and the [`U` checks](../validation/package-proxy.md) |
+| Files and packages | Cron and SSH configuration closed to group and world. No compiler, assembler, or linker. Unattended security upgrades. Ubuntu's news, Pro status, and release checks masked, since 2026-10-19 ([#124](https://github.com/sindredg/ai-security-platform/issues/124)) | The same, `.21`, and the [`U` checks](../validation/package-proxy.md) |
 | K3s | Secrets encryption, kernel default protection, audit log at metadata level, no anonymous access to the API server or the kubelet, certificate files at `600`, no token on default service accounts. Pod security `restricted` for every namespace without a label, `baseline` in `kube-system`, no exemption. Verified on 2026-10-16 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#slice-a-orchestrator-hardening)) | [`K` checks](../validation/cluster.md) |
 | Workloads | The tool service pod runs as user 65532 with no service account token, no privilege escalation, no capabilities, and a read-only root file system. Both workload namespaces enforce the restricted pod security level and deny by default. Node ports answer on the private address only. A host rule drops forwarded traffic from pods to anything but pods, and traffic from pods to the host except the API server and the kubelet. Verified on 2026-10-16 | [`T` checks](../validation/tool-service.md), `E.6` to `E.8` on [containment](../validation/containment.md) |
 | Audit copier | Its own user, no network, no capabilities, a read-only view of the system except its state folder and `/var/log/aisec`, and 256 MiB of memory. It appends to a file with the append-only attribute. Verified on 2026-10-16 ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)) | [`L` checks](../validation/audit-log.md) |
@@ -21,14 +21,14 @@ What has been tightened on the machines and the cluster, what was left alone on 
 
 | Tool | Scope | Result | Date |
 | --- | --- | --- | --- |
-| kube-bench 0.16.0, `k3s-cis-1.9` | The cluster | 65 pass, 1 fail, 50 warn. The fail asks for an etcd flag and there is no etcd | 2026-10-11 |
-| Lynis 3.1.7 | Orchestrator | Hardening index 76, up from 60. One warning, a false positive | 2026-10-11 |
-| Lynis 3.1.7 | Worker | Hardening index 77, up from 66. No warnings | 2026-10-11 |
-| CIS benchmark for Ubuntu 26.04 | Both VMs | Not run. No tool has a profile for this release | |
+| kube-bench 0.16.0, `k3s-cis-1.9` | The cluster | 64 pass, 2 fail, 50 warn. One fail asks for an etcd flag and there is no etcd. The other, 5.1.6, is not explained: its own audit finds every pod compliant or exempt ([#127](https://github.com/sindredg/ai-security-platform/issues/127)) | 2026-10-19 |
+| Lynis 3.1.7 | Orchestrator | Hardening index 72. Two warnings: a false positive, and three security updates that were then installed | 2026-10-19 |
+| Lynis 3.1.7 | Worker | Hardening index 79. No warnings | 2026-10-19 |
+| Lynis 3.1.7 | Edge | Hardening index 72. The same two warnings, and `squid.conf` at 644 | 2026-10-19 |
+| Lynis 3.1.7 | Router | Hardening index 72. The same two warnings | 2026-10-19 |
+| CIS benchmark for Ubuntu 26.04 | All four VMs | Not run. No tool has a profile for this release | |
 
-Lynis was not run again after the last three fixes, so its numbers are slightly behind the machines.
-
-The orchestrator was rebuilt on 2026-10-13. kube-bench and Lynis have not been run on the new machine, so the cluster row and the orchestrator row describe the one it replaced. The `K` and `HO` checks, which hold the fixes in place, passed on the new machine.
+The warnings and the suggestions that milestone 2 had not triaged are in the [worklog](../worklogs/0003-toolchain-integration.md#benchmarks). Milestone 2 measured 76 and 77 on the orchestrator before its rebuild and on the worker.
 
 ## Left alone on purpose
 
@@ -40,6 +40,7 @@ The orchestrator was rebuilt on 2026-10-13. kube-bench and Lynis have not been r
 | `k3s`, `tailscaled`, and `ssh` without a systemd sandbox | Each needs root and broad access to do its job |
 | Password policy, boot loader password, legal banners | No account has a password, the only console is behind cloud access control, and there is one operator |
 | No malware scanner or package audit tool on the VMs | Machines kept small. Scanning belongs in the pipeline |
+| Squid's Lynis suggestions: `squid.conf` at 644, no reply size limit, no hidden version string | The file holds the host lists and private addresses, which are in the repository. A model weight file is 4.5 GB. Only the platform's own VMs reach Squid |
 
 ## Open
 
