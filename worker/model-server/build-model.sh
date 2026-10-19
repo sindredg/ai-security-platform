@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Runs on the worker, as root. Checks the pushed files against artifacts.tsv
-# again, unpacks the llama.cpp binaries, and builds the model file in a
-# sandboxed transient unit.
+# and the model's list in models/ again, unpacks the llama.cpp binaries, and
+# builds the model file in a sandboxed transient unit. AISEC_MODEL picks the
+# model, as in pins.env.
 #
 # Usage: build-model.sh STAGE_DIR
 set -euo pipefail
@@ -10,8 +11,13 @@ here=$(cd "$(dirname "$0")" && pwd)
 stage=$(cd "${1:?usage: build-model.sh STAGE_DIR}" && pwd)
 # shellcheck source=pins.env
 . "$here/pins.env"
+models=$here/models/$MODEL_NAME.tsv
+if [[ ! -f $models ]]; then
+  echo "no list for $MODEL_NAME in models/" >&2
+  exit 1
+fi
 
-# artifacts.tsv comes from the operator's checkout, and the files it lists from
+# The lists come from the operator's checkout, and the files they name from
 # the orchestrator (ADR 0026). This check catches a transfer that damaged or
 # dropped a file, and an orchestrator that changed one. The converter takes a
 # whole directory of wheels and a pattern for pip, so a file the list does not
@@ -19,16 +25,16 @@ stage=$(cd "${1:?usage: build-model.sh STAGE_DIR}" && pwd)
 # converter's source is packed on the orchestrator, so its pin is in pins.env.
 echo "== verify the pushed files"
 {
-  awk -F'\t' '!/^#/ && NF { print $1 "  " $2 }' "$here/artifacts.tsv"
+  awk -F'\t' '!/^#/ && NF { print $1 "  " $2 }' "$here/artifacts.tsv" "$models"
   echo "$CONVERTER_SRC_SHA256  converter-src.tar"
 } | (cd "$stage" && sha256sum --check --quiet)
-extra=$(comm -13 <({ awk -F'\t' '!/^#/ && NF { print $2 }' "$here/artifacts.tsv"; echo converter-src.tar; } | sort) \
+extra=$(comm -13 <({ awk -F'\t' '!/^#/ && NF { print $2 }' "$here/artifacts.tsv" "$models"; echo converter-src.tar; } | sort) \
   <(cd "$stage" && find . -mindepth 1 ! -type d | sed 's|^\./||' | sort))
 if [[ -n $extra ]]; then
-  printf 'not in artifacts.tsv:\n%s\n' "$extra" >&2
+  printf 'not in artifacts.tsv or models/%s.tsv:\n%s\n' "$MODEL_NAME" "$extra" >&2
   exit 1
 fi
-echo "all files match artifacts.tsv and pins.env, and nothing else is staged"
+echo "all files match artifacts.tsv, models/$MODEL_NAME.tsv, and pins.env, and nothing else is staged"
 
 echo "== llama.cpp $LLAMA_BUILD"
 # The binaries link the OpenMP runtime, which the server image does not carry.
@@ -85,10 +91,20 @@ systemd-run --unit=aisec-model-build --wait --collect --pipe --quiet \
   -p BindReadOnlyPaths="$here:/run/aisec-model-scripts" \
   -p MemoryAccounting=yes \
   -p RuntimeMaxSec=7200 \
+  --setenv=AISEC_MODEL="$MODEL_NAME" \
   /bin/bash /run/aisec-model-scripts/convert.sh
 
 echo "== install"
 built=/var/lib/aisec-model-build/$MODEL_NAME-$MODEL_QUANT.gguf
 install -m 0644 -o root -g root "$built" "$MODEL_FILE"
-(cd "$MODEL_DIR" && sha256sum "$(basename "$MODEL_FILE")" | tee SHA256SUMS)
+# One line per model file. A build replaces its own line and keeps the others,
+# so a model built for a comparison does not take away the line of the one the
+# server runs.
+name=$(basename "$MODEL_FILE")
+{
+  awk -v name="$name" '$2 != name' "$MODEL_DIR/SHA256SUMS" 2> /dev/null || true
+  (cd "$MODEL_DIR" && sha256sum "$name")
+} > "$MODEL_DIR/SHA256SUMS.new"
+mv "$MODEL_DIR/SHA256SUMS.new" "$MODEL_DIR/SHA256SUMS"
+awk -v name="$name" '$2 == name' "$MODEL_DIR/SHA256SUMS"
 ls -l "$MODEL_FILE"

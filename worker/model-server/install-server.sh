@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Runs on the worker, as root, after build-model.sh. Installs the unit, starts
-# the server, and waits until it answers.
+# the server, and waits until it answers. AISEC_MODEL picks the model, as in
+# pins.env, so a comparison can run another model and then go back.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source=pins.env
 . "$here/pins.env"
 
-(cd "$MODEL_DIR" && sha256sum --check --quiet SHA256SUMS)
+# The line the build wrote for this file. No line is a failure, not a pass.
+(cd "$MODEL_DIR" && awk -v name="$(basename "$MODEL_FILE")" '$2 == name' SHA256SUMS | sha256sum --check --strict)
 
 sed -e "s|@LLAMA_DIR@|$LLAMA_DIR|g" -e "s|@MODEL_FILE@|$MODEL_FILE|g" \
   "$here/aisec-llama-server.service" > /etc/systemd/system/aisec-llama-server.service

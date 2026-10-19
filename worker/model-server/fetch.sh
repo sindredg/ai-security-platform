@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Runs on the orchestrator. Downloads every file in artifacts.tsv into a staging
-# directory and checks each one against its pinned sha256. Nothing is unpacked,
+# Runs on the orchestrator. Downloads every file in artifacts.tsv and in the
+# model's list in models/ into a staging directory, and checks each one against
+# its pinned sha256. AISEC_MODEL picks the model, as in pins.env. Nothing is unpacked,
 # imported, or loaded here: the orchestrator hashes these files and never opens
 # them.
 #
@@ -11,6 +12,11 @@ here=$(cd "$(dirname "$0")" && pwd)
 stage=${1:?usage: fetch.sh STAGE_DIR}
 # shellcheck source=pins.env
 . "$here/pins.env"
+models=$here/models/$MODEL_NAME.tsv
+if [[ ! -f $models ]]; then
+  echo "no list for $MODEL_NAME in models/" >&2
+  exit 1
+fi
 
 mkdir -p "$stage"
 
@@ -31,7 +37,7 @@ while IFS=$'\t' read -r sum path url; do
   fi
   mv "$dest.part" "$dest"
   echo "ok    $path"
-done < "$here/artifacts.tsv"
+done < <(cat "$here/artifacts.tsv" "$models")
 
 # The converter is source, not a release file. Fetch the pinned commit and pack
 # the three paths the converter needs. Git names a commit by the hash of its

@@ -4,17 +4,6 @@
 # llama.cpp binaries, build b11669 (v0.7.0), from the project's release pipeline.
 9ac6fda2058d35677608a06f751a50122ddfa4ce0ddb7f084466b8e79b6d4a99	llama/llama-b11669-bin-ubuntu-arm64.tar.gz	https://github.com/ggml-org/llama.cpp/releases/download/b11669/llama-b11669-bin-ubuntu-arm64.tar.gz
 #
-# Qwen3.5-4B at revision 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a, from the publisher.
-ddc63e1c717afa86c865bb5e01313d89d72bb53b97ad4a8a03ba8510c0621670	qwen/config.json	https://huggingface.co/Qwen/Qwen3.5-4B/resolve/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/config.json
-a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715	qwen/chat_template.jinja	https://huggingface.co/Qwen/Qwen3.5-4B/resolve/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/chat_template.jinja
-5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42	qwen/tokenizer.json	https://huggingface.co/Qwen/Qwen3.5-4B/resolve/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/tokenizer.json
-316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8	qwen/tokenizer_config.json	https://huggingface.co/Qwen/Qwen3.5-4B/resolve/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/tokenizer_config.json
-ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003	qwen/vocab.json	https://huggingface.co/Qwen/Qwen3.5-4B/resolve/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/vocab.json
-a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d	qwen/merges.txt	https://huggingface.co/Qwen/Qwen3.5-4B/resolve/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/merges.txt
-cf3f798ee02ba45f9622aa8892a47369ab667d0afbf154ee7c2212de42e6302d	qwen/model.safetensors.index.json	https://huggingface.co/Qwen/Qwen3.5-4B/resolve/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/model.safetensors.index.json
-26a93f066e1916adb13453dae5a0c707c0fbc71299ed98779571a907b8e74c61	qwen/model.safetensors-00001-of-00002.safetensors	https://huggingface.co/Qwen/Qwen3.5-4B/resolve/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/model.safetensors-00001-of-00002.safetensors
-cb544bd9bfae93dc59b0f22b292f5933573854a7f9b97835c67060d7d910e188	qwen/model.safetensors-00002-of-00002.safetensors	https://huggingface.co/Qwen/Qwen3.5-4B/resolve/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/model.safetensors-00002-of-00002.safetensors
-#
 # pip, run from its wheel on the worker. Nothing is installed system-wide.
 71138adf1f4ca900cdb7d289c21b7494329f2332b6d85f0e1c42108c0384ed3e	pip/pip-26.2.1-py3-none-any.whl	https://files.pythonhosted.org/packages/f3/6e/1736e5b4ae2b778ef2f81c47d797de9f891d4d8acb047a24ca37a60294dd/pip-26.2.1-py3-none-any.whl
 #
