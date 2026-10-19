@@ -152,7 +152,7 @@ The agent runtime and the model server run on a second VM that is not part of th
 - One scoped session per job: one target, one evidence set, bounded time and output.
 - One network destination for work: the tool services on the orchestrator.
 
-The cost is dispatch. Argo runs pods, not processes on another machine. A workflow step opens an SSH session to the worker with a key that can only run the job runner. Decided in [ADR 0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), not built, and still the first real integration risk. Detail: [AI worker](components/ai-worker.md).
+The cost is dispatch. Argo runs pods, not processes on another machine. A workflow step opens an SSH session to the worker with a key that can only run the job runner, and the runner hands the job to a socket that starts the agent's sandboxed unit. Decided in [ADR 0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md) and [ADR 0030](decisions/0030-how-a-job-reaches-the-worker.md), proposed, not built, and still the first real integration risk. Detail: [AI worker](components/ai-worker.md).
 
 What exists today is narrower than the design. The agent is started manually and uses one local test tool on the worker. The tool service that replaces the fixture runs on the orchestrator. The worker has called it with `curl`, not yet with the agent. See the [milestone 3 worklog](worklogs/0003-toolchain-integration.md).
 

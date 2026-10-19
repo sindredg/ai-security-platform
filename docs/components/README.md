@@ -30,7 +30,7 @@ Candidates, not selections, except the rows that name a decision record. Each ha
 
 | Role | Candidate | Has to prove | Milestone |
 | --- | --- | --- | --- |
-| Workflow engine and UI | Argo Workflows | Dispatch to the worker VM, restart recovery, footprint | 3 |
+| Workflow engine and UI | Argo Workflows v4.1.5, the controller in the cluster and the UI on the operator's machine, [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), proposed | Dispatch to the worker VM, restart recovery, footprint | 3 |
 | Agent runtime | Goose 1.55.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A TLS tool call with a job token was tested on a workstation. Still to test: Goose's call to the tool service on the worker, and validation of the result against a schema | 3 |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far | 3 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
