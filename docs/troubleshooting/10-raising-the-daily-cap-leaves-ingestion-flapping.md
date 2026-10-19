@@ -21,4 +21,4 @@ For a later drill, apply the low cap about 30 minutes before the reset hour and 
 
 ## Verification
 
-No stop followed the start at 15:06:20, read at 16:18. Rows arrive again from all three VMs: `Perf` from each from 14:40 to 14:44, every minute from about 15:20, and the worker's journal from 15:10:58. `journal-missing` resolved at 15:30:01 and `daily-cap` at 15:52:29. The checks passed at 16:25, `G.2` aside ([worklog](../worklogs/0004-edge-network-and-monitoring.md#checks-6)).
+No stop followed the start at 15:06:20, through the reset hour at 17:00, read at 17:10. Rows arrive again from all three VMs: `Perf` from each from 14:40 to 14:44, every minute from about 15:20, and the worker's journal from 15:10:58. `journal-missing` resolved at 15:30:01 and `daily-cap` at 15:52:29. The checks passed at 16:25, `G.2` aside ([worklog](../worklogs/0004-edge-network-and-monitoring.md#checks-6)).

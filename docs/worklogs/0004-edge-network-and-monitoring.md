@@ -1100,7 +1100,7 @@ Written down before the apply: the workspace has taken about 56 MB since its res
 | 15:30:01 | `journal-missing` resolves. The first journal row after the gap is from 15:10:58 |
 | 15:52:29 | `daily-cap` resolves |
 
-The quota day held about 57 MB through all of it, 27 % of the new cap, so the stops after 14:22 are not the cap being reached. No stop followed the start at 15:06:20, read at 16:18.
+The quota day held about 57 MB through all of it, 27 % of the new cap, so the stops after 14:22 are not the cap being reached. No stop followed the start at 15:06:20, through the reset hour, read at 17:10.
 
 What the drill showed:
 
