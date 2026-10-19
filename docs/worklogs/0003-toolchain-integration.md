@@ -1160,3 +1160,47 @@ Expected, reasoned and not observed: Qwen3.5-4B gets `confirmed` right, since th
 ### Results
 
 Not run yet.
+
+## Slice: jobs over a socket
+
+Date: 2026-10-19, written and tested locally. Not installed on the worker.
+
+The worker side of dispatch, as [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md) proposes it: an account for the dispatch key, a forced command that relays to a socket, and a socket that starts one sandboxed unit per job. The orchestrator side, Argo and the dispatch step, is the next slice.
+
+### What was written
+
+| File, in `worker/agent-runtime/` | What it does |
+| --- | --- |
+| `job/aisec_job_runner.py` | The forced command, installed as `/usr/local/sbin/aisec-job-runner`. Accepts an empty request or `run`, one job line of at most 16 KiB with nothing after it, relays the socket's answer of at most 64 KiB, and turns the end of the session's input into the end of its side of the socket |
+| `job/agent_job.py` | The job program inside each unit. Checks the job line's fields, writes the recipe with the token into the private `/tmp`, runs Goose with the tool service as its one extension, stops Goose on an end of input or past the job's deadline, erases the model server's slot, and writes one result line with the token taken out of any text it returns |
+| `job/aisec-agent-job.socket`, `job/aisec-agent-job@.service` | The socket, `root aisec-job 660`, one connection at a time, and the unit with `run-agent.sh`'s sandbox, the orchestrator's address added, and a 30-minute limit |
+| `job/system.txt` | The agent's instructions: the fixture's, unchanged |
+| `install-job.sh` | Makes the account, installs the files, enables the socket, and writes the key line when given the dispatch key |
+
+Read from Goose's source at v1.55.0 before the job program was written: a recipe's `streamable_http` extension takes `headers`, so the token goes in the recipe file, and `--recipe` excludes `--instructions` and `--text`, so the task is the recipe's prompt. From llama.cpp's server documentation at `620d2225`: `POST /slots/0?action=erase` empties the slot and needs no save path.
+
+### Tests
+
+22 unit tests in `job/tests/`, run on the workstation with Python 3.12 and added to the pipeline as "Job runner tests". The job program runs as a subprocess with one end of a socket pair as its standard input and output, as systemd gives it the connection, with a fake Goose and a stub model server. The runner runs as a subprocess with pipes, against a fake job socket.
+
+| Group | Cases |
+| --- | --- |
+| The job line | A valid line passes. Seventeen bad ones are refused: not JSON, a list, a field missing or added, three bad IDs, two bad tokens, an empty or long task, turns as a bool or text or out of range, seconds out of range. A line over the limit, and input that ends before a newline |
+| The recipe | The token is a header for the fixed tool service address only, the file is `600`, and an existing file is not overwritten |
+| A whole job | One result line for a completed job. Goose gets the recipe and no token in its arguments or environment. The recipe is gone and the slot erased afterwards. The token never comes back in the result. A failed Goose gives a failed result. A bad line starts nothing. An end of input during the run stops Goose within seconds, writes nothing back, and still erases the slot. A run past its deadline is stopped |
+| The runner | Another command, a long job line, and input after the job line are refused. No socket is exit 3. The job line goes in and the result comes out. The end of the session reaches the job. A result over the limit is cut off. A job that ends without a result is exit 5 |
+
+Each test was seen to fail on a broken copy of the code: redaction taken out, the end of input ignored, an added field allowed, and the slot erase skipped in the job program. The cancel, the size limit, and the request check taken out in the runner.
+
+`G.8`'s hash was tried locally on the five files installed into a temporary directory the way `install-job.sh` does: `match`, then `differ` after `MemoryMax` changed in the unit and after the runner was removed. The client in runbook steps 10 and 11 was tried locally against a fake socket, with the workstation's `jq`, and the job line it built passes the job program's check.
+
+### Checks
+
+`G.5` to `G.9` are new, and `G.4` also counts the private directories of a dispatched job's unit ([agent runtime checks](../validation/agent-runtime.md)). Written down before any run: `G.5` to `G.8` fail on absence until `install-job.sh` runs on the worker, and `G.5` until the dispatch key exists. `G.9` passes before the install.
+
+### Limits
+
+- **Nothing is installed.** The recipe's format, the tool service call from Goose on the worker, and the slot erase against the live server are first tried in steps 10 and 11 of the [agent runtime runbook](../runbooks/agent-runtime.md#jobs-over-the-socket).
+- **The tests run on Python 3.12 locally and 3.15 in the pipeline.** The worker has 3.14.
+- **No linter reads the unit files.** The repository has had unit files without one since milestone 3. `G.8` holds the installed ones equal to the repository.
+- **The fake Goose prints a transcript shaped like the fixture run's.** A Goose release that changes the shape gives a result with zero calls, which the dispatch step treats as a failure.
