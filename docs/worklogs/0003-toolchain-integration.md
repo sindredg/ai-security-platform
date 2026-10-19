@@ -1163,9 +1163,9 @@ Not run yet.
 
 ## Slice: jobs over a socket
 
-Date: 2026-10-19, written and tested locally. Not installed on the worker.
+Date: 2026-10-19, written and tested locally. Not installed on the worker, and the dispatch image not built yet.
 
-The worker side of dispatch, as [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md) proposes it: an account for the dispatch key, a forced command that relays to a socket, and a socket that starts one sandboxed unit per job. The orchestrator side, Argo and the dispatch step, is the next slice.
+Both ends of a dispatch session, as [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md) proposes them. On the worker: an account for the dispatch key, a forced command that relays to a socket, and a socket that starts one sandboxed unit per job. On the orchestrator: the dispatch step's program and its image. Argo, the workflow template, and the host rule are the next slice.
 
 ### What was written
 
@@ -1176,12 +1176,14 @@ The worker side of dispatch, as [ADR 0030](../decisions/0030-how-a-job-reaches-t
 | `job/aisec-agent-job.socket`, `job/aisec-agent-job@.service` | The socket, `root aisec-job 660`, one connection at a time, and the unit with `run-agent.sh`'s sandbox, the orchestrator's address added, and a 30-minute limit |
 | `job/system.txt` | The agent's instructions: the fixture's, unchanged |
 | `install-job.sh` | Makes the account, installs the files, enables the socket, and writes the key line when given the dispatch key |
+| `platform/dispatch/dispatch.py` | The dispatch step. Makes a 256-bit token, registers the job by its digest with a lifetime 300 seconds longer than the job, copies the key into a memory-backed directory, opens the session with the host key checked, writes the job line, and holds its input open until the result. Checks the result's size, fields, types, and job ID, and fails the step unless the job completed and called a tool. A stop closes the session's input. `revoke` ends the job |
+| `platform/dispatch/Dockerfile` | The dispatch image: the tool service's Python base, OpenSSH's client from Alpine, a user entry for the fixed user, and the script. No package manager or pip left |
 
 Read from Goose's source at v1.55.0 before the job program was written: a recipe's `streamable_http` extension takes `headers`, so the token goes in the recipe file, and `--recipe` excludes `--instructions` and `--text`, so the task is the recipe's prompt. From llama.cpp's server documentation at `620d2225`: `POST /slots/0?action=erase` empties the slot and needs no save path.
 
 ### Tests
 
-22 unit tests in `job/tests/`, run on the workstation with Python 3.12 and added to the pipeline as "Job runner tests". The job program runs as a subprocess with one end of a socket pair as its standard input and output, as systemd gives it the connection, with a fake Goose and a stub model server. The runner runs as a subprocess with pipes, against a fake job socket.
+22 unit tests in `job/tests/`, run on the workstation with Python 3.12 and added to the pipeline as "Dispatch tests". The job program runs as a subprocess with one end of a socket pair as its standard input and output, as systemd gives it the connection, with a fake Goose and a stub model server. The runner runs as a subprocess with pipes, against a fake job socket.
 
 | Group | Cases |
 | --- | --- |
@@ -1190,7 +1192,9 @@ Read from Goose's source at v1.55.0 before the job program was written: a recipe
 | A whole job | One result line for a completed job. Goose gets the recipe and no token in its arguments or environment. The recipe is gone and the slot erased afterwards. The token never comes back in the result. A failed Goose gives a failed result. A bad line starts nothing. An end of input during the run stops Goose within seconds, writes nothing back, and still erases the slot. A run past its deadline is stopped |
 | The runner | Another command, a long job line, and input after the job line are refused. No socket is exit 3. The job line goes in and the result comes out. The end of the session reaches the job. A result over the limit is cut off. A job that ends without a result is exit 5 |
 
-Each test was seen to fail on a broken copy of the code: redaction taken out, the end of input ignored, an added field allowed, and the slot erase skipped in the job program. The cancel, the size limit, and the request check taken out in the runner.
+11 tests in `platform/dispatch/tests/` run the dispatch step as a subprocess. Its `ssh` is a fake that runs the real job runner, which connects to a socket where the test starts the real job program per connection, as systemd does, with a fake Goose. Registration and the slot erase go to stubs. They cover: a job that registers, runs, and returns a checked result, with the digest at registration equal to the token's at the worker. The token in no output, argument, result, or registration body. The host key checked and the key copied with mode `600`. A refused registration opens no session. A job without a tool call, and a failed job, fail the step. A stop ends the step with exit 143, and the job program on the far side logs a cancel and writes nothing. Revoke as the dispatch account. Five bad argument sets register nothing. Nine bad results are refused.
+
+Each test was seen to fail on a broken copy of the code: redaction taken out, the end of input ignored, an added field allowed, and the slot erase skipped in the job program. The cancel, the size limit, and the request check taken out in the runner. The stop handler, the tool call requirement, the field check, the host key check, and the token's margin taken out in the dispatch step.
 
 `G.8`'s hash was tried locally on the five files installed into a temporary directory the way `install-job.sh` does: `match`, then `differ` after `MemoryMax` changed in the unit and after the runner was removed. The client in runbook steps 10 and 11 was tried locally against a fake socket, with the workstation's `jq`, and the job line it built passes the job program's check.
 
@@ -1202,5 +1206,6 @@ Each test was seen to fail on a broken copy of the code: redaction taken out, th
 
 - **Nothing is installed.** The recipe's format, the tool service call from Goose on the worker, and the slot erase against the live server are first tried in steps 10 and 11 of the [agent runtime runbook](../runbooks/agent-runtime.md#jobs-over-the-socket).
 - **The tests run on Python 3.12 locally and 3.15 in the pipeline.** The worker has 3.14.
+- **The dispatch image was not built here.** The workstation has no Docker. Its Dockerfile passes hadolint 2.15.1 and Trivy 0.76.0's configuration scan with one suppression, DS-0026, with its reason in `platform/dispatch/.trivyignore`. Both were seen to fail without the suppression. The pipeline builds it, checks that `ssh` starts as its user, and scans it. Its first push is from `main`, and the workflow template pins that digest in the next slice.
 - **No linter reads the unit files.** The repository has had unit files without one since milestone 3. `G.8` holds the installed ones equal to the repository.
 - **The fake Goose prints a transcript shaped like the fixture run's.** A Goose release that changes the shape gives a result with zero calls, which the dispatch step treats as a failure.
