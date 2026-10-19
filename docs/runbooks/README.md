@@ -15,4 +15,4 @@ One operator procedure per milestone, or per slice of a milestone that is built 
 | [Repository settings and signed commits](repository-settings.md) | 3a | Implemented on 2026-10-17. Settings made in the web interface and read back. Fail side run once. The API steps not run from the start |
 | [Mesh VPN router](mesh-router.md) | 3a | Implemented on 2026-10-17. Run once, on the live platform |
 | [Edge VM](edge-vm.md) | 3a | Implemented on 2026-10-17. Run once, on the live platform, partly from scripts. A rebuild of the orchestrator through a fetch window not run |
-| [Monitoring](monitoring.md) | 3a | Implemented on 2026-10-17 and 2026-10-18. Run once, on the live platform, alert rules, flow logs, and drills included. Undo and rebuild not run |
+| [Monitoring](monitoring.md) | 3a | Implemented on 2026-10-17 to 2026-10-19. Run once, on the live platform, alert rules, flow logs, drills, and the daily cap included. Undo and rebuild not run |

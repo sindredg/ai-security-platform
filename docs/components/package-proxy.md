@@ -69,7 +69,7 @@ Squid is the one service the orchestrator and the worker can reach on the edge. 
 - **A tunnel outlives the window.** Closing stops new tunnels. One opened inside the window runs until its download ends: 27 seconds after a close on 2026-10-17.
 - **Squid sees the host name and the bytes, not the content.** TLS is not inspected.
 - **Hostnames, not addresses.** If the repositories or the CDNs move, fetches stop until the list changes.
-- **The image phones home and is refused.** The login message and Ubuntu Pro's apt hook try `motd.ubuntu.com` and `esm.ubuntu.com`. Harmless, and visible in the proxy log.
+- **The image phones home and is refused.** The login message and Ubuntu Pro's apt hook try `motd.ubuntu.com`, `changelogs.ubuntu.com`, and `esm.ubuntu.com`. Harmless in itself, but on the orchestrator each refusal raises `squid-refused-orchestrator`, Sev1. Seen on 2026-10-19 from the apt hook's daily run at 02:17, and from one login at 13:53. Most logins make no such request ([#124](https://github.com/sindredg/ai-security-platform/issues/124)).
 - **The edge is a single point of failure** for packages and fetches. When it is down, nothing on the platform updates.
 - **The targets do not get this path.**
 - **Outbound port 80 stays open on the edge because of the mirrors.** Fetching from them over TLS was tried and does not work with this Squid build. See [troubleshooting 03](../troubleshooting/03-proxy-cannot-fetch-upstream-over-tls.md).

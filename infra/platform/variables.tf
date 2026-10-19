@@ -135,9 +135,9 @@ variable "k3s_install_sha256" {
 }
 
 variable "log_daily_cap_gb" {
-  description = "Daily ingestion cap of the workspace, in GB. Ingestion stops for the rest of the day when it is reached. 1 until a week of volume is measured (ADR 0021)."
+  description = "Daily ingestion cap of the workspace, in GB. Ingestion stops until the reset hour when it is reached. At least three times the 66.6 MB measured from 2026-10-18 10:00 to 2026-10-19 10:00 UTC (ADR 0028)."
   type        = number
-  default     = 1
+  default     = 0.21
 }
 
 variable "monitor_agent_version" {
