@@ -44,9 +44,9 @@ Namespaces organize workloads. They are not a security boundary against maliciou
 
 ## Benchmark
 
-kube-bench 0.16.0 with the `k3s-cis-1.9` profile: 65 pass, 1 fail, 50 warn, 14 info. The one fail asks for an etcd flag, and there is no etcd. Details are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md#kubernetes-benchmark).
+kube-bench 0.16.0 with the `k3s-cis-1.9` profile, on 2026-10-19: 64 pass, 2 fail, 50 warn, 14 info. One fail asks for an etcd flag, and there is no etcd. The other, 5.1.6, is not explained: the check's own audit finds every pod compliant or exempt ([#127](https://github.com/sindredg/ai-security-platform/issues/127)). Details are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#benchmarks).
 
-That run was on 2026-10-11, on the orchestrator that was replaced on 2026-10-13. It has not been repeated on the new one. The `K` checks, which hold the fixes in place, passed there.
+The first run, on 2026-10-11, on the orchestrator that was replaced on 2026-10-13, gave 65 pass and 1 fail ([milestone 2 worklog](../worklogs/0002-platform-compute.md#kubernetes-benchmark)). The `K` checks, which hold the fixes in place, pass on the current one.
 
 ## Validation
 
