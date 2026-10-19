@@ -1,8 +1,8 @@
 # Everything the model server build downloads. Tab-separated: sha256, path under
 # the staging directory, source URL. fetch.sh refuses a file that does not match.
 #
-# llama.cpp binaries, build b11429, from the project's release pipeline.
-ed44c0f79c3d02424f62bdc87e106318b0b89f49050e2e80c5f352723d14e00b	llama/llama-b11429-bin-ubuntu-arm64.tar.gz	https://github.com/ggml-org/llama.cpp/releases/download/b11429/llama-b11429-bin-ubuntu-arm64.tar.gz
+# llama.cpp binaries, build b11669 (v0.7.0), from the project's release pipeline.
+9ac6fda2058d35677608a06f751a50122ddfa4ce0ddb7f084466b8e79b6d4a99	llama/llama-b11669-bin-ubuntu-arm64.tar.gz	https://github.com/ggml-org/llama.cpp/releases/download/b11669/llama-b11669-bin-ubuntu-arm64.tar.gz
 #
 # Qwen3.5-4B at revision 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a, from the publisher.
 ddc63e1c717afa86c865bb5e01313d89d72bb53b97ad4a8a03ba8510c0621670	qwen/config.json	https://huggingface.co/Qwen/Qwen3.5-4B/resolve/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/config.json
