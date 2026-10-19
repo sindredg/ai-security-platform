@@ -22,10 +22,10 @@ The milestone is built in slices. The first, orchestrator hardening, is on the s
 | Every namespace rejects a privileged pod, whether or not it has a pod security label | **Tested** on the live system: `K.9` failed on `default`, `kube-node-lease`, `kube-public`, and `kube-system` before the change and passes after it ([rollout](#rollout)) |
 | Requests to the tool service without a valid token are rate-limited | **Tested** on the live system: 33 requests without a token from the worker got 30 × 401 and 3 × 429, with 31 audit lines, one of them for the limit ([the rate limit](#on-the-live-system)) |
 | The audit lines, the worker's journal, and the edge's and the router's logs reach a log store that no VM can delete from | **Tested** on the live system on 2026-10-17: rows from all three agents, two audit rows equal to the file's lines, and no role for any VM identity (`O.1` to `O.13`). The orchestrator's only path is the private endpoint ([monitoring](#monitoring)) |
-| Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | **Tested** on the live system on 2026-10-18: each fired once on purpose, `heartbeat-missing`, `audit-sequence`, `journal-missing`, `squid-refused-orchestrator`, `security-groups`, `security-rules`, and `role-assignments`, with nine other rules ([the drills](#the-drills)). `daily-cap` fired on 2026-10-19 ([the drill](#the-drill)). `denied-flow-to-internet` cannot fire while the platform's flow log is not processed |
+| Alerts for a stopped agent, an audit gap, a missed pull, a refused request, and a security group or role change | **Tested** on the live system on 2026-10-18: each fired once on purpose, `heartbeat-missing`, `audit-sequence`, `journal-missing`, `squid-refused-orchestrator`, `security-groups`, `security-rules`, and `role-assignments`, with eight other rules ([the drills](#the-drills)). `daily-cap` fired on 2026-10-19 ([the drill](#the-drill)). `denied-flow-to-internet` cannot fire while the platform's flow log is not processed |
 | Flow logs are recorded for the platform subnets | **Tested** for the records on the live system on 2026-10-18: the platform flow log's blobs hold the drill's denied connections from the orchestrator and the worker. **Accepted gap** for the alert: traffic analytics does not process them, so no alert reads them ([the platform flow log](#the-platform-flow-log), [accepted risks](../security/accepted-risks.md)) |
 | The target network is in Poland Central, in its own repository. An unsigned commit fails a required check | **Tested** for the targets on the live system: `Z.14` reads `polandcentral`, after it read `denmarkeast` before the move, and the target root is in [its own repository](https://github.com/sindredg/ai-security-platform-test) ([the move](#the-targets-in-poland-central)). **Tested** for the signature check on GitHub: a pull request with a commit GitHub signed is blocked, also next to a passing job of the same name, and an unsigned push is refused ([fail side](#the-fail-side-on-github)) |
-| Log volume per day is measured, and a daily cap is set from it | **Tested** on the live system on 2026-10-19: 67.06 MB of billable rows from 10:00 to 10:00 UTC in `Usage`, and a cap of 0.21 GB, three times that. A cap of 0.023 GB first stopped ingestion and fired `daily-cap`. Raising it brought ingestion back 44 minutes later, after nine more stops, and the workspace has no rows from about 14:15 to 15:10 UTC ([the measured day](#the-measured-day-and-the-daily-cap), [troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)) |
+| Log volume per day is measured, and a daily cap is set from it | **Tested** on the live system on 2026-10-19: 66.60 MB of billable rows from 10:00 to 10:00 UTC in `Usage`, and a cap of 0.21 GB, at least three times that. A cap of 0.023 GB first stopped ingestion and fired `daily-cap`. Raising it brought ingestion back 44 minutes later, after nine more stops. The billable tables lost most of their rows from about 14:15 to 15:10 UTC ([the measured day](#the-measured-day-and-the-daily-cap), [troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)) |
 | The orchestrator's memory and CPU use with the log agent are measured | **Tested** on the live system on 2026-10-19: the agent's six units held 290 MiB and used 0.42 % of one core, from their systemd counters across the day. The edge and the router are in [the footprint](#footprint-1) |
 
 ## Slice (a): orchestrator hardening
@@ -1039,25 +1039,35 @@ Date: 2026-10-19. One day of log volume and of the log agent's footprint, the ca
 
 | Change | Where |
 | --- | --- |
-| The workspace's daily cap is 0.21 GB, three times the measured day. It was 1 GB | `infra/platform/variables.tf` |
+| The workspace's daily cap is 0.21 GB, at least three times the measured day. It was 1 GB | `infra/platform/variables.tf` |
 | Steps 14 to 17: read the day, read the footprint, drill the cap, set it | [Monitoring runbook](../runbooks/monitoring.md#daily-cap) |
 
 ### The day
 
-From 2026-10-18 10:00 to 2026-10-19 10:00 UTC, read from `Usage` with the operator's sign-in at 13:55 UTC. Nothing changed on the VMs in the window. The Activity Log holds only the checks' reads of effective security rules and two `sharedKeys` calls at 14:08 on 2026-10-18, from the operator and the platform identity. One run of the checks fell in the window, at 19:03.
+The 24 hours from 2026-10-18 10:00 to 2026-10-19 10:00 UTC, read from `Usage` with the operator's sign-in. Each `Usage` row covers one hour, and its `TimeGenerated` is the end of that hour, so the query selects hours by `StartTime`.
 
 | Table | MB |
 | --- | --- |
-| `AisecWorkerJournal_CL` | 42.66 |
+| `AisecWorkerJournal_CL` | 42.21 |
 | `Perf` | 24.09 |
-| `Syslog` | 0.29 |
+| `Syslog` | 0.28 |
 | `AisecSquidAccess_CL` | 0.02 |
-| `AisecToolAudit_CL` | 0.004 |
-| Billable, in all | 67.06 |
+| `AisecToolAudit_CL` | 0.003 |
+| Billable, in all | 66.60 |
 
-Each hour took between 2.56 and 3.87 MB. The worker's journal is two thirds of the day. About a third of `Perf` is the orchestrator's container mounts: 16 of its 31 disk instances are container root and shared memory mounts, each one row a minute. `Heartbeat` (2.31 MB) and the traffic analytics tables (1.80 MB) are not billable and not under the cap.
+Each hour took between 2.56 and 3.87 MB. The worker's journal is two thirds of the day. `Heartbeat` and the traffic analytics tables are not billable and not under the cap. Close to a third of `Perf`, by its estimated size, is the orchestrator's container mounts: 12 container root and shared memory mounts and 4 pod volumes, out of its 31 disk instances, each one row a minute.
 
-The same query over a day before the workspace existed returns 0, so an empty window cannot pass for a small day. Three times 67.06 MB is 201 MB, and the cap is 0.21 GB.
+The same query over a day before the workspace existed returns 0, so an empty window cannot pass for a small day.
+
+What ran in the window:
+
+- **The checks, several times,** the last run at 19:03 ([validation](../validation/README.md)). The platform runs them every day.
+- **One change on a VM:** the audit copier, reinstalled on the orchestrator at about 11:22 UTC on 2026-10-18 to skip `.tmp` files ([on the live system](#on-the-live-system-1)). It copies the same lines as before.
+- **Two changes to the platform flow log,** at 10:37 and from 11:28 to about 13:45 ([the platform flow log](#the-platform-flow-log)). They touch only the traffic analytics tables, which are not billable.
+
+The Activity Log of the platform group holds no write to a VM in the window.
+
+The first reading summed the hours by `TimeGenerated`, which is 09:00 to 09:00, and gave 67.06 MB. The cap was set from it: 3 × 67.06 MB is 201 MB, rounded up to the next 0.01 GB, 0.21 GB. Three times the corrected day is 199.8 MB. The cap stays at 0.21 GB. It is still at least three times the day, and another change to the cap would risk the flapping below for 10 MB of room.
 
 ### Footprint
 
@@ -1071,11 +1081,11 @@ The log agent's six systemd units on each VM, read at 13:53 UTC over SSH: `azure
 
 The worker has no agent. Across the day, from `Perf`, the whole machine's CPU averaged 2.6 % on the orchestrator, 1.2 % on the edge, and 1.2 % on the router, with a highest minute of 10 %, 5.9 %, and 14.2 %. The least memory available in any minute: 6,399 MB on the orchestrator, 2,935 MB on the edge, and 339 MB of 836 MB on the router.
 
-The reading on 2026-10-17, nine minutes after the install, was 199 MB on the orchestrator with `ps` ([footprint](#footprint)). The agent settles near 290 MiB.
+The reading on 2026-10-17, nine minutes after the install, was 199 MB on the orchestrator ([footprint](#footprint)). That was the processes' resident memory from `ps`. The units' `MemoryCurrent` also counts page cache, so the two readings do not compare.
 
 ### The drill
 
-Written down before the apply: the workspace has taken 55.8 MB since its reset hour, 17:00 UTC, so a cap of 0.023 GB is already passed. Expected: a `_LogOperation` row in `Ingestion` with `OverQuota`, then `daily-cap`. Already seen as the fail side: no such row in the 31 days before.
+Written down before the apply: the workspace has taken about 56 MB since its reset hour, 17:00 UTC, so a cap of 0.023 GB is already passed. Expected: a `_LogOperation` row in `Ingestion` with `OverQuota`, then `daily-cap`. Already seen as the fail side: no such row in the 31 days before.
 
 | Time, UTC | Event |
 | --- | --- |
@@ -1090,12 +1100,12 @@ Written down before the apply: the workspace has taken 55.8 MB since its reset h
 | 15:30:01 | `journal-missing` resolves. The first journal row after the gap is from 15:10:58 |
 | 15:52:29 | `daily-cap` resolves |
 
-The day held 53 MB through all of it, a quarter of the new cap, so the stops after 14:22 are not the cap being reached. No stop followed the start at 15:06:20, read at 16:18.
+The quota day held about 57 MB through all of it, 27 % of the new cap, so the stops after 14:22 are not the cap being reached. No stop followed the start at 15:06:20, read at 16:18.
 
 What the drill showed:
 
 - **Rows sent while the cap holds are lost, not delayed.** The edge's agent logged `196 uploaded rows, 0 dropped` every minute through the stop, with no retries. The service took them and kept nothing. The VMs keep their own journals and log files. `Perf` has no copy anywhere else.
-- **Raising the cap brought ingestion back 44 minutes later, not at once.** In between it stopped nine more times. Little landed before 15:10: a few `Perf` rows from 14:40. `Perf` has every minute again from about 15:20. The workspace has no rows from about 14:15 to 15:10 ([troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)).
+- **Raising the cap brought ingestion back 44 minutes later, not at once.** In between it stopped nine more times. The worker's journal has no rows from 14:10:58 to 15:10:58 and syslog none from 14:15 to 15:10. `Perf` has part of the minutes from 14:40 and every minute again from about 15:20. Heartbeats and the traffic analytics tables, which are not under the cap, kept arriving ([troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)).
 - **Heartbeats keep arriving under the cap.** `Heartbeat` is not billable, so `heartbeat-missing` stays quiet during a cap stop. `journal-missing` does fire, and `daily-cap` is the alert that names the cause.
 
 ### Checks
@@ -1104,9 +1114,26 @@ Written down before the run: every check passes except `G.2`, which fails on the
 
 `validation/platform-checks.sh` from the branch, 16:20 to 16:25 UTC: `263 passed, 1 failed`. The failure is `G.2`.
 
+### Review of the measured day
+
+A review of this section's claims on 2026-10-19, against the code and the live system. Read and found as the pages say: `Usage` and its fail side, the `_LogOperation` sequence, both alerts and their times, the `Perf` CPU and memory, the agent's counters again over SSH at 16:31, the Terraform default against the workspace (`No changes`, and `1 to change` with `-var log_daily_cap_gb=1`), the links, and both issues.
+
+| Finding | Change |
+| --- | --- |
+| The day was summed by `TimeGenerated`, which is the end of each hour, so it covered 09:00 to 09:00 | Summed by `StartTime`: 66.60 MB. The cap stays at 0.21 GB, above three times the corrected day. Runbook step 14 selects by `StartTime` |
+| The section said nothing changed on the VMs and one check run fell in the day | It names the copier reinstall, the flow log changes, and the several check runs |
+| The quota day was given as 53 MB in one place and 55.8 MB in another | About 57 MB through the drill, 27 % of the cap |
+| "No rows from 14:15 to 15:10" | Only the billable tables lost rows. Heartbeats and the traffic analytics tables kept arriving, and `Perf` has part of the minutes |
+| The login request for `changelogs.ubuntu.com` was given as every login | It came from 2 of the logins in the two days |
+| Runbook steps 16 and 17 lacked the root and the identity, and did not mark observed values | Both added. Each value names its day, or says it is reasoned |
+| The 2026-10-17 `ps` reading was compared with `MemoryCurrent` | The two measure different things, and the section says so |
+| The alert criterion counted nine rules beside the seven it names | Eight |
+
+Two more findings. ADR 0020 keeps the edge at 4 GB until the footprint of the mesh agent, Squid, and a log agent is measured. The mesh agent moved to the router, and the edge's least available memory in the day was 2,935 MB of 3,855 MB, with Squid and the log agent running. A smaller size is now an option, and not part of this change. Each plan reads the workspace's shared keys into both states. The workspace refuses them, since local authentication is off (`O.8`). The [credential inventory](../security/credentials.md) now lists them.
+
 ### Limits
 
 - **One day, with no job in it.** The agent and the model server ran no investigation. The first jobs add pod logs and the model server's output to the worker's journal, and the cap has to be read again then ([#125](https://github.com/sindredg/ai-security-platform/issues/125)).
-- **A cap stop cost about an hour of rows,** with the cap raised as soon as the alert fired. Raising it is not an instant way back ([T41](../security/threat-model.md)).
+- **A cap stop cost about an hour of rows in the drill,** with the cap raised as soon as the alert fired. One drill does not say how long the next stop lasts. Without a raise, the rows are lost to the reset hour ([T41](../security/threat-model.md)).
 - **The footprint counters cover the units' whole run.** They include up to 14 hours outside the day. `MemoryPeak` is the highest since the unit started, which covers the day.
-- **The login message asks Squid for `changelogs.ubuntu.com`.** The SSH login for the footprint reading at 13:53 raised `squid-refused-orchestrator`, Sev1, at 13:57. Ubuntu Pro's apt hook raised it at 02:22 the same night, for `esm.ubuntu.com` ([#124](https://github.com/sindredg/ai-security-platform/issues/124)).
+- **The image's own requests raise `squid-refused-orchestrator`, Sev1.** The SSH login for the footprint reading at 13:53 asked Squid for `changelogs.ubuntu.com` and raised it at 13:57. Ubuntu Pro's apt hook asked for `esm.ubuntu.com` at 02:17 and raised it at 02:22. Most logins make no such request: the check runs' logins did not ([#124](https://github.com/sindredg/ai-security-platform/issues/124)).

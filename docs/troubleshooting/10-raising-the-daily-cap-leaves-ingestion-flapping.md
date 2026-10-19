@@ -5,9 +5,9 @@ Milestone: 3a, edge network and monitoring
 
 ## Symptom
 
-The cap drill lowered the workspace's daily cap to 0.023 GB at 14:05 UTC, and ingestion stopped at 14:14:59 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-drill)). The real cap of 0.21 GB was applied at 14:22:43. `_LogOperation` recorded a start, `quota increased`, and a stop 13 seconds later. Eight more starts and eight more stops followed until 14:57:34, then a last start at 15:06:20. The workspace's status flipped between `RespectQuota` and `OverQuota` with them. The day held 53 MB, a quarter of the new cap.
+The cap drill lowered the workspace's daily cap to 0.023 GB at 14:05 UTC, and ingestion stopped at 14:14:59 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-drill)). The real cap of 0.21 GB was applied at 14:22:43. `_LogOperation` recorded a start, `quota increased`, and a stop 12 seconds later. Eight more starts and eight more stops followed until 14:57:34, then a last start at 15:06:20. The workspace's status flipped between `RespectQuota` and `OverQuota` with them. The quota day held about 57 MB, 27 % of the new cap.
 
-Little landed before 15:10. The log agents saw no error: the edge's agent counted every minute's rows as uploaded, with none dropped and no retries. The workspace has no rows from about 14:15 to 15:10.
+The billable tables lost most of their rows until about 15:10: the worker's journal has none from 14:10:58 to 15:10:58, and `Perf` only part of the minutes from 14:40. Heartbeats and the traffic analytics tables are not under the cap and kept arriving. The log agents saw no error: the edge's agent counted every minute's rows as uploaded, with none dropped and no retries.
 
 ## Cause
 
