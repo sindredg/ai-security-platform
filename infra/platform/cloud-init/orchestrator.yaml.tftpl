@@ -267,6 +267,17 @@ write_files:
       chmod 700 /etc/cron.d /etc/cron.daily /etc/cron.hourly /etc/cron.weekly /etc/cron.monthly
       DEBIAN_FRONTEND=noninteractive apt-get remove -y -q -o DPkg::Lock::Timeout=120 binutils
 
+      # Ubuntu's news, Pro status, and release checks ask Canonical's hosts for
+      # data on a timer or at login. Behind Squid they are refused, and each
+      # refusal is an alert. Masked units and a login script that does not run,
+      # because a changed package configuration file makes unattended upgrades
+      # skip that package. The timers stop first: masking the service under a
+      # running timer leaves the timer failed.
+      systemctl stop motd-news.timer update-notifier-motd.timer
+      systemctl mask esm-cache.service apt-news.service motd-news.timer motd-news.service \
+        update-notifier-motd.timer update-notifier-motd.service
+      chmod 644 /etc/update-motd.d/91-release-upgrade
+
       # K3s. The binary and the install script are both checked before either
       # runs. Both come through the edge, so a fetch window has to be open.
       proxy="http://${edge_ip}:3128"

@@ -120,5 +120,12 @@ runcmd:
   - [chmod, "600", /etc/crontab, /etc/ssh/sshd_config]
   - [chmod, "700", /etc/cron.d, /etc/cron.daily, /etc/cron.hourly, /etc/cron.weekly, /etc/cron.monthly]
   - [apt-get, remove, -y, -q, -o, "DPkg::Lock::Timeout=120", binutils]
+  # Ubuntu's news, Pro status, and release checks ask Canonical's hosts for
+  # data, and Squid refuses them. Masked units, and a login script that does
+  # not run, instead of changed package configuration files. The timers stop
+  # first: masking the service under a running timer leaves the timer failed.
+  - [systemctl, stop, motd-news.timer, update-notifier-motd.timer]
+  - [systemctl, mask, esm-cache.service, apt-news.service, motd-news.timer, motd-news.service, update-notifier-motd.timer, update-notifier-motd.service]
+  - [chmod, "644", /etc/update-motd.d/91-release-upgrade]
   - [/usr/local/lib/aisec/install/install-log-export.sh]
   - [/usr/local/lib/aisec/install/install-feed-account.sh]
