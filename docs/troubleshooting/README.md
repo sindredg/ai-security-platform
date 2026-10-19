@@ -14,3 +14,4 @@ Failures that taught something about the system or a procedure. Each entry recor
 | [08](08-monitoring-providers-not-registered.md) | 3a | A resource provider has to be registered before its first resource, and neither deployment identity may register one. The bootstrap root does it |
 | [09](09-traffic-analytics-refuses-the-platform-identity.md) | 3a | Traffic analytics checks its rights on the workspace's whole subscription, so an identity scoped to one group cannot turn it on |
 | [10](10-raising-the-daily-cap-leaves-ingestion-flapping.md) | 3a | In the drill on 2026-10-19, raising the daily cap after it was reached did not bring ingestion back at once: 44 minutes of starts and stops. Rows sent meanwhile were lost, and the agents saw no error |
+| [11](11-masking-a-timers-service-fails-the-timer.md) | 3 | Masking a service while its timer runs fails the timer. Stop the timer first |

@@ -177,6 +177,9 @@ echo "mode_cron_d=$(stat -c %a /etc/cron.d)"
 echo "toolchain=$(command -v as ld gcc cc 2>/dev/null | wc -l)"
 echo "unused_modules=$(lsmod | grep -c -E "^(dccp|sctp|rds|tipc|usb_storage) ")"
 echo "time_synced=$(timedatectl show -p NTPSynchronized --value)"
+# Fetches from Canonical hosts that the image makes by itself: masked, and the
+# login release check not executable. A missing unit reads not-found.
+echo "ubuntu_fetchers=$(systemctl is-enabled esm-cache.service apt-news.service motd-news.timer update-notifier-motd.timer 2>/dev/null | tr "\n" " ")$(stat -c %a /etc/update-motd.d/91-release-upgrade 2>/dev/null)"
 # Azure writes the operator key here at first boot, and first boot removes it.
 # sshd ignores the file for this account either way, which the next lines show.
 echo "authorized_keys=$(cat /home/aisec/.ssh/authorized_keys 2>/dev/null | grep -c .)"
@@ -425,6 +428,8 @@ common_checks() { # prefix
   check "$1.19" "SSH: one principal, in root's file" "root root 644 aisec-operator" "$(value principals)"
   # sshd refuses every certificate if the list is missing or unreadable.
   check "$1.20" "SSH: the revocation list is root's and loads" "root root valid" "$(value revoked_keys)"
+  check "$1.21" "Ubuntu's news, Pro status, and release checks are off" \
+    "masked masked masked masked 644" "$(value ubuntu_fetchers)"
 }
 
 echo "== Orchestrator ($ORCH)"

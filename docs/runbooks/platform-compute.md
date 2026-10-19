@@ -1,6 +1,6 @@
 # Platform compute: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). On 2026-10-16 the logins changed to SSH certificates and the feed key to an account of its own on the worker ([SSH certificates runbook](ssh-certificates.md)). Steps 12, 14, 19, 24, and 29 and the feed key and operator key rotations were rewritten for that and have not been run in that form. On 2026-10-17 the mesh VPN moved to a router VM ([router runbook](mesh-router.md)), and the orchestrator's template no longer joins the mesh. The mesh steps below describe the build as it was run. They are superseded, not rewritten: the notes at each say what changes. Later on 2026-10-17 the package proxy moved to an edge VM and the orchestrator's NAT gateway was removed ([edge runbook](edge-vm.md)). Steps 21 and 25 to 31 are superseded the same way.
+Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. Steps 16 and 19 ran in their current form on 2026-10-19, from a script with the same commands. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). On 2026-10-16 the logins changed to SSH certificates and the feed key to an account of its own on the worker ([SSH certificates runbook](ssh-certificates.md)). Steps 12, 14, 19, 24, and 29 and the feed key and operator key rotations were rewritten for that and have not been run in that form. On 2026-10-17 the mesh VPN moved to a router VM ([router runbook](mesh-router.md)), and the orchestrator's template no longer joins the mesh. The mesh steps below describe the build as it was run. They are superseded, not rewritten: the notes at each say what changes. Later on 2026-10-17 the package proxy moved to an edge VM and the orchestrator's NAT gateway was removed ([edge runbook](edge-vm.md)). Steps 21 and 25 to 31 are superseded the same way.
 
 Run these steps to build milestone 2: the public address policy, the NAT gateway, the orchestrator and AI worker VMs, the mesh VPN, and K3s. Never commit local values, plans, state, keys, or raw output.
 
@@ -225,23 +225,27 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
     | A template with a public address, validated in both workload resource groups | `RequestDisallowedByPolicy` |
     | `az vm restart` of the orchestrator | Node `Ready`, the services `active`, pods `Running`, the worker reachable again |
 
-16. Run the Kubernetes benchmark on the orchestrator. Check the release against its checksum file first, and remove the tool afterwards.
+16. Run the Kubernetes benchmark on the orchestrator. Since milestone 3a the orchestrator has no way to the internet outside a fetch window, so download on the workstation, check there, copy, and check again. Remove the tool afterwards. `REPLACE_WITH_SSH` is the operator's `ssh` command with its options, as in the [monitoring runbook](monitoring.md).
 
     ```bash
-    ssh $SSH_OPTS aisec@10.40.0.4 '
-      set -e; d=$(mktemp -d); cd $d
-      b=https://github.com/aquasecurity/kube-bench/releases/download/v0.16.0
-      curl -fsSLO $b/kube-bench_0.16.0_linux_amd64.tar.gz
-      curl -fsSLO $b/kube-bench_0.16.0_checksums.txt
-      grep linux_amd64.tar.gz kube-bench_0.16.0_checksums.txt | sha256sum -c -
+    d=$(mktemp -d); cd "$d"
+    b=https://github.com/aquasecurity/kube-bench/releases/download/v0.16.0
+    curl -fsSLO $b/kube-bench_0.16.0_linux_amd64.tar.gz
+    curl -fsSLO $b/kube-bench_0.16.0_checksums.txt
+    grep linux_amd64.tar.gz kube-bench_0.16.0_checksums.txt | sha256sum -c -
+    sum=$(grep linux_amd64.tar.gz kube-bench_0.16.0_checksums.txt | cut -d " " -f 1)
+    REPLACE_WITH_SSH aisec-orchestrator 'cat > /tmp/kube-bench_0.16.0_linux_amd64.tar.gz' < kube-bench_0.16.0_linux_amd64.tar.gz
+    REPLACE_WITH_SSH aisec-orchestrator "set -e; d=\$(mktemp -d); cd \$d
+      mv /tmp/kube-bench_0.16.0_linux_amd64.tar.gz .
+      echo '$sum  kube-bench_0.16.0_linux_amd64.tar.gz' | sha256sum -c -
       tar xzf kube-bench_0.16.0_linux_amd64.tar.gz
-      sudo ./kube-bench run --config-dir cfg --config cfg/config.yaml --benchmark k3s-cis-1.9
-      cd /; sudo rm -rf $d'
+      sudo ./kube-bench run --config-dir cfg --config cfg/config.yaml --benchmark k3s-cis-1.9 | grep -E '^\[FAIL\]|checks (PASS|FAIL|WARN|INFO)'
+      cd /; rm -rf \$d"
     ```
 
-    Expected: the checksum line ends in `OK`. Before steps 17 and 18, the summary is 63 pass, 3 fail, 50 warn, 14 info, and the fails are 1.1.20, 1.2.26, and 5.1.5. After them it is 65 pass and 1 fail. Check 1.2.26 stays failed: this cluster has no etcd.
+    Expected: both checksum lines end in `OK`. On 2026-10-19, on the orchestrator built from the current template: 64 pass, 2 fail, 50 warn, 14 info. The fails are 1.2.26, which asks for an etcd flag on a cluster without etcd, and 5.1.6, which is not explained ([#127](https://github.com/sindredg/ai-security-platform/issues/127)).
 
-    The first-boot script has applied steps 17 and 18 since 2026-10-12, so a build from the current template should show 65 pass and 1 fail on the first run. The count is reasoned, not observed. The orchestrator was rebuilt from that template on 2026-10-13 and the two settings were in place after first boot, read by checks `K.5` and `K.6`. kube-bench itself was not run on that build.
+    On the first build, before steps 17 and 18, the summary was 63 pass and 3 fail, the fails 1.1.20, 1.2.26, and 5.1.5. After them it was 65 pass and 1 fail. First boot has applied steps 17 and 18 since 2026-10-12.
 
 ## Harden
 
@@ -270,22 +274,26 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
 
     Expected: 13 files at `600` and the node `Ready`. Then run step 16 again.
 
-19. Audit the operating system on both VMs. Lynis is not a CIS benchmark. It is what runs on this release today. Check the archive against the SHA-256 on the publisher's download page.
+19. Audit the operating system on every VM. Lynis is not a CIS benchmark. It is what runs on this release today. Download it on the workstation, check it against the SHA-256 on the publisher's download page, and copy it to each VM. The download site is not on the edge's fetch list.
 
     ```bash
-    ssh $SSH_OPTS aisec@10.40.0.4 '
-      set -e; d=$(mktemp -d); cd $d
-      curl -fsSLO https://downloads.cisofy.com/lynis/lynis-3.1.7.tar.gz
-      echo "REPLACE_WITH_PUBLISHED_SHA256  lynis-3.1.7.tar.gz" | sha256sum -c -
-      sudo tar xzf lynis-3.1.7.tar.gz --no-same-owner; cd lynis
-      sudo ./lynis audit system --quiet --no-colors --logfile $d/lynis.log --report-file $d/lynis-report.dat
-      sudo grep -E "^(hardening_index|lynis_tests_done)=|^warning" $d/lynis-report.dat
-      cd /; sudo rm -rf $d'
+    curl -fsSLO https://downloads.cisofy.com/lynis/lynis-3.1.7.tar.gz
+    echo "REPLACE_WITH_PUBLISHED_SHA256  lynis-3.1.7.tar.gz" | sha256sum -c -
+    for vm in orchestrator worker edge router; do
+      REPLACE_WITH_SSH "aisec-$vm" 'cat > /tmp/lynis-3.1.7.tar.gz' < lynis-3.1.7.tar.gz
+      REPLACE_WITH_SSH "aisec-$vm" 'set -e; d=$(mktemp -d); cd $d; mv /tmp/lynis-3.1.7.tar.gz .
+        echo "REPLACE_WITH_PUBLISHED_SHA256  lynis-3.1.7.tar.gz" | sha256sum -c -
+        sudo tar xzf lynis-3.1.7.tar.gz --no-same-owner; cd lynis
+        [ "$(hostname)" = aisec-worker ] && printf "skip-test=PKGS-7392\n" | sudo tee custom.prf > /dev/null
+        sudo ./lynis audit system --quiet --no-colors --logfile $d/lynis.log --report-file $d/lynis-report.dat || true
+        sudo grep -E "^(hardening_index|lynis_tests_done)=|^warning" $d/lynis-report.dat
+        cd /; sudo rm -rf $d'
+    done
     ```
 
-    Expected: the checksum line ends in `OK`, then the test count, the hardening index, and any warnings. On this build the orchestrator scored 60 with two warnings, both about packages, before the hardening that cloud-init now applies, and 76 after it.
+    Expected: each checksum line ends in `OK`, then the test count, the hardening index, and any warnings. On 2026-10-19: 72 on the orchestrator, 79 on the worker, 72 on the edge, and 72 on the router. The warnings were `PKGS-7388`, a false positive, `PKGS-7392`, pending security updates, and on the edge `SQD-3613`, accepted ([worklog](../worklogs/0003-toolchain-integration.md#benchmarks)). On the first build the orchestrator scored 60 before the hardening that cloud-init now applies, and 76 after it. The worker scored 66 and 77.
 
-    Run the same on the worker. It has no way to the download site and the feed key can no longer write there, so the archive goes through the workstation: `ssh $SSH_OPTS aisec@10.40.0.4 'curl -fsSL https://downloads.cisofy.com/lynis/lynis-3.1.7.tar.gz' | ssh $SSH_OPTS aisec@10.40.0.36 'cat > /tmp/lynis-3.1.7.tar.gz'`. Check the checksum on the worker before unpacking, as above. Expected: the run stalls for about six minutes at the package update test, because the worker cannot reach a repository, and then finishes. On this build it scored 66 with no warnings before the hardening and 77 after. To skip the stall, put `skip-test=PKGS-7392` in a `custom.prf` file next to the `lynis` script.
+    The worker cannot reach a repository, so its package update test stalls for about six minutes. The `custom.prf` line skips it.
 
 20. Install pending security updates on the orchestrator.
 

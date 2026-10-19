@@ -31,11 +31,11 @@ SSH from the orchestrator subnet, and nothing else. The administrator account ta
 
 ## The model server
 
-llama.cpp build `b11429` serves Qwen3.5-4B, quantized to `Q4_K_M`, on `127.0.0.1:8080`. Nothing outside the worker can reach it.
+llama.cpp v0.7.0, build `b11669`, serves Qwen3.5-4B, quantized to `Q4_K_M`, on `127.0.0.1:8080`. Nothing outside the worker can reach it.
 
 | | |
 | --- | --- |
-| Binaries | `/opt/aisec/llama.cpp/llama-b11429`, the project's release build, checked against its published checksum |
+| Binaries | `/opt/aisec/llama.cpp/llama-b11669`, the project's release build, checked against its published checksum |
 | Model file | `/opt/aisec/models/Qwen3.5-4B-Q4_K_M.gguf`, 2.78 GB. Built here from Qwen's weights, not downloaded ([ADR 0015](../decisions/0015-build-the-model-file-on-the-worker.md)) |
 | Unit | `aisec-llama-server.service`: a throwaway account, a read-only file system, localhost only, a 6 GB memory limit |
 | Settings | 2 threads, 8192-token context, one slot, no web interface, no RAM prompt cache |
@@ -43,7 +43,7 @@ llama.cpp build `b11429` serves Qwen3.5-4B, quantized to `Q4_K_M`, on `127.0.0.1
 
 ## The agent runtime
 
-Goose 1.54.0, one static binary. It is not a service. `run-agent.sh` starts one run in a transient unit, hands it the task on standard input, and gets the transcript back as one JSON document.
+Goose 1.55.0, one static binary. It is not a service. `run-agent.sh` starts one run in a transient unit, hands it the task on standard input, and gets the transcript back as one JSON document.
 
 ![One agent run on the worker: the task arrives from the operator over SSH on standard input, the job runner starts Goose in a sandboxed transient unit, Goose calls the model server on 127.0.0.1 port 8080 and one fixture tool over standard input and output, and the transcript goes back as one JSON document](../diagrams/agent-run.svg)
 
@@ -51,7 +51,7 @@ The diagram source is [`diagrams/agent-run.html`](../diagrams/agent-run.html). I
 
 | | |
 | --- | --- |
-| Binary | `/opt/aisec/goose/goose-1.54.0/goose`, the project's release build, checked against the release's digest on the orchestrator and again on the worker. The unpacked binary has its own pin, which `G.1` compares on every check run |
+| Binary | `/opt/aisec/goose/goose-1.55.0/goose`, the project's release build, checked against the release's digest on the orchestrator and again on the worker. The unpacked binary has its own pin, which the install checks, and `G.1` on every check run |
 | Unit | `aisec-agent-job`, transient: a throwaway account, a read-only file system, localhost only, a 2 GB memory limit, a 15-minute time limit. Exposure score 1.3, the same as the model server |
 | Tools | One, and only the ones named on the command line. `--no-profile` keeps Goose from loading its own, including the one that runs shell commands. That option also disables tools declared in a recipe. The planned tool service integration will omit it and use an empty configuration directory. This approach was tested on a workstation; it has not been tested on the worker |
 | Session | Goose writes a session database and a log of every prompt, even when told to keep no session. Both land in the unit's private `/tmp`, which systemd deletes when the unit stops |
@@ -63,18 +63,18 @@ The diagram source is [`diagrams/agent-run.html`](../diagrams/agent-run.html). I
 
 Empty, about 20 minutes after boot: 0.5 of 7.9 GiB memory used, CPU 99 to 100 % idle, 2.0 GB of disk. cloud-init finished 72 seconds after boot.
 
-With the model loaded, on 2026-10-11:
+With the model loaded, on 2026-10-19, llama.cpp `b11669`:
 
 | | |
 | --- | --- |
-| Memory | 5.96 GB resident, of which 2.65 GB is the mapped model file. 4.1 GB left for everything else |
+| Memory | 5.30 GB resident, of which 2.0 GB is the mapped model file. 4.1 GB available for everything else |
 | Prompt processing | 19 tokens per second |
 | Generation | 6 tokens per second |
-| One tool-call turn, 387 prompt tokens | 26 seconds without thinking, 37 with |
-| Start | 3 seconds with the file cached, 26 after a reboot |
-| Disk | 4.8 GB used |
+| One tool-call turn, 387 prompt tokens | 25 seconds without thinking, 36 with |
+| Start | 3 seconds with the file cached, 26 after a reboot, measured on 2026-10-11 with `b11429` |
+| Disk | 5.1 GB used |
 
-One agent run on the same question, through Goose, on 2026-10-12:
+One agent run on the same question, through Goose 1.54.0, on 2026-10-12. Goose 1.55.0 with `b11669` on 2026-10-19 took 86 seconds on the first run and 25 and 28 on the next two, with a memory peak of 56 to 59 MB:
 
 | | |
 | --- | --- |

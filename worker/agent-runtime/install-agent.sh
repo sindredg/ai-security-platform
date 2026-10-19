@@ -29,6 +29,15 @@ tar -xzf "$stage/goose/$GOOSE_ARCHIVE" -C "$GOOSE_DIR" --no-same-owner --no-same
 chown root:root "$GOOSE_DIR/goose"
 chmod 0755 "$GOOSE_DIR/goose"
 (cd "$GOOSE_DIR" && sha256sum goose | tee SHA256SUMS)
+# The binary itself, against the pin read from the archive on the workstation.
+# A matching archive with another binary inside is refused here, and the file
+# goes, so nothing can run it.
+if ! echo "$GOOSE_BINARY_SHA256  $GOOSE_DIR/goose" | sha256sum --check --quiet; then
+  echo "the binary does not match GOOSE_BINARY_SHA256 in pins.env, removed" >&2
+  rm -f "$GOOSE_DIR/goose"
+  exit 1
+fi
+echo "the binary matches GOOSE_BINARY_SHA256"
 
 install -m 0755 -o root -g root "$here/fixture/evidence_tool.py" "$here/fixture/check_answer.py" "$FIXTURE_DIR/"
 install -m 0644 -o root -g root "$here/fixture/system.txt" "$here/fixture/question.txt" "$FIXTURE_DIR/"
