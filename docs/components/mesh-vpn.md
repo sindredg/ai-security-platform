@@ -89,7 +89,7 @@ Set in the provider's admin console, not from this repository. The operator's de
 }
 ```
 
-The grant to `tag:aisec-router` itself is not in ADR 0025, which names the routes only. Without it the router can be administered only through the serial console.
+The grant to `tag:aisec-router` itself is not in ADR 0025, which names the routes only. Without it the router can be administered only through Azure run command.
 
 The tests name single ports, because the policy language takes no port range in a test. Each operator device also runs with `shields-up`, which refuses every incoming connection whatever the policy says. That is a device setting, and no check reads it.
 
@@ -107,7 +107,7 @@ The provider's default policy allows everything, and that default was in place u
 - **The agent version is held.** It gets no security fix until someone moves the pin.
 - **The agent's own updater was on until 2026-10-16.** The hold stopped `apt`, not the agent, which had `AutoUpdate.Apply` set and would have installed the vendor's next release as root. `U.6` failed on it, and passed after `tailscale set --auto-update=false`. No newer release had been published, so the held version was still the running one.
 - **Signing a node after it joins has not been run.** The orchestrator rebuild on 2026-10-13 and the router on 2026-10-17 joined on a signed auth key, which needs no step afterwards.
-- **The router is the way in.** When it is down, administration goes through the Azure serial console (T03).
+- **The router is the way in.** When it is down, administration goes through Azure run command, which needs the Owner account. The serial console offers no login, because no account has a password (T03, [worklog](../worklogs/0003-toolchain-integration.md#the-routers-break-glass-path)).
 - **Root on the router has a tailnet node, outbound TCP 443, and SSH reach to every network.** SSH still needs the operator's certificate, which never touches the router. Routed sessions pass through it as SSH ciphertext.
 - **Log upload was on until 2026-10-17.** On 2026-10-12 the orchestrator's `tailscaled` held a connection to the vendor's log host on port 443. The router runs with `--no-logs-no-support` (`R.5`), which also means no help from the vendor's support.
 

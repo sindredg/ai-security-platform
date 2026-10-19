@@ -1,6 +1,6 @@
 # Mesh VPN router: operator procedure
 
-Status: Implemented on 2026-10-17. Run once, on the live platform, between 13:40 and 14:35 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-router). Steps 1, 5, 11, 12, and 13 were corrected after that run to the commands that ran, and step 17 was added for a failure it found. The `unattended-upgrade` line in the router's first boot was added after it, and has not run on a first boot.
+Status: Implemented on 2026-10-17. Run once, on the live platform, between 13:40 and 14:35 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-router). Steps 1, 5, 11, 12, and 13 were corrected after that run to the commands that ran, and step 17 was added for a failure it found. The undo in step 10 names Azure run command since 2026-10-19, when the serial console was found to offer no login. The `unattended-upgrade` line in the router's first boot was added after it, and has not run on a first boot.
 
 This builds the router VM in Denmark East, moves the mesh VPN onto it, and takes the orchestrator off the mesh ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)). It is the first of two stages of the edge network. The second, the edge VM with Squid and the platform's way out ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)), has [its own runbook](edge-vm.md).
 
@@ -159,7 +159,7 @@ The orchestrator and the router are both on the mesh until step 13. Until then, 
 
     Expected: `10.45.0.36` and a port, twice.
 
-    To go back: `tailscale set --advertise-routes=10.40.0.0/20,10.50.0.0/20` on the orchestrator through the serial console, or through the router once it works.
+    To go back: `tailscale set --advertise-routes=10.40.0.0/20,10.50.0.0/20` on the orchestrator through Azure run command (`az vm run-command invoke`), or through the router once it works. The serial console offers no login.
 
 11. Reach the Kubernetes API through an SSH tunnel to the orchestrator. Without a kubeconfig on the workstation, a request without credentials shows the path.
 
