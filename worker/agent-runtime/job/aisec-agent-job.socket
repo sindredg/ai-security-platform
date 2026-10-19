@@ -1,0 +1,19 @@
+# The job socket (ADR 0030). The dispatch key's forced command, as aisec-job,
+# connects here. systemd accepts each connection itself and starts one
+# aisec-agent-job@.service for it, with the connection as its standard input
+# and output. One connection at a time: a second is closed at once.
+[Unit]
+Description=Agent jobs from the dispatch step
+
+[Socket]
+ListenStream=/run/aisec-job/agent.sock
+SocketUser=root
+SocketGroup=aisec-job
+SocketMode=0660
+DirectoryMode=0755
+Accept=yes
+MaxConnections=1
+RemoveOnStop=yes
+
+[Install]
+WantedBy=sockets.target

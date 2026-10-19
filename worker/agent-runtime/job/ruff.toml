@@ -1,0 +1,10 @@
+# The job program reads what Goose prints, which the model shaped, so it gets
+# the tool service's rules: bugbear, the security rules, and import order.
+extend = "../../../ruff.toml"
+
+[lint]
+extend-select = ["B", "S", "I", "UP"]
+
+[lint.per-file-ignores]
+# Tests assert, hold made-up tokens, and start the program under test.
+"tests/*" = ["S101", "S105", "S106", "S603"]
