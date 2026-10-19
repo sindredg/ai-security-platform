@@ -4,7 +4,7 @@ The cluster on the orchestrator. One server, no agents. The tool service is the 
 
 | | |
 | --- | --- |
-| State | Built. The tool service runs in `tool-services`. Verified by the [`K` checks](../validation/cluster.md), which passed in the run on 2026-10-18 ([last run](../validation/README.md#last-run)) |
+| State | Built. The tool service runs in `tool-services`. Verified by the [`K` checks](../validation/cluster.md), which passed in the run on 2026-10-19 ([last run](../validation/README.md#last-run)) |
 | Version | `v1.36.5+k3s1`, the release the project's `stable` channel points at |
 | Pinned in | `infra/platform/variables.tf`: the version, the binary's SHA-256, and the install script's SHA-256 |
 | Datastore | SQLite behind `kine`. No etcd |
