@@ -79,6 +79,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-18 | 257 of 257 passed | At 18:45 UTC, with the check script of `main` at `7f4a198`, in a review of the platform before the AI part |
 | 2026-10-18 | 263 of 264 passed | From the branch at 19:03 UTC. First run with `G.1` to `G.4` and `P.20` to `P.22`. `G.2` failed, as written down before the run: the fixture on the worker predates a reformat of two of its files in the repository ([worklog](../worklogs/0004-edge-network-and-monitoring.md#before-the-ai-part)) |
 | 2026-10-19 | 263 of 264 passed | From the branch, 16:20 to 16:25 UTC, after the [daily cap drill](../worklogs/0004-edge-network-and-monitoring.md#the-measured-day-and-the-daily-cap). `G.2` failed, as written down before the run |
+| 2026-10-19 | 261 of 268 passed | From the branch at 18:30 UTC, [before dispatch](../worklogs/0003-toolchain-integration.md#before-dispatch). First run with `.21`. `G.1` and `G.2` passed on the reinstalled worker. `.1` failed on all four VMs, two timers the masking had failed, and `U.1`, `U.9`, and `U.13` on three pending security updates ([checks](../worklogs/0003-toolchain-integration.md#checks)) |
+| 2026-10-19 | 268 of 268 passed | At 19:00 UTC, after the timers were reset and the updates installed |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
