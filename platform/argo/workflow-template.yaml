@@ -1,0 +1,142 @@
+# One investigation on the worker (ADR 0012, ADR 0030). Submit it by name
+# with a task. The controller runs nothing else (ADR 0029):
+#
+#   argo submit -n orchestration --from workflowtemplate/investigate -p task="..."
+#
+# The dispatch step makes the job's token, registers it, hands the job to the
+# worker over SSH, and checks the result. The exit handler revokes the token
+# on success, failure, and stop. One job at a time: the mutex waits for the
+# one before. Neither step is retried.
+#
+# Deadlines, shortest first: the step's, 180 seconds past the job's own limit,
+# then the token's, 300 past it, then the worker unit's 1800.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: investigate
+  namespace: orchestration
+spec:
+  entrypoint: dispatch
+  onExit: revoke
+  arguments:
+    parameters:
+      - name: task
+      - name: max-turns
+        value: "6"
+      - name: seconds
+        value: "600"
+  serviceAccountName: dispatch
+  automountServiceAccountToken: false
+  executor:
+    serviceAccountName: argo-executor
+  synchronization:
+    mutexes:
+      - name: worker
+  ttlStrategy:
+    secondsAfterCompletion: 86400
+  podMetadata:
+    labels:
+      app.kubernetes.io/name: dispatch
+  securityContext:
+    runAsNonRoot: true
+    fsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  volumes:
+    # The dispatch account's token, for registration only.
+    - name: caller-token
+      projected:
+        sources:
+          - serviceAccountToken:
+              audience: aisec-tool-service
+              expirationSeconds: 600
+              path: token
+    - name: tool-cert
+      configMap:
+        name: tool-service-cert
+  templates:
+    - name: dispatch
+      activeDeadlineSeconds: "{{=asInt(workflow.parameters.seconds) + 180}}"
+      # On this template only, so the revoke pod's spec does not name the key.
+      volumes:
+        # The key and the worker's host key. Readable by the step's group only.
+        - name: dispatch-ssh
+          secret:
+            secretName: dispatch-ssh
+            defaultMode: 0440
+        - name: work
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Mi
+      container:
+        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:0000000000000000000000000000000000000000000000000000000000000000
+        # The executor needs the command: it cannot read the image's entry
+        # point from a registry it has no way to reach.
+        command: [python, /opt/dispatch/dispatch.py]
+        args:
+          - dispatch
+          - "{{workflow.name}}"
+          - "{{workflow.parameters.max-turns}}"
+          - "{{workflow.parameters.seconds}}"
+          - "{{workflow.parameters.task}}"
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 128Mi
+        securityContext:
+          runAsUser: 65532
+          runAsGroup: 65532
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+          - name: caller-token
+            mountPath: /var/run/secrets/aisec
+            readOnly: true
+          - name: tool-cert
+            mountPath: /etc/aisec
+            readOnly: true
+          - name: dispatch-ssh
+            mountPath: /etc/dispatch
+            readOnly: true
+          - name: work
+            mountPath: /run/dispatch
+          - name: tmp
+            mountPath: /tmp
+      outputs:
+        parameters:
+          - name: result
+            valueFrom:
+              path: /tmp/result.json
+              default: "{}"
+    - name: revoke
+      container:
+        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:0000000000000000000000000000000000000000000000000000000000000000
+        command: [python, /opt/dispatch/dispatch.py]
+        args: [revoke, "{{workflow.name}}"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 128Mi
+        securityContext:
+          runAsUser: 65532
+          runAsGroup: 65532
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+          - name: caller-token
+            mountPath: /var/run/secrets/aisec
+            readOnly: true
+          - name: tool-cert
+            mountPath: /etc/aisec
+            readOnly: true
