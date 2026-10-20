@@ -1,0 +1,3 @@
+# DS-0026 asks for a HEALTHCHECK instruction. Kubernetes ignores it, and the
+# image runs one workflow step and exits: there is no service to check.
+DS-0026

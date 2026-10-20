@@ -25,7 +25,7 @@ Nothing in the cluster needs the internet or a public name today. Image pulls ru
 
 ## Decision
 
-A host rule on the orchestrator drops forwarded traffic from the pod network (`10.42.0.0/16`) to any address outside it. Replies on connections that came in, such as the worker's tool calls, pass. The rule is in its own table, `inet aisec_pod_egress`, loaded from `/etc/aisec/pod-egress.nft` by a oneshot unit that runs before K3s. It follows the segment size clamp: cloud-init writes both.
+A host rule on the orchestrator drops forwarded traffic from the pod network (`10.42.0.0/16`) to any address outside it. Replies on connections that came in, such as the worker's tool calls, pass. [0030](0030-how-a-job-reaches-the-worker.md) adds one exception: pods may open a connection to the worker's SSH port, and a network policy decides which pods. The rule is in its own table, `inet aisec_pod_egress`, loaded from `/etc/aisec/pod-egress.nft` by a oneshot unit that runs before K3s. It follows the segment size clamp: cloud-init writes both.
 
 The chain runs after the iptables `FORWARD` chain, at `filter + 10`. A pod with a policy is still refused by kube-router first, so `T.8` keeps testing the network policy. The host rule drops what kube-router let through: the first seconds of a pod, and CoreDNS's queries to Azure DNS. Its counter shows how often that happens.
 

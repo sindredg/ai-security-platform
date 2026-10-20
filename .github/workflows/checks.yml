@@ -115,18 +115,23 @@ jobs:
 
       # The checks built into the pinned image are used as they are. Without
       # --skip-check-update, a newer bundle is downloaded on every run.
-      - name: Scan Terraform, the manifests, and the Dockerfile
+      - name: Scan Terraform, the manifests, and the Dockerfiles
         run: |
           docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
             config --skip-check-update --exit-code 1 /src/infra
           # The registry list for KSV-0125 is in the data file, with its reason.
+          # The dispatch Dockerfile is scanned on its own below.
           docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
             config --skip-check-update --exit-code 1 \
-            --config-data /src/.github/trivy-data /src/platform
-          # The one suppression has its reason in the ignore file.
+            --config-data /src/.github/trivy-data \
+            --skip-files /src/platform/dispatch/Dockerfile /src/platform
+          # Each Dockerfile's one suppression has its reason in its ignore file.
           docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
             config --skip-check-update --exit-code 1 \
             --ignorefile /src/tool-service/.trivyignore /src/tool-service/Dockerfile
+          docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
+            config --skip-check-update --exit-code 1 \
+            --ignorefile /src/platform/dispatch/.trivyignore /src/platform/dispatch/Dockerfile
 
   gitleaks:
     name: Secret scan
@@ -337,6 +342,32 @@ jobs:
             --env PYTHONDONTWRITEBYTECODE=1 "${PYTHON_IMAGE}" \
             python -m unittest discover -s tests -v
 
+  dispatch-tests:
+    name: Dispatch tests
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Both sides of dispatch use the standard library only, so nothing is
+      # installed. The worker runs its side with Ubuntu's Python, 3.14 on
+      # 26.04, and the dispatch image has 3.15, as this image does. The
+      # dispatch tests run the real job runner and job program behind a fake
+      # ssh, with a fake Goose and stubs for registration and the model server.
+      - name: Test the worker's side
+        run: |
+          docker run --rm --volume "${PWD}:/src:ro" --workdir /src/worker/agent-runtime/job \
+            --env PYTHONDONTWRITEBYTECODE=1 "${PYTHON_IMAGE}" \
+            python -m unittest discover -s tests -v
+
+      - name: Test the dispatch step against it
+        run: |
+          docker run --rm --volume "${PWD}:/src:ro" --workdir /src/platform/dispatch \
+            --env PYTHONDONTWRITEBYTECODE=1 "${PYTHON_IMAGE}" \
+            python -m unittest discover -s tests -v
+
   tool-service-image:
     name: Tool service image
     runs-on: ubuntu-26.04
@@ -368,6 +399,72 @@ jobs:
 
       # Blocks on any finding with a fix. The tool service's own packages are
       # pinned here and move with the pin. The base image's are Debian's.
+      - name: Scan the image
+        run: >
+          docker run --rm --volume /var/run/docker.sock:/var/run/docker.sock:ro
+          "${TRIVY_IMAGE}" image --scanners vuln --exit-code 1 --ignore-unfixed
+          --no-progress "${IMAGE}:${GITHUB_SHA}"
+
+      - name: List what the scan let through
+        if: always()
+        run: |
+          {
+            echo '```text'
+            docker run --rm --volume /var/run/docker.sock:/var/run/docker.sock:ro \
+              "${TRIVY_IMAGE}" image --scanners vuln --exit-code 0 --quiet \
+              --format table "${IMAGE}:${GITHUB_SHA}" || true
+            echo '```'
+          } | tee -a "${GITHUB_STEP_SUMMARY}"
+
+      - name: Push, from main only
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "${TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+          docker push --quiet "${IMAGE}:${GITHUB_SHA}"
+          digest=$(docker image inspect --format '{{index .RepoDigests 0}}' "${IMAGE}:${GITHUB_SHA}")
+          docker logout ghcr.io
+          echo "Pushed \`${digest}\` from commit \`${GITHUB_SHA}\`." | tee -a "${GITHUB_STEP_SUMMARY}"
+
+  dispatch-image:
+    name: Dispatch image
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    # Writes one image to this repository's package registry, as the tool
+    # service image job does. The push step runs on main and nowhere else.
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}/dispatch
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Lint the Dockerfile
+        run: docker run --rm -i "${HADOLINT_IMAGE}" hadolint - < platform/dispatch/Dockerfile
+
+      - name: Check that the Dockerfile and the tests use one base image
+        run: |
+          digest="${PYTHON_IMAGE#python@}"
+          [ "$(grep -c "^FROM python@${digest}" platform/dispatch/Dockerfile)" = 1 ]
+
+      - name: Build
+        run: >
+          docker build --pull --no-cache --provenance=false
+          --tag "${IMAGE}:${GITHUB_SHA}" platform/dispatch
+
+      # ssh refuses to start for a user it cannot look up. -G reads the
+      # configuration for the worker as the image's user, without connecting.
+      - name: Check that ssh runs as the image's user
+        run: |
+          docker run --rm --entrypoint /usr/bin/ssh "${IMAGE}:${GITHUB_SHA}" \
+            -G aisec-job@10.40.0.36 | grep -x 'user aisec-job'
+
+      # Blocks on any finding with a fix. OpenSSH's client is Alpine's and
+      # moves with the index, the rest with the base image's pin.
       - name: Scan the image
         run: >
           docker run --rm --volume /var/run/docker.sock:/var/run/docker.sock:ro

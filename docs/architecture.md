@@ -152,7 +152,7 @@ The agent runtime and the model server run on a second VM that is not part of th
 - One scoped session per job: one target, one evidence set, bounded time and output.
 - One network destination for work: the tool services on the orchestrator.
 
-The cost is dispatch. Argo runs pods, not processes on another machine. A workflow step opens an SSH session to the worker with a key that can only run the job runner. Decided in [ADR 0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), not built, and still the first real integration risk. Detail: [AI worker](components/ai-worker.md).
+The cost is dispatch. Argo runs pods, not processes on another machine. A workflow step opens an SSH session to the worker with a key that can only run the job runner, and the runner hands the job to a socket that starts the agent's sandboxed unit. Decided in [ADR 0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md) and [ADR 0030](decisions/0030-how-a-job-reaches-the-worker.md), proposed, not built, and still the first real integration risk. Detail: [AI worker](components/ai-worker.md).
 
 What exists today is narrower than the design. The agent is started manually and uses one local test tool on the worker. The tool service that replaces the fixture runs on the orchestrator. The worker has called it with `curl`, not yet with the agent. See the [milestone 3 worklog](worklogs/0003-toolchain-integration.md).
 
@@ -282,7 +282,7 @@ Idle use of the orchestrator and the worker is on their [component pages](compon
 infra/bootstrap/    Operator-run root: resource groups, state accounts, deployment identities
 infra/modules/      Shared Terraform modules
 infra/platform/     Platform Terraform root
-platform/           What the orchestrator runs: K3s manifests, the log copiers, and the monitoring hosts script today, workflow templates later
+platform/           What the orchestrator runs: K3s manifests, the log copiers, the monitoring hosts script, and the dispatch step's image. Workflow templates next
 edge/               The fetch window command and its host list, installed on the edge VM
 worker/             What the orchestrator copies to the AI worker: pins, build scripts, service units
 tool-service/       The MCP server that checks every tool call, its tests, and its pinned packages

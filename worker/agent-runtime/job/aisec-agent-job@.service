@@ -1,0 +1,49 @@
+# One agent job, started by aisec-agent-job.socket for one connection
+# (ADR 0030). install-job.sh fills in the Goose binary from pins.env.
+#
+# The sandbox is the one run-agent.sh gives a run: a throwaway account, a
+# read-only file system, a private /tmp that systemd deletes when the unit
+# stops, and a memory and a time limit. The time limit is the backstop for a
+# job that misses its cancel. The job's own limit, from the job line, is at
+# most 1200 seconds. The addresses are the model server on localhost and the
+# orchestrator, where the security groups allow only the tool service's port.
+[Unit]
+Description=One agent job
+CollectMode=inactive-or-failed
+
+[Service]
+ExecStart=/usr/bin/python3 -I /usr/local/lib/aisec/job/agent_job.py
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+Environment=AISEC_GOOSE=@GOOSE@ AISEC_SYSTEM=/usr/local/lib/aisec/job/system.txt
+WorkingDirectory=/tmp
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+AmbientCapabilities=
+IPAddressDeny=any
+IPAddressAllow=localhost 10.40.0.4
+UMask=0077
+MemoryAccounting=yes
+MemoryMax=2G
+RuntimeMaxSec=1800

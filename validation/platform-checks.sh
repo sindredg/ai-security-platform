@@ -82,6 +82,11 @@ read -r GOOSE_BIN GOOSE_BIN_SHA FIXTURE_DIR < <(. "$agent/pins.env" &&
 FIXTURE_FILES="check_answer.py evidence_tool.py question.txt system.txt"
 # shellcheck disable=SC2086 # the file names are one word each
 FIXTURE_SHA=$(cd "$agent/fixture" && sha256sum $FIXTURE_FILES | sha256sum | cut -d " " -f 1)
+# How a job arrives on the worker (ADR 0030), in install order, with the
+# service template filled in as install-job.sh does.
+job="$agent/job"
+JOB_SHA=$(cat "$job/aisec_job_runner.py" "$job/agent_job.py" "$job/system.txt" "$job/aisec-agent-job.socket" \
+  <(sed "s|@GOOSE@|$GOOSE_BIN|" "$job/aisec-agent-job@.service") | sha256sum | cut -d " " -f 1)
 # The feed account's command, from this checkout.
 FEED_SHA=$(sha256sum "$here/../worker/feed/aisec-feed-receive" | cut -d " " -f 1)
 # The copiers' programs and units, in install order, from this checkout.
@@ -351,7 +356,13 @@ echo "feed_command=$(sha256sum /usr/local/sbin/aisec-feed-receive 2>/dev/null | 
 echo "goose_binary=$(stat -c "%U %a" '"$GOOSE_BIN"' 2>/dev/null) $(sha256sum '"$GOOSE_BIN"' 2>/dev/null | cut -d " " -f 1)"
 echo "fixture=$(cd '"$FIXTURE_DIR"' 2>/dev/null && sha256sum '"$FIXTURE_FILES"' 2>/dev/null | sha256sum | cut -d " " -f 1)"
 echo "agent_job_unit=$(systemctl show aisec-agent-job -p LoadState --value 2>/dev/null)"
-echo "agent_job_tmp=$(ls -d /tmp/systemd-private-*-aisec-agent-job.service-* /var/tmp/systemd-private-*-aisec-agent-job.service-* 2>/dev/null | wc -l)"
+echo "agent_job_tmp=$(ls -d /tmp/systemd-private-*-aisec-agent-job.service-* /var/tmp/systemd-private-*-aisec-agent-job.service-* /tmp/systemd-private-*-aisec-agent-job@*.service-* /var/tmp/systemd-private-*-aisec-agent-job@*.service-* 2>/dev/null | wc -l)"
+keys=/home/aisec-job/.ssh/authorized_keys
+echo "job_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
+echo "job_account=$(id -nG aisec-job 2>/dev/null) $(sudo -n -l -U aisec-job 2>/dev/null | grep -c "may run") $(stat -c %U /home/aisec-job 2>/dev/null)"
+echo "job_socket=$(systemctl is-active aisec-agent-job.socket 2>/dev/null) $(stat -c "%U %G %a" /run/aisec-job/agent.sock 2>/dev/null)"
+echo "job_programs=$(cat /usr/local/sbin/aisec-job-runner /usr/local/lib/aisec/job/agent_job.py /usr/local/lib/aisec/job/system.txt /etc/systemd/system/aisec-agent-job.socket /etc/systemd/system/aisec-agent-job@.service 2>/dev/null | sha256sum | cut -d " " -f 1)"
+echo "job_instances=$(systemctl list-units --all --no-legend "aisec-agent-job@*" 2>/dev/null | wc -l)"
 '
 
 probe_router="$probe_common"'
@@ -609,6 +620,14 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # The checks run between jobs. During a job these read "loaded" and 2.
   check G.3 "No agent job unit is loaded" not-found "$(value agent_job_unit)"
   check G.4 "No agent job left its private directories" 0 "$(value agent_job_tmp)"
+  # How a job arrives (ADR 0030): the dispatch key's line, the account it logs
+  # in to, the socket that starts each job's unit, and what runs there.
+  check G.5 "The dispatch key is restricted to the orchestrator and the job runner" \
+    "1 root root 644 from=\"$ORCH_IP\",restrict,command=\"/usr/local/sbin/aisec-job-runner\"" "$(value job_key)"
+  check G.6 "The job account has no other group, no sudo, and not its own home" "aisec-job 0 root" "$(value job_account)"
+  check G.7 "The job socket listens, and only root and the job account may use it" "active root aisec-job 660" "$(value job_socket)"
+  check G.8 "The worker runs the job runner, program, and units in this checkout" "$JOB_SHA" "$(value job_programs)"
+  check G.9 "No dispatched job's unit is loaded between jobs" 0 "$(value job_instances)"
   check U.3 "apt on the worker uses the edge" 1 "$(value apt_proxy)"
   check U.4 "Unattended upgrades are enabled on the worker" enabled "$(value unattended_upgrades)"
   check U.5 "No security update is pending on the worker" 0 "$(value security_updates_pending)"
