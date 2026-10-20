@@ -1,5 +1,5 @@
 # The model server. One model, one slot, reachable from this machine only.
-# install-server.sh fills in the two paths from pins.env.
+# install-server.sh fills in the three paths from pins.env.
 [Unit]
 Description=llama.cpp model server, localhost only
 After=network.target
@@ -8,6 +8,10 @@ After=network.target
 # Thinking is off. The agent runtime sends no switch for it, so the server
 # decides. Take out "--reasoning off" to get the model's default back, which
 # is on. The measured cost of thinking is in the milestone 3 worklog.
+#
+# The job program erases the slot after each job (#32). The server refuses
+# every slot action, erase included, without a save path. The one it gets is
+# empty and read-only to it, so a save fails and there is nothing to restore.
 ExecStart=@LLAMA_DIR@/llama-server \
   --model @MODEL_FILE@ \
   --alias local \
@@ -15,7 +19,8 @@ ExecStart=@LLAMA_DIR@/llama-server \
   --threads 2 --threads-batch 2 \
   --ctx-size 8192 --parallel 1 --cache-ram 0 \
   --reasoning off \
-  --no-ui --offline
+  --no-ui --offline \
+  --slot-save-path @SLOT_DIR@
 Restart=on-failure
 RestartSec=5
 

@@ -1,6 +1,6 @@
 # Agent runtime: operator procedure
 
-Status: Implemented on 2026-10-12. Installed once. Every step below was run during that install. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-agent-runtime). Steps 2 to 4 and 7 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the worker gets the scripts from the checkout and the staged archive in the feed account's directory. Steps 2 to 7 ran in that form on 2026-10-19, for Goose 1.55.0 ([worklog](../worklogs/0003-toolchain-integration.md#llamacpp-and-goose-on-the-worker)). Steps 8 to 12, for jobs that arrive over a socket ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)), were written on 2026-10-19 and have not run.
+Status: Implemented on 2026-10-12. Installed once. Every step below was run during that install. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-agent-runtime). Steps 2 to 4 and 7 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the worker gets the scripts from the checkout and the staged archive in the feed account's directory. Steps 2 to 7 ran in that form on 2026-10-19, for Goose 1.55.0 ([worklog](../worklogs/0003-toolchain-integration.md#llamacpp-and-goose-on-the-worker)). Steps 8 to 12, for jobs that arrive over a socket ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)), were written on 2026-10-19 and ran on 2026-10-20: the job and the cancel worked, and the model server refused the slot erase ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md)). Since then step 10 names `G.10` and step 11 waits for the unit to end. Neither has run in that form.
 
 Run these steps to put Goose on the AI worker and prove one headless run against the local model server: download and verify on the orchestrator, push, install, run, and measure. No cloud resource changes. Nothing is left running: the agent is a program that runs once per job, not a service.
 
@@ -135,7 +135,7 @@ How a dispatched job arrives on the worker: an account the dispatch key logs in 
       REPLACE_WITH_SSH aisec-worker "sudo -u aisec-job python3 -I -c '$SEND'"
     ```
 
-    Expected, after one to two minutes: one JSON line with `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, an answer that names `tenancy.contact` and `circuits.circuit`, and a `transcript`: the instructions from `system.txt`, the question, the `get_evidence` call, the evidence, and the answer, with no `"type": "cut"` part. The tool service's audit file on the orchestrator has a `call allowed hand-1` line for `get_evidence`. This is the agent calling the tool service from the worker, which no run had done before.
+    Expected, after one to two minutes: one JSON line with `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, an answer that names `tenancy.contact` and `circuits.circuit`, and a `transcript`: the instructions from `system.txt`, the question, the `get_evidence` call, the evidence, and the answer, with no `"type": "cut"` part. The tool service's audit file on the orchestrator has a `call allowed hand-1` line for `get_evidence`. This is the agent calling the tool service from the worker, which no run had done before. On the next check run, `G.10` passes: the job erased the model server's slot.
 
 11. Cancel a job while it runs: send a second job, close the connection after 20 seconds, and look for what it left.
 
@@ -151,13 +151,16 @@ How a dispatched job arrives on the worker: an account the dispatch key logs in 
     jq -nc --arg token "$(printf %s "$TOKEN" | rev)" --arg task "$(cat worker/agent-runtime/fixture/question.txt)" \
       '{job: "hand-2", token: $token, task: $task, max_turns: 6, seconds: 600}' |
       REPLACE_WITH_SSH aisec-worker "sudo -u aisec-job python3 -I -c '$LEAVE'"
-    REPLACE_WITH_SSH aisec-worker 'sleep 5
+    REPLACE_WITH_SSH aisec-worker 'for _ in $(seq 1 60); do
+        [ "$(systemctl list-units --all --no-legend "aisec-agent-job@*" | wc -l)" = 0 ] && break
+        sleep 2
+      done
       systemctl list-units --all --no-legend "aisec-agent-job@*" | wc -l
       sudo find /tmp /var/tmp -maxdepth 1 -name "systemd-private-*aisec-agent-job@*" | wc -l
       journalctl --no-pager -o cat -u "aisec-agent-job@*" --since -3min | grep outcome'
     ```
 
-    Expected: `b''`: a cancelled job writes nothing back. Then `0` and `0`: no unit and no private directory left. Then a line with `"outcome": "cancelled"` and `"slot_erased": true`. The reversed token is a second token for the second job, so the two jobs never share one.
+    Expected: `b''`: a cancelled job writes nothing back. Then, within two minutes, `0` and `0`: no unit and no private directory left. Then a line with `"outcome": "cancelled"` and `"slot_erased": true`. The unit outlives the cancel by up to a minute: the server takes the cancel, and the erase after it, only when it has read the prompt batch it is on ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md)). The reversed token is a second token for the second job, so the two jobs never share one.
 
 12. Revoke both jobs.
 

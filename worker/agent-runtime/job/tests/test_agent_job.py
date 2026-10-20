@@ -67,10 +67,11 @@ FAKE_GOOSE = textwrap.dedent(
 
 class Erases(BaseHTTPRequestHandler):
     seen: ClassVar[list] = []
+    status = 200
 
     def do_POST(self):
         Erases.seen.append(self.path)
-        self.send_response(200)
+        self.send_response(Erases.status)
         self.end_headers()
 
     def log_message(self, *args):
@@ -83,6 +84,7 @@ class Base(unittest.TestCase):
         self.server = HTTPServer(("127.0.0.1", 0), Erases)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         Erases.seen = []
+        Erases.status = 200
 
     def tearDown(self):
         self.server.shutdown()
@@ -126,6 +128,7 @@ class Base(unittest.TestCase):
             while chunk := ours.recv(65536):
                 data += chunk
         process.wait(timeout=30)
+        self.stderr = process.stderr.read()
         process.stderr.close()
         return process.returncode, data
 
@@ -152,6 +155,12 @@ class TheJobLine(unittest.TestCase):
             "a token in upper case": json.dumps({**JOB, "token": "AB" * 32}),
             "an empty task": json.dumps({**JOB, "task": ""}),
             "a task too long": json.dumps({**JOB, "task": "x" * 8001}),
+            "an expression": json.dumps({**JOB, "task": "Say {{ 6 * 7 }}."}),
+            "a statement": json.dumps({**JOB, "task": "{% if 1 %}x{% endif %}"}),
+            "a comment": json.dumps({**JOB, "task": "Is it {# no #} confirmed?"}),
+            "a shell command": json.dumps({**JOB, "task": "!ls"}),
+            "a shell command after a newline": json.dumps({**JOB, "task": " \n\t!ls"}),
+            "a slash command": json.dumps({**JOB, "task": "/compact"}),
             "turns as a bool": json.dumps({**JOB, "max_turns": True}),
             "turns as text": json.dumps({**JOB, "max_turns": "6"}),
             "no turns": json.dumps({**JOB, "max_turns": 0}),
@@ -162,6 +171,29 @@ class TheJobLine(unittest.TestCase):
         for name, line in bad.items():
             with self.subTest(name), self.assertRaises(agent_job.Refused):
                 agent_job.parse_job(line)
+
+    def test_a_command_after_any_white_space_rust_strips_is_refused(self):
+        # The White_Space property in Unicode's PropList.txt, which Rust's
+        # trim_start uses.
+        spaces = [*range(0x09, 0x0E), 0x20, 0x85, 0xA0, 0x1680,
+                  *range(0x2000, 0x200B), 0x2028, 0x2029, 0x202F, 0x205F, 0x3000]  # fmt: skip
+        for code in spaces:
+            for prefix in agent_job.COMMAND_PREFIXES:
+                task = chr(code) + prefix + "x"
+                with (
+                    self.subTest(f"{code:#x} {prefix}"),
+                    self.assertRaises(agent_job.Refused),
+                ):
+                    agent_job.parse_job(json.dumps({**JOB, "task": task}))
+
+    def test_braces_and_command_characters_inside_a_task_pass(self):
+        task = "Is F-0001 {confirmed}? See /etc/hosts, 50% of {1}! {} # }}"
+        self.assertEqual(
+            agent_job.parse_job(json.dumps({**JOB, "task": task}))["task"], task
+        )
+
+    def test_the_system_text_has_no_template_syntax(self):
+        self.assertIsNone(agent_job.TEMPLATE.search((HERE / "system.txt").read_text()))
 
     def test_a_line_over_the_limit_is_refused_before_it_is_parsed(self):
         read, write = os.pipe()
@@ -229,6 +261,15 @@ class AWholeJob(Base):
         self.run_job(json.dumps(JOB).encode() + b"\n")
         self.assertFalse((self.tmp / "job" / "recipe.json").exists())
         self.assertEqual(Erases.seen, ["/slots/0?action=erase"])
+        self.assertIn(b'"slot_erased": true', self.stderr)
+
+    def test_an_erase_the_server_refuses_is_reported(self):
+        # What the server on the worker answered on 2026-10-20: 501, without
+        # --slot-save-path.
+        Erases.status = 501
+        _, data = self.run_job(json.dumps(JOB).encode() + b"\n")
+        self.assertEqual(json.loads(data)["status"], "completed")
+        self.assertIn(b'"slot_erased": false', self.stderr)
 
     def test_the_token_never_comes_back_in_the_result(self):
         _, data = self.run_job(json.dumps(JOB).encode() + b"\n")

@@ -38,7 +38,7 @@ llama.cpp v0.7.0, build `b11669`, serves Qwen3.5-4B, quantized to `Q4_K_M`, on `
 | Binaries | `/opt/aisec/llama.cpp/llama-b11669`, the project's release build, checked against its published checksum |
 | Model file | `/opt/aisec/models/Qwen3.5-4B-Q4_K_M.gguf`, 2.78 GB. Built here from Qwen's weights, not downloaded ([ADR 0015](../decisions/0015-build-the-model-file-on-the-worker.md)) |
 | Unit | `aisec-llama-server.service`: a throwaway account, a read-only file system, localhost only, a 6 GB memory limit |
-| Settings | 2 threads, 8192-token context, one slot, no web interface, no RAM prompt cache |
+| Settings | 2 threads, 8192-token context, one slot, no web interface, no RAM prompt cache. A slot save path that is empty and read-only to the server: without one, the server refuses to erase the slot ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md)) |
 | Procedure | The [model server runbook](../runbooks/model-server.md) |
 
 ## The agent runtime
@@ -53,7 +53,7 @@ The diagram source is [`diagrams/agent-run.html`](../diagrams/agent-run.html). I
 | --- | --- |
 | Binary | `/opt/aisec/goose/goose-1.55.0/goose`, the project's release build, checked against the release's digest on the orchestrator and again on the worker. The unpacked binary has its own pin, which the install checks, and `G.1` on every check run |
 | Unit | `aisec-agent-job`, transient: a throwaway account, a read-only file system, localhost only, a 2 GB memory limit, a 15-minute time limit. Exposure score 1.3, the same as the model server |
-| Tools | One, and only the ones named on the command line. `--no-profile` keeps Goose from loading its own, including the one that runs shell commands. That option also disables tools declared in a recipe. The planned tool service integration will omit it and use an empty configuration directory. This approach was tested on a workstation; it has not been tested on the worker |
+| Tools | For the fixture run: one, named on the command line. `--no-profile` keeps Goose from loading its own, including the one that runs shell commands, and also disables tools declared in a recipe. For a dispatched job: the recipe's one extension, the tool service, with an empty configuration directory in place of `--no-profile`. Goose adds its own `load_skill` to a dispatched job, which no recipe removes ([#139](https://github.com/sindredg/ai-security-platform/issues/139)). The job program refuses a task with template syntax, which Goose would render into the recipe, and one that Goose would run as a shell or slash command |
 | Session | Goose writes a session database and a log of every prompt, even when told to keep no session. Both land in the unit's private `/tmp`, which systemd deletes when the unit stops |
 | One at a time | The unit's name is fixed. A second run is refused while one exists |
 | Today's tool | A fixture on the worker that returns one piece of synthetic evidence. The [tool service](../security/tool-service.md) on the orchestrator replaces it. The service is deployed. The job runner still starts Goose with the fixture, and the current worker unit permits only localhost connections |

@@ -192,13 +192,17 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
     argo submit --from workflowtemplate/investigate -p task="$(cat worker/agent-runtime/fixture/question.txt)"
     sleep 25; argo stop @latest; sleep 15; argo get @latest
     REPLACE_WITH_SSH aisec-worker '
+      for _ in $(seq 1 60); do
+        [ "$(systemctl list-units --all --no-legend "aisec-agent-job@*" | wc -l)" = 0 ] && break
+        sleep 2
+      done
       systemctl list-units --all --no-legend "aisec-agent-job@*" | wc -l
       sudo find /tmp /var/tmp -maxdepth 1 -name "systemd-private-*aisec-agent-job@*" | wc -l
-      journalctl --no-pager -o cat -u "aisec-agent-job@*" --since -2min | grep outcome'
+      journalctl --no-pager -o cat -u "aisec-agent-job@*" --since -5min | grep outcome'
     REPLACE_WITH_SSH aisec-orchestrator 'sudo tail -n 5 /var/log/aisec/tool-audit.jsonl'
     ```
 
-    Expected: the dispatch step `Failed` with exit code 143, the exit handler `Succeeded`. On the worker `0`, `0`, and a line with `"outcome": "cancelled"` and `"slot_erased": true`. The audit file has the job's `revoke`. This is the second gate criterion: cancelling a workflow stops the worker job and cleans up its session.
+    Expected: the dispatch step `Failed` with exit code 143, the exit handler `Succeeded`. On the worker, within two minutes, `0`, `0`, and a line with `"outcome": "cancelled"` and `"slot_erased": true`. The audit file has the job's `revoke`. This is the second gate criterion: cancelling a workflow stops the worker job and cleans up its session.
 
 12. Submit two runs at once. The second waits for the first.
 
@@ -264,7 +268,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
     validation/platform-checks.sh
     ```
 
-    Expected: `PASS` for `E.6`, `G.5` to `G.9`, `K.3`, `W.1` to `W.10`, and every check that passed before.
+    Expected: `PASS` for `E.6`, `G.5` to `G.10`, `K.3`, `W.1` to `W.10`, and every check that passed before.
 
 ## Remove
 
