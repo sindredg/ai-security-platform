@@ -28,7 +28,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Dependency scan | Trivy over the converter's Python pins: reports, never blocks. Trivy over the tool service's pins: blocks |
 | Commit signatures | `git verify-commit` on every commit in the pull request, against `.github/allowed_signers`: the public half of the operator's signing key, nothing else. A commit signed by GitHub, by another key, or not at all fails. See [below](#the-signature-check) |
 
-All but the dependency scan, the dispatch tests, and the dispatch image are required by the ruleset on `main`. Those two are new since 2026-10-19, and are not in the ruleset yet. The dependency scan runs on every pull request and does not block a merge. The two image jobs are the only jobs with write permission. Each can write its package to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
+All but the dependency scan are required by the ruleset on `main`. The dependency scan runs on every pull request and does not block a merge. The two image jobs are the only jobs with write permission. Each can write its package to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, so no third-party action runs.
 
 ## The signature check
 
@@ -50,6 +50,8 @@ Read from the GitHub API on 2026-10-17 at 07:10 UTC, after the changes for [0024
 - In the repository settings, squash is the only merge method. Merge commits and rebase merges are off. On `main`, the ruleset allows squash only as well.
 
 Read again on 2026-10-18 at 12:52 UTC, after "Squid configuration" was made required: the same, with that check in the list, twelve checks, each from GitHub Actions.
+
+Read again on 2026-10-20 at 15:00 UTC, after "Dispatch tests" and "Dispatch image" were made required: fourteen checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. Configured, not tested: no pull request has been seen blocked by either of the two.
 
 The [repository settings runbook](../runbooks/repository-settings.md) sets these up and repeats the fail side.
 
