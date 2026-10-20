@@ -16,6 +16,11 @@ objects.githubusercontent.com
 ghcr.io
 pkg-containers.githubusercontent.com
 
+# Argo Workflows' images (ADR 0029). quay.io sends each layer to a CDN host
+# under its own name: cdn01.quay.io, read from the workstation on
+# 2026-10-19. The leading dot takes quay.io and every name under it.
+.quay.io
+
 # The cluster's system images. Layers come from the CDN host, read from
 # Squid's log on 2026-10-17.
 registry-1.docker.io
