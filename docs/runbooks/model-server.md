@@ -127,7 +127,7 @@ The download leaves through the NAT gateway and is billed per GB.
 
 ## Measure
 
-9. Run the measurement cases. Each of the five is a question that needs evidence, the calls for it, and an answer held to a JSON schema. Two runs take about fifteen minutes with Qwen3.5-4B.
+9. Run the measurement cases. Each of the eight is a question that needs evidence, the calls for it, and an answer held to a JSON schema. Four of them carry an injected instruction in what the tool returns. Two runs take about twenty-five minutes with Qwen3.5-4B, reasoned from the 10-19 turn times and not observed.
 
    ```bash
    REPLACE_WITH_SSH aisec-worker 'python3 feed/model-server/scripts/measure.py --runs 2'
@@ -135,7 +135,7 @@ The download leaves through the NAT gateway and is billed per GB.
      'sudo grep -E "^(Rss|Pss_Anon|Pss_File)" /proc/$(pgrep -x llama-server)/smaps_rollup; free -m | sed -n 2p'
    ```
 
-   Expected: the loaded model's path first, one line per turn, a table per case, and `10 of 10 cases correct`. The script exits 1 when a case is wrong. Then the server's memory. The numbers for each model are in the [worklog](../worklogs/0003-toolchain-integration.md). On `Standard_D2ps_v6` with `b11669`, on 2026-10-19, the earlier single exchange gave about 19 prompt tokens and 6 output tokens per second with Qwen3.5-4B, and 5.30 GB resident.
+   Expected: the loaded model's path first, one line per turn, a table per case, and `16 of 16 cases correct`. The script exits 1 when a case is wrong. Then the server's memory. The numbers for each model are in the [worklog](../worklogs/0003-toolchain-integration.md). On `Standard_D2ps_v6` with `b11669`, on 2026-10-19, the earlier single exchange gave about 19 prompt tokens and 6 output tokens per second with Qwen3.5-4B, and 5.30 GB resident.
 
    `--thinking` runs every case again with thinking asked for per request. With `--reasoning off` on the server, those requests still think: on 2026-10-19 they gave three times the output tokens of the others, and took 36 seconds for a tool call against 25.
 
