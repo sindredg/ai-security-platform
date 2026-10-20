@@ -1209,3 +1209,44 @@ Each test was seen to fail on a broken copy of the code: redaction taken out, th
 - **The dispatch image was not built here.** The workstation has no Docker. Its Dockerfile passes hadolint 2.15.1 and Trivy 0.76.0's configuration scan with one suppression, DS-0026, with its reason in `platform/dispatch/.trivyignore`. Both were seen to fail without the suppression. The pipeline builds it, checks that `ssh` starts as its user, and scans it. Its first push is from `main`, and the workflow template pins that digest in the next slice.
 - **No linter reads the unit files.** The repository has had unit files without one since milestone 3 ([#131](https://github.com/sindredg/ai-security-platform/issues/131)). `G.8` holds the installed ones equal to the repository.
 - **The fake Goose prints a transcript shaped like the fixture run's.** A Goose release that changes the shape gives a result with zero calls, which the dispatch step treats as a failure.
+
+## Slice: Argo and the workflow template
+
+Date: 2026-10-20, written and checked locally. Not installed. The template's dispatch image is a placeholder of zeros until `main` pushes the image, and the pipeline refuses it until then.
+
+The orchestrator's side of dispatch, as [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) and [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md) propose it.
+
+### What was written
+
+| File | What it does |
+| --- | --- |
+| `platform/argo/argo.yaml` | The `argo` namespace, the controller's account, its upstream Role and binding, its configuration, its priority class, and its Deployment, adapted from the release: kept to `orchestration`, both images by digest, a seccomp profile, requests and limits, and two settings, `templateReferencing: Secure` and the executor's security context |
+| `platform/argo/rbac.yaml` | In `orchestration`: the copy of the controller's Role, the executor's account and Role (`create` and `patch` on `workflowtaskresults`), and the operator's account and Role |
+| `platform/argo/network-policies.yaml` | Deny by default in `argo`. The controller and each workflow pod's executor to the API server. Dispatch pods to the worker's SSH port |
+| `platform/argo/workflow-template.yaml` | `investigate`: the dispatch step and the revoke exit handler, one mutex, the step's deadline 180 seconds past the job's, the key mounted on the dispatch step only, no token in the step's container |
+| `platform/argo/pins.env`, `fetch.sh`, `crds.py`, `install.sh`, `make-dispatch-key.sh` | The release file by its digest, the images pulled during a window, the eight definitions extracted from the release file, the install, and the dispatch key made in memory on the orchestrator with the worker's host key from the operator |
+| `infra/platform/cloud-init/orchestrator.yaml.tftpl` | The host rule's exception for `10.40.0.36:22`. Custom data is ignored after creation, so the running orchestrator gets it from the runbook |
+| `edge/fetch-hosts` | `.quay.io` |
+| `.github/workflows/checks.yml` | kubeconform skips `WorkflowTemplate`, and Argo's own command line, from its signed image, lints the templates offline |
+| `validation/platform-checks.sh` | `W.1` to `W.10`, `E.6` with the exception, and `K.3` without workflow pods |
+
+Read from Argo's documentation at v4.1.5 before the manifests were written: the executor's minimum Role, `templateReferencing` and its allow-list, `argo lint --offline`, local mode for `argo server`, and that the executor image runs as user 8737. quay.io sends a layer download to `cdn01.quay.io`, read from the workstation with `curl` on 2026-10-19.
+
+### Checks, local
+
+| Check | Expected | Result |
+| --- | --- | --- |
+| kubeconform 0.8.0, strict, Kubernetes 1.36.5, every manifest under `platform/` | Valid, the template skipped | 31 valid, 1 skipped. A misspelled field in a service account fails |
+| `argo lint --offline` v4.1.5 on the template | No errors | No errors. A missing exit handler template fails, and so does an unknown field. A misspelled parameter reference passes |
+| `crds.py` on the release file | Eight definitions and nothing else | The eight names, eight documents of kind `CustomResourceDefinition`. A file without one exits 1 |
+| `fetch.sh`'s image list from the manifests | The controller and the executor, the placeholder left out | As expected |
+| `install.sh`'s namespace extraction | One `Namespace` document | As expected |
+| The check script's expected values from the checkout | The controller's digest, its arguments, and the template's hash | As expected. The hash changes when the dispatch digest is pinned |
+| ShellCheck 0.11.0 and Ruff 0.17.1 | Clean | Clean |
+
+### Limits
+
+- **Nothing is installed, and the new rule is not loaded.** `E.6` and `W.1` to `W.10` fail on the next check run until the [workflows runbook](../runbooks/workflows.md) runs. `nft` was not available on the workstation, so the rule's syntax is first checked by `nft -c` on the orchestrator, in step 5.
+- **`W.9` assumes the API server stores the template's spec as given.** Its first run shows whether defaults are added.
+- **The network policy to the API server names the host's address and port.** That the policy matches after the service address is translated rests on the dispatch policy's name server rule, which works that way. The controller's first start shows it.
+- **The operator's Role was written from the commands the runbook uses.** The UI in local mode may ask for more. A refusal shows in its log.

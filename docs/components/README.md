@@ -30,7 +30,7 @@ Candidates, not selections, except the rows that name a decision record. Each ha
 
 | Role | Candidate | Has to prove | Milestone |
 | --- | --- | --- | --- |
-| Workflow engine and UI | Argo Workflows v4.1.5, the controller in the cluster and the UI on the operator's machine, [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), proposed | Dispatch to the worker VM, restart recovery, footprint | 3 |
+| Workflow engine and UI | Argo Workflows v4.1.5, the controller in the cluster and the UI on the operator's machine, [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), proposed. Manifests and template written, not installed ([runbook](../runbooks/workflows.md)) | Dispatch to the worker VM, restart recovery, footprint | 3 |
 | Agent runtime | Goose 1.55.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A TLS tool call with a job token was tested on a workstation. Still to test: Goose's call to the tool service on the worker, and validation of the result against a schema | 3 |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far | 3 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
@@ -66,6 +66,9 @@ Every pin in one place. Checked against the official source on the date shown.
 | hadolint image | 2.15.1, by digest | The checks workflow | By hand | 2026-10-19 |
 | kubeconform image | 0.8.0, by digest. Validates the manifests against the schemas for Kubernetes 1.36.5, the cluster's release | The checks workflow | By hand, and the Kubernetes version with K3s | 2026-10-19 |
 | Python image | 3.15.0 on Alpine 3.24, by digest. Runs the tool service and log copier tests, and is the base of the tool service image | The checks workflow and `tool-service/Dockerfile`. The pipeline fails until the two name the same digest | Dependabot, weekly, for the Dockerfile. The workflow by hand | 2026-10-19 |
+| Argo Workflows | v4.1.5. The release's `namespace-install.yaml` by its listed digest, for the custom resource definitions. `workflow-controller` and `argoexec` by digest, each signature checked with cosign against the release's key | `platform/argo/pins.env` and `argo.yaml` | By hand | 2026-10-19 |
+| Argo's command line image | `argocli` v4.1.5 by digest, its signature checked the same way. Lints the workflow templates offline | The checks workflow | By hand, with Argo | 2026-10-20 |
+| Dispatch image | Not pushed yet. The pipeline builds it from `platform/dispatch/`, and `main` pushes it. `workflow-template.yaml` holds a placeholder of zeros until then, which the pipeline refuses | `platform/argo/workflow-template.yaml` | By hand, after each image change merges | |
 | Tool service image | The digest the pipeline pushed from `main` at `b3cf4d9`, with the rate limit | `platform/tool-service/tool-service.yaml`. The pipeline and `deploy.sh` refuse a manifest image without a digest | By hand, after each image change merges | 2026-10-16 |
 | Tool service packages | 28, with the MCP SDK 2.3.0, PyJWT 2.15.1, and cryptography 50.0.2 | `tool-service/requirements.in`, compiled to `requirements.txt` with hashes | Dependabot, weekly | 2026-10-16 |
 

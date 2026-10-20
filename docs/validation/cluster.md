@@ -6,7 +6,7 @@ K3s on the orchestrator, one server. The tool service is its one workload, check
 | --- | --- | --- | --- |
 | `K.1` | `k3s` is active | Nothing else runs without it | `systemctl is-active` |
 | `K.2` | The node is `Ready` | Gate: K3s comes back healthy after a restart | `kubectl get nodes` |
-| `K.3` | Every pod is `Running` | The system pods are the cluster's own health | `kubectl get pods -A` |
+| `K.3` | Every pod outside workflows is `Running` | The system pods are the cluster's own health. A workflow's pods end `Completed` or `Error`, and the workflow's status says which | `kubectl get pods -A` without the pods labelled `workflows.argoproj.io/workflow` |
 | `K.4` | Secrets encryption is enabled | Secrets in the datastore are not plain text | `k3s secrets-encrypt status` |
 | `K.5` | Every certificate file is `600` | kube-bench check 1.1.20. K3s keeps the mode across restarts, and this proves it still does | `stat` on `server/tls/*.crt` |
 | `K.6` | No default service account mounts a token | kube-bench check 5.1.5. A pod that names no service account gets no API credential | `automountServiceAccountToken` is `false` in every namespace |
