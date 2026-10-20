@@ -6,7 +6,9 @@ session from the dispatch step on the orchestrator.
 
 Reads one JSON line, the job. Writes the agent's recipe with the job's token
 into the unit's private /tmp, runs Goose against the model server and the tool
-service, and writes one JSON line back, the result. An end of input before
+service, and writes one JSON line back, the result, with the agent's
+transcript in it. The transcript goes only to the socket, never to the
+journal, which leaves the worker for the workspace. An end of input before
 Goose ends is a cancel: Goose is stopped, and nothing is written back. Either
 way the model server's slot is erased afterwards, so the next job does not
 start from this one's prompt (#32). Standard library only.
@@ -28,8 +30,15 @@ from pathlib import Path
 
 JOB_BYTES = 16384
 TASK_CHARS = 8000
-ANSWER_CHARS = 8000
-STDERR_CHARS = 2000
+# The result line, newline included, stays within the job runner's and the
+# dispatch step's RESULT_BYTES. The text fields are cut by the size of their
+# JSON form, which escapes each character outside ASCII to 6 or 12 bytes. The
+# transcript gets what the rest of the line leaves.
+RESULT_BYTES = 65536
+ANSWER_BYTES = 16384
+STDERR_BYTES = 4096
+PART_BYTES = 8192
+CUT_MARK_BYTES = 128
 TURNS = range(1, 21)
 SECONDS = range(60, 1201)
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
@@ -197,6 +206,71 @@ def summarize(transcript):
     return calls, errors, answer
 
 
+def cut(text, size):
+    """The longest start of text whose JSON form takes at most size bytes."""
+    low, high = 0, len(text)
+    while low < high:
+        middle = (low + high + 1) // 2
+        if len(json.dumps(text[:middle])) <= size:
+            low = middle
+        else:
+            high = middle - 1
+    return text[:low]
+
+
+def tool_result_text(result):
+    """The text a tool returned, or the error Goose recorded."""
+    if result.get("status") != "success":
+        return str(result.get("error") or json.dumps(result))
+    value = result.get("value")
+    content = value.get("content") if isinstance(value, dict) else value
+    if isinstance(content, list) and all(isinstance(c, dict) for c in content):
+        return "\n".join(str(c.get("text") or json.dumps(c)) for c in content)
+    return json.dumps(value)
+
+
+def flatten(transcript, system):
+    """Each part of each message as role, type, and text, the recipe's
+    instructions first. A part of a type not known here keeps its JSON."""
+    parts = [{"role": "system", "type": "instructions", "text": system}]
+    for message in transcript.get("messages", []):
+        role = str(message.get("role"))
+        for part in message.get("content", []):
+            kind = str(part.get("type"))
+            if kind == "text":
+                text = str(part.get("text") or "")
+            elif kind == "toolRequest":
+                value = (part.get("toolCall") or {}).get("value") or {}
+                text = json.dumps(
+                    {"name": value.get("name"), "arguments": value.get("arguments")}
+                )
+            elif kind == "toolResponse":
+                text = tool_result_text(part.get("toolResult") or {})
+            else:
+                text = json.dumps(part)
+            parts.append({"role": role, "type": kind, "text": text})
+    return parts
+
+
+def fit(parts, token, room):
+    """The parts, token taken out and each cut to PART_BYTES, in order, until
+    their JSON list would pass room bytes. A last part says how many were left
+    out."""
+    kept, used = [], len("[]")
+    for index, part in enumerate(parts):
+        text = cut(part["text"].replace(token, "[token]"), PART_BYTES)
+        size = len(json.dumps({**part, "text": text})) + len(", ")
+        if used + size > room - CUT_MARK_BYTES:
+            left = len(parts) - index
+            kept.append(
+                {"role": "platform", "type": "cut", "text": f"{left} parts left out"}
+            )
+            break
+        kept.append({**part, "text": text})
+        used += size
+    return kept
+
+
 def erase_slot():
     """Empty the model server's one slot. Returns whether it answered 200."""
     request = urllib.request.Request(  # noqa: S310 - a fixed http URL
@@ -209,9 +283,12 @@ def erase_slot():
         return False
 
 
-def result_line(job, outcome, code, started, out, err):
+def result_line(job, system, outcome, code, started, out, err):
+    """The token is taken out of each text before it is cut, so no part of it
+    is left at a cut."""
     token = job["token"]
     calls, errors, answer, agent_status, tokens = 0, 0, "", None, {}
+    transcript, parts = {}, flatten({}, system)
     try:
         transcript = json.loads(Path(out).read_text())
         calls, errors, answer = summarize(transcript)
@@ -220,7 +297,11 @@ def result_line(job, outcome, code, started, out, err):
         tokens = {k: metadata.get(k) for k in ("input_tokens", "output_tokens")}
     except (OSError, ValueError, AttributeError, TypeError):
         pass
-    stderr = Path(err).read_text(errors="replace")[-STDERR_CHARS:]
+    try:
+        parts = flatten(transcript, system)
+    except (AttributeError, TypeError):
+        pass
+    stderr = Path(err).read_text(errors="replace").replace(token, "[token]")
     completed = outcome == "ended" and code == 0 and agent_status == "completed"
     result = {
         "job": job["job"],
@@ -232,10 +313,12 @@ def result_line(job, outcome, code, started, out, err):
         "agent_status": agent_status,
         "tool_calls": calls,
         "tool_errors": errors,
-        "answer": answer[:ANSWER_CHARS].replace(token, "[token]"),
-        "stderr_tail": stderr.replace(token, "[token]"),
+        "answer": cut(answer.replace(token, "[token]"), ANSWER_BYTES),
+        "stderr_tail": cut(stderr[::-1], STDERR_BYTES)[::-1],
         **tokens,
     }
+    room = RESULT_BYTES - len(json.dumps(result)) - len(', "transcript": \n')
+    result["transcript"] = fit(parts, token, room)
     return json.dumps(result) + "\n"
 
 
@@ -275,7 +358,7 @@ def main():
     )
     if outcome == "cancelled":
         return 0
-    write_all(1, result_line(job, outcome, code, started, out, err).encode())
+    write_all(1, result_line(job, system, outcome, code, started, out, err).encode())
     return 0
 
 

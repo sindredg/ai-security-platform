@@ -9,8 +9,9 @@ dispatch image. Two modes:
 dispatch makes a job token, registers the job with the tool service by the
 token's digest, opens an SSH session to the worker's job account, writes one
 job line, keeps the session's input open, and reads one result line. It checks
-the result's size and fields, writes it to the step's output file, and exits 0
-only for a completed job that called a tool. A stop of the step closes the
+the result's size and fields, writes it to the step's output file, prints the
+agent's transcript and answer to the step's log, and exits 0 only for a
+completed job that called a tool. A stop of the step closes the
 session's input, which the worker takes as a cancel.
 
 revoke ends the job at the tool service. The workflow's exit handler runs it
@@ -76,7 +77,10 @@ RESULT_FIELDS = {
 OPTIONAL_FIELDS = {
     "input_tokens": (int, type(None)),
     "output_tokens": (int, type(None)),
+    "transcript": list,
 }
+# Each part of the transcript: who wrote it, its kind, and its text.
+PART_FIELDS = {"role", "type", "text"}
 
 
 class Failed(Exception):
@@ -147,11 +151,23 @@ def check_result(line, job):
         value = result[field]
         if isinstance(value, bool) or not isinstance(value, kind):
             raise Failed(f"the result's {field} has the wrong type")
+    for part in result.get("transcript", []):
+        if not isinstance(part, dict) or set(part) != PART_FIELDS:
+            raise Failed("a transcript part has the wrong fields")
+        if not all(isinstance(value, str) for value in part.values()):
+            raise Failed("a transcript part has a value that is not text")
     if result["job"] != job:
         raise Failed("the result names another job")
     if result["status"] not in ("completed", "failed", "timeout"):
         raise Failed("the result's status is not one the worker gives")
     return result
+
+
+def printable(text):
+    """The worker's text for a terminal. Control and format characters become
+    U+FFFD, so text the model shaped cannot send escape sequences to the
+    operator's terminal through `argo logs`. Newlines and tabs stay."""
+    return "".join(c if c.isprintable() or c in "\n\t" else "\ufffd" for c in text)
 
 
 class Session:
@@ -232,8 +248,16 @@ def dispatch(job, max_turns, seconds, task):
     finally:
         session.close()
     RESULT.write_text(json.dumps(result))
-    print(json.dumps({k: v for k, v in result.items() if k != "answer"}))
-    print(result["answer"])
+    print(
+        json.dumps(
+            {k: v for k, v in result.items() if k not in ("answer", "transcript")}
+        )
+    )
+    for part in result.get("transcript", []):
+        print(f"-- {printable(part['role'])} {printable(part['type'])}")
+        print(printable(part["text"]))
+    print("-- answer")
+    print(printable(result["answer"]))
     if result["status"] != "completed":
         raise Failed(f"the job ended {result['status']}")
     if result["tool_calls"] < 1:

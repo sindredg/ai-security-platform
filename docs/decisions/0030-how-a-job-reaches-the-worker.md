@@ -53,7 +53,7 @@ ip saddr 10.42.0.0/16 ip daddr 10.40.0.36 tcp dport 22 accept
 
 **A dispatch image of its own.** Built from `platform/dispatch/` by the pipeline, from the Python base the tool service uses, with OpenSSH's client from Alpine's signed index and the dispatch script, standard library only. Scanned like the tool service image, pushed from `main` only, pulled by digest. The workflow uses it for two steps:
 
-- **dispatch:** makes a 256-bit token, registers the job with its digest ([0013](0013-a-token-per-job-and-no-cloud-identity-yet.md)), opens the session with the dispatch key and the pinned host key, writes one JSON line, keeps standard input open, and reads one JSON line back. It checks the result's size and schema, and prints it as the step's output. A missing or malformed result fails the step.
+- **dispatch:** makes a 256-bit token, registers the job with its digest ([0013](0013-a-token-per-job-and-no-cloud-identity-yet.md)), opens the session with the dispatch key and the pinned host key, writes one JSON line, keeps standard input open, and reads one JSON line back. It checks the result's size and schema, and prints it as the step's output. A missing or malformed result fails the step. It prints the agent's transcript and answer to the step's log, with control and format characters replaced, so text the model shaped cannot send escape sequences to the operator's terminal.
 - **revoke:** the workflow's exit handler. It revokes the job by ID on success, failure, and stop.
 
 The key and the host key are one secret in `orchestration`, mounted by the dispatch step and nothing else.
@@ -68,6 +68,8 @@ The key and the host key are one secret in `orchestration`, mounted by the dispa
 4. Asks the model server to erase its slot, so the next job starts with nothing of this one ([#32](https://github.com/sindredg/ai-security-platform/issues/32)).
 5. Writes one JSON line with the result and exits. systemd deletes the private `/tmp` when the unit stops.
 
+The result carries the agent's transcript: the recipe's instructions, then each part of each message as role, type, and text, with the token taken out. Without it, a run shows counts and the last answer, and nobody can see what the agent asked for or read. The text fields are cut by the size of their JSON form, so the line stays within 64 KiB, and a last part says how many parts did not fit. The transcript goes to the socket only. The job program's standard error goes to the worker's journal, which the journal pull copies to the workspace ([0019](0019-how-the-audit-lines-and-the-worker-journal-are-copied.md)), so nothing from the transcript is written there.
+
 The unit's time limit is the backstop for a job that misses the cancel, as in 0012. The workflow's own deadline is shorter than the unit's and the token's.
 
 **Checks.** `E.6` takes the new rule. New checks read the job account's key line, the socket's owner, group, and mode, and that the runner and the job program on the worker are the ones in the checkout. The worker's `G.3` and `G.4` follow the template unit's name. A procedure step shows that a pod outside dispatch is refused at the worker's port once its policy is written, and a cancel during a run, with the unit, its private `/tmp`, and the token gone afterwards.
@@ -79,4 +81,5 @@ The unit's time limit is the backstop for a job that misses the cancel, as in 00
 - **The socket is the dispatch interface on the worker.** Any process in the group `aisec-job` can start a job. The group has one member, and a job is a run of the agent against the tool service, which still needs a live token.
 - **The job program is custom code on the untrusted side.** It parses the job line, which comes from the trusted side, and Goose's output, which it passes on as untrusted. A worker that rewrites it gains what it already had.
 - **Cancel rests on an end of input crossing two hops**: the session, then the socket. The unit's time limit and the token's expiry catch what that misses. `argo terminate`, unlike `argo stop`, skips the exit handler, and then only the expiry ends the token.
+- **The transcript keeps the evidence the agent read.** It sits in the workflow's output and the dispatch pod's log on the orchestrator for the 24 hours the template keeps a workflow, readable by the operator's Argo account. That is fine for synthetic evidence. Real targets need a rule for how long it is kept first ([open items](../security/accepted-risks.md#open-items)). Goose's own system prompt and the tool list it sends the model are not in it.
 - **The slot erase costs the next job its warm prompt.** On 2026-10-12 a run reused 666 of 670 prompt tokens from the run before. The first turn of each job now pays for its whole prompt, about 35 seconds at 19 tokens per second.

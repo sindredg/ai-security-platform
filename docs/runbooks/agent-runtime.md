@@ -135,7 +135,7 @@ How a dispatched job arrives on the worker: an account the dispatch key logs in 
       REPLACE_WITH_SSH aisec-worker "sudo -u aisec-job python3 -I -c '$SEND'"
     ```
 
-    Expected, after one to two minutes: one JSON line with `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, and an answer that names `tenancy.contact` and `circuits.circuit`. The tool service's audit file on the orchestrator has a `call allowed hand-1` line for `get_evidence`. This is the agent calling the tool service from the worker, which no run had done before.
+    Expected, after one to two minutes: one JSON line with `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, an answer that names `tenancy.contact` and `circuits.circuit`, and a `transcript`: the instructions from `system.txt`, the question, the `get_evidence` call, the evidence, and the answer, with no `"type": "cut"` part. The tool service's audit file on the orchestrator has a `call allowed hand-1` line for `get_evidence`. This is the agent calling the tool service from the worker, which no run had done before.
 
 11. Cancel a job while it runs: send a second job, close the connection after 20 seconds, and look for what it left.
 
