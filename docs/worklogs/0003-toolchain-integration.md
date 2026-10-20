@@ -1275,7 +1275,7 @@ Read again locally afterwards, with Trivy 0.76.0 and Checkov 3.3.29 at the pipel
 
 ## Slice: the transcript in the result
 
-Date: 2026-10-20, written and tested locally. Not installed. The dispatch image with this change is built from `main` after the merge, and the template's pin moves in a change of its own.
+Date: 2026-10-20, written and tested locally, merged in `73a4a49`, and the template pins the image built from it. Not installed.
 
 Until now a job returned counts, the last answer, a tail of Goose's standard error, and token counts. Goose's whole transcript stayed in `out.json` in the unit's private `/tmp`, and went with the unit. A run showed what the agent concluded, not what it asked for or what the tool gave it. [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), still proposed, now has the result carry the transcript.
 
@@ -1306,9 +1306,22 @@ Run on the workstation with Python 3.12, from each directory: `python3 -I -m uni
 
 Each new test was seen to fail on a broken copy of the code. On the worker: the token replaced after the cut, once in all three fields and once in each field alone, and no size budget for the transcript (a line of 358,450 bytes). In the dispatch step: the part check taken out (four of the five new bad results passed), the transcript not printed, and `printable` returning its input.
 
+### The pin
+
+The image built from the merge is `sha256:04d35d6d...228e`, read from the "Push, from main only" step of the `main` run for `73a4a49`. Checked from the workstation on 2026-10-20:
+
+| Check | Result |
+| --- | --- |
+| An anonymous request for the manifest by that digest | 200. The manifest's own SHA-256 is the digest |
+| The same for a digest of zeros, and for a package that does not exist | 404, and 403 |
+| The image's configuration | `amd64`, `linux`, user `65532:65532`, entry point `python /opt/dispatch/dispatch.py` |
+| `opt/dispatch/dispatch.py` from the image's last layer, against the file in the repository | Equal to `73a4a49`'s (`473666a7...2eac`), and not to the one before the change (`999275a3...3351`) |
+
+Both steps in `platform/argo/workflow-template.yaml`, dispatch and revoke, pin it. The image before it refuses a result with a `transcript` ("the result has fields it should not"), so the old pin and a worker with this change do not work together.
+
 ### Limits
 
-- **Nothing is installed.** The pinned dispatch image refuses a result with a `transcript` ("the result has fields it should not"). The pin has to move to an image built from this change before a workflow runs against a worker with it.
+- **Nothing is installed.** `fetch.sh` pulls the new digest during the workflows runbook's fetch window, as it pulls every pinned image in the manifests.
 - **Goose's own system prompt and the tool list it sends the model are not in the transcript.** The recipe's instructions are.
 - **A job that times out returns the instructions only.** Goose prints its JSON when it ends, and a stopped Goose prints nothing. Reasoned from the fixture runs, where the output was one document. Not seen.
 - **The transcript holds the evidence the agent read.** It stays on the orchestrator with its workflow, which the template's `ttlStrategy` deletes 24 hours after it ends. That the dispatch pod and its log go with the workflow is reasoned from the pod's owner, not seen. How long it is kept with real targets is an [open item](../security/accepted-risks.md#open-items).
