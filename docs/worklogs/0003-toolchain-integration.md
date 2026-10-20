@@ -5,16 +5,16 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices. Five are on the system: the model server on the AI worker, the agent runtime running headless against it with a fixture tool, the tool service in K3s on the orchestrator, called from the worker with a job token, the audit copier, and the journal pull. No workflow or dispatch step exists, and the agent has not called the tool service on the worker. The gate is not met.
+The milestone is built in slices. Five are on the system: the model server on the AI worker, the agent runtime running headless against it with a fixture tool, the tool service in K3s on the orchestrator, called from the worker with a job token, the audit copier, and the journal pull. Dispatch is written and tested in the pipeline, and not installed: the [job socket](#slice-jobs-over-a-socket) on the worker, the dispatch step and its image, and [Argo with the workflow template](#slice-argo-and-the-workflow-template). No workflow has run, and the agent has not called the tool service on the worker. The gate is not met.
 
 | Gate | Result |
 | --- | --- |
-| A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back | Open. No workflow or dispatch step exists |
+| A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back | Open. Written and tested in the pipeline with a fake Goose and stubs, from the dispatch step through the real job runner and job program ([tests](#tests-4)). Not installed |
 | A tool call for another job or target is refused by the tool service | Partly **tested** on the live system: a tool outside the job's scope and a revoked job's token are refused ([round trip](#the-round-trip), steps 3 and 8). Another job's evidence on the same target was not tried, and the service cannot refuse it ([issue #45](https://github.com/sindredg/ai-security-platform/issues/45)). Another target is refused in the service's own tests |
-| Cancelling a workflow stops the worker job and cleans up its session | Open |
+| Cancelling a workflow stops the worker job and cleans up its session | Open. Written: a stop of the dispatch step reaches the job program as an end of input, tested in the pipeline. Not installed |
 | Model memory use, latency per turn, and tokens per second are measured on the chosen size | **Tested** for the model server alone, and for one agent run beside it on a fixture. Not measured with a tool over the network |
 | Component footprint on the orchestrator is measured | Open |
-| The threat model covers dispatch, workload identity, and the AI-specific threats | Open |
+| The threat model covers dispatch, workload identity, and the AI-specific threats | Written: T45 to T51 for dispatch and Argo, from ADRs 0029 and 0030, both proposed. Every one rated high has a control: T50, the controller image. Workload identity is unchanged, with no cloud identity ([0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)) |
 | Every image and every model input is pinned by digest and verified on the orchestrator | **Tested** for the model server (38 files and one commit) and for the agent runtime (one file). **Tested** for the tool service image: `T.2` passes against the running pod and failed against a manifest with one digest character changed ([fail side](#the-fail-side-of-each-new-check)) |
 | Every tool call is logged with caller, job, and decision, out of the worker's reach | Partly **tested**: the live service printed one line per decision with caller, job, and decision, and no token ([round trip](#the-round-trip), step 10). **Tested** for storage on the live system: the [audit copier](#slice-the-audit-copier) copies every line into an append-only file that no pod mounts, `L.1` to `L.7` pass, and each was seen to fail, on a broken condition or before the install ([rollout](#rollout-of-the-log-copies)). Root on the orchestrator can edit it |
 | A revoked or expired job token is refused | **Tested** on the live system: [round trip](#the-round-trip) step 8, and [an expired job token](#an-expired-job-token) |
@@ -1212,7 +1212,9 @@ Each test was seen to fail on a broken copy of the code: redaction taken out, th
 
 ## Slice: Argo and the workflow template
 
-Date: 2026-10-20, written and checked locally. Not installed. The template's dispatch image is a placeholder of zeros until `main` pushes the image, and the pipeline refuses it until then.
+Date: 2026-10-20, written and checked locally. Not installed.
+
+The template's dispatch image is the digest the pipeline pushed from `main` at `084ff13`, read from that run's log: `sha256:e1bdac46...9cb0`. An anonymous request for its manifest by that digest returned 200 and the same digest, so the cluster pulls it without a token. A request for another digest, and for a package that does not exist, returned 404. The image's configuration names `amd64`, `linux`, user `65532:65532`, and the dispatch script as its entry point.
 
 The orchestrator's side of dispatch, as [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) and [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md) propose it.
 
