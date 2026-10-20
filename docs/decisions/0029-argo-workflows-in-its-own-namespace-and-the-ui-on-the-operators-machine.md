@@ -26,7 +26,7 @@ The orchestrator has 2 vCPUs and 8 GiB, with K3s, the tool service, and the log 
 
 ## Decision
 
-**The controller.** Argo Workflows v4.1.5, the namespace install, in a namespace of its own, `argo`. The controller runs with `--namespaced --managed-namespace=orchestration`, so it watches `orchestration` and nothing else. Its upstream Role stays in `argo` for its lease and configuration, and a copy of that Role is bound to it in `orchestration`. No other Argo component runs in the cluster: no server, no workflow archive, no artifact repository.
+**The controller.** Argo Workflows v4.1.5, the namespace install, in a namespace of its own, `argo`. The controller runs with `--namespaced --managed-namespace=orchestration`, so it watches `orchestration` and nothing else. Its upstream Role, without `secrets: get`, stays in `argo` for its lease and configuration, and a copy of that Role is bound to it in `orchestration`. In v4.1.5 the controller reads a secret only for the agent of HTTP and plugin templates, which these workflows do not use. No other Argo component runs in the cluster: no server, no workflow archive, no artifact repository.
 
 **The UI.** The operator runs `argo server` in local mode, or the `argo` command line, on the workstation. Both reach the API server through the tunnel that [0022](0022-short-lived-ssh-certificates-for-the-operator.md) already allows, with a kubeconfig whose token belongs to `argo-operator`: a service account in `orchestration` that may create, read, stop, and delete workflows, read workflow templates, and read pod logs. The token is made on the orchestrator with `kubectl create token` for 12 hours, the life of an SSH certificate.
 

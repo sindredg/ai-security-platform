@@ -1246,9 +1246,24 @@ Read from Argo's documentation at v4.1.5 before the manifests were written: the 
 | The check script's expected values from the checkout | The controller's digest, its arguments, and the template's hash | As expected. The hash changes when the dispatch digest is pinned |
 | ShellCheck 0.11.0 and Ruff 0.17.1 | Clean | Clean |
 
+### The scanners
+
+The pipeline's first run on the pull request failed Checkov, with 4 findings, and Trivy, with 10, all on the controller's Deployment and Role. What became of each:
+
+| Finding | Outcome |
+| --- | --- |
+| No CPU limit (`CKV_K8S_11`, `KSV-0011`), no readiness probe (`CKV_K8S_9`), a user and group ID under 10000 (`CKV_K8S_40`, `KSV-0020`, `KSV-0021`) | Fixed: a CPU limit of 500m, a readiness probe on `/healthz`, and user and group 65532 |
+| The Role may read secrets (`KSV-0113`, both Roles) | Avoided: `secrets: get` taken out of both copies. In v4.1.5 the controller reads a secret only in `workflow/controller/agent.go`, for the agent of HTTP and plugin templates, which these workflows do not use |
+| An image from a registry Trivy does not trust (`KSV-0125`) | `quay.io` added to `.github/trivy-data/ksv0125.yaml`, with its reason: the digests are pinned, and their signatures were checked against the release's key |
+| The controller's account mounts a token (`CKV_K8S_38`) | Skipped on the Deployment by annotation, with its reason: the controller works through the API server |
+| The Role may create and delete pods (`KSV-0048`), and use `pods/exec` (`KSV-0053`, high) | Accepted in `platform/argo/.trivyignore.yml`, limited to the two Role files. Creating pods is the controller's job, a trade-off ADR 0029 names. It delivers a stop to a running step with `argoexec kill` through exec (`workflow/signal/signal.go` at v4.1.5), and the stop is the cancel ADR 0030 relies on |
+
+Read again locally afterwards, with Trivy 0.76.0 and Checkov 3.3.29 at the pipeline's pins: Trivy finds nothing in `platform/`, and still finds both `KSV-0048` and `KSV-0053` on a Role in another file. Checkov passes 236, fails 0, skips 1, and fails `CKV_K8S_38` once the annotation is removed.
+
 ### Limits
 
 - **Nothing is installed, and the new rule is not loaded.** `E.6` and `W.1` to `W.10` fail on the next check run until the [workflows runbook](../runbooks/workflows.md) runs. `nft` was not available on the workstation, so the rule's syntax is first checked by `nft -c` on the orchestrator, in step 5.
 - **`W.9` assumes the API server stores the template's spec as given.** Its first run shows whether defaults are added.
 - **The network policy to the API server names the host's address and port.** That the policy matches after the service address is translated rests on the dispatch policy's name server rule, which works that way. The controller's first start shows it.
 - **The operator's Role was written from the commands the runbook uses.** The UI in local mode may ask for more. A refusal shows in its log.
+- **The controller runs without `secrets: get`, unlike upstream, and as user 65532, not its image's 8737.** Both are read from the source, not run. Its first start and the first stop show whether either breaks something.
