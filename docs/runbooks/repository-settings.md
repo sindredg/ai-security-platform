@@ -1,6 +1,6 @@
 # Repository settings and signed commits: operator procedure
 
-Status: Implemented on 2026-10-17. The settings were made in the web interface that day and read back with the command in step 7. Steps 8 to 11 were run that day, with the results in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github). On 2026-10-17 steps 4 to 11 were run as written, through the API, on the new [targets repository](https://github.com/sindredg/ai-security-platform-test), with its own list of checks in step 5 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-repositorys-settings)). Steps 1 to 3 were not repeated: the key and the allowed signers file were already in place.
+Status: Implemented on 2026-10-17. The settings were made in the web interface that day and read back with the command in step 7. On 2026-10-20 two checks were added to `protect-main` with [Add a required check](#add-a-required-check), and read back. Steps 8 to 11 were run that day, with the results in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github). On 2026-10-17 steps 4 to 11 were run as written, through the API, on the new [targets repository](https://github.com/sindredg/ai-security-platform-test), with its own list of checks in step 5 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-repositorys-settings)). Steps 1 to 3 were not repeated: the key and the allowed signers file were already in place.
 
 The repository is the approval channel, so its settings are part of the system ([pipeline](../components/pipeline.md#repository-settings), [ADR 0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)). These steps set up commit signing on the workstation, the allowed signers file, squash-only merges, the two rulesets, and then prove the fail side.
 
@@ -91,6 +91,8 @@ The repository is the approval channel, so its settings are part of the system (
            {"context": "Kubernetes manifests", "integration_id": 15368},
            {"context": "Log copier tests", "integration_id": 15368},
            {"context": "Squid configuration", "integration_id": 15368},
+           {"context": "Dispatch tests", "integration_id": 15368},
+           {"context": "Dispatch image", "integration_id": 15368},
            {"context": "Commit signatures", "integration_id": 15368}]}}
      ]
    }
@@ -123,7 +125,27 @@ The repository is the approval channel, so its settings are part of the system (
    gh api $R --jq '{allow_squash_merge,allow_merge_commit,allow_rebase_merge,push_protection:.security_and_analysis.secret_scanning_push_protection.status}'
    ```
 
-   Expected: two rulesets, both `active` with an empty bypass list. `protect-main` on `~DEFAULT_BRANCH` with `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks`, `required_signatures`. The second on `~ALL` with `required_signatures` only. Twelve checks, each `@15368`. Squash only, and push protection `enabled`.
+   Expected: two rulesets, both `active` with an empty bypass list. `protect-main` on `~DEFAULT_BRANCH` with `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks`, `required_signatures`. The second on `~ALL` with `required_signatures` only. Fourteen checks, each `@15368`. Squash only, and push protection `enabled`.
+
+### Add a required check
+
+A new job in the checks workflow becomes required by adding it to `protect-main`. Run it after the job has passed on `main` once, so a pull request has a run to wait for.
+
+```bash
+R=repos/REPLACE_WITH_OWNER/REPLACE_WITH_REPO
+ID=$(gh api $R/rulesets --jq '.[] | select(.name == "protect-main") | .id')
+gh api $R/rulesets/$ID > protect-main-before.json
+jq --arg check "REPLACE_WITH_JOB_NAME" '{name, target, enforcement, conditions, bypass_actors,
+  rules: [.rules[] | if .parameters == null then {type} else {type, parameters} end
+    | if .type == "required_status_checks"
+      then .parameters.required_status_checks += [{context: $check, integration_id: 15368}] else . end]}' \
+  protect-main-before.json > protect-main-new.json
+diff <(jq -S '{name, target, enforcement, conditions, bypass_actors, rules: [.rules[] | if .parameters == null then {type} else {type, parameters} end]}' protect-main-before.json) \
+  <(jq -S . protect-main-new.json)
+gh api -X PUT $R/rulesets/$ID --input protect-main-new.json --jq '[.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context]'
+```
+
+Expected: the diff shows the one added check and nothing else. The PUT returns the list with it at the end. Then run step 7, and add the check to step 5's list. Used on 2026-10-20 for "Dispatch tests" and "Dispatch image".
 
 ## The fail side
 
