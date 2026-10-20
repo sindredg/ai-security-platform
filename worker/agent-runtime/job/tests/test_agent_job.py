@@ -67,10 +67,11 @@ FAKE_GOOSE = textwrap.dedent(
 
 class Erases(BaseHTTPRequestHandler):
     seen: ClassVar[list] = []
+    status = 200
 
     def do_POST(self):
         Erases.seen.append(self.path)
-        self.send_response(200)
+        self.send_response(Erases.status)
         self.end_headers()
 
     def log_message(self, *args):
@@ -83,6 +84,7 @@ class Base(unittest.TestCase):
         self.server = HTTPServer(("127.0.0.1", 0), Erases)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         Erases.seen = []
+        Erases.status = 200
 
     def tearDown(self):
         self.server.shutdown()
@@ -126,6 +128,7 @@ class Base(unittest.TestCase):
             while chunk := ours.recv(65536):
                 data += chunk
         process.wait(timeout=30)
+        self.stderr = process.stderr.read()
         process.stderr.close()
         return process.returncode, data
 
@@ -229,6 +232,15 @@ class AWholeJob(Base):
         self.run_job(json.dumps(JOB).encode() + b"\n")
         self.assertFalse((self.tmp / "job" / "recipe.json").exists())
         self.assertEqual(Erases.seen, ["/slots/0?action=erase"])
+        self.assertIn(b'"slot_erased": true', self.stderr)
+
+    def test_an_erase_the_server_refuses_is_reported(self):
+        # What the server on the worker answered on 2026-10-20: 501, without
+        # --slot-save-path.
+        Erases.status = 501
+        _, data = self.run_job(json.dumps(JOB).encode() + b"\n")
+        self.assertEqual(json.loads(data)["status"], "completed")
+        self.assertIn(b'"slot_erased": false', self.stderr)
 
     def test_the_token_never_comes_back_in_the_result(self):
         _, data = self.run_job(json.dumps(JOB).encode() + b"\n")

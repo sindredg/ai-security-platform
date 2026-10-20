@@ -49,6 +49,12 @@ TOOL_URL = "https://tool-service.aisec.internal:30443/mcp"
 TOOL_CERT = "/etc/aisec/tool-service.crt"
 # The unit sets nothing here. The tests point it at a stub.
 MODEL_URL = os.environ.get("AISEC_MODEL_URL", "http://127.0.0.1:8080")
+# The server takes a cancel, and then the erase, only between prompt batches
+# of up to 2048 tokens. On 2026-10-20 a batch of 1004 took 57.5 seconds. The
+# dispatch step waits 120 seconds past the job's limit, so a timed-out job's
+# result still arrives. After a longer batch the outcome line says false,
+# whatever the server does with the erase later.
+ERASE_SECONDS = 90
 
 
 class Refused(Exception):
@@ -277,7 +283,7 @@ def erase_slot():
         MODEL_URL + "/slots/0?action=erase", data=b"", method="POST"
     )
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:  # noqa: S310 - the same
+        with urllib.request.urlopen(request, timeout=ERASE_SECONDS) as response:  # noqa: S310 - the same
             return response.status == 200
     except OSError:
         return False

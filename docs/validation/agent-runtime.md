@@ -2,7 +2,7 @@
 
 Goose on the AI worker, one static binary that runs once per job in a transient unit. Nothing about it runs between jobs, so the checks read what is installed and what a finished job leaves behind. The procedure is the [agent runtime runbook](../runbooks/agent-runtime.md), and the component is described on the [AI worker page](../components/ai-worker.md#the-agent-runtime).
 
-Status: **tested** on the running system on 2026-10-19. `G.1` to `G.4` pass, with Goose 1.55.0 and the fixture installed again that day ([worklog](../worklogs/0003-toolchain-integration.md#llamacpp-and-goose-on-the-worker)). `G.2` failed from 2026-10-18 until then: the fixture on the worker was the one installed on 2026-10-12, and two of its files had been reformatted in the repository afterwards ([worklog](../worklogs/0004-edge-network-and-monitoring.md#before-the-ai-part)). `G.5` to `G.9`, for how a dispatched job arrives ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)), were written on 2026-10-19 and have not run against the worker. Before `install-job.sh` runs there, `G.5` to `G.8` fail on absence, as expected.
+Status: **tested** on the running system on 2026-10-19. `G.1` to `G.4` pass, with Goose 1.55.0 and the fixture installed again that day ([worklog](../worklogs/0003-toolchain-integration.md#llamacpp-and-goose-on-the-worker)). `G.2` failed from 2026-10-18 until then: the fixture on the worker was the one installed on 2026-10-12, and two of its files had been reformatted in the repository afterwards ([worklog](../worklogs/0004-edge-network-and-monitoring.md#before-the-ai-part)). `G.5` to `G.9`, for how a dispatched job arrives ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)), were written on 2026-10-19. They first ran against the worker on 2026-10-20 at 19:29 UTC, after `install-job.sh`: `G.6` to `G.9` pass, and `G.5` fails until the dispatch key is installed. Before `install-job.sh` runs, `G.5` to `G.8` fail on absence. `G.10`, added the same day, fails on the running system: both jobs that day logged `"slot_erased": false` ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md)).
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
@@ -15,6 +15,7 @@ Status: **tested** on the running system on 2026-10-19. `G.1` to `G.4` pass, wit
 | `G.7` | The job socket listens, and only root and the job account may use it | Any process that can connect starts a job | The socket unit is `active`, and the socket is `root aisec-job 660` |
 | `G.8` | The worker runs the job runner, program, and units in this checkout | They are the boundary on the worker, and the sandbox is in the unit file | One SHA-256 over the five installed files, in install order, equal to the same over the checkout, with the Goose path filled into the service template as `install-job.sh` does |
 | `G.9` | No dispatched job's unit is loaded between jobs | A unit left loaded keeps its private `/tmp`, and the socket allows one connection at a time | `systemctl list-units --all 'aisec-agent-job@*'` lists nothing |
+| `G.10` | The last job erased the model server's slot | The slot keeps a job's prompt for the next one, which reuses whatever matches, and a job learns from its own timing what came before (T19, A6) | The last `"slot_erased"` value in the journal of the `aisec-agent-job@*` units is `true`. The job program writes it after Goose has stopped. No such line is `no job outcome in the journal`, a failure |
 
 `G.3`, `G.4`, and `G.9` assume the checks run between jobs, as every check run has so far. During a job they read `loaded` and `2`. Once dispatch runs jobs on its own, a check run that meets one needs a look before it counts as a failure.
 
@@ -29,6 +30,8 @@ Each check's own probe line, run on the worker on 2026-10-18 at 19:04 UTC with t
 | `G.2` | None needed: it fails on the live worker | The digest of the fixture as of commit `3eaa3ca` |
 | `G.3` | The model server's unit, which is loaded | `loaded` |
 | `G.4` | The model server's unit, which keeps a private `/tmp` | `2` |
+| `G.10` | None needed: it fails on the live worker, on 2026-10-20 after the first two jobs | `false` |
+| `G.10` | On 2026-10-20: a unit pattern with no jobs, `aisec-no-such-job@*`, and the model server's unit | Empty, twice, which the check prints as `no job outcome in the journal` |
 | `G.8` | Locally, on 2026-10-19, not on the worker: the five files installed into a temporary directory the way `install-job.sh` does, then `MemoryMax` changed in the unit, then the runner removed | `match`, then `differ` twice |
 
 ## Limits
@@ -36,3 +39,4 @@ Each check's own probe line, run on the worker on 2026-10-18 at 19:04 UTC with t
 - `G.1` reads the file. A binary replaced while a run holds it open is not seen until the next check run.
 - The sandbox of the transient unit is not checked. It exists only during a run, and `run-agent.sh` sets it from the operator's checkout. Its exposure score was read once, during a run on 2026-10-12.
 - The tool set is a flag on the command line. No check reads which tools a run loads.
+- `G.10` reads the last job only. A job before it that left the slot full is not seen.

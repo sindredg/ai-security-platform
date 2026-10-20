@@ -389,6 +389,7 @@ echo "job_account=$(id -nG aisec-job 2>/dev/null) $(sudo -n -l -U aisec-job 2>/d
 echo "job_socket=$(systemctl is-active aisec-agent-job.socket 2>/dev/null) $(stat -c "%U %G %a" /run/aisec-job/agent.sock 2>/dev/null)"
 echo "job_programs=$(cat /usr/local/sbin/aisec-job-runner /usr/local/lib/aisec/job/agent_job.py /usr/local/lib/aisec/job/system.txt /etc/systemd/system/aisec-agent-job.socket /etc/systemd/system/aisec-agent-job@.service 2>/dev/null | sha256sum | cut -d " " -f 1)"
 echo "job_instances=$(systemctl list-units --all --no-legend "aisec-agent-job@*" 2>/dev/null | wc -l)"
+echo "slot_erased=$(journalctl --no-pager -o cat -u "aisec-agent-job@*" 2>/dev/null | sed -n "s/.*\"slot_erased\": \([a-z]*\).*/\1/p" | tail -n 1)"
 echo "host_key=$(cut -d " " -f 1,2 /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null)"
 '
 
@@ -674,6 +675,11 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check G.7 "The job socket listens, and only root and the job account may use it" "active root aisec-job 660" "$(value job_socket)"
   check G.8 "The worker runs the job runner, program, and units in this checkout" "$JOB_SHA" "$(value job_programs)"
   check G.9 "No dispatched job's unit is loaded between jobs" 0 "$(value job_instances)"
+  # The job program erases the model server's slot after each job (#32), and
+  # its last line says whether the server did. A worker that has run no job
+  # fails this.
+  slot_erased=$(value slot_erased)
+  check G.10 "The last job erased the model server's slot" true "${slot_erased:-no job outcome in the journal}"
   # The dispatch secret, read in the orchestrator's section, holds the key and
   # the worker's host key, and that host key is this worker's.
   check W.10 "The dispatch secret pins this worker's host key" \

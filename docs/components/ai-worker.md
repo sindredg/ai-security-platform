@@ -38,7 +38,7 @@ llama.cpp v0.7.0, build `b11669`, serves Qwen3.5-4B, quantized to `Q4_K_M`, on `
 | Binaries | `/opt/aisec/llama.cpp/llama-b11669`, the project's release build, checked against its published checksum |
 | Model file | `/opt/aisec/models/Qwen3.5-4B-Q4_K_M.gguf`, 2.78 GB. Built here from Qwen's weights, not downloaded ([ADR 0015](../decisions/0015-build-the-model-file-on-the-worker.md)) |
 | Unit | `aisec-llama-server.service`: a throwaway account, a read-only file system, localhost only, a 6 GB memory limit |
-| Settings | 2 threads, 8192-token context, one slot, no web interface, no RAM prompt cache |
+| Settings | 2 threads, 8192-token context, one slot, no web interface, no RAM prompt cache. A slot save path that is empty and read-only to the server: without one, the server refuses to erase the slot ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md)) |
 | Procedure | The [model server runbook](../runbooks/model-server.md) |
 
 ## The agent runtime

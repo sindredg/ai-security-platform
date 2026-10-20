@@ -11,7 +11,15 @@ here=$(cd "$(dirname "$0")" && pwd)
 # The line the build wrote for this file. No line is a failure, not a pass.
 (cd "$MODEL_DIR" && awk -v name="$(basename "$MODEL_FILE")" '$2 == name' SHA256SUMS | sha256sum --check --strict)
 
-sed -e "s|@LLAMA_DIR@|$LLAMA_DIR|g" -e "s|@MODEL_FILE@|$MODEL_FILE|g" \
+# The slot directory. The server's account cannot write it, and a file in it
+# is one the server could load into the slot, so it has to be empty.
+install -d -o root -g root -m 0755 "$SLOT_DIR"
+if [ -n "$(ls -A "$SLOT_DIR")" ]; then
+  echo "$SLOT_DIR is not empty" >&2
+  exit 1
+fi
+
+sed -e "s|@LLAMA_DIR@|$LLAMA_DIR|g" -e "s|@MODEL_FILE@|$MODEL_FILE|g" -e "s|@SLOT_DIR@|$SLOT_DIR|g" \
   "$here/aisec-llama-server.service" > /etc/systemd/system/aisec-llama-server.service
 chmod 0644 /etc/systemd/system/aisec-llama-server.service
 systemctl daemon-reload
