@@ -5,7 +5,7 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices. Five are on the system: the model server on the AI worker, the agent runtime running headless against it with a fixture tool, the tool service in K3s on the orchestrator, called from the worker with a job token, the audit copier, and the journal pull. Dispatch is written and tested in the pipeline, and not installed: the [job socket](#slice-jobs-over-a-socket) on the worker, the dispatch step and its image, and [Argo with the workflow template](#slice-argo-and-the-workflow-template). No workflow has run, and the agent has not called the tool service on the worker. The gate is not met.
+The milestone is built in slices. Five are on the system: the model server on the AI worker, the agent runtime running headless against it with a fixture tool, the tool service in K3s on the orchestrator, called from the worker with a job token, the audit copier, and the journal pull. Dispatch is written and tested in the pipeline, and not installed: the [job socket](#slice-jobs-over-a-socket) on the worker, the dispatch step and its image, [Argo with the workflow template](#slice-argo-and-the-workflow-template), and [the transcript in the result](#slice-the-transcript-in-the-result). No workflow has run, and the agent has not called the tool service on the worker. The gate is not met.
 
 | Gate | Result |
 | --- | --- |
@@ -1272,3 +1272,44 @@ Read again locally afterwards, with Trivy 0.76.0 and Checkov 3.3.29 at the pipel
 - **The network policy to the API server names the host's address and port.** That the policy matches after the service address is translated rests on the dispatch policy's name server rule, which works that way. The controller's first start shows it.
 - **The operator's Role was written from the commands the runbook uses.** The UI in local mode may ask for more. A refusal shows in its log.
 - **The controller runs without `secrets: get`, unlike upstream, and as user 65532, not its image's 8737.** Both are read from the source, not run. Its first start and the first stop show whether either breaks something.
+
+## Slice: the transcript in the result
+
+Date: 2026-10-20, written and tested locally. Not installed. The dispatch image with this change is built from `main` after the merge, and the template's pin moves in a change of its own.
+
+Until now a job returned counts, the last answer, a tail of Goose's standard error, and token counts. Goose's whole transcript stayed in `out.json` in the unit's private `/tmp`, and went with the unit. A run showed what the agent concluded, not what it asked for or what the tool gave it. [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), still proposed, now has the result carry the transcript.
+
+### What changed
+
+| File | What it does |
+| --- | --- |
+| `worker/agent-runtime/job/agent_job.py` | The result gets `transcript`: the recipe's instructions, then each part of each message as role, type, and text. A tool call's text is its name and arguments as JSON. A tool response's text is what the tool returned, or the error Goose recorded. A part of another type keeps its JSON. The answer, the standard error tail, and each part are cut by the size of their JSON form, 16, 4, and 8 KiB, and the transcript gets what the rest of the 64 KiB line leaves. A last part of type `cut` says how many parts did not fit. Without Goose output, the transcript is the instructions only |
+| `platform/dispatch/dispatch.py` | Accepts `transcript` as an optional field, and refuses a part that is not an object with exactly `role`, `type`, and `text`, each a string. Prints the summary line without the answer and the transcript, then each part under a `-- role type` line, then `-- answer`. Control and format characters in what it prints become U+FFFD |
+
+The transcript goes to the socket only. The unit's standard error goes to the worker's journal (`StandardError=journal` in `aisec-agent-job@.service`), and the journal pull copies the whole journal to the workspace, so nothing from the transcript is written there.
+
+Two defects in the same function were fixed on the way. Both were found by reading the code, not by a run:
+
+- **A cut could leave most of the token.** The answer was cut to 8000 characters and the standard error to its last 2000 before the token was replaced. A token split by the cut no longer matched, so up to 63 of its 64 characters stayed. The token is now replaced first.
+- **The character limits did not bound the line.** JSON escapes a character outside ASCII to 6 bytes, or 12 outside the Basic Multilingual Plane. An answer of 8000 such characters takes up to 96,000 bytes, more than the 65,536 the runner and the dispatch step accept, and the step would fail with "the result is too large". Reasoned from the encoding. No run hit it.
+
+The message shape is the one the job program and `check_answer.py` already read, which the fixture runs on 2026-10-19 passed. The inside of a tool response, a list of text items under `content`, was not seen in a live transcript. Another shape keeps its JSON, so nothing is dropped.
+
+### Tests
+
+Run on the workstation with Python 3.12, from each directory: `python3 -I -m unittest discover -s tests`. 26 tests on the worker's side, 22 before, and 13 for the dispatch step, 11 before, all passing. Ruff 0.17.1, the pipeline's version, passes `check` and `format --check` over `worker`, `platform`, and `tool-service`.
+
+| Side | New cases |
+| --- | --- |
+| Worker | The transcript comes back part by part with the token replaced in a tool response. A transcript of 40 long parts in characters outside ASCII, with an answer and standard error of the same, gives a line within 64 KiB that ends in a `cut` part. A token at the edge of a cut leaves no 16 characters of itself, in the answer, in a part, or in the standard error tail. Without Goose output, the transcript is the instructions only |
+| Dispatch | Through the real job runner and job program, the transcript reaches the output file and the log, and the summary line has no transcript. Five more bad results are refused: a transcript as text, a part as text, a part with a field added or its text missing, and text as a number. `printable` turns an escape character, a carriage return, and a right-to-left override into U+FFFD, and keeps newlines and tabs |
+
+Each new test was seen to fail on a broken copy of the code. On the worker: the token replaced after the cut, once in all three fields and once in each field alone, and no size budget for the transcript (a line of 358,450 bytes). In the dispatch step: the part check taken out (four of the five new bad results passed), the transcript not printed, and `printable` returning its input.
+
+### Limits
+
+- **Nothing is installed.** The pinned dispatch image refuses a result with a `transcript` ("the result has fields it should not"). The pin has to move to an image built from this change before a workflow runs against a worker with it.
+- **Goose's own system prompt and the tool list it sends the model are not in the transcript.** The recipe's instructions are.
+- **A job that times out returns the instructions only.** Goose prints its JSON when it ends, and a stopped Goose prints nothing. Reasoned from the fixture runs, where the output was one document. Not seen.
+- **The transcript holds the evidence the agent read.** It stays on the orchestrator with its workflow, which the template's `ttlStrategy` deletes 24 hours after it ends. That the dispatch pod and its log go with the workflow is reasoned from the pod's owner, not seen. How long it is kept with real targets is an [open item](../security/accepted-risks.md#open-items).
+- **The tests run on Python 3.12 locally and 3.15 in the pipeline.** The worker has 3.14.

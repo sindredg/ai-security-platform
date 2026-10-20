@@ -59,6 +59,7 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 | Operator sessions to targets in the audit log | T04 | Milestone 4 |
 | Evidence written for one job is readable by the next job on the same target. The tool service stores evidence per target | T16, T19 | Milestone 4, with the first collector |
 | How the targets get packages and stay current | T09 | Milestone 4 |
+| How long a job's transcript is kept. It holds the evidence the agent read, and stays on the orchestrator with its workflow for 24 hours, readable by the operator's Argo account ([0030](../decisions/0030-how-a-job-reaches-the-worker.md)) | T45 | Milestone 4, with the first real target |
 | What the broker allows into a pull request | A5 | Milestone 5 |
 | Repository app permissions | T12 | Milestone 5 |
 | Sign-in strength on the operator's accounts cannot be shown by a gate | T15, T30 | Not planned |
