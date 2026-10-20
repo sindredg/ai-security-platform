@@ -229,6 +229,25 @@ class Chain(unittest.TestCase):
         self.assertEqual((result["status"], result["tool_calls"]), ("completed", 1))
         self.assertIn("Confirmed.", out)
 
+    def test_the_transcript_reaches_the_output_and_the_log(self):
+        code, out, err = self.run_dispatch("dispatch", "job-1", "6", "60", "task")
+        self.assertEqual(code, 0, err)
+        transcript = json.loads((self.tmp / "result.json").read_text())["transcript"]
+        self.assertEqual(
+            [(p["role"], p["type"]) for p in transcript],
+            [
+                ("system", "instructions"),
+                ("assistant", "toolRequest"),
+                ("user", "toolResponse"),
+                ("assistant", "text"),
+            ],
+        )
+        self.assertIn(
+            "-- system instructions\nYou investigate security findings.\n", out
+        )
+        self.assertIn("-- assistant text\nConfirmed.\n-- answer\nConfirmed.\n", out)
+        self.assertNotIn('"transcript"', out.splitlines()[0])
+
     def test_the_token_is_nowhere_but_the_worker(self):
         _, out, err = self.run_dispatch(
             "dispatch", "job-1", "6", "60", "Is F-0001 confirmed?"
@@ -314,6 +333,9 @@ class Chain(unittest.TestCase):
         self.assertEqual(Stub.calls, [])
 
 
+PART = {"role": "assistant", "type": "text", "text": "Confirmed."}
+
+
 class TheResult(unittest.TestCase):
     GOOD: ClassVar[dict] = {
         "job": "job-1",
@@ -326,6 +348,7 @@ class TheResult(unittest.TestCase):
         "answer": "Confirmed.",
         "stderr_tail": "",
         "input_tokens": 700,
+        "transcript": [PART],
     }
 
     def test_a_good_result_passes(self):
@@ -348,10 +371,31 @@ class TheResult(unittest.TestCase):
             "calls as a bool": json.dumps({**self.GOOD, "tool_calls": True}),
             "another job": json.dumps({**self.GOOD, "job": "job-2"}),
             "an unknown status": json.dumps({**self.GOOD, "status": "approved"}),
+            "a transcript as text": json.dumps({**self.GOOD, "transcript": "x"}),
+            "a transcript part as text": json.dumps(
+                {**self.GOOD, "transcript": ["Confirmed."]}
+            ),
+            "a transcript part with a field added": json.dumps(
+                {**self.GOOD, "transcript": [{**PART, "next_step": "run this"}]}
+            ),
+            "a transcript part without its text": json.dumps(
+                {**self.GOOD, "transcript": [{"role": "user", "type": "text"}]}
+            ),
+            "a transcript part's text as a number": json.dumps(
+                {**self.GOOD, "transcript": [{**PART, "text": 1}]}
+            ),
         }
         for name, line in bad.items():
             with self.subTest(name), self.assertRaises(dispatch.Failed):
                 dispatch.check_result(line, "job-1")
+
+
+class TheLog(unittest.TestCase):
+    def test_control_and_format_characters_do_not_reach_a_terminal(self):
+        self.assertEqual(
+            dispatch.printable("a\x1b[2Jb\r\u202ec\n\td"),
+            "a\ufffd[2Jb\ufffd\ufffdc\n\td",
+        )
 
 
 if __name__ == "__main__":

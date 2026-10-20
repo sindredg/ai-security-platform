@@ -56,7 +56,9 @@ FAKE_GOOSE = textwrap.dedent(
         {{"role": "assistant", "content": [{{"type": "toolRequest",
             "toolCall": {{"value": {{"name": "tools__get_evidence"}}}}}}]}},
         {{"role": "user", "content": [{{"type": "toolResponse",
-            "toolResult": {{"status": "success", "value": {{}}}}}}]}},
+            "toolResult": {{"status": "success", "value": {{"content": [
+                {{"type": "text", "text": "F-0001 evidence, token {token}"}}],
+                "isError": False}}}}}}]}},
         {{"role": "assistant", "content": [{{"type": "text", "text": "Confirmed."}}]}},
     ], "metadata": {{"status": "completed", "input_tokens": 700, "output_tokens": 40}}}}))
     """
@@ -233,6 +235,31 @@ class AWholeJob(Base):
         self.assertNotIn(TOKEN.encode(), data)
         self.assertIn("[token]", json.loads(data)["stderr_tail"])
 
+    def test_the_transcript_comes_back_part_by_part_without_the_token(self):
+        _, data = self.run_job(json.dumps(JOB).encode() + b"\n")
+        self.assertEqual(
+            json.loads(data)["transcript"],
+            [
+                {
+                    "role": "system",
+                    "type": "instructions",
+                    "text": "You investigate security findings.",
+                },
+                {"role": "user", "type": "text", "text": "task"},
+                {
+                    "role": "assistant",
+                    "type": "toolRequest",
+                    "text": '{"name": "tools__get_evidence", "arguments": null}',
+                },
+                {
+                    "role": "user",
+                    "type": "toolResponse",
+                    "text": "F-0001 evidence, token [token]",
+                },
+                {"role": "assistant", "type": "text", "text": "Confirmed."},
+            ],
+        )
+
     def test_a_goose_that_fails_gives_a_failed_result(self):
         _, data = self.run_job(json.dumps(JOB).encode() + b"\n", mode="fail")
         result = json.loads(data)
@@ -268,6 +295,56 @@ class AWholeJob(Base):
         self.assertIn(b'"outcome": "cancelled"', process.stderr.read())
         process.stderr.close()
         ours.close()
+
+
+class TheResultLine(unittest.TestCase):
+    """result_line on its own, with Goose's output written by the test."""
+
+    def line(self, messages=(), answer="Confirmed.", stderr=""):
+        tmp = Path(tempfile.mkdtemp())
+        out, err = tmp / "out.json", tmp / "err.txt"
+        last = {"role": "assistant", "content": [{"type": "text", "text": answer}]}
+        metadata = {"status": "completed"}
+        out.write_text(
+            json.dumps({"messages": [*messages, last], "metadata": metadata})
+        )
+        err.write_text(stderr)
+        return agent_job.result_line(
+            JOB, "system text", "ended", 0, time.monotonic(), out, err
+        )
+
+    def test_a_long_transcript_is_cut_to_the_limit_and_says_so(self):
+        # Characters outside ASCII take 6 or 12 bytes each in the line.
+        text = "\U0001f600é" * 3000
+        messages = [{"role": "user", "content": [{"type": "text", "text": text}]}] * 40
+        line = self.line(messages, answer=text * 3, stderr=text * 3)
+        self.assertLessEqual(len(line.encode()), agent_job.RESULT_BYTES)
+        result = json.loads(line)
+        self.assertEqual(result["transcript"][-1]["type"], "cut")
+        self.assertRegex(result["transcript"][-1]["text"], r"^\d+ parts left out$")
+        self.assertGreater(len(result["transcript"]), 2)
+
+    def test_no_part_of_the_token_is_left_where_a_text_is_cut(self):
+        # Cut first and replaced after, each text would keep half the token.
+        # The stderr tail is cut from its start.
+        for size in (agent_job.ANSWER_BYTES, agent_job.PART_BYTES):
+            text = "x" * (size - 2 - 32) + TOKEN
+            messages = [{"role": "user", "content": [{"type": "text", "text": text}]}]
+            stderr = TOKEN + "x" * (agent_job.STDERR_BYTES - 2 - 32)
+            line = self.line(messages, answer=text, stderr=stderr)
+            self.assertNotIn(TOKEN[:16], line)
+
+    def test_without_goose_output_the_transcript_is_the_instructions_only(self):
+        tmp = Path(tempfile.mkdtemp())
+        (tmp / "err.txt").write_text("")
+        line = agent_job.result_line(
+            JOB, "system text", "timeout", None, time.monotonic(),
+            tmp / "out.json", tmp / "err.txt",
+        )  # fmt: skip
+        self.assertEqual(
+            json.loads(line)["transcript"],
+            [{"role": "system", "type": "instructions", "text": "system text"}],
+        )
 
 
 class TheDeadline(Base):
