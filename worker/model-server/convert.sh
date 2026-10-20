@@ -24,7 +24,7 @@ tar -xf "$stage/converter-src.tar" -C "$work"
 
 echo "== convert to GGUF, 16-bit float"
 PYTHONPATH=$work/site:$work/converter/gguf-py \
-  python3 "$work/converter/convert_hf_to_gguf.py" "$stage/qwen" \
+  python3 "$work/converter/convert_hf_to_gguf.py" "$stage/$MODEL_NAME" \
   --outtype f16 --outfile "$work/$MODEL_NAME-F16.gguf"
 
 echo "== quantize to $MODEL_QUANT"

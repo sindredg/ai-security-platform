@@ -1,0 +1,18 @@
+# One model the build can make. Tab-separated, as artifacts.tsv: sha256, path
+# under the staging directory, source URL. The paths sit under a directory named
+# after this file, which is the model's name in pins.env.
+#
+# granite-4.2-3b at revision e459acceac81e5fe67c07d9cfc72329a332e7eb1, from the publisher.
+# The repository also holds granite_thinking_parser.py and model.sig. Neither
+# is staged: the converter runs no file from the publisher, and nothing here
+# checks the signature.
+e4f44b9c6924a283f1d1d36057a89f1a04404bf1561fc2c0b64cf98180e72915	granite-4.2-3b/config.json	https://huggingface.co/ibm-granite/granite-4.2-3b/resolve/e459acceac81e5fe67c07d9cfc72329a332e7eb1/config.json
+f0ba43f79b3cabca5e5a7584c77aec92f49feae45cdf7779c87d9fc54cd90258	granite-4.2-3b/chat_template.jinja	https://huggingface.co/ibm-granite/granite-4.2-3b/resolve/e459acceac81e5fe67c07d9cfc72329a332e7eb1/chat_template.jinja
+883975314d58743726347caaf2c32ac89afd5ad57222cffbc4f052f2ab27b2d7	granite-4.2-3b/tokenizer.json	https://huggingface.co/ibm-granite/granite-4.2-3b/resolve/e459acceac81e5fe67c07d9cfc72329a332e7eb1/tokenizer.json
+2007f26df166ed10a2d6fa881c1c8f3cdd151e451469f59b274897f14449835f	granite-4.2-3b/tokenizer_config.json	https://huggingface.co/ibm-granite/granite-4.2-3b/resolve/e459acceac81e5fe67c07d9cfc72329a332e7eb1/tokenizer_config.json
+a1be0c1e0a89b5bacda6af6f8b63df09668cb8d1f656229ee9123140c9507810	granite-4.2-3b/vocab.json	https://huggingface.co/ibm-granite/granite-4.2-3b/resolve/e459acceac81e5fe67c07d9cfc72329a332e7eb1/vocab.json
+b6fe424e334903f7fb84d3a106d9730455f4744b9fe3c21ee136d97a00e72502	granite-4.2-3b/merges.txt	https://huggingface.co/ibm-granite/granite-4.2-3b/resolve/e459acceac81e5fe67c07d9cfc72329a332e7eb1/merges.txt
+e9435fefd6d838fd9fcbbc44b97a8e3ff322be7f6dfb7e4fd2468586574bb52b	granite-4.2-3b/special_tokens_map.json	https://huggingface.co/ibm-granite/granite-4.2-3b/resolve/e459acceac81e5fe67c07d9cfc72329a332e7eb1/special_tokens_map.json
+281a9fd788ed108b66ec5fc6e4147c882a9a3c2e8571930029ad19103b23eca8	granite-4.2-3b/model.safetensors.index.json	https://huggingface.co/ibm-granite/granite-4.2-3b/resolve/e459acceac81e5fe67c07d9cfc72329a332e7eb1/model.safetensors.index.json
+db39eb2776b5404dbfd0696cf7fe5ec671f0dad0e0918c62c5aea9e2eb5825d7	granite-4.2-3b/model-00001-of-00002.safetensors	https://huggingface.co/ibm-granite/granite-4.2-3b/resolve/e459acceac81e5fe67c07d9cfc72329a332e7eb1/model-00001-of-00002.safetensors
+8fba6ea17551d5d129eac519dbd70237139221c7fd0b89623ef54d9711062505	granite-4.2-3b/model-00002-of-00002.safetensors	https://huggingface.co/ibm-granite/granite-4.2-3b/resolve/e459acceac81e5fe67c07d9cfc72329a332e7eb1/model-00002-of-00002.safetensors
