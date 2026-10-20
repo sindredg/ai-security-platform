@@ -4,7 +4,7 @@ The one trusted machine. It runs the cluster, copies software to the other machi
 
 | | |
 | --- | --- |
-| State | Built on 2026-10-11, rebuilt from its template on 2026-10-13 ([worklog](../worklogs/0002-platform-compute.md#orchestrator-rebuild)). Verified by the `HO`, `K`, `E`, and `A` checks, which passed in the run on 2026-10-18 ([last run](../validation/README.md#last-run)) |
+| State | Built on 2026-10-11, rebuilt from its template on 2026-10-13 ([worklog](../worklogs/0002-platform-compute.md#orchestrator-rebuild)). Verified by the `HO`, `K`, `E`, and `A` checks, which passed in the run on 2026-10-19 ([last run](../validation/README.md#last-run)) |
 | Where | Sweden Central, `snet-orchestrator`, fixed private address `10.40.0.4` |
 | Size | `Standard_B2as_v2`: 2 vCPUs, 8 GiB, x64 |
 | Image | Ubuntu 26.04 LTS, `Canonical:ubuntu-26_04-lts:server` |
