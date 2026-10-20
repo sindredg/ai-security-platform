@@ -62,7 +62,7 @@ The key and the host key are one secret in `orchestration`, mounted by the dispa
 
 `aisec-agent-job.socket`, owned by root, accepts each connection itself (`Accept=yes`), allows one at a time (`MaxConnections=1`), and lets only the group `aisec-job` connect. Each connection starts one `aisec-agent-job@.service`, with the sandbox `run-agent.sh` has today: a throwaway account, a read-only file system, a private `/tmp`, a memory limit, and a time limit. Its address allow list adds the orchestrator's address to localhost. The security groups let the worker reach only the tool service's port there. The job program inside it:
 
-1. Reads the job line from the socket and checks it: job ID, token, task, and limits. The tool service's address and certificate are fixed on the worker, not taken from the job line.
+1. Reads the job line from the socket and checks it: job ID, token, task, and limits. It refuses a task that Goose would read as more than text: one with template syntax, which Goose renders into the recipe before parsing it, and one that starts with `!` or `/`, a shell or slash command. The tool service's address and certificate are fixed on the worker, not taken from the job line.
 2. Writes the agent's recipe, with the token, into the private `/tmp`, and starts Goose with the tool service as its one extension.
 3. Watches the socket while Goose runs. An end of input before Goose ends is a cancel: it stops Goose and exits.
 4. Asks the model server to erase its slot, so the next job starts with nothing of this one ([#32](https://github.com/sindredg/ai-security-platform/issues/32)).

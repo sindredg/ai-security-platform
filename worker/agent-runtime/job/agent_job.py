@@ -44,6 +44,13 @@ SECONDS = range(60, 1201)
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 TOKEN = re.compile(r"[0-9a-f]{64}")
 FIELDS = {"job", "token", "task", "max_turns", "seconds"}
+# Goose 1.55.0 renders the recipe file as a MiniJinja template before it parses
+# it, so template syntax in the task would run, and its output could replace
+# the recipe. It also runs a first message that starts with "!" as a shell
+# command, and one that starts with "/" as a slash command, after white space.
+# Python's strip removes every character Rust's does, and a few more.
+TEMPLATE = re.compile(r"\{[{%#]")
+COMMAND_PREFIXES = ("!", "/")
 
 TOOL_URL = "https://tool-service.aisec.internal:30443/mcp"
 TOOL_CERT = "/etc/aisec/tool-service.crt"
@@ -98,6 +105,10 @@ def parse_job(line):
         raise Refused("token is not valid")
     if not isinstance(job["task"], str) or not 0 < len(job["task"]) <= TASK_CHARS:
         raise Refused("task is empty or too long")
+    if TEMPLATE.search(job["task"]):
+        raise Refused("task has template syntax")
+    if job["task"].lstrip().startswith(COMMAND_PREFIXES):
+        raise Refused("task starts with a Goose command character")
     for field, allowed in (("max_turns", TURNS), ("seconds", SECONDS)):
         value = job[field]
         if type(value) is not int or value not in allowed:

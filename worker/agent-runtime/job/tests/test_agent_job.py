@@ -155,6 +155,12 @@ class TheJobLine(unittest.TestCase):
             "a token in upper case": json.dumps({**JOB, "token": "AB" * 32}),
             "an empty task": json.dumps({**JOB, "task": ""}),
             "a task too long": json.dumps({**JOB, "task": "x" * 8001}),
+            "an expression": json.dumps({**JOB, "task": "Say {{ 6 * 7 }}."}),
+            "a statement": json.dumps({**JOB, "task": "{% if 1 %}x{% endif %}"}),
+            "a comment": json.dumps({**JOB, "task": "Is it {# no #} confirmed?"}),
+            "a shell command": json.dumps({**JOB, "task": "!ls"}),
+            "a shell command after a newline": json.dumps({**JOB, "task": " \n\t!ls"}),
+            "a slash command": json.dumps({**JOB, "task": "/compact"}),
             "turns as a bool": json.dumps({**JOB, "max_turns": True}),
             "turns as text": json.dumps({**JOB, "max_turns": "6"}),
             "no turns": json.dumps({**JOB, "max_turns": 0}),
@@ -165,6 +171,29 @@ class TheJobLine(unittest.TestCase):
         for name, line in bad.items():
             with self.subTest(name), self.assertRaises(agent_job.Refused):
                 agent_job.parse_job(line)
+
+    def test_a_command_after_any_white_space_rust_strips_is_refused(self):
+        # The White_Space property in Unicode's PropList.txt, which Rust's
+        # trim_start uses.
+        spaces = [*range(0x09, 0x0E), 0x20, 0x85, 0xA0, 0x1680,
+                  *range(0x2000, 0x200B), 0x2028, 0x2029, 0x202F, 0x205F, 0x3000]  # fmt: skip
+        for code in spaces:
+            for prefix in agent_job.COMMAND_PREFIXES:
+                task = chr(code) + prefix + "x"
+                with (
+                    self.subTest(f"{code:#x} {prefix}"),
+                    self.assertRaises(agent_job.Refused),
+                ):
+                    agent_job.parse_job(json.dumps({**JOB, "task": task}))
+
+    def test_braces_and_command_characters_inside_a_task_pass(self):
+        task = "Is F-0001 {confirmed}? See /etc/hosts, 50% of {1}! {} # }}"
+        self.assertEqual(
+            agent_job.parse_job(json.dumps({**JOB, "task": task}))["task"], task
+        )
+
+    def test_the_system_text_has_no_template_syntax(self):
+        self.assertIsNone(agent_job.TEMPLATE.search((HERE / "system.txt").read_text()))
 
     def test_a_line_over_the_limit_is_refused_before_it_is_parsed(self):
         read, write = os.pipe()
