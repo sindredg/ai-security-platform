@@ -1,8 +1,11 @@
 # Registries Trivy's KSV-0125 accepts for Kubernetes manifests. The list
 # replaces Trivy's defaults, which name the Azure, AWS, and Google registries
 # and not GitHub's. The check matches the registry's domain only, so this
-# trusts all of ghcr.io. The control on the tool service image is its digest
-# pin, which the Kubernetes manifests job enforces.
+# trusts all of ghcr.io and quay.io. The control on each image is its digest
+# pin, which the Kubernetes manifests job enforces. ghcr.io holds this
+# repository's own images. quay.io holds Argo's, whose signatures were checked
+# against the release's key before the digests were pinned (ADR 0029).
 ksv0125:
   trusted_registries:
     - ghcr.io
+    - quay.io

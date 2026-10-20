@@ -1,8 +1,8 @@
 # Who may do what in orchestration for Argo (ADR 0029).
 #
 # The controller runs in argo and manages orchestration only. It gets a copy
-# of its upstream Role here: argo.yaml has the original, and the two must
-# match. Check W.3 compares them.
+# of its Role here: argo.yaml has the original, upstream's without secrets,
+# and the two must match. Check W.5 compares them.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -33,9 +33,6 @@ rules:
   - apiGroups: [""]
     resources: [serviceaccounts]
     verbs: [get, list]
-  - apiGroups: [""]
-    resources: [secrets]
-    verbs: [get]
   - apiGroups: [argoproj.io]
     resources: [cronworkflows, cronworkflows/finalizers]
     verbs: [get, list, watch, update, patch, delete]

@@ -9,8 +9,13 @@
 # to orchestration, the executor image, both images by digest, a seccomp
 # profile, resource requests and limits, and two settings in the
 # configuration: the restriction to templates and the executor's security
-# context. The Role is upstream's, unchanged. rbac.yaml binds a copy of it in
-# orchestration.
+# context. The controller also runs as a high user ID and has a CPU limit and
+# a readiness probe, as the scanners ask.
+#
+# The Role is upstream's without `secrets: get`. In v4.1.5 the controller
+# reads a secret only for the agent of HTTP and plugin templates
+# (workflow/controller/agent.go), which these workflows do not use.
+# rbac.yaml binds a copy of it in orchestration.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -55,9 +60,6 @@ rules:
   - apiGroups: [""]
     resources: [serviceaccounts]
     verbs: [get, list]
-  - apiGroups: [""]
-    resources: [secrets]
-    verbs: [get]
   - apiGroups: [argoproj.io]
     resources: [cronworkflows, cronworkflows/finalizers]
     verbs: [get, list, watch, update, patch, delete]
@@ -121,6 +123,8 @@ kind: Deployment
 metadata:
   name: workflow-controller
   namespace: argo
+  annotations:
+    checkov.io/skip1: CKV_K8S_38=The controller works through the API server and needs its token
 spec:
   selector:
     matchLabels:
@@ -158,11 +162,18 @@ spec:
             - containerPort: 9090
               name: metrics
             - containerPort: 6060
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 6060
+            initialDelaySeconds: 10
+            periodSeconds: 30
           resources:
             requests:
               cpu: 50m
               memory: 64Mi
             limits:
+              cpu: 500m
               memory: 512Mi
           securityContext:
             allowPrivilegeEscalation: false
@@ -170,6 +181,8 @@ spec:
               drop: [ALL]
             readOnlyRootFilesystem: true
             runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: workflow-controller

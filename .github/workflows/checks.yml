@@ -124,10 +124,13 @@ jobs:
           docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
             config --skip-check-update --exit-code 1 /src/infra
           # The registry list for KSV-0125 is in the data file, with its reason.
+          # The findings accepted on the Argo controller's Role are in its
+          # ignore file, each limited to the Role's two files, with its reason.
           # The dispatch Dockerfile is scanned on its own below.
           docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
             config --skip-check-update --exit-code 1 \
             --config-data /src/.github/trivy-data \
+            --ignorefile /src/platform/argo/.trivyignore.yml \
             --skip-files /src/platform/dispatch/Dockerfile /src/platform
           # Each Dockerfile's one suppression has its reason in its ignore file.
           docker run --rm --volume "${PWD}:/src:ro" "${TRIVY_IMAGE}" \
