@@ -1,0 +1,76 @@
+# Network policies for Argo and the workflows it runs (ADR 0029, ADR 0030).
+# Policies add up: what platform/tool-service/network-policies.yaml allows in
+# orchestration stays allowed, and this file adds to it.
+#
+# argo: nothing in, and the controller out to the API server only. The API
+# server is the host's address on 6443, which the host rule allows pods to
+# reach (ADR 0023). kube-router matches the address after the service address
+# is translated, as the dispatch policy's name server rule already relies on.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: argo
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: controller-to-api
+  namespace: argo
+spec:
+  podSelector:
+    matchLabels:
+      app: workflow-controller
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.40.0.4/32
+      ports:
+        - protocol: TCP
+          port: 6443
+---
+# Every workflow pod's executor records the step's outputs through the API
+# server. Argo labels each workflow pod with its workflow's name.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: workflow-to-api
+  namespace: orchestration
+spec:
+  podSelector:
+    matchExpressions:
+      - key: workflows.argoproj.io/workflow
+        operator: Exists
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.40.0.4/32
+      ports:
+        - protocol: TCP
+          port: 6443
+---
+# The dispatch step's session to the worker's job account. The host rule lets
+# any pod try this address and port (ADR 0030). This policy is what limits it
+# to dispatch pods once kube-router has written their chains.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dispatch-to-worker
+  namespace: orchestration
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: dispatch
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.40.0.36/32
+      ports:
+        - protocol: TCP
+          port: 22

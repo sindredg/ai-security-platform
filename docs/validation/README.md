@@ -35,6 +35,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Agent runtime](agent-runtime.md) | `G` | The Goose binary and the fixture are the pinned ones, and no finished job leaves its unit or its files |
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |
+| [Workflows](workflows.md) | `W` | Argo's controller, kept to `orchestration` and to templates, the template itself, and the dispatch secret |
 | [Tool service](tool-service.md) | `T` | The deployed tool service: its pod, namespaces, network paths, and certificate |
 | [Audit log](audit-log.md) | `L`, `J` | The copier that stores the tool service's audit lines, the pull of the worker's journal, and the append-only files they write |
 | [Monitoring](monitoring.md) | `O` | The log agents, their hosts entries, the workspace and its scope, heartbeats, and the identities |

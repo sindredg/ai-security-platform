@@ -1,0 +1,193 @@
+# Argo Workflows v4.1.5, the controller only (ADR 0029). Adapted from the
+# release's namespace-install.yaml: the controller's service account, its Role
+# and binding, its configuration, its priority class, and its Deployment. The
+# custom resource definitions come from that file as released, applied by
+# install.sh. The Argo server, its Role, and its Service are left out: the
+# operator runs the UI on the workstation.
+#
+# Changed from upstream: the namespace, the two flags that keep the controller
+# to orchestration, the executor image, both images by digest, a seccomp
+# profile, resource requests and limits, and two settings in the
+# configuration: the restriction to templates and the executor's security
+# context. The controller also runs as a high user ID and has a CPU limit and
+# a readiness probe, as the scanners ask.
+#
+# The Role is upstream's without `secrets: get`. In v4.1.5 the controller
+# reads a secret only for the agent of HTTP and plugin templates
+# (workflow/controller/agent.go), which these workflows do not use.
+# rbac.yaml binds a copy of it in orchestration.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argo
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argo
+  namespace: argo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argo-role
+  namespace: argo
+rules:
+  - apiGroups: [coordination.k8s.io]
+    resources: [leases]
+    verbs: [create, get, update]
+  - apiGroups: [""]
+    resources: [pods, pods/exec]
+    verbs: [create, get, list, watch, update, patch, delete]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, watch, list]
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims, persistentvolumeclaims/finalizers]
+    verbs: [create, update, delete, get]
+  - apiGroups: [argoproj.io]
+    resources: [workflows, workflows/finalizers, workflowtasksets, workflowtasksets/finalizers, workflowartifactgctasks]
+    verbs: [get, list, watch, update, patch, delete, create]
+  - apiGroups: [argoproj.io]
+    resources: [workflowtemplates, workflowtemplates/finalizers]
+    verbs: [get, list, watch]
+  - apiGroups: [argoproj.io]
+    resources: [workflowtaskresults]
+    verbs: [list, watch, deletecollection]
+  - apiGroups: [""]
+    resources: [serviceaccounts]
+    verbs: [get, list]
+  - apiGroups: [argoproj.io]
+    resources: [cronworkflows, cronworkflows/finalizers]
+    verbs: [get, list, watch, update, patch, delete]
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [create, patch]
+  - apiGroups: [policy]
+    resources: [poddisruptionbudgets]
+    verbs: [create, get, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argo-binding
+  namespace: argo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: argo-role
+subjects:
+  - kind: ServiceAccount
+    name: argo
+    namespace: argo
+---
+# Only workflows that reference a template run, and a submission may set
+# only Argo's short allow-list of fields on top of it: arguments, the entry
+# point, deadlines, and clean-up settings among them. A running workflow whose
+# template changes fails. Without this, the right to create a workflow is the
+# right to run any pod in orchestration (ADR 0029).
+#
+# The executor's containers in every workflow pod: Argo's own image runs as
+# 8737. These settings meet the restricted pod security level.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: workflow-controller-configmap
+  namespace: argo
+data:
+  workflowRestrictions: |
+    templateReferencing: Secure
+  executor: |
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 8737
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: workflow-controller
+value: 1000000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workflow-controller
+  namespace: argo
+  annotations:
+    checkov.io/skip1: CKV_K8S_38=The controller works through the API server and needs its token
+spec:
+  selector:
+    matchLabels:
+      app: workflow-controller
+  template:
+    metadata:
+      labels:
+        app: workflow-controller
+    spec:
+      containers:
+        - name: workflow-controller
+          command: [workflow-controller]
+          args:
+            - --namespaced
+            - --managed-namespace
+            - orchestration
+            - --executor-image
+            - quay.io/argoproj/argoexec@sha256:8275c3b970f399e9264ebd5f57e17f554e7494046d0f36f5f05ae2570a601de2
+          env:
+            - name: LEADER_ELECTION_IDENTITY
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+          image: quay.io/argoproj/workflow-controller@sha256:328307c9436f40883b2e9ada14ca4082f062159818a1ca9a4e88577d5dbba257
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 6060
+            initialDelaySeconds: 90
+            periodSeconds: 60
+            timeoutSeconds: 30
+          ports:
+            - containerPort: 9090
+              name: metrics
+            - containerPort: 6060
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 6060
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+      nodeSelector:
+        kubernetes.io/os: linux
+      priorityClassName: workflow-controller
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: argo

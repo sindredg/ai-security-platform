@@ -87,6 +87,18 @@ FIXTURE_SHA=$(cd "$agent/fixture" && sha256sum $FIXTURE_FILES | sha256sum | cut 
 job="$agent/job"
 JOB_SHA=$(cat "$job/aisec_job_runner.py" "$job/agent_job.py" "$job/system.txt" "$job/aisec-agent-job.socket" \
   <(sed "s|@GOOSE@|$GOOSE_BIN|" "$job/aisec-agent-job@.service") | sha256sum | cut -d " " -f 1)
+# Argo (ADR 0029): the controller's image and arguments, and the workflow
+# template's spec as one SHA-256 over its JSON with sorted keys, as kubectl
+# prints it. Read from this checkout. Needs Python's yaml module here.
+argo="$here/../platform/argo"
+ARGO_IMAGE_DIGEST=$(sed -n 's/^ *image: quay.io[^@]*@\(sha256:[0-9a-f]*\)$/\1/p' "$argo/argo.yaml")
+ARGO_EXECUTOR=$(grep -o 'quay.io/argoproj/argoexec@sha256:[0-9a-f]*' "$argo/argo.yaml")
+ARGO_ARGS="[\"--namespaced\",\"--managed-namespace\",\"orchestration\",\"--executor-image\",\"$ARGO_EXECUTOR\"]"
+TEMPLATE_SHA=$(python3 -I -c '
+import hashlib, json, sys, yaml
+spec = yaml.safe_load(open(sys.argv[1]))["spec"]
+text = json.dumps(spec, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+print(hashlib.sha256(text.encode()).hexdigest())' "$argo/workflow-template.yaml" 2>/dev/null || echo "the template did not parse")
 # The feed account's command, from this checkout.
 FEED_SHA=$(sha256sum "$here/../worker/feed/aisec-feed-receive" | cut -d " " -f 1)
 # The copiers' programs and units, in install order, from this checkout.
@@ -205,7 +217,7 @@ echo "monitor_hosts=$(awk "/^# BEGIN aisec-monitoring/ { on = 1; next } /^# END 
 probe_orchestrator="$probe_common"'
 echo "unit_k3s=$(systemctl is-active k3s)"
 echo "node_ready=$(k3s kubectl get nodes --no-headers 2>/dev/null | grep -c " Ready ")"
-echo "pods_not_running=$(k3s kubectl get pods -A --no-headers 2>/dev/null | grep -v -c " Running ")"
+echo "pods_not_running=$(k3s kubectl get pods -A -l "!workflows.argoproj.io/workflow" --no-headers 2>/dev/null | grep -v -c " Running ")"
 echo "secrets_encryption=$(k3s secrets-encrypt status 2>/dev/null | sed -n "s/^Encryption Status: //p")"
 echo "cert_modes_not_600=$(stat -c %a /var/lib/rancher/k3s/server/tls/*.crt | grep -v -c "^600$")"
 echo "default_sa_automount=$(k3s kubectl get sa -A --field-selector metadata.name=default -o jsonpath="{range .items[*]}{.automountServiceAccountToken}{\"\n\"}{end}" 2>/dev/null | grep -v -c "^false$")"
@@ -308,6 +320,20 @@ except TimeoutError:
 except OSError:
     print(\"other\")
 " 2>&1 | tail -n 1)"
+echo "argo_ready=$(k get deployment workflow-controller -n argo -o jsonpath="{.status.readyReplicas}")"
+echo "argo_image=$(k get pods -n argo -l app=workflow-controller -o jsonpath="{.items[0].status.containerStatuses[0].imageID}" | sed "s/.*@//")"
+echo "argo_args=$(k get deployment workflow-controller -n argo -o jsonpath="{.spec.template.spec.containers[0].args}")"
+echo "argo_restriction=$(k get configmap workflow-controller-configmap -n argo -o jsonpath="{.data.workflowRestrictions}" | tr -d "\n")"
+echo "argo_roles=$({ k get role argo-role -n argo -o jsonpath="{.rules}"; echo; k get role argo-role -n orchestration -o jsonpath="{.rules}"; echo; } | sort -u | grep -c .)"
+echo "argo_executor_role=$(k get role argo-executor -n orchestration -o jsonpath="{.rules}")"
+echo "argo_server=$(k get deployments -A -o name | grep -c argo-server)"
+echo "argo_namespace=$(k get namespace argo -o jsonpath="{.metadata.labels.pod-security\.kubernetes\.io/enforce}") $(k get networkpolicy default-deny -n argo -o name)"
+echo "argo_template=$(k get workflowtemplate investigate -n orchestration -o jsonpath="{.spec}" | sha256sum | cut -d " " -f 1)"
+echo "dispatch_secret=$(k get secret dispatch-ssh -n orchestration -o json | python3 -I -c "
+import base64, json, sys
+data = json.load(sys.stdin)[\"data\"]
+print(\" \".join(sorted(data)), base64.b64decode(data[\"known_hosts\"]).decode().strip())
+" 2>/dev/null)"
 '
 
 probe_worker="$probe_common"'
@@ -363,6 +389,7 @@ echo "job_account=$(id -nG aisec-job 2>/dev/null) $(sudo -n -l -U aisec-job 2>/d
 echo "job_socket=$(systemctl is-active aisec-agent-job.socket 2>/dev/null) $(stat -c "%U %G %a" /run/aisec-job/agent.sock 2>/dev/null)"
 echo "job_programs=$(cat /usr/local/sbin/aisec-job-runner /usr/local/lib/aisec/job/agent_job.py /usr/local/lib/aisec/job/system.txt /etc/systemd/system/aisec-agent-job.socket /etc/systemd/system/aisec-agent-job@.service 2>/dev/null | sha256sum | cut -d " " -f 1)"
 echo "job_instances=$(systemctl list-units --all --no-legend "aisec-agent-job@*" 2>/dev/null | wc -l)"
+echo "host_key=$(cut -d " " -f 1,2 /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null)"
 '
 
 probe_router="$probe_common"'
@@ -452,7 +479,8 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check A.9 "Other accounts forward nothing" no "$(value sshd_other_forwarding)"
   check K.1 "k3s is active" active "$(value unit_k3s)"
   check K.2 "The node is Ready" 1 "$(value node_ready)"
-  check K.3 "Every pod is Running" 0 "$(value pods_not_running)"
+  # A workflow's pods end Completed or Error. The workflow's status says which.
+  check K.3 "Every pod outside workflows is Running" 0 "$(value pods_not_running)"
   check K.4 "Secrets encryption is enabled" Enabled "$(value secrets_encryption)"
   check K.5 "Every certificate file is 600" 0 "$(value cert_modes_not_600)"
   check K.6 "No default service account mounts a token" 0 "$(value default_sa_automount)"
@@ -492,8 +520,9 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check U.1 "No security update is pending on the orchestrator" 0 "$(value security_updates_pending)"
   # The chain as nft lists it, with the counter's values taken out. It holds
   # a pod from its first packet, before kube-router writes the pod's policy.
-  check E.6 "Forwarded traffic from pods goes only to pods" \
-    "type filter hook forward priority filter + 10; policy accept;|ip saddr 10.42.0.0/16 ct state established,related accept|ip saddr 10.42.0.0/16 ip daddr 10.42.0.0/16 accept|ip saddr 10.42.0.0/16 counter drop|" \
+  # The one address outside the pods is the worker's SSH port (ADR 0030).
+  check E.6 "Forwarded traffic from pods goes only to pods, and to the worker's SSH port" \
+    "type filter hook forward priority filter + 10; policy accept;|ip saddr 10.42.0.0/16 ct state established,related accept|ip saddr 10.42.0.0/16 ip daddr 10.42.0.0/16 accept|ip saddr 10.42.0.0/16 ip daddr 10.40.0.36 tcp dport 22 accept|ip saddr 10.42.0.0/16 counter drop|" \
     "$(value pod_egress)"
   check E.7 "The pod egress rule loads at boot" enabled "$(value pod_egress_unit)"
   # The same for traffic from pods to the host itself (ADR 0023). Replies to
@@ -514,6 +543,23 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # "refused", observed on 2026-10-15. The orchestrator itself reaches 443
   # (E.1), so without the policy this is "open". Any other end is a failure.
   check T.8 "The tool service pod cannot reach the internet" refused "$(value tool_egress)"
+  # Argo (ADR 0029). The digest that runs and the flags that keep the
+  # controller to orchestration, against argo.yaml in this checkout.
+  check W.1 "The Argo controller is ready" 1 "$(value argo_ready)"
+  check W.2 "The Argo controller runs the image argo.yaml names" "${ARGO_IMAGE_DIGEST:-no digest in argo.yaml}" "$(value argo_image)"
+  check W.3 "The Argo controller manages orchestration only, with the pinned executor" "$ARGO_ARGS" "$(value argo_args)"
+  # Without it, the right to create a workflow is the right to run any pod.
+  check W.4 "The Argo controller runs only workflows that reference a template" "templateReferencing: Secure" "$(value argo_restriction)"
+  # One distinct line: the Role in argo and its copy in orchestration match.
+  check W.5 "The controller's Role in orchestration is a copy of its own" 1 "$(value argo_roles)"
+  check W.6 "The executor may only record task results" \
+    '[{"apiGroups":["argoproj.io"],"resources":["workflowtaskresults"],"verbs":["create","patch"]}]' "$(value argo_executor_role)"
+  check W.7 "No Argo server runs in the cluster" 0 "$(value argo_server)"
+  check W.8 "The argo namespace is restricted and denies by default" \
+    "restricted networkpolicy.networking.k8s.io/default-deny" "$(value argo_namespace)"
+  check W.9 "The workflow template is the one in this checkout" "$TEMPLATE_SHA" "$(value argo_template)"
+  # Kept for W.10 in the worker's section, which reads the worker's own key.
+  DISPATCH_SECRET=$(value dispatch_secret)
   check L.1 "The audit copier is active" active "$(value audit_copy_active)"
   check L.2 "The audit copier starts at boot" enabled "$(value audit_copy_enabled)"
   # Owner, group, mode, and the append-only attribute. The copier's group can
@@ -628,6 +674,10 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check G.7 "The job socket listens, and only root and the job account may use it" "active root aisec-job 660" "$(value job_socket)"
   check G.8 "The worker runs the job runner, program, and units in this checkout" "$JOB_SHA" "$(value job_programs)"
   check G.9 "No dispatched job's unit is loaded between jobs" 0 "$(value job_instances)"
+  # The dispatch secret, read in the orchestrator's section, holds the key and
+  # the worker's host key, and that host key is this worker's.
+  check W.10 "The dispatch secret pins this worker's host key" \
+    "id_ed25519 known_hosts $WORK_IP $(value host_key)" "${DISPATCH_SECRET:-no dispatch secret read}"
   check U.3 "apt on the worker uses the edge" 1 "$(value apt_proxy)"
   check U.4 "Unattended upgrades are enabled on the worker" enabled "$(value unattended_upgrades)"
   check U.5 "No security update is pending on the worker" 0 "$(value security_updates_pending)"

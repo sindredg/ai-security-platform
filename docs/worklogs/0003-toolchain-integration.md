@@ -5,16 +5,16 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices. Five are on the system: the model server on the AI worker, the agent runtime running headless against it with a fixture tool, the tool service in K3s on the orchestrator, called from the worker with a job token, the audit copier, and the journal pull. No workflow or dispatch step exists, and the agent has not called the tool service on the worker. The gate is not met.
+The milestone is built in slices. Five are on the system: the model server on the AI worker, the agent runtime running headless against it with a fixture tool, the tool service in K3s on the orchestrator, called from the worker with a job token, the audit copier, and the journal pull. Dispatch is written and tested in the pipeline, and not installed: the [job socket](#slice-jobs-over-a-socket) on the worker, the dispatch step and its image, and [Argo with the workflow template](#slice-argo-and-the-workflow-template). No workflow has run, and the agent has not called the tool service on the worker. The gate is not met.
 
 | Gate | Result |
 | --- | --- |
-| A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back | Open. No workflow or dispatch step exists |
+| A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back | Open. Written and tested in the pipeline with a fake Goose and stubs, from the dispatch step through the real job runner and job program ([tests](#tests-4)). Not installed |
 | A tool call for another job or target is refused by the tool service | Partly **tested** on the live system: a tool outside the job's scope and a revoked job's token are refused ([round trip](#the-round-trip), steps 3 and 8). Another job's evidence on the same target was not tried, and the service cannot refuse it ([issue #45](https://github.com/sindredg/ai-security-platform/issues/45)). Another target is refused in the service's own tests |
-| Cancelling a workflow stops the worker job and cleans up its session | Open |
+| Cancelling a workflow stops the worker job and cleans up its session | Open. Written: a stop of the dispatch step reaches the job program as an end of input, tested in the pipeline. Not installed |
 | Model memory use, latency per turn, and tokens per second are measured on the chosen size | **Tested** for the model server alone, and for one agent run beside it on a fixture. Not measured with a tool over the network |
 | Component footprint on the orchestrator is measured | Open |
-| The threat model covers dispatch, workload identity, and the AI-specific threats | Open |
+| The threat model covers dispatch, workload identity, and the AI-specific threats | Written: T45 to T51 for dispatch and Argo, from ADRs 0029 and 0030, both proposed. Every one rated high has a control: T50, the controller image. Workload identity is unchanged, with no cloud identity ([0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)) |
 | Every image and every model input is pinned by digest and verified on the orchestrator | **Tested** for the model server (38 files and one commit) and for the agent runtime (one file). **Tested** for the tool service image: `T.2` passes against the running pod and failed against a manifest with one digest character changed ([fail side](#the-fail-side-of-each-new-check)) |
 | Every tool call is logged with caller, job, and decision, out of the worker's reach | Partly **tested**: the live service printed one line per decision with caller, job, and decision, and no token ([round trip](#the-round-trip), step 10). **Tested** for storage on the live system: the [audit copier](#slice-the-audit-copier) copies every line into an append-only file that no pod mounts, `L.1` to `L.7` pass, and each was seen to fail, on a broken condition or before the install ([rollout](#rollout-of-the-log-copies)). Root on the orchestrator can edit it |
 | A revoked or expired job token is refused | **Tested** on the live system: [round trip](#the-round-trip) step 8, and [an expired job token](#an-expired-job-token) |
@@ -1209,3 +1209,61 @@ Each test was seen to fail on a broken copy of the code: redaction taken out, th
 - **The dispatch image was not built here.** The workstation has no Docker. Its Dockerfile passes hadolint 2.15.1 and Trivy 0.76.0's configuration scan with one suppression, DS-0026, with its reason in `platform/dispatch/.trivyignore`. Both were seen to fail without the suppression. The pipeline builds it, checks that `ssh` starts as its user, and scans it. Its first push is from `main`, and the workflow template pins that digest in the next slice.
 - **No linter reads the unit files.** The repository has had unit files without one since milestone 3 ([#131](https://github.com/sindredg/ai-security-platform/issues/131)). `G.8` holds the installed ones equal to the repository.
 - **The fake Goose prints a transcript shaped like the fixture run's.** A Goose release that changes the shape gives a result with zero calls, which the dispatch step treats as a failure.
+
+## Slice: Argo and the workflow template
+
+Date: 2026-10-20, written and checked locally. Not installed.
+
+The template's dispatch image is the digest the pipeline pushed from `main` at `084ff13`, read from that run's log: `sha256:e1bdac46...9cb0`. An anonymous request for its manifest by that digest returned 200 and the same digest, so the cluster pulls it without a token. A request for another digest, and for a package that does not exist, returned 404. The image's configuration names `amd64`, `linux`, user `65532:65532`, and the dispatch script as its entry point.
+
+The orchestrator's side of dispatch, as [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) and [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md) propose it.
+
+### What was written
+
+| File | What it does |
+| --- | --- |
+| `platform/argo/argo.yaml` | The `argo` namespace, the controller's account, its upstream Role and binding, its configuration, its priority class, and its Deployment, adapted from the release: kept to `orchestration`, both images by digest, a seccomp profile, requests and limits, and two settings, `templateReferencing: Secure` and the executor's security context |
+| `platform/argo/rbac.yaml` | In `orchestration`: the copy of the controller's Role, the executor's account and Role (`create` and `patch` on `workflowtaskresults`), and the operator's account and Role |
+| `platform/argo/network-policies.yaml` | Deny by default in `argo`. The controller and each workflow pod's executor to the API server. Dispatch pods to the worker's SSH port |
+| `platform/argo/workflow-template.yaml` | `investigate`: the dispatch step and the revoke exit handler, one mutex, the step's deadline 180 seconds past the job's, the key mounted on the dispatch step only, no token in the step's container |
+| `platform/argo/pins.env`, `fetch.sh`, `crds.py`, `install.sh`, `make-dispatch-key.sh` | The release file by its digest, the images pulled during a window, the eight definitions extracted from the release file, the install, and the dispatch key made in memory on the orchestrator with the worker's host key from the operator |
+| `infra/platform/cloud-init/orchestrator.yaml.tftpl` | The host rule's exception for `10.40.0.36:22`. Custom data is ignored after creation, so the running orchestrator gets it from the runbook |
+| `edge/fetch-hosts` | `.quay.io` |
+| `.github/workflows/checks.yml` | kubeconform skips `WorkflowTemplate`, and Argo's own command line, from its signed image, lints the templates offline |
+| `validation/platform-checks.sh` | `W.1` to `W.10`, `E.6` with the exception, and `K.3` without workflow pods |
+
+Read from Argo's documentation at v4.1.5 before the manifests were written: the executor's minimum Role, `templateReferencing` and its allow-list, `argo lint --offline`, local mode for `argo server`, and that the executor image runs as user 8737. quay.io sends a layer download to `cdn01.quay.io`, read from the workstation with `curl` on 2026-10-19.
+
+### Checks, local
+
+| Check | Expected | Result |
+| --- | --- | --- |
+| kubeconform 0.8.0, strict, Kubernetes 1.36.5, every manifest under `platform/` | Valid, the template skipped | 31 valid, 1 skipped. A misspelled field in a service account fails |
+| `argo lint --offline` v4.1.5 on the template | No errors | No errors. A missing exit handler template fails, and so does an unknown field. A misspelled parameter reference passes |
+| `crds.py` on the release file | Eight definitions and nothing else | The eight names, eight documents of kind `CustomResourceDefinition`. A file without one exits 1 |
+| `fetch.sh`'s image list from the manifests | The controller and the executor, the placeholder left out | As expected |
+| `install.sh`'s namespace extraction | One `Namespace` document | As expected |
+| The check script's expected values from the checkout | The controller's digest, its arguments, and the template's hash | As expected. The hash changes when the dispatch digest is pinned |
+| ShellCheck 0.11.0 and Ruff 0.17.1 | Clean | Clean |
+
+### The scanners
+
+The pipeline's first run on the pull request failed Checkov, with 4 findings, and Trivy, with 10, all on the controller's Deployment and Role. What became of each:
+
+| Finding | Outcome |
+| --- | --- |
+| No CPU limit (`CKV_K8S_11`, `KSV-0011`), no readiness probe (`CKV_K8S_9`), a user and group ID under 10000 (`CKV_K8S_40`, `KSV-0020`, `KSV-0021`) | Fixed: a CPU limit of 500m, a readiness probe on `/healthz`, and user and group 65532 |
+| The Role may read secrets (`KSV-0113`, both Roles) | Avoided: `secrets: get` taken out of both copies. In v4.1.5 the controller reads a secret only in `workflow/controller/agent.go`, for the agent of HTTP and plugin templates, which these workflows do not use |
+| An image from a registry Trivy does not trust (`KSV-0125`) | `quay.io` added to `.github/trivy-data/ksv0125.yaml`, with its reason: the digests are pinned, and their signatures were checked against the release's key |
+| The controller's account mounts a token (`CKV_K8S_38`) | Skipped on the Deployment by annotation, with its reason: the controller works through the API server |
+| The Role may create and delete pods (`KSV-0048`), and use `pods/exec` (`KSV-0053`, high) | Accepted in `platform/argo/.trivyignore.yml`, limited to the two Role files. Creating pods is the controller's job, a trade-off ADR 0029 names. It delivers a stop to a running step with `argoexec kill` through exec (`workflow/signal/signal.go` at v4.1.5), and the stop is the cancel ADR 0030 relies on |
+
+Read again locally afterwards, with Trivy 0.76.0 and Checkov 3.3.29 at the pipeline's pins: Trivy finds nothing in `platform/`, and still finds both `KSV-0048` and `KSV-0053` on a Role in another file. Checkov passes 236, fails 0, skips 1, and fails `CKV_K8S_38` once the annotation is removed.
+
+### Limits
+
+- **Nothing is installed, and the new rule is not loaded.** `E.6` and `W.1` to `W.10` fail on the next check run until the [workflows runbook](../runbooks/workflows.md) runs. `nft` was not available on the workstation, so the rule's syntax is first checked by `nft -c` on the orchestrator, in step 5.
+- **`W.9` assumes the API server stores the template's spec as given.** Its first run shows whether defaults are added.
+- **The network policy to the API server names the host's address and port.** That the policy matches after the service address is translated rests on the dispatch policy's name server rule, which works that way. The controller's first start shows it.
+- **The operator's Role was written from the commands the runbook uses.** The UI in local mode may ask for more. A refusal shows in its log.
+- **The controller runs without `secrets: get`, unlike upstream, and as user 65532, not its image's 8737.** Both are read from the source, not run. Its first start and the first stop show whether either breaks something.

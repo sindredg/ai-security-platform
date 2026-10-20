@@ -200,7 +200,7 @@ The job token is made on the workstation, as the dispatch step will make it. Onl
 
     Expected: one JSON line per decision. `register` allowed for `check-1`. `call` allowed for `get_evidence` with `result_bytes`, and refused for `run_shell` with the reason `tool not in the job's scope`. Two `request` lines refused with `caller not accepted`. `revoke` allowed. A `request` refused with `revoked token`. For `expiry-1`, the last line has the reason `expired token`. No line holds a token. The [audit line](../security/tool-service.md#the-audit-line) lists the fields.
 
-    These lines are the pod's standard output. They are gone when the pod is replaced. Storing them out of the worker's reach is not built yet.
+    These lines are the pod's standard output, gone when the pod is replaced. Since 2026-10-16 the audit copier keeps each one in an append-only file on the orchestrator, out of the worker's reach ([audit log runbook](audit-log.md)).
 
 ## Rotate the certificate
 
