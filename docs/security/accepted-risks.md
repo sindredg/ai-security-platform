@@ -20,7 +20,7 @@ The missing alert for a denied flow from the orchestrator or the worker left thi
 
 ## Advisories in the converter's packages
 
-The pipeline's dependency scan lists eight advisories against `worker/model-server/converter-requirements.txt`. Read on 2026-10-12 with Trivy 0.75.0, and again on 2026-10-19 with Trivy 0.76.0 in the pipeline run on `main` at `64b2e71`: the same eight. The versions are llama.cpp's own pins for its converter, so the fix for most of them is a version the converter was not written against.
+The pipeline's dependency scan lists eight advisories against `worker/model-server/converter-requirements.txt`. Read on 2026-10-12 with Trivy 0.75.0, and again on 2026-10-19 with Trivy 0.76.0 in the pipeline run on `main` at `64b2e71`: the same eight. On 2026-10-21 the run on `main` at `5c6065d` listed a ninth, certifi's GHSA-6q48-6c7w-9gw2. certifi moved to 2026.10.19, and the run with Trivy 0.76.1 lists the same eight again ([worklog](../worklogs/0003-toolchain-integration.md#certifi-in-the-converter)). The versions are llama.cpp's own pins for its converter, so the fix for most of them is a version the converter was not written against.
 
 They are accepted because the code each one needs is never called. The converter's source at the pinned commit was searched for every call below:
 

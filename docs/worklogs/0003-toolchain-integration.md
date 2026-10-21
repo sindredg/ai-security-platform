@@ -1522,3 +1522,82 @@ The first expectation for this step was wrong. It had the orchestrator host reso
 - **One footprint reading** for the controller after the runs, and one at rest. The dispatch pods were not measured.
 - **The UI's first query after it started listed nothing.** A later one listed every workflow. Not looked into.
 - **Workflows from the template stay for 24 hours, its `ttlStrategy`.** The workflow of its own has none, and stays until deleted.
+
+## Pins and updates before the model comparison
+
+Date: 2026-10-21. The last check runs failed `U.5`, on three security updates pending on the worker, and `U.7`, on a new mesh agent release. Trivy 0.76.1 was out ([#143](https://github.com/sindredg/ai-security-platform/issues/143)). Both are cleared before the comparison, so its runs start from a platform with no known pending fix.
+
+### Releases, read on 2026-10-21
+
+| Component | Pinned | Newest stable | Source | Done |
+| --- | --- | --- | --- | --- |
+| Mesh VPN agent | 1.104.1 | 1.104.2 | The vendor's package site, as `U.7` reads it, and the GitHub release | Moved, pin and router |
+| Trivy image | 0.76.0 | 0.76.1, a security release built with Go 1.27.3 | GitHub release | Moved |
+| Checkov image | 3.3.29 | 3.3.30 | GitHub release | Moved |
+| gitleaks image | 8.30.1 | 8.30.1 | GitHub release | Nothing to move |
+| Argo Workflows | v4.1.5 | v4.1.5 | GitHub release | Nothing to move |
+| kubeconform image | 0.8.0 | 0.8.0 | GitHub release | Nothing to move |
+
+#143 asked whether the other pinned Go programs have the same certificate fix pending. Argo and kubeconform have no newer release. cosign is not pinned: the runbook takes the newest, which is 3.1.4 since 2026-10-20, built with Go 1.27.3, and it ran the signature check below.
+
+The image digests are the multi-platform index digests of the release tags, read from ghcr.io and Docker Hub. The same requests return the old pins' digests, `2416d1f7...` for Trivy 0.76.0 and `3cc125b5...` for Checkov 3.3.29.
+
+Trivy 0.76.1's signature, with cosign 3.1.4 (its binary's digest equal to the one the release lists):
+
+```bash
+cosign verify ghcr.io/aquasecurity/trivy@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c \
+  --certificate-identity-regexp '^https://github\.com/aquasecurity/trivy/\.github/workflows/.+@refs/tags/v0\.76\.1$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Exit 0, two signatures, both on that digest. The same command with `v0\.76\.0` in the identity exits 1.
+
+### The pipeline with the new scanners
+
+Each scanner step, read from the job logs of the last run on `main` at `5c6065d`, with the old images, and the pull request's runs with the new ones:
+
+| Step | Old images | New images |
+| --- | --- | --- |
+| Checkov | Terraform 56 passed, 0 failed, 18 skipped. Kubernetes 238 passed, 0 failed, 1 skipped | The same |
+| Trivy, configuration | 0 misconfigurations in every target | The same |
+| Tool service image | 0 vulnerabilities in each of 58 targets | The same |
+| Dispatch image | 0 vulnerabilities | The same |
+| Dependency scan, converter | 9: one critical, five high, two medium, one low | With certifi moved: 8, no critical |
+
+With 0.76.0, the configuration and image steps print `Version 0.76.1 of Trivy is now available`. With the new pin they do not, which shows they ran the new image.
+
+### certifi in the converter
+
+The ninth advisory was new on `main`: [GHSA-6q48-6c7w-9gw2](https://github.com/advisories/GHSA-6q48-6c7w-9gw2), critical. certifi 2026.7.22 bundles `emSign ECC Root CA - G3`, and eight intermediate certificates under it have compromised keys. certifi 2026.10.19 removes that root and keeps the three other emSign roots. The bundles, read from both wheels: four emSign labels in 2026.7.22, three in 2026.10.19, without G3.
+
+The converter runs in a sandbox with no network, so the old bundle never verified a connection. The pin moved anyway: certifi holds only the bundle, and the fix is that data. The new wheel's checksum, read on the workstation, equals the one PyPI publishes, `42d35340...`. No model has been built with it.
+
+The VMs' own certificate stores, read on 2026-10-21: `ca-certificates` `20260816ubuntu0.26.04.1` on all four, the newest the archive offers, with `emSign_Root_CA_-_G1`, `emSign_Root_CA_-_C1`, and `emSign_ECC_Root_CA_-_C3`. G3 is not among them.
+
+### On the live system
+
+From a script, with the expected result written before each step. Run from 16:23 to 16:25 UTC.
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| Worker: `unattended-upgrade` | No job unit, 3 pending before, 0 after | `job units: 0`, `pending before: 3`, `after: 0`, `ca-certificates: 20260816ubuntu0.26.04.1`, no reboot required, 0 failed units |
+| Router, before | `1.104.1`, held, `tailscaled` active, one failed unit | As expected |
+| Router: unhold, upgrade to `tailscale=1.104.2`, hold, in a detached unit | The unit starts, the session may drop | The mesh came back within 30 seconds. The unit: `Result=success`, `ExecMainStatus=0`, `Unpacking tailscale (1.104.2) over (1.104.1)`, `tailscale set on hold.` |
+| Router, after | `1.104.2`, held, `tailscaled` active, one failed unit | `1.104.2`, held, active, and **0 failed units**. Wrong expectation, explained below |
+| The worker through the router | Answers | Answers |
+
+The detached unit is there because restarting the agent drops the operator's session, which reaches the router over the mesh. A session killed halfway through `dpkg` would leave the package half configured. A trap holds the package again on any exit.
+
+The 0 failed units was timing, not a fix. `fwupd-refresh`'s timer started it again at 16:24:01, while the script read the count, and it failed again at 16:25:50 ([#145](https://github.com/sindredg/ai-security-platform/issues/145)).
+
+### Checks after the updates
+
+| Time, UTC | Checkout | Result |
+| --- | --- | --- |
+| Ended 16:37 | The branch at `fd12a42`. The two commits after it change no file the checks read | 283 of 285. `U.5` and `U.7` passed. `HR.1` and `HE.1` failed on the firmware metadata refresh (#145) |
+
+### Limits
+
+- **The router's pin in Terraform does nothing to the running router.** Its first-boot template is ignored after creation. A rebuild installs 1.104.2.
+- **No model has been built with certifi 2026.10.19.**
+- **Other pinned programs were not checked for their Go version.** Only for a newer release.
