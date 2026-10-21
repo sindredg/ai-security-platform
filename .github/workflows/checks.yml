@@ -373,6 +373,8 @@ jobs:
       # 26.04, and the dispatch image has 3.15, as this image does. The
       # dispatch tests run the real job runner and job program behind a fake
       # ssh, with a fake Goose and stubs for registration and the model server.
+      # The same directory tests the model comparison's measure.py against a
+      # stub model server.
       - name: Test the worker's side
         run: |
           docker run --rm --volume "${PWD}:/src:ro" --workdir /src/worker/agent-runtime/job \
