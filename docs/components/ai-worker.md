@@ -4,7 +4,7 @@ The machine that runs the agent and the model. It reads advisories, target evide
 
 | | |
 | --- | --- |
-| State | Runs the model server. The agent runtime is installed and runs once per job. Nothing dispatches a job yet |
+| State | Runs the model server. The agent runtime is installed and runs once per job. The job socket is installed and jobs have run over it by hand; no workflow dispatches a job yet |
 | Where | Sweden Central, `snet-worker`, fixed private address `10.40.0.36` |
 | Size | `Standard_D2ps_v6`: 2 vCPUs, 8 GiB, Arm64. Two physical cores for the same quota as one x64 core pair |
 | Image | Ubuntu 26.04 LTS, `Canonical:ubuntu-26_04-lts:server-arm64` |
@@ -56,7 +56,7 @@ The diagram source is [`diagrams/agent-run.html`](../diagrams/agent-run.html). I
 | Tools | For the fixture run: one, named on the command line. `--no-profile` keeps Goose from loading its own, including the one that runs shell commands, and also disables tools declared in a recipe. For a dispatched job: the recipe's one extension, the tool service, with an empty configuration directory in place of `--no-profile`. Goose adds its own `load_skill` to a dispatched job, which no recipe removes ([#139](https://github.com/sindredg/ai-security-platform/issues/139)). The job program refuses a task with template syntax, which Goose would render into the recipe, and one that Goose would run as a shell or slash command |
 | Session | Goose writes a session database and a log of every prompt, even when told to keep no session. Both land in the unit's private `/tmp`, which systemd deletes when the unit stops |
 | One at a time | The unit's name is fixed. A second run is refused while one exists |
-| Today's tool | A fixture on the worker that returns one piece of synthetic evidence. The [tool service](../security/tool-service.md) on the orchestrator replaces it. The service is deployed. The job runner still starts Goose with the fixture, and the current worker unit permits only localhost connections |
+| Today's tool | A fixture on the worker that returns one piece of synthetic evidence, used by the standalone measure run, whose unit permits only localhost. A dispatched job uses the [tool service](../security/tool-service.md) on the orchestrator instead: its unit adds the orchestrator's address to localhost, and a job over the socket called the tool service there with a job token on 2026-10-20 |
 | Procedure | The [agent runtime runbook](../runbooks/agent-runtime.md) |
 
 ## Measured
@@ -89,10 +89,10 @@ The exchange and the full tables are in the [milestone 3 worklog](../worklogs/00
 
 | Role | Candidate | Has to prove |
 | --- | --- | --- |
-| Agent runtime | Goose, installed | Goose's network tool call with a job token on this worker, and validation of the result against a schema. A `curl` call with a job token works from here. Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. A TLS call to the tool service was tested on a workstation |
+| Agent runtime | Goose, installed | Validation of the result against a schema, which the dispatch step does and has not run. Goose's network call to the tool service with a job token is now seen on the worker, on 2026-10-20, allowed and logged on the orchestrator; a `curl` call with a job token also works from here. Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far |
 
-A workflow hands a job to this machine over SSH, with a key that can only run the job runner ([ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md)). The runner logs in as `aisec-job` and connects to a socket that starts the agent's sandboxed unit, one job at a time ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), proposed). The result comes back on the same session, with the agent's transcript. Written and tested in the pipeline, not installed ([worklog](../worklogs/0003-toolchain-integration.md#slice-jobs-over-a-socket)). The worker can start a connection to two ports on the orchestrator: the proxy and the tool service ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)).
+A workflow hands a job to this machine over SSH, with a key that can only run the job runner ([ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md)). The runner logs in as `aisec-job` and connects to a socket that starts the agent's sandboxed unit, one job at a time ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), proposed). The result comes back on the same session, with the agent's transcript. The socket, the runner, and the job unit are installed on the worker, and jobs have run over them by hand with a token since 2026-10-20, with the slot erased between jobs ([worklog](../worklogs/0003-toolchain-integration.md#installed-and-run-on-the-worker)). The workflow and its dispatch step are the next slice: not installed, and no workflow has run. The worker can start a connection to two ports on the orchestrator: the proxy and the tool service ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)).
 
 ## Validation
 

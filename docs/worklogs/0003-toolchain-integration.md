@@ -1215,6 +1215,21 @@ Each test was seen to fail on a broken copy of the code: redaction taken out, th
 - **No linter reads the unit files.** The repository has had unit files without one since milestone 3 ([#131](https://github.com/sindredg/ai-security-platform/issues/131)). `G.8` holds the installed ones equal to the repository.
 - **The fake Goose prints a transcript shaped like the fixture run's.** A Goose release that changes the shape gives a result with zero calls, which the dispatch step treats as a failure.
 
+### Installed and run on the worker
+
+Date: 2026-10-20. The worker side went on and the first jobs ran over the socket. Argo, the workflow template, and the host rule are still the next slice, so the dispatch step and its image have not run yet; the jobs here were submitted to the socket by hand with a token, not by a workflow.
+
+`install-job.sh` put the job account, the socket, the runner, and the job unit on the worker at 19:27 UTC, with the job program from commit `73a4a49`. A job ran end to end against a token: Goose received the finding in its prompt, called the tool service on the orchestrator once over the network for the evidence behind it, and returned a short verdict, in 91 seconds, with one tool call and no tool error. The tool service allowed the call with the job's token and logged it on the orchestrator, with no token in the line. This is the first time Goose on the worker reached the tool service, rather than the local fixture or a `curl` by hand. A second job, cancelled during its run, stopped Goose and wrote nothing back. The check run, without the Azure and workstation checks, was 222 of 237: `G.6` to `G.9` passed, `G.8` held the installed runner, program, and units equal to the checkout, and `G.5` failed on the absence of the dispatch key.
+
+Two findings came out of that run:
+
+- **The model server refused the slot erase.** The erase needs a slot save path, which the server's unit did not set, so the slot kept each job's prompt for the next job ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md), [#32](https://github.com/sindredg/ai-security-platform/issues/32)).
+- **Goose offers each job its own `load_skill` tool and two bundled skills.** The recipe adds one extension, but Goose's own system prompt still lists `load_skill` and a documentation and a web-search skill. They are reachable from the prompt but not executable in the worker's sandbox, which blocks egress ([#139](https://github.com/sindredg/ai-security-platform/issues/139)).
+
+[PR 140](https://github.com/sindredg/ai-security-platform/pull/140) fixed the first and guards the input. The server's unit gets an empty, read-only slot save path, so the erase answers and a save still fails with nothing to restore. The job program refuses a task that Goose would read as more than text: one with template syntax, which Goose renders into the recipe before parsing it, and one that starts with a shell or slash command character.
+
+A re-run on 2026-10-20 at 20:12 UTC, with the fix installed, exercised it. A completed job erased the slot: its first turn processed its whole 1004-token prompt at 17.5 tokens per second, not a warm-cached handful, and the outcome line read `slot_erased: true`. A cancelled job also erased the slot. Three tasks, one with template syntax and two with a command character, were refused before Goose started. The check run, without the Azure and workstation checks, was 223 of 238, with `G.8` and `G.10` passing. The 15 failures were the Argo-side checks (`E.6`, `W.1` to `W.6`, `W.8` to `W.10`, `G.5`, `P.18`), two pending security updates (`U.5`, `U.13`), and the mesh VPN agent pin (`U.7`).
+
 ## Slice: Argo and the workflow template
 
 Date: 2026-10-20, written and checked locally. Not installed.
