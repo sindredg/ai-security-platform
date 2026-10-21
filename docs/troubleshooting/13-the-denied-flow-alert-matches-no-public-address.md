@@ -27,4 +27,4 @@ The rule tests `isnotempty(DestPublicIps)` instead. Over 20:00 UTC on 2026-10-20
 
 ## Verification
 
-Not yet run: the apply, and an alert from a denied flow.
+The rule was applied at about 14:08 UTC on 2026-10-21, and read back from Azure with the new query. The next denied flows came from a check run and a probe: the orchestrator to `1.1.1.1:443` from 15:19:54 UTC, and the worker from 15:21:16. Traffic analytics wrote them at 15:33:29, and `denied-flow-to-internet` fired at 15:40:45, 21 minutes after the first flow. It is the first time the rule fired ([worklog](../worklogs/0003-toolchain-integration.md#the-alert-fires)).

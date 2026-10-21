@@ -25,4 +25,4 @@ Nothing showed it before the first submission. The checks read the controller an
 
 ## Verification
 
-Not yet run: the install of the secret and a workflow that starts.
+The secret was applied at 15:09:20 UTC on 2026-10-21, and the cluster had filled it by the first read, two seconds later. The kubelet retried the mounts: `investigate-2llvm` ended `Failed` with its exit handler `Succeeded`, and the handler's revoke answered `200` with no job, since none had been registered. The next workflow, `investigate-fczp4`, ran to `Succeeded` in 1 minute 59 seconds, and `W.11` passed ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)).

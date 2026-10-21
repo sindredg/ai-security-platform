@@ -2,7 +2,7 @@
 
 Argo Workflows' controller in its own namespace, managing `orchestration` only, and the template that dispatches a job to the worker ([ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)). The procedure is the [workflows runbook](../runbooks/workflows.md).
 
-Status: written on 2026-10-20. Not run against the cluster. Before the install, `W.1` to `W.10` fail on absence, written down before any run.
+Status: **tested** on the live system on 2026-10-21. `W.1` to `W.10` failed on absence before the install, on 2026-10-20, and passed at 04:24 UTC after it. `W.11` failed on absence before its secret existed and passed at 15:26 UTC, and its parser gives another value for a secret with no token, another type, or another account ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)).
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
@@ -20,7 +20,8 @@ Status: written on 2026-10-20. Not run against the cluster. Before the install, 
 
 ## Limits
 
-- **`W.9` compares what the API server gives back.** If the server adds defaults to the stored spec, `W.9` fails on a correct template. Its first run on the cluster shows whether it does.
-- **`W.2` reads the digest containerd used.** The images are pulled by the digest of their multi-platform index. Whether the pod's image ID shows that digest is first seen on the cluster.
+- **`W.9` compares what the API server gives back.** If the server adds defaults to the stored spec, `W.9` fails on a correct template. It passed on its first run on the cluster, on 2026-10-21, so the server added none to this template. A change to Argo's defaults can still break it.
+- **`W.2` reads the digest containerd used.** The images are pulled by the digest of their multi-platform index, and the pod's image ID showed that digest on the cluster on 2026-10-21.
 - **Argo's offline linter does not check parameter references.** In the pipeline it fails on an unknown field and on a template that names a missing one, both seen on 2026-10-20. A misspelled `{{workflow.parameters...}}` passes it.
+- **`W.11` reads that the secret holds a token, not that the token works.** A workflow that starts shows that.
 - **No check reads what a workflow did.** The round trip, the cancel, and the refused submissions are procedure steps in the [runbook](../runbooks/workflows.md), because they start jobs.

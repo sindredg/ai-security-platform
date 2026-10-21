@@ -21,4 +21,4 @@ An empty config map `argo-ui` in `orchestration`, a rule in the operator's Role 
 
 ## Verification
 
-Not yet run.
+With the map and the rule applied at 15:37 UTC on 2026-10-21, the server started and stayed up, logged no error, and served the UI's page with `200`. Its API listed every workflow in `orchestration` with its phase, eight at 15:46 UTC. A query sent right after the server started listed none; why was not looked into ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)).

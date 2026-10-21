@@ -1,6 +1,6 @@
 # Tool service and job identity
 
-Status: **tested** in CI on 2026-10-14 with `python -m pytest -q`: 160 tests passed, on the image the service is built from. Deployed on the orchestrator and **tested** on the live system on 2026-10-15: the [deployment checks](../validation/tool-service.md) and one round trip from the worker ([worklog](../worklogs/0003-toolchain-integration.md#the-deployment-on-the-orchestrator)). The dispatch step is written and tested in the pipeline, not installed ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)). See the [roadmap](../roadmap.md#3-toolchain-integration) for milestone status.
+Status: **tested** in CI on 2026-10-14 with `python -m pytest -q`: 160 tests passed, on the image the service is built from. Deployed on the orchestrator and **tested** on the live system on 2026-10-15: the [deployment checks](../validation/tool-service.md) and one round trip from the worker ([worklog](../worklogs/0003-toolchain-integration.md#the-deployment-on-the-orchestrator)). Since 2026-10-21 the dispatch step registers and revokes a job for each workflow, and the worker's calls with its token are allowed and logged ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows), [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)). See the [roadmap](../roadmap.md#3-toolchain-integration) for milestone status.
 
 The tool service authorizes tool calls from the AI worker, on the orchestrator. This page explains how it identifies a job, rejects unauthorized requests, and records decisions. The decisions are in ADRs [0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), and [0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md). The code is in `tool-service/`, and its policy is in `policies/tool-service.json`.
 
@@ -15,7 +15,7 @@ The design assumes the worker can be compromised. The service identifies the job
 5. The tool service hashes the token and looks the job up. The scope comes from that lookup. Nothing in the call can name a job or a target.
 6. When the job ends, the dispatch step revokes it by job ID. The token also expires if revocation is missed.
 
-The service can register jobs, validate tokens, authorize calls, and revoke jobs. The dispatch step that issues tokens and connects these steps has not been built.
+The service can register jobs, validate tokens, authorize calls, and revoke jobs. The dispatch step issues the tokens and connects these steps, since 2026-10-21 ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)).
 
 ADR 0013 requires the service account token but does not say how the service verifies it. ADR 0014 gives the pod no credential and no outbound access, which rules out asking the API server. Offline verification satisfies both. [ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md) describes the two records as contradictory. They do not conflict: neither specifies the verification method, and ADR 0016 chooses it.
 

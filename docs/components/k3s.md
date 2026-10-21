@@ -31,7 +31,7 @@ The installer is not piped from the network into a shell. The script is fetched 
 
 ## Namespaces
 
-`tool-services` and `orchestration` exist. Both enforce the restricted pod security level by label and deny traffic by default ([tool service checks](../validation/tool-service.md)). `orchestration` holds only the `dispatch` service account so far: Argo Workflows is not installed. `collection` and `change` are planned. Monitoring runs in Azure Monitor, not in the cluster, from [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring). What runs in the two, and what reaches them, is in the [tool service diagram](../security/tool-service.md#deployment-controls).
+`tool-services` and `orchestration` exist. Both enforce the restricted pod security level by label and deny traffic by default ([tool service checks](../validation/tool-service.md)). `orchestration` holds the workflows, the `investigate` template, and the accounts of the dispatch step, the executor, and the operator. Argo's controller runs in `argo` since 2026-10-21 ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)). `collection` and `change` are planned. Monitoring runs in Azure Monitor, not in the cluster, from [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring). What runs in the two, and what reaches them, is in the [tool service diagram](../security/tool-service.md#deployment-controls).
 
 | Namespace | Workloads | Responsibility |
 | --- | --- | --- |
