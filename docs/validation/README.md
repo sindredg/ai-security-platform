@@ -87,6 +87,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-21 | 279 of 284 passed | From `main` at `fa99384`, at 04:24 UTC, after Argo, the dispatch key, and the host rule were installed ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)). `W.1` to `W.10`, `G.5`, `E.6`, and `P.18` passed. `O.17` failed as written: traffic analytics had begun processing the platform's flow log. `U.5`, `U.9`, and `U.13` failed on pending security updates, `U.7` on a new mesh agent release |
 | 2026-10-21 | 281 of 285 passed | From the branch at `5f3c27d`, at 15:26 UTC, after the first workflows. First run with `W.11` and the new `O.17`, both passed. `U.5` and `U.7` failed as before, and `HR.1` and `HE.1` on a failed firmware metadata refresh ([#145](https://github.com/sindredg/ai-security-platform/issues/145)) |
 | 2026-10-21 | 282 of 285 passed | From the branch at `5d0b550`, at 15:44 UTC, after the UI's config map. `U.5`, `U.7`, and `HR.1` failed as before |
+| 2026-10-21 | 283 of 285 passed | From the branch at `fd12a42`, ending at 16:37 UTC, after the worker's security updates and the mesh agent's move to 1.104.2 ([worklog](../worklogs/0003-toolchain-integration.md#pins-and-updates-before-the-model-comparison)). `U.5` and `U.7` passed. `HR.1` and `HE.1` failed on the firmware metadata refresh ([#145](https://github.com/sindredg/ai-security-platform/issues/145)) |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 

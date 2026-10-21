@@ -49,7 +49,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | `hashicorp/random` | 3.9.1 | The same | Dependabot, weekly | 2026-10-19 |
 | Ubuntu image | 26.04 LTS, `26.04.202610070`. The release offer in Sweden Central has `26.04.202610180` since 2026-10-18, which the pin takes at the next rebuild. The daily builds offer newer versions that the release offer does not have ([troubleshooting 01](../troubleshooting/01-image-version-only-in-daily-offer.md)) | `infra/platform/variables.tf` | By hand, and only at a rebuild | 2026-10-19 |
 | Ubuntu packages | Whatever the archive serves | Not pinned | Unattended upgrades, daily, security suite | |
-| Mesh VPN agent | 1.104.1 | `infra/platform/variables.tf`, held on the VM | By hand. `U.7` fails when a newer stable release exists | 2026-10-19 |
+| Mesh VPN agent | 1.104.2 | `infra/platform/variables.tf`, held on the VM | By hand. `U.7` fails when a newer stable release exists | 2026-10-21 |
 | K3s | `v1.36.5+k3s1`, the `stable` channel | `infra/platform/variables.tf`, with two checksums | By hand | 2026-10-19 |
 | Azure Monitor Agent | Extension `1.45`. The newest version in both regions is `1.45.1` | `monitor_agent_version` in `infra/platform/variables.tf`, automatic upgrades off | By hand. Azure picks the patch release within the minor version | 2026-10-19 |
 | Squid | 7.2, `7.2-2ubuntu2.2` on the edge | Not pinned, see [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) | Unattended upgrades | 2026-10-17 |
@@ -61,7 +61,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | Converter packages | 27, PyTorch 2.11.0 the largest | `worker/model-server/artifacts.tsv` and `converter-requirements.txt` | By hand. Used only during a build | 2026-10-11 |
 | Goose | 1.55.0, one static binary | `worker/agent-runtime/pins.env` and `artifacts.tsv`, with a checksum for the archive and one for the binary | By hand | 2026-10-19 |
 | `actions/checkout` | v7.0.1, by commit | The checks workflow | Dependabot, weekly | 2026-10-19 |
-| Checkov, Trivy, gitleaks images | 3.3.29, 0.76.0, and 8.30.1, by digest | The checks workflow | By hand | 2026-10-19 |
+| Checkov, Trivy, gitleaks images | 3.3.30, 0.76.1, and 8.30.1, by digest | The checks workflow | By hand | 2026-10-21 |
 | ShellCheck, Ruff images | 0.11.0 and 0.17.1, by digest | The checks workflow | By hand | 2026-10-19 |
 | hadolint image | 2.15.1, by digest | The checks workflow | By hand | 2026-10-19 |
 | kubeconform image | 0.8.0, by digest. Validates the manifests against the schemas for Kubernetes 1.36.5, the cluster's release | The checks workflow | By hand, and the Kubernetes version with K3s | 2026-10-19 |

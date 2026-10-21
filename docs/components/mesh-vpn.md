@@ -5,7 +5,7 @@ The only way in. No VM has a public address and no firewall rule names an operat
 | | |
 | --- | --- |
 | State | Built. The router since 2026-10-17 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-router)). Before that, the orchestrator was the mesh node |
-| Agent version | 1.104.1, from the vendor's signed package repository, held at that version, with its own updater off (`U.2`, `U.6`) |
+| Agent version | 1.104.2, from the vendor's signed package repository, held at that version, with its own updater off (`U.2`, `U.6`) |
 | Pinned in | `infra/platform/variables.tf` |
 | Runs on | The router VM and the operator's devices. Nowhere else (`A.11`) |
 | Routes advertised | `10.40.0.0/20`, `10.50.0.0/20`, and `10.45.0.0/27` (`R.4`) |
