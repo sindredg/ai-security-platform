@@ -2,7 +2,7 @@
 
 This page describes the current system and its planned design. The network foundation and platform VMs are deployed: state storage, deployment identities, the platform, target, and edge virtual networks, security groups, peerings, one NAT gateway, the orchestrator with K3s, the AI worker, the router with the mesh VPN, the edge VM with Squid, and a Log Analytics workspace reached over a private endpoint, with its alert rules.
 
-The model server and agent runtime run on the worker. The agent has only used a local test tool. The tool service runs in K3s on the orchestrator, and has answered tool calls from the worker made with `curl` and a job token. Automated job dispatch and all targets are still planned. Each section distinguishes implemented controls, decisions, and open work.
+The model server and agent runtime run on the worker. The tool service runs in K3s on the orchestrator and has answered tool calls from the worker, first with `curl` and a job token, and since 2026-10-20 from Goose during a job run over the socket, with the job's token. Automated job dispatch and all targets are still planned. Each section distinguishes implemented controls, decisions, and open work.
 
 The reasoning behind each choice is in the [decision records](decisions/README.md). The order of work is in the [roadmap](roadmap.md).
 
@@ -152,7 +152,7 @@ The agent runtime and the model server run on a second VM that is not part of th
 - One scoped session per job: one target, one evidence set, bounded time and output.
 - One network destination for work: the tool services on the orchestrator.
 
-The cost is dispatch. Argo runs pods, not processes on another machine. A workflow step opens an SSH session to the worker with a key that can only run the job runner, and the runner hands the job to a socket that starts the agent's sandboxed unit. Decided in [ADR 0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md) and [ADR 0030](decisions/0030-how-a-job-reaches-the-worker.md), proposed, not built, and still the first real integration risk. Detail: [AI worker](components/ai-worker.md).
+The cost is dispatch. Argo runs pods, not processes on another machine. A workflow step opens an SSH session to the worker with a key that can only run the job runner, and the runner hands the job to a socket that starts the agent's sandboxed unit. Decided in [ADR 0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md) and [ADR 0030](decisions/0030-how-a-job-reaches-the-worker.md), proposed. The worker side, the socket and the sandboxed unit, is built and has run jobs by hand; the workflow step that opens the session is not. This is still the first real integration risk. Detail: [AI worker](components/ai-worker.md).
 
 What exists today is narrower than the design. The agent is started manually and uses one local test tool on the worker. The tool service that replaces the fixture runs on the orchestrator. The worker has called it with `curl`, not yet with the agent. See the [milestone 3 worklog](worklogs/0003-toolchain-integration.md).
 

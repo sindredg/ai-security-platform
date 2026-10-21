@@ -40,4 +40,4 @@ The server takes a cancel only between prompt batches of up to 2048 tokens, and 
 
 ## Verification
 
-Not run on the worker yet. Expected after the server and the job program are installed again: an answer with `n_erased` to the request above, `Unable to save slot` to a save, `"slot_erased": true` for a completed and a cancelled job, a second job whose first turn processes its whole prompt, and `G.10` passing.
+Run on the worker on 2026-10-20 at 20:12 UTC with the fix installed. The erase request answered with `n_erased`, a save by hand failed with `Unable to save slot`, and a completed job (`hand-3`) and a cancelled job (`hand-4`) each ended with `"slot_erased": true`. The completed job's first turn processed its whole 1004-token prompt at 17.5 tokens per second, not a warm-cached handful, so no prompt carried over from the job before it. `G.10` passed ([worklog](../worklogs/0003-toolchain-integration.md#installed-and-run-on-the-worker)).
