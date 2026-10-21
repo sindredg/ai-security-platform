@@ -31,13 +31,6 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 | Works since 2026-10-21 | A workflow hands a task to the agent on the worker. The agent calls the tool service with a token only that job holds, and the checked result comes back |
 | Not yet | No target, so no finding has been investigated |
 
-## What this demonstrates
-
-- **An agent treated as compromised.** It runs on its own VM with no cloud or cluster credentials. It reaches the tool service only with a token issued for one job and revoked when the job ends ([first workflows](docs/worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)).
-- **One way out, watched.** The platform reaches the internet only through the edge VM's proxy, and each alert rule has been fired once on purpose ([milestone 3a](docs/worklogs/0004-edge-network-and-monitoring.md)).
-- **Claims with checks.** Each claim names the check behind it, how the result was obtained, and what is not verified ([validation](docs/validation/README.md)).
-- **Threats with states.** Each row of the threat model names its control and the evidence for its state ([threat model](docs/security/threat-model.md)).
-
 ## Why it looks like this
 
 | Concern | Design answer | Decided in |
