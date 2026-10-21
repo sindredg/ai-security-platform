@@ -1388,3 +1388,33 @@ Written before the runs: the old query counts no rows in the window and the new 
 ### The apply
 
 The platform plan had one change: the rule's query, in place. Applied from the branch at about 14:08 UTC: `0 added, 1 changed, 0 destroyed`. The rule read back from Azure with `az monitor scheduled-query show` has the new query.
+
+## Fix: the executor's token
+
+Date: 2026-10-21. The defect, its cause, and the fix are [troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md). This section holds the evidence.
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| `platform/argo/rbac.yaml` | A secret of type `kubernetes.io/service-account-token` named `argo-executor.service-account-token`, for the account `argo-executor` |
+| `validation/platform-checks.sh` | `W.11`: the secret's type, its account annotation, and a token that is not empty |
+| [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), still proposed | The token's source, and a trade-off: it does not expire |
+
+Turning the pod's token back on was the other way. It puts an API token in the dispatch container, which reads the worker's output, and was not taken.
+
+### Tests
+
+Written before the runs: `W.11` fails on the cluster as it is, with no secret, and on a secret with a wrong type, a wrong account, or no token.
+
+| Run | Result |
+| --- | --- |
+| The probe's lines on the live orchestrator, at about 15:00 UTC, before the install | Empty, so `W.11` fails |
+| The probe's parser on a correct secret, by hand | `kubernetes.io/service-account-token argo-executor token`, equal to the expected value |
+| The same with no token, type `Opaque`, and account `dispatch` | `... empty`, `Opaque ...`, and `... dispatch ...`: each differs |
+| Trivy 0.76.0 on `platform`, with the pipeline's data file and ignore file | No finding |
+| Checkov 3.3.29 on `platform` | 237 passed, 0 failed, 1 skipped |
+| kubeconform 0.8.0, Kubernetes 1.36.5, strict | 32 valid, 0 invalid, 1 skipped |
+| ShellCheck 0.11.0 on `validation/platform-checks.sh` | Clean at warning level |
+
+Run locally with the release binaries. Trivy ran without `--skip-check-update`, so with the newest checks, not the image's.

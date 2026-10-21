@@ -16,6 +16,7 @@ Status: written on 2026-10-20. Not run against the cluster. Before the install, 
 | `W.8` | The `argo` namespace is restricted and denies by default | The controller's pod has a token for the API server | The namespace's pod security label is `restricted`, and `default-deny` exists |
 | `W.9` | The workflow template is the one in this checkout | The template decides the image, the account, the volumes, and the deadline of every job (T51) | One SHA-256 over the live template's spec as `kubectl` prints it, JSON with sorted keys, equal to the same over `workflow-template.yaml`'s spec. Needs Python's `yaml` module on the workstation |
 | `W.10` | The dispatch secret pins this worker's host key | A wrong or missing host key makes every dispatch fail, or trust a machine that is not the worker | The secret has exactly `id_ed25519` and `known_hosts`, and `known_hosts` is `10.40.0.36` with the host key the worker's own file holds. Read in the orchestrator's section and the worker's |
+| `W.11` | The executor's token secret is for `argo-executor` and holds a token | Without it, every workflow pod waits on the mount and no step starts ([troubleshooting](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md)) | The secret `argo-executor.service-account-token` in `orchestration`: its type `kubernetes.io/service-account-token`, its account annotation `argo-executor`, and a token that is not empty. The token itself is not printed |
 
 ## Limits
 

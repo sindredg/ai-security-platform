@@ -92,6 +92,20 @@ subjects:
     name: argo-executor
     namespace: orchestration
 ---
+# The executor's token. With automountServiceAccountToken false, the
+# controller mounts the token from a secret by this name into the executor's
+# containers, not the step's own. Kubernetes no longer makes one, so this
+# asks it to. The token does not expire: it ends when the secret is deleted.
+# Check W.11.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argo-executor.service-account-token
+  namespace: orchestration
+  annotations:
+    kubernetes.io/service-account.name: argo-executor
+type: kubernetes.io/service-account-token
+---
 # The operator's account for argo and kubectl on the workstation, through the
 # SSH tunnel to the API server. Its token is made for 12 hours at a time. It
 # starts, reads, stops, and deletes workflows, reads the templates and the

@@ -65,7 +65,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
    REPLACE_WITH_SSH aisec-orchestrator 'cd feed/argo && sudo scripts/install.sh stage'
    ```
 
-   Expected: the eight custom resource definition names, `condition met` three times, the namespace and its default account patched, the policies, the controller, the accounts, and the template `created`, `successfully rolled out`, and one line with the controller pod, `Running`, and the image digest from `argo.yaml`. On the next check run, `W.1` to `W.9` pass.
+   Expected: the eight custom resource definition names, `condition met` three times, the namespace and its default account patched, the policies, the controller, the accounts, the executor's token secret, and the template `created`, `successfully rolled out`, and one line with the controller pod, `Running`, and the image digest from `argo.yaml`. On the next check run, `W.1` to `W.9` and `W.11` pass.
 
 ## The host rule
 
@@ -268,8 +268,8 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
     validation/platform-checks.sh
     ```
 
-    Expected: `PASS` for `E.6`, `G.5` to `G.10`, `K.3`, `W.1` to `W.10`, and every check that passed before.
+    Expected: `PASS` for `E.6`, `G.5` to `G.10`, `K.3`, `W.1` to `W.11`, and every check that passed before.
 
 ## Remove
 
-To take Argo off the cluster: delete the template, the accounts and Roles in `rbac.yaml`, the policies in `network-policies.yaml`, the `argo` namespace, and the eight custom resource definitions. Delete the `dispatch-ssh` secret, and empty the key line on the worker by running `install-job.sh` with no argument after removing `/home/aisec-job/.ssh/authorized_keys`. Load the host rule from the template of the commit before this change, as in step 5.
+To take Argo off the cluster: delete the template, the accounts, Roles, and the executor's token secret in `rbac.yaml`, the policies in `network-policies.yaml`, the `argo` namespace, and the eight custom resource definitions. Delete the `dispatch-ssh` secret, and empty the key line on the worker by running `install-job.sh` with no argument after removing `/home/aisec-job/.ssh/authorized_keys`. Load the host rule from the template of the commit before this change, as in step 5.

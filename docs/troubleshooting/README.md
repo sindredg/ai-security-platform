@@ -17,3 +17,4 @@ Failures that taught something about the system or a procedure. Each entry recor
 | [11](11-masking-a-timers-service-fails-the-timer.md) | 3 | Masking a service while its timer runs fails the timer. Stop the timer first |
 | [12](12-slot-erase-needs-a-save-path.md) | 3 | llama.cpp refuses a slot erase without a save path, which its README does not say. A stub that answers as the documentation reads proves nothing about the server |
 | [13](13-the-denied-flow-alert-matches-no-public-address.md) | 3 | Traffic analytics leaves `DestIp` empty for a public address and lists it in `DestPublicIps`. An alert drilled only against an empty table proves nothing about its query |
+| [14](14-workflow-pods-wait-for-the-executors-token.md) | 3 | With the pod's token off, Argo mounts the executor's token from a secret that Kubernetes no longer makes. Checks on the controller say nothing about the pods it builds |
