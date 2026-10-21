@@ -226,7 +226,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
       entrypoint: main
       templates:
         - name: main
-          container: {image: busybox, command: [true]}
+          container: {image: busybox, command: ["true"]}
     EOF
     argo submit - <<'EOF'
     apiVersion: argoproj.io/v1alpha1
