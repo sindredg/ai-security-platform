@@ -4,15 +4,6 @@ An AI agent on a self-hosted model investigates security findings on a target se
 
 Tools establish facts. The agent proposes changes. Neither approves anything.
 
-Status: milestone 3, toolchain integration, in progress. Since 2026-10-21 a workflow on the orchestrator hands a task to the agent on the worker, the agent calls the tool service with a token that only that job holds, and the checked result comes back to the workflow. No target exists yet, so no finding has been investigated. Details in the [roadmap](docs/roadmap.md#status).
-
-## What this demonstrates
-
-- **An agent treated as compromised.** It runs on its own VM with no cloud or cluster credentials. It reaches the tool service only with a token issued for one job and revoked when the job ends ([first workflows](docs/worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)).
-- **One way out, watched.** The platform reaches the internet only through the edge VM's proxy, and each alert rule has been fired once on purpose ([milestone 3a](docs/worklogs/0004-edge-network-and-monitoring.md)).
-- **Claims with checks.** Each claim names the check behind it, how the result was obtained, and what is not verified ([validation](docs/validation/README.md)).
-- **Threats with states.** Each row of the threat model names its control and the evidence for its state ([threat model](docs/security/threat-model.md)).
-
 ## Architecture
 
 Detailed breakdown in [Architecture](docs/architecture.md).
@@ -31,6 +22,17 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 | Fetch window | A time-limited allowlist: an operator command on the edge VM that opens code and package hosts for at most 60 minutes |
 
 </details>
+
+## Status
+
+Milestone 3, toolchain integration, in progress. Since 2026-10-21 a workflow on the orchestrator hands a task to the agent on the worker, the agent calls the tool service with a token that only that job holds, and the checked result comes back to the workflow. No target exists yet, so no finding has been investigated. Details in the [roadmap](docs/roadmap.md#status).
+
+## What this demonstrates
+
+- **An agent treated as compromised.** It runs on its own VM with no cloud or cluster credentials. It reaches the tool service only with a token issued for one job and revoked when the job ends ([first workflows](docs/worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)).
+- **One way out, watched.** The platform reaches the internet only through the edge VM's proxy, and each alert rule has been fired once on purpose ([milestone 3a](docs/worklogs/0004-edge-network-and-monitoring.md)).
+- **Claims with checks.** Each claim names the check behind it, how the result was obtained, and what is not verified ([validation](docs/validation/README.md)).
+- **Threats with states.** Each row of the threat model names its control and the evidence for its state ([threat model](docs/security/threat-model.md)).
 
 ## Why it looks like this
 
