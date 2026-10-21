@@ -16,3 +16,4 @@ Failures that taught something about the system or a procedure. Each entry recor
 | [10](10-raising-the-daily-cap-leaves-ingestion-flapping.md) | 3a | In the drill on 2026-10-19, raising the daily cap after it was reached did not bring ingestion back at once: 44 minutes of starts and stops. Rows sent meanwhile were lost, and the agents saw no error |
 | [11](11-masking-a-timers-service-fails-the-timer.md) | 3 | Masking a service while its timer runs fails the timer. Stop the timer first |
 | [12](12-slot-erase-needs-a-save-path.md) | 3 | llama.cpp refuses a slot erase without a save path, which its README does not say. A stub that answers as the documentation reads proves nothing about the server |
+| [13](13-the-denied-flow-alert-matches-no-public-address.md) | 3 | Traffic analytics leaves `DestIp` empty for a public address and lists it in `DestPublicIps`. An alert drilled only against an empty table proves nothing about its query |

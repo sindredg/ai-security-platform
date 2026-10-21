@@ -4,7 +4,7 @@ Logs and load from the orchestrator, the edge, and the router, kept in a Log Ana
 
 | | |
 | --- | --- |
-| State | Built on 2026-10-17 and 2026-10-18. Verified by `O.1` to `O.17` ([validation](../validation/monitoring.md), [worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring)). Each alert rule fired once on purpose except `denied-flow-to-internet` ([drills](../worklogs/0004-edge-network-and-monitoring.md#the-drills)). `daily-cap` fired on 2026-10-19, and the cap is set from the day measured then ([the measured day](../worklogs/0004-edge-network-and-monitoring.md#the-measured-day-and-the-daily-cap)). Traffic analytics does not process the platform network's flow log, so `denied-flow-to-internet` cannot fire. Accepted on 2026-10-18 ([accepted risks](../security/accepted-risks.md)) |
+| State | Built on 2026-10-17 and 2026-10-18. Verified by `O.1` to `O.17` ([validation](../validation/monitoring.md), [worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring)). Each alert rule fired once on purpose except `denied-flow-to-internet` ([drills](../worklogs/0004-edge-network-and-monitoring.md#the-drills)). `daily-cap` fired on 2026-10-19, and the cap is set from the day measured then ([the measured day](../worklogs/0004-edge-network-and-monitoring.md#the-measured-day-and-the-daily-cap)). Traffic analytics processes the platform network's flow log since 2026-10-20. `denied-flow-to-internet` matched no public address until a fix on 2026-10-21 ([troubleshooting](../troubleshooting/13-the-denied-flow-alert-matches-no-public-address.md)) |
 | Runs on | The Azure Monitor Agent on the orchestrator, the edge, and the router. The workspace, the Private Link Scope, and both collection endpoints are Azure resources in the platform group |
 | Software | Azure Monitor Agent, extension `1.45`. Azure served `1.45.1` on 2026-10-17 |
 | Version | The minor version is pinned in `monitor_agent_version`, with automatic upgrades off. Azure picks the patch release within it, which the extension cannot pin |
@@ -46,7 +46,7 @@ In `infra/platform/alerts.tf`, on the workspace. Each fires once when its condit
 | `journal-missing` | No row from the worker's journal copy | 2 | 5 min, 15 min |
 | `squid-refused-orchestrator` | Squid refused a request from the orchestrator | 1 | 5 min, 15 min |
 | `fetch-window-opened` | A fetch window opened on the edge | 3 | 5 min, 15 min |
-| `denied-flow-to-internet` | A denied flow from the orchestrator or worker subnet to a public address. Fires on nothing while the platform's flow log is not processed | 1 | 10 min, 30 min |
+| `denied-flow-to-internet` | A denied flow from the orchestrator or worker subnet to a public address | 1 | 10 min, 30 min |
 | `ssh-login-accepted` | An SSH login was accepted | 3 | 5 min, 15 min |
 | `ssh-login-failed` | An SSH login failed, or a certificate was refused | 2 | 5 min, 15 min |
 | `tool-refusal-burst` | More than 20 tool service refusals in one 5-minute bin | 2 | 5 min, 15 min |
@@ -54,7 +54,7 @@ In `infra/platform/alerts.tf`, on the workspace. Each fires once when its condit
 | `disk-or-memory` | `/`, `/boot`, or `/boot/efi` over 85 percent, or memory over 90 percent | 2 | 15 min, 15 min |
 | `failed-unit` | A systemd unit failed | 2 | 5 min, 15 min |
 
-A check run fires `squid-refused-orchestrator` and `ssh-login-accepted` on purpose: `P.15` and the logins themselves. `C.1` and `E.12` make denied flows for `denied-flow-to-internet` too, but those are in the platform's flow log.
+A check run fires `squid-refused-orchestrator`, `ssh-login-accepted`, and `denied-flow-to-internet` on purpose: `P.15`, the logins themselves, and the connections to `1.1.1.1:443` in `C.1` and `E.12`.
 
 The audit lines that fire `audit-sequence` and `copy-marker` in a drill go to `/var/log/aisec/alert-drill.jsonl`, which the same rule collects into the audit table. Their `start` begins with `drill-`. The real copy keeps no false line.
 
@@ -64,7 +64,7 @@ In `infra/bootstrap/monitoring.tf`, in the platform state group, where neither d
 
 ## Flow logs
 
-Virtual network flow logs on the platform and edge networks, version 2, kept 90 days in a storage account in each network's region, with Entra authentication only. Traffic analytics processes the edge's every 10 minutes into `NTANetAnalytics`. It does not process the platform's, an [accepted gap](../security/accepted-risks.md): those records are in storage only. They are in the bootstrap root, `infra/bootstrap/monitoring.tf`, written as the operator: the platform identity cannot enable traffic analytics, and cannot turn the flow logs off. The storage accounts are in the platform state group ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md)).
+Virtual network flow logs on the platform and edge networks, version 2, kept 90 days in a storage account in each network's region, with Entra authentication only. Traffic analytics processes both every 10 minutes into `NTANetAnalytics`, the platform's only since 2026-10-20 ([worklog](../worklogs/0003-toolchain-integration.md#fix-the-denied-flow-alert)). For a public destination it leaves `DestIp` empty and lists the address in `DestPublicIps`. The flow logs are in the bootstrap root, `infra/bootstrap/monitoring.tf`, written as the operator: the platform identity cannot enable traffic analytics, and cannot turn the flow logs off. The storage accounts are in the platform state group ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md)).
 
 Traffic analytics creates a collection rule and endpoint of its own in the platform group, prefixed `NWTA`. Terraform does not manage them.
 

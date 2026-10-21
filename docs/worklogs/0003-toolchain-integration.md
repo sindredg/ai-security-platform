@@ -1341,3 +1341,50 @@ Both steps in `platform/argo/workflow-template.yaml`, dispatch and revoke, pin i
 - **A job that times out returns the instructions only.** Goose prints its JSON when it ends, and a stopped Goose prints nothing. Reasoned from the fixture runs, where the output was one document. Not seen.
 - **The transcript holds the evidence the agent read.** It stays on the orchestrator with its workflow, which the template's `ttlStrategy` deletes 24 hours after it ends. That the dispatch pod and its log go with the workflow is reasoned from the pod's owner, not seen. How long it is kept with real targets is an [open item](../security/accepted-risks.md#open-items).
 - **The tests run on Python 3.12 locally and 3.15 in the pipeline.** The worker has 3.14.
+
+## Fix: the denied flow alert
+
+Date: 2026-10-21. The defect, its cause, and the fix are [troubleshooting 13](../troubleshooting/13-the-denied-flow-alert-matches-no-public-address.md). This section holds the evidence.
+
+### The platform flow log, processed
+
+`O.17` failed at 04:24 UTC in the check run after the Argo install: `fl-aisec-edge fl-aisec-platform` against `fl-aisec-edge`. It was written to fail that way when the platform's rows appeared ([the platform flow log](0004-edge-network-and-monitoring.md#the-platform-flow-log)). Read from the workspace and the Activity Log with the operator's sign-in:
+
+| Reading | Result |
+| --- | --- |
+| First platform row in `NTANetAnalytics` | 20:43:44 UTC on 2026-10-20 |
+| Ten-minute bins with a platform row, to 04:32 UTC on 2026-10-21 | 48, every interval |
+| First service SAS requested by `NetworkTrafficAnalyticsService` on the platform flow log's storage account | 20:41:09 UTC on 2026-10-20. None for that account in the Activity Log from 2026-10-18 until then |
+| Writes to a flow log, a network watcher, or the platform flow log's storage account since 2026-10-18 14:00 UTC | None. The only operations are the checks' `ipFlowVerify` calls and the service's SAS requests |
+
+Why the service began then is not known. Nothing in the project changed. A change on Azure's side is the hypothesis.
+
+### The defect
+
+The first four platform rows that should have fired `denied-flow-to-internet` did not. For a public destination, `DestIp` is empty and the address is in `DestPublicIps`, so the rule's test on `DestIp` dropped every row. The empty table had hidden it since the rule was written.
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| `infra/platform/alerts.tf` | `denied-flow-to-internet` tests `isnotempty(DestPublicIps)` instead of `not(ipv4_is_private(DestIp))` |
+| `validation/platform-checks.sh` | `O.17` expects both flow logs |
+| `docs/security/accepted-risks.md` | The entry for the missing alert is out, with a line on why |
+
+### The query and the check, tested
+
+Written before the runs: the old query counts no rows in the window and the new one counts the four denied flows. The new one counts none for a source range outside the two subnets and none for allowed flows, so it can come back empty. `O.17` passes live, and fails on an hour with the edge's rows alone and on no answer.
+
+| Run, against the live workspace | Result |
+| --- | --- |
+| Old query, 20:00 UTC on 2026-10-20 to 05:00 on 2026-10-21 | 0 |
+| New query, same window | 4 |
+| New query, source range `10.40.0.64/26` | 0 |
+| New query, allowed flows | 0 |
+| `O.17` alone, at about 04:45 UTC | `PASS` |
+| `O.17` on 19:00 to 20:00 UTC on 2026-10-20 | `FAIL`, actual `fl-aisec-edge` |
+| `O.17` with no workspace | `FAIL`, actual empty |
+
+### The apply
+
+The platform plan had one change: the rule's query, in place. Applied from the branch at about 14:08 UTC: `0 added, 1 changed, 0 destroyed`. The rule read back from Azure with `az monitor scheduled-query show` has the new query.

@@ -1088,11 +1088,9 @@ for r in sorted(rules, key=lambda r: r['name']):
   check O.16 "Flow logs are on for both networks, with traffic analytics every 10 minutes" \
     "fl-aisec-platform true true 10; fl-aisec-edge true true 10; " "$flows"
   # Traffic analytics writes every 10 minutes, and the checks themselves make
-  # flows. An hour is six intervals. Traffic analytics does not process the
-  # platform flow log, an accepted gap (docs/security/accepted-risks.md). A
-  # platform row fails this check on purpose: the gap has closed, so the
-  # accepted risk and this expected value change together.
-  check O.17 "Traffic analytics wrote flows from the edge flow log in the last hour, and none from the platform's" "fl-aisec-edge" \
+  # flows. An hour is six intervals. denied-flow-to-internet reads the
+  # platform's rows.
+  check O.17 "Traffic analytics wrote flows from both flow logs in the last hour" "fl-aisec-edge fl-aisec-platform" \
     "$(kql "NTANetAnalytics | where TimeGenerated > ago(1h) and SubType == 'FlowLog' | extend log = tostring(split(FlowLogResourceId, '/')[-1]) | distinct log | order by log asc")"
 fi
 
