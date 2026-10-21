@@ -1,6 +1,6 @@
 # 0030. How a job reaches the worker: a host rule exception, a dispatch image, and a socket-started job unit
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-19
 
 Changes three parts of [0012](0012-dispatch-over-ssh-with-a-forced-command.md): which image opens the session, that no network rule is added, and that the runner starts the agent's unit itself. Adds one rule to the host rule of [0018](0018-a-host-rule-keeps-pods-off-the-internet.md). The rest of 0012 stands: SSH from a workflow step, a key that runs one command as an account without sudo, the job on standard input, the result on standard output, a closed session as the cancel, and one job at a time.

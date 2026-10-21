@@ -1,6 +1,6 @@
 # 0029. Argo Workflows in its own namespace, and its UI on the operator's machine
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-19
 
 ## Context

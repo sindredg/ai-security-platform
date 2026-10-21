@@ -35,7 +35,7 @@ The installer is not piped from the network into a shell. The script is fetched 
 
 | Namespace | Workloads | Responsibility |
 | --- | --- | --- |
-| `argo` | The Argo Workflows controller, which manages `orchestration` only ([ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), proposed). The UI runs on the operator's machine | Scheduling, retries, one job at a time |
+| `argo` | The Argo Workflows controller, which manages `orchestration` only ([ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md)). The UI runs on the operator's machine | Scheduling, retries, one job at a time |
 | `orchestration` | Workflows from fixed templates: the dispatch step and its exit handler | Register a job, hand it to the worker, check the result, revoke the token |
 | `collection` | Collectors and deterministic checks | Read approved sources, correlate advisories locally |
 | `tool-services` | Narrow MCP servers and the policy check | Check caller, job, target, operation, and arguments on every call |
