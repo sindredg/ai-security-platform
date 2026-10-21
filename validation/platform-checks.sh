@@ -329,6 +329,12 @@ echo "argo_executor_role=$(k get role argo-executor -n orchestration -o jsonpath
 echo "argo_server=$(k get deployments -A -o name | grep -c argo-server)"
 echo "argo_namespace=$(k get namespace argo -o jsonpath="{.metadata.labels.pod-security\.kubernetes\.io/enforce}") $(k get networkpolicy default-deny -n argo -o name)"
 echo "argo_template=$(k get workflowtemplate investigate -n orchestration -o jsonpath="{.spec}" | sha256sum | cut -d " " -f 1)"
+echo "argo_executor_token=$(k get secret argo-executor.service-account-token -n orchestration -o json | python3 -I -c "
+import json, sys
+secret = json.load(sys.stdin)
+print(secret[\"type\"], secret[\"metadata\"][\"annotations\"][\"kubernetes.io/service-account.name\"],
+      \"token\" if secret.get(\"data\", {}).get(\"token\") else \"empty\")
+" 2>/dev/null)"
 echo "dispatch_secret=$(k get secret dispatch-ssh -n orchestration -o json | python3 -I -c "
 import base64, json, sys
 data = json.load(sys.stdin)[\"data\"]
@@ -559,6 +565,9 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check W.8 "The argo namespace is restricted and denies by default" \
     "restricted networkpolicy.networking.k8s.io/default-deny" "$(value argo_namespace)"
   check W.9 "The workflow template is the one in this checkout" "$TEMPLATE_SHA" "$(value argo_template)"
+  # Without it, every workflow pod waits on the mount and no step starts.
+  check W.11 "The executor's token secret is for argo-executor and holds a token" \
+    "kubernetes.io/service-account-token argo-executor token" "$(value argo_executor_token)"
   # Kept for W.10 in the worker's section, which reads the worker's own key.
   DISPATCH_SECRET=$(value dispatch_secret)
   check L.1 "The audit copier is active" active "$(value audit_copy_active)"
@@ -1088,11 +1097,9 @@ for r in sorted(rules, key=lambda r: r['name']):
   check O.16 "Flow logs are on for both networks, with traffic analytics every 10 minutes" \
     "fl-aisec-platform true true 10; fl-aisec-edge true true 10; " "$flows"
   # Traffic analytics writes every 10 minutes, and the checks themselves make
-  # flows. An hour is six intervals. Traffic analytics does not process the
-  # platform flow log, an accepted gap (docs/security/accepted-risks.md). A
-  # platform row fails this check on purpose: the gap has closed, so the
-  # accepted risk and this expected value change together.
-  check O.17 "Traffic analytics wrote flows from the edge flow log in the last hour, and none from the platform's" "fl-aisec-edge" \
+  # flows. An hour is six intervals. denied-flow-to-internet reads the
+  # platform's rows.
+  check O.17 "Traffic analytics wrote flows from both flow logs in the last hour" "fl-aisec-edge fl-aisec-platform" \
     "$(kql "NTANetAnalytics | where TimeGenerated > ago(1h) and SubType == 'FlowLog' | extend log = tostring(split(FlowLogResourceId, '/')[-1]) | distinct log | order by log asc")"
 fi
 

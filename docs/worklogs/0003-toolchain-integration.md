@@ -5,20 +5,20 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices. Five are on the system: the model server on the AI worker, the agent runtime running headless against it with a fixture tool, the tool service in K3s on the orchestrator, called from the worker with a job token, the audit copier, and the journal pull. Dispatch is written and tested in the pipeline, and not installed: the [job socket](#slice-jobs-over-a-socket) on the worker, the dispatch step and its image, [Argo with the workflow template](#slice-argo-and-the-workflow-template), and [the transcript in the result](#slice-the-transcript-in-the-result). No workflow has run, and the agent has not called the tool service on the worker. The gate is not met.
+The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The gate is not met: the model comparison, the footprint, and the milestone's review are open.
 
 | Gate | Result |
 | --- | --- |
-| A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back | Open. Written and tested in the pipeline with a fake Goose and stubs, from the dispatch step through the real job runner and job program ([tests](#tests-4)). Not installed |
+| A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back | **Tested** on the live system on 2026-10-21: `investigate-fczp4` ran a job on the worker, its one call to `get_evidence` was allowed, and the dispatch step checked the result before the workflow `Succeeded` ([the first workflows](#installed-argo-and-the-first-workflows)). Tested in the pipeline with a fake Goose and stubs before ([tests](#tests-4)) |
 | A tool call for another job or target is refused by the tool service | Partly **tested** on the live system: a tool outside the job's scope and a revoked job's token are refused ([round trip](#the-round-trip), steps 3 and 8). Another job's evidence on the same target was not tried, and the service cannot refuse it ([issue #45](https://github.com/sindredg/ai-security-platform/issues/45)). Another target is refused in the service's own tests |
-| Cancelling a workflow stops the worker job and cleans up its session | Open. Written: a stop of the dispatch step reaches the job program as an end of input, tested in the pipeline. Not installed |
+| Cancelling a workflow stops the worker job and cleans up its session | **Tested** on the live system on 2026-10-21: a workflow stopped 25 seconds in ended its job as `cancelled` with the slot erased, left no unit and no private directory on the worker, and its token was revoked ([the first workflows](#installed-argo-and-the-first-workflows)). `argo terminate` was not tried |
 | Model memory use, latency per turn, and tokens per second are measured on the chosen size | **Tested** for the model server alone, and for one agent run beside it on a fixture. Not measured with a tool over the network |
-| Component footprint on the orchestrator is measured | Open |
-| The threat model covers dispatch, workload identity, and the AI-specific threats | Written: T45 to T51 for dispatch and Argo, from ADRs 0029 and 0030, both proposed. Every one rated high has a control: T50, the controller image. Workload identity is unchanged, with no cloud identity ([0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)) |
+| Component footprint on the orchestrator is measured | Partly **tested**: the log agent across a day ([monitoring](../components/monitoring.md#footprint)), and the Argo controller in one reading at rest and one after the first workflows, 23 MiB at most ([the first workflows](#installed-argo-and-the-first-workflows)). The dispatch pods and the tool service were not measured for this |
+| The threat model covers dispatch, workload identity, and the AI-specific threats | Written: T45 to T51 for dispatch and Argo, from ADRs 0029 and 0030, both proposed, and their states moved on 2026-10-21 after the install. Every one rated high has a control: T50, the controller image. Workload identity is unchanged, with no cloud identity ([0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)) |
 | Every image and every model input is pinned by digest and verified on the orchestrator | **Tested** for the model server (38 files and one commit) and for the agent runtime (one file). **Tested** for the tool service image: `T.2` passes against the running pod and failed against a manifest with one digest character changed ([fail side](#the-fail-side-of-each-new-check)) |
 | Every tool call is logged with caller, job, and decision, out of the worker's reach | Partly **tested**: the live service printed one line per decision with caller, job, and decision, and no token ([round trip](#the-round-trip), step 10). **Tested** for storage on the live system: the [audit copier](#slice-the-audit-copier) copies every line into an append-only file that no pod mounts, `L.1` to `L.7` pass, and each was seen to fail, on a broken condition or before the install ([rollout](#rollout-of-the-log-copies)). Root on the orchestrator can edit it |
 | A revoked or expired job token is refused | **Tested** on the live system: [round trip](#the-round-trip) step 8, and [an expired job token](#an-expired-job-token) |
-| A pod in a workload namespace cannot open a connection to the internet | **Tested** on the live system: `T.8` from the tool service pod, `E.6` and `E.7` for the host rule, and a [probe in a new pod](#pods-and-the-internet) in `orchestration`. Not probed with a new pod in `tool-services` |
+| A pod in a workload namespace cannot open a connection to the internet | **Tested** on the live system: `T.8` from the tool service pod, `E.6` and `E.7` for the host rule, and a [probe in a new pod](#pods-and-the-internet) in `orchestration`. A new pod in `tool-services` was refused at 0, 5, and 20 seconds and resolved no public name, on 2026-10-21 ([pods and names](#pods-and-names)) |
 | The worker's journal is copied to the orchestrator on a schedule | **Tested** on the live system: a pull every five minutes into an append-only file, `J.1` to `J.9` pass, and each was seen to fail, on a broken condition or before the install ([rollout](#rollout-of-the-log-copies)) |
 
 ## Slice: the model server
@@ -861,7 +861,6 @@ The corrected check, against the live worker:
 - The kubelet's rotation of the pod's log has not happened yet, so a rotated file has not been read by the copier.
 - The worker's journal copy is complete only back to what the worker kept. The first pull took the whole journal, 14,331 lines.
 
-
 ## Fix: whole lines only
 
 Date: 2026-10-16, after the rollout. A review of the copier before merge found that it read the last line of a log file even when that line had no newline yet.
@@ -1168,7 +1167,7 @@ Not run yet.
 
 ## Slice: jobs over a socket
 
-Date: 2026-10-19, written and tested locally. Not installed on the worker, and the dispatch image not built yet.
+Date: 2026-10-19, written and tested locally. Installed on the worker on 2026-10-20 ([below](#installed-and-run-on-the-worker)), and dispatched to from workflows since 2026-10-21 ([the first workflows](#installed-argo-and-the-first-workflows)).
 
 Both ends of a dispatch session, as [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md) proposes them. On the worker: an account for the dispatch key, a forced command that relays to a socket, and a socket that starts one sandboxed unit per job. On the orchestrator: the dispatch step's program and its image. Argo, the workflow template, and the host rule are the next slice.
 
@@ -1232,7 +1231,7 @@ A re-run on 2026-10-20 at 20:12 UTC, with the fix installed, exercised it. A com
 
 ## Slice: Argo and the workflow template
 
-Date: 2026-10-20, written and checked locally. Not installed.
+Date: 2026-10-20, written and checked locally. Installed on 2026-10-21 ([the first workflows](#installed-argo-and-the-first-workflows)).
 
 The template's dispatch image is the digest the pipeline pushed from `main` at `084ff13`, read from that run's log: `sha256:e1bdac46...9cb0`. An anonymous request for its manifest by that digest returned 200 and the same digest, so the cluster pulls it without a token. A request for another digest, and for a package that does not exist, returned 404. The image's configuration names `amd64`, `linux`, user `65532:65532`, and the dispatch script as its entry point.
 
@@ -1290,7 +1289,7 @@ Read again locally afterwards, with Trivy 0.76.0 and Checkov 3.3.29 at the pipel
 
 ## Slice: the transcript in the result
 
-Date: 2026-10-20, written and tested locally, merged in `73a4a49`, and the template pins the image built from it. Not installed.
+Date: 2026-10-20, written and tested locally, merged in `73a4a49`, and the template pins the image built from it. Installed with the template on 2026-10-21 ([the first workflows](#installed-argo-and-the-first-workflows)).
 
 Until now a job returned counts, the last answer, a tail of Goose's standard error, and token counts. Goose's whole transcript stayed in `out.json` in the unit's private `/tmp`, and went with the unit. A run showed what the agent concluded, not what it asked for or what the tool gave it. [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), still proposed, now has the result carry the transcript.
 
@@ -1341,3 +1340,185 @@ Both steps in `platform/argo/workflow-template.yaml`, dispatch and revoke, pin i
 - **A job that times out returns the instructions only.** Goose prints its JSON when it ends, and a stopped Goose prints nothing. Reasoned from the fixture runs, where the output was one document. Not seen.
 - **The transcript holds the evidence the agent read.** It stays on the orchestrator with its workflow, which the template's `ttlStrategy` deletes 24 hours after it ends. That the dispatch pod and its log go with the workflow is reasoned from the pod's owner, not seen. How long it is kept with real targets is an [open item](../security/accepted-risks.md#open-items).
 - **The tests run on Python 3.12 locally and 3.15 in the pipeline.** The worker has 3.14.
+
+## Fix: the denied flow alert
+
+Date: 2026-10-21. The defect, its cause, and the fix are [troubleshooting 13](../troubleshooting/13-the-denied-flow-alert-matches-no-public-address.md). This section holds the evidence.
+
+### The platform flow log, processed
+
+`O.17` failed at 04:24 UTC in the check run after the Argo install: `fl-aisec-edge fl-aisec-platform` against `fl-aisec-edge`. It was written to fail that way when the platform's rows appeared ([the platform flow log](0004-edge-network-and-monitoring.md#the-platform-flow-log)). Read from the workspace and the Activity Log with the operator's sign-in:
+
+| Reading | Result |
+| --- | --- |
+| First platform row in `NTANetAnalytics` | 20:43:44 UTC on 2026-10-20 |
+| Ten-minute bins with a platform row, to 04:32 UTC on 2026-10-21 | 48, every interval |
+| First service SAS requested by `NetworkTrafficAnalyticsService` on the platform flow log's storage account | 20:41:09 UTC on 2026-10-20. None for that account in the Activity Log from 2026-10-18 until then |
+| Writes to a flow log, a network watcher, or the platform flow log's storage account since 2026-10-18 14:00 UTC | None. The only operations are the checks' `ipFlowVerify` calls and the service's SAS requests |
+
+Why the service began then is not known. Nothing in the project changed. A change on Azure's side is the hypothesis.
+
+### The defect
+
+The first four platform rows that should have fired `denied-flow-to-internet` did not. For a public destination, `DestIp` is empty and the address is in `DestPublicIps`, so the rule's test on `DestIp` dropped every row. The empty table had hidden it since the rule was written.
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| `infra/platform/alerts.tf` | `denied-flow-to-internet` tests `isnotempty(DestPublicIps)` instead of `not(ipv4_is_private(DestIp))` |
+| `validation/platform-checks.sh` | `O.17` expects both flow logs |
+| `docs/security/accepted-risks.md` | The entry for the missing alert is out, with a line on why |
+
+### The query and the check, tested
+
+Written before the runs: the old query counts no rows in the window and the new one counts the four denied flows. The new one counts none for a source range outside the two subnets and none for allowed flows, so it can come back empty. `O.17` passes live, and fails on an hour with the edge's rows alone and on no answer.
+
+| Run, against the live workspace | Result |
+| --- | --- |
+| Old query, 20:00 UTC on 2026-10-20 to 05:00 on 2026-10-21 | 0 |
+| New query, same window | 4 |
+| New query, source range `10.40.0.64/26` | 0 |
+| New query, allowed flows | 0 |
+| `O.17` alone, at about 04:45 UTC | `PASS` |
+| `O.17` on 19:00 to 20:00 UTC on 2026-10-20 | `FAIL`, actual `fl-aisec-edge` |
+| `O.17` with no workspace | `FAIL`, actual empty |
+
+### The apply
+
+The platform plan had one change: the rule's query, in place. Applied from the branch at about 14:08 UTC: `0 added, 1 changed, 0 destroyed`. The rule read back from Azure with `az monitor scheduled-query show` has the new query.
+
+### The alert fires
+
+Written before the run: a denied flow from either subnet to a public address fires the rule within 40 minutes: the traffic analytics interval, ingestion, and a rule that runs every 10 minutes over 30 ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md)). The drill is a check run, whose `C.1` and `E.12` connect to `1.1.1.1:443` from the worker and the orchestrator, and the host probe of the [first workflows](#installed-argo-and-the-first-workflows).
+
+| Event | Time, UTC, 2026-10-21 |
+| --- | --- |
+| First denied flow from the orchestrator (`10.40.0.4`, 17 flows) | 15:19:54 |
+| First denied flow from the worker (`10.40.0.36`) | 15:21:16 |
+| Both rows written by traffic analytics | 15:33:29 |
+| `denied-flow-to-internet` fired | 15:40:45 |
+
+21 minutes from the first flow to the alert. It is the first time the rule fired. The alert list was read with the operator's sign-in, as in step 12 of the [monitoring runbook](../runbooks/monitoring.md).
+
+### Limits
+
+- **Why traffic analytics began processing the platform's flow log is not known.** If it stops, `O.17` fails and the alert has nothing to read.
+- **One fire.** The rule's 40-minute bound held once.
+
+## Fix: the executor's token
+
+Date: 2026-10-21. The defect, its cause, and the fix are [troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md). This section holds the evidence.
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| `platform/argo/rbac.yaml` | A secret of type `kubernetes.io/service-account-token` named `argo-executor.service-account-token`, for the account `argo-executor` |
+| `validation/platform-checks.sh` | `W.11`: the secret's type, its account annotation, and a token that is not empty |
+| [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), still proposed | The token's source, and a trade-off: it does not expire |
+
+Turning the pod's token back on was the other way. It puts an API token in the dispatch container, which reads the worker's output, and was not taken.
+
+### Tests
+
+Written before the runs: `W.11` fails on the cluster as it is, with no secret, and on a secret with a wrong type, a wrong account, or no token.
+
+| Run | Result |
+| --- | --- |
+| The probe's lines on the live orchestrator, at about 15:00 UTC, before the install | Empty, so `W.11` fails |
+| The probe's parser on a correct secret, by hand | `kubernetes.io/service-account-token argo-executor token`, equal to the expected value |
+| The same with no token, type `Opaque`, and account `dispatch` | `... empty`, `Opaque ...`, and `... dispatch ...`: each differs |
+| Trivy 0.76.0 on `platform`, with the pipeline's data file and ignore file | No finding |
+| Checkov 3.3.29 on `platform` | 237 passed, 0 failed, 1 skipped |
+| kubeconform 0.8.0, Kubernetes 1.36.5, strict | 32 valid, 0 invalid, 1 skipped |
+| ShellCheck 0.11.0 on `validation/platform-checks.sh` | Clean at warning level |
+
+Run locally with the release binaries. Trivy ran without `--skip-check-update`, so with the newest checks, not the image's.
+
+### Installed
+
+Applied to the orchestrator at 15:09:20 UTC on 2026-10-21, from the branch at `5f3c27d`, with `kubectl apply` of `rbac.yaml`: every object `unchanged` and the secret `created`. The cluster had filled it by the first read, two seconds later: `kubernetes.io/service-account-token argo-executor token`, `W.11`'s expected value. The waiting workflow then ended as [troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md#verification) records, and every workflow after it started its pods.
+
+## Installed: Argo and the first workflows
+
+Date: 2026-10-21. The [workflows runbook](../runbooks/workflows.md) on the live platform, from scripts with the same commands, in three runs. Expected results were written down before each run, as the runbook's "Expected" lines. Two were wrong, and are marked below.
+
+| Run | Time, UTC | Checkout | Steps |
+| --- | --- | --- | --- |
+| The install | 04:16 to 04:24 | `main` at `fa99384` | 1 to 8, then every check |
+| The first workflows | 15:11 to 15:26 | the branch at `5f3c27d`, after the [executor's token](#fix-the-executors-token) | 9 to 16 |
+| The rest | 15:37 to 15:44 | the branch at `5d0b550`, after the UI's config map | 13, 14, and the name lookups of 7 |
+
+An attempt at 14:12 UTC never started a pod ([troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md)). Stopping that script with Ctrl-C ended only the command it waited on, so the script went on and submitted the stop step's workflow, `investigate-ctstv`. It waited for the lock and was stopped there. No job reached the worker from either.
+
+### The install
+
+| Step | Result |
+| --- | --- |
+| 1. The release and the install file's pin | `v4.1.5`, and the install file's digest equal to `ARGO_INSTALL_SHA256`. The image signatures were checked on 2026-10-19, not in this run |
+| 2. The fetch list on the edge | `active` |
+| 3. The release file and three images, in a fetch window | `open for 20 minutes`, `ok` for the install file and for the controller, executor, and dispatch images, `closed` |
+| 4. Install | Eight definitions, `condition met` three times, every object `created`, `successfully rolled out`, and the controller pod `Running` with the digest in `argo.yaml` |
+| 5. The host rule | The forward chain with four rules, the third `ip saddr 10.42.0.0/16 ip daddr 10.40.0.36 tcp dport 22 accept` |
+| 6. The worker's SSH port from new pods | Dispatch pod: `open` at 0, 5, and 20 seconds. Another pod in `orchestration`: `open` at 0 seconds, `refused` at 5 and 20. The 0-second `open` is the residual of T47 |
+| 7. A new pod in `tool-services`, to `1.1.1.1:443` | `refused` at 0, 5, and 20 seconds |
+| 8. The dispatch key | One `ssh-ed25519 ... aisec-dispatch` line, then `root aisec-job 660 /run/aisec-job/agent.sock` and `active` |
+
+Read on the cluster after the install, with `kubectl` over SSH: the controller runs as user and group 65532, with no privilege escalation, no capabilities, and a read-only root file system, and had not restarted. Its last 200 log lines had no error and no `forbidden`. No Role in `argo` or `orchestration` names `secrets`. Its footprint at rest: 1 millicore and 14 MiB.
+
+Four things were first seen in this run. The controller works without `secrets: get`. `W.9` passes, so the API server adds no defaults to the template's spec. `W.2` passes, so the pod's image ID is the index digest. The controller reached the API server through kube-router's policy, which is written for the address after the service's address translation.
+
+### The first workflows
+
+| Step | Result |
+| --- | --- |
+| 9. The operator's token and kubeconfig | `600`, `investigate`, and the two workflows from the attempt |
+| 10. The round trip | `investigate-fczp4` `Succeeded` in 1 minute 59 seconds, the dispatch step and the exit handler green. Result: `completed`, `tool_calls` 1, `tool_errors` 0, 95.1 seconds on the worker, 2187 input and 156 output tokens, an answer that names `tenancy.contact` and `circuits.circuit`, and five transcript parts. The step's log prints them from `-- system instructions` to `-- answer` |
+| 11. A stop, 25 seconds in | `investigate-pxd9v`: the dispatch step `Failed` with exit code 143, the exit handler `Succeeded`. On the worker: `0` units, `0` private directories, and `{"job": "investigate-pxd9v", "outcome": "cancelled", "slot_erased": true}` |
+| 12. Two at once | One `Running`, one `Pending` with `Waiting for orchestration/Mutex/worker lock. Lock status: 0/1`. Both `Succeeded`, the second two minutes after the first |
+| 13. The restriction | The template with a pod patch: `Error`, `fields [PodSpecPatch] are not permitted when using workflowTemplateRef with templateReferencing restriction`, no pod. A workflow of its own: refused by `argo` before it reached the cluster, because `command: [true]` is a YAML boolean. Quoted and run again: `Error`, `workflows must use workflowTemplateRef to be executed when the controller is in reference mode`, no pod |
+| 14. The UI | The server exited, unable to read a config map ([troubleshooting 15](../troubleshooting/15-argo-server-exits-without-its-config-map.md)). With the map, it started, logged no error, served its page, and its API listed the eight workflows |
+| 15. Footprint | The controller after the runs: 2 millicores and 23 MiB. The orchestrator: 2189 of 7881 MiB used, 5692 available |
+| 16. Every check | `PASS` for `E.6`, `G.5` to `G.10`, `K.3`, `W.1` to `W.11`. See [checks](#checks-after-the-install) |
+| Without the tunnel | `connect: connection refused` on `127.0.0.1:6443` |
+
+The audit lines of the round trip, each with the workflow's name as the job:
+
+```text
+{"seq":112,"event":"register","decision":"allowed","job":"investigate-fczp4","caller":"10.42.0.49",...}
+{"seq":113,"event":"call","decision":"allowed","job":"investigate-fczp4","caller":"10.40.0.36","tool":"get_evidence",...,"result_bytes":313}
+{"seq":114,"event":"revoke","decision":"allowed","job":"investigate-fczp4","caller":"10.42.0.50",...}
+```
+
+The dispatch pod registered and the exit handler's pod revoked, each from its own pod address. The tool call came from the worker. The job's journal on the worker ended `{"job": "investigate-fczp4", "outcome": "ended", "slot_erased": true}`.
+
+### Pods and names
+
+Issue [#65](https://github.com/sindredg/ai-security-platform/issues/65) asked for the start-of-pod probe in `tool-services`, with a name lookup. Step 7 above has the connections. The lookups, from new pods at 0 and 20 seconds:
+
+| Pod | Cluster name at 0 s | At 20 s | `example.com.` at 0 s | At 20 s |
+| --- | --- | --- | --- | --- |
+| `orchestration`, dispatch label, which may use DNS | Resolves | Resolves | Fails | Fails |
+| `tool-services` | Resolves | Fails | Fails | Fails |
+
+No pod resolves a public name, and the host rule is not why: the orchestrator itself gets no answer from Azure DNS (`E.13`, `E.14`). A new pod in `tool-services` reaches the cluster's DNS server for its first seconds, before kube-router writes the namespace's policy, the same window as T47.
+
+The first expectation for this step was wrong. It had the orchestrator host resolve `example.com` as the comparison, and the host does not, by design. The dispatch pod's cluster name is the comparison now.
+
+### Checks after the install
+
+| Time, UTC | Checkout | Result |
+| --- | --- | --- |
+| 04:24 | `fa99384` | 279 of 284. `O.17` failed as written ([the platform flow log, processed](#the-platform-flow-log-processed)). `U.5`, `U.9`, and `U.13` on pending security updates, `U.7` on a new mesh agent release |
+| 15:26 | `5f3c27d` | 281 of 285. `U.5` and `U.7`, and `HR.1` and `HE.1` on a failed firmware metadata refresh ([#145](https://github.com/sindredg/ai-security-platform/issues/145)) |
+| 15:44 | `5d0b550` | 282 of 285. `U.5`, `U.7`, and `HR.1` |
+
+### Limits
+
+- **One fixture question.** Every job asked the same question and called one tool. A real investigation is milestone 4.
+- **The dispatch step's refusal of a bad result was not seen live.** Its tests cover it in the pipeline.
+- **`argo terminate`, a restart of the controller during a job, and a job at its time limit were not tried.**
+- **One footprint reading** for the controller after the runs, and one at rest. The dispatch pods were not measured.
+- **The UI's first query after it started listed nothing.** A later one listed every workflow. Not looked into.
+- **Workflows from the template stay for 24 hours, its `ttlStrategy`.** The workflow of its own has none, and stays until deleted.

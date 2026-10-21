@@ -2,7 +2,7 @@
 
 Argo Workflows' controller in its own namespace, managing `orchestration` only, and the template that dispatches a job to the worker ([ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)). The procedure is the [workflows runbook](../runbooks/workflows.md).
 
-Status: written on 2026-10-20. Not run against the cluster. Before the install, `W.1` to `W.10` fail on absence, written down before any run.
+Status: **tested** on the live system on 2026-10-21. `W.1` to `W.10` failed on absence before the install, on 2026-10-20, and passed at 04:24 UTC after it. `W.11` failed on absence before its secret existed and passed at 15:26 UTC, and its parser gives another value for a secret with no token, another type, or another account ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)).
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
@@ -16,10 +16,12 @@ Status: written on 2026-10-20. Not run against the cluster. Before the install, 
 | `W.8` | The `argo` namespace is restricted and denies by default | The controller's pod has a token for the API server | The namespace's pod security label is `restricted`, and `default-deny` exists |
 | `W.9` | The workflow template is the one in this checkout | The template decides the image, the account, the volumes, and the deadline of every job (T51) | One SHA-256 over the live template's spec as `kubectl` prints it, JSON with sorted keys, equal to the same over `workflow-template.yaml`'s spec. Needs Python's `yaml` module on the workstation |
 | `W.10` | The dispatch secret pins this worker's host key | A wrong or missing host key makes every dispatch fail, or trust a machine that is not the worker | The secret has exactly `id_ed25519` and `known_hosts`, and `known_hosts` is `10.40.0.36` with the host key the worker's own file holds. Read in the orchestrator's section and the worker's |
+| `W.11` | The executor's token secret is for `argo-executor` and holds a token | Without it, every workflow pod waits on the mount and no step starts ([troubleshooting](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md)) | The secret `argo-executor.service-account-token` in `orchestration`: its type `kubernetes.io/service-account-token`, its account annotation `argo-executor`, and a token that is not empty. The token itself is not printed |
 
 ## Limits
 
-- **`W.9` compares what the API server gives back.** If the server adds defaults to the stored spec, `W.9` fails on a correct template. Its first run on the cluster shows whether it does.
-- **`W.2` reads the digest containerd used.** The images are pulled by the digest of their multi-platform index. Whether the pod's image ID shows that digest is first seen on the cluster.
+- **`W.9` compares what the API server gives back.** If the server adds defaults to the stored spec, `W.9` fails on a correct template. It passed on its first run on the cluster, on 2026-10-21, so the server added none to this template. A change to Argo's defaults can still break it.
+- **`W.2` reads the digest containerd used.** The images are pulled by the digest of their multi-platform index, and the pod's image ID showed that digest on the cluster on 2026-10-21.
 - **Argo's offline linter does not check parameter references.** In the pipeline it fails on an unknown field and on a template that names a missing one, both seen on 2026-10-20. A misspelled `{{workflow.parameters...}}` passes it.
+- **`W.11` reads that the secret holds a token, not that the token works.** A workflow that starts shows that.
 - **No check reads what a workflow did.** The round trip, the cancel, and the refused submissions are procedure steps in the [runbook](../runbooks/workflows.md), because they start jobs.

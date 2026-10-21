@@ -4,7 +4,7 @@ The machine that runs the agent and the model. It reads advisories, target evide
 
 | | |
 | --- | --- |
-| State | Runs the model server. The agent runtime is installed and runs once per job. The job socket is installed and jobs have run over it by hand; no workflow dispatches a job yet |
+| State | Runs the model server. The agent runtime is installed and runs once per job. The job socket is installed, and workflows dispatch jobs to it since 2026-10-21 ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)) |
 | Where | Sweden Central, `snet-worker`, fixed private address `10.40.0.36` |
 | Size | `Standard_D2ps_v6`: 2 vCPUs, 8 GiB, Arm64. Two physical cores for the same quota as one x64 core pair |
 | Image | Ubuntu 26.04 LTS, `Canonical:ubuntu-26_04-lts:server-arm64` |
@@ -89,10 +89,10 @@ The exchange and the full tables are in the [milestone 3 worklog](../worklogs/00
 
 | Role | Candidate | Has to prove |
 | --- | --- | --- |
-| Agent runtime | Goose, installed | Validation of the result against a schema, which the dispatch step does and has not run. Goose's network call to the tool service with a job token is now seen on the worker, on 2026-10-20, allowed and logged on the orchestrator; a `curl` call with a job token also works from here. Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture |
+| Agent runtime | Goose, installed | Validation of the result against a schema, which the dispatch step did on each completed workflow since 2026-10-21. Goose's network call to the tool service with a job token is now seen on the worker, on 2026-10-20, allowed and logged on the orchestrator; a `curl` call with a job token also works from here. Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture |
 | Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far |
 
-A workflow hands a job to this machine over SSH, with a key that can only run the job runner ([ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md)). The runner logs in as `aisec-job` and connects to a socket that starts the agent's sandboxed unit, one job at a time ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), proposed). The result comes back on the same session, with the agent's transcript. The socket, the runner, and the job unit are installed on the worker, and jobs have run over them by hand with a token since 2026-10-20, with the slot erased between jobs ([worklog](../worklogs/0003-toolchain-integration.md#installed-and-run-on-the-worker)). The workflow and its dispatch step are the next slice: not installed, and no workflow has run. The worker can start a connection to two ports on the orchestrator: the proxy and the tool service ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)).
+A workflow hands a job to this machine over SSH, with a key that can only run the job runner ([ADR 0012](../decisions/0012-dispatch-over-ssh-with-a-forced-command.md)). The runner logs in as `aisec-job` and connects to a socket that starts the agent's sandboxed unit, one job at a time ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), proposed). The result comes back on the same session, with the agent's transcript. The socket, the runner, and the job unit are installed on the worker, and jobs have run over them by hand with a token since 2026-10-20, with the slot erased between jobs ([worklog](../worklogs/0003-toolchain-integration.md#installed-and-run-on-the-worker)). Since 2026-10-21 the workflow's dispatch step opens that session: a round trip, a stopped workflow, and two workflows in turn ran through it ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)). The worker can start a connection to two ports on the orchestrator: the proxy and the tool service ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)).
 
 ## Validation
 

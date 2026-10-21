@@ -1,6 +1,6 @@
 # Monitoring: operator procedure
 
-Status: Implemented on 2026-10-17 to 2026-10-19. Steps 1 to 8 ran once, on the live platform, between 22:50 and 23:50 UTC on 2026-10-17. Steps 9 to 13 ran on 2026-10-18 from a script with the same commands. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring). The first platform apply stopped on two unregistered resource providers. Step 1 was added for that and ran before the second apply. Steps 6 to 8 ran with the same queries in a longer form. Steps 14 to 17 ran on 2026-10-19 between 13:53 and 14:23 UTC. The drill in step 16 ran about three hours before the reset hour. Its advice to run 30 minutes before the reset hour is reasoned from that run and has not been run ([troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)).
+Status: Implemented on 2026-10-17 to 2026-10-19. Steps 1 to 8 ran once, on the live platform, between 22:50 and 23:50 UTC on 2026-10-17. Steps 9 to 13 ran on 2026-10-18 from a script with the same commands. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring). The first platform apply stopped on two unregistered resource providers. Step 1 was added for that and ran before the second apply. Steps 6 to 8 ran with the same queries in a longer form. Steps 14 to 17 ran on 2026-10-19 between 13:53 and 14:23 UTC. The drill in step 16 ran about three hours before the reset hour. Its advice to run 30 minutes before the reset hour is reasoned from that run and has not been run ([troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)). The `denied-flow-to-internet` drill of step 11 fired on 2026-10-21, after a fix to the rule's query, from the connections a check run makes ([worklog](../worklogs/0003-toolchain-integration.md#the-alert-fires)).
 
 This builds the log store of [ADR 0021](../decisions/0021-monitoring-in-azure-monitor-over-private-link.md), as changed by [ADR 0027](../decisions/0027-how-the-monitoring-is-built.md): a Log Analytics workspace that takes ingestion only through a private endpoint, and the Azure Monitor Agent on the orchestrator, the edge, and the router. The worker gets nothing.
 
@@ -157,11 +157,11 @@ This builds the log store of [ADR 0021](../decisions/0021-monitoring-in-azure-mo
       --query "value[].[properties.essentials.alertRule, properties.essentials.monitorCondition, properties.essentials.startDateTime]" -o tsv
     ```
 
-    Expected: one alert for each rule in step 11, within 40 minutes of its drill, except `denied-flow-to-internet`. Traffic analytics does not process the platform network's flow log, so that rule has no rows ([accepted risks](../security/accepted-risks.md)). The stateful rules resolve once the drill is put back.
+    Expected: one alert for each rule in step 11, within 40 minutes of its drill. The stateful rules resolve once the drill is put back.
 
 13. Run the checks.
 
-    Expected: every check passes, `O.14` to `O.17` included. `O.17` needs traffic analytics' first write, up to an hour after step 10.
+    Expected: every check passes, `O.14` to `O.17` included. `O.17` needs traffic analytics' first write from both flow logs, up to an hour after step 10.
 
 ## Daily cap
 

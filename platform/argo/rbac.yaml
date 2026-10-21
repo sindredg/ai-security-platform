@@ -92,11 +92,25 @@ subjects:
     name: argo-executor
     namespace: orchestration
 ---
+# The executor's token. With automountServiceAccountToken false, the
+# controller mounts the token from a secret by this name into the executor's
+# containers, not the step's own. Kubernetes no longer makes one, so this
+# asks it to. The token does not expire: it ends when the secret is deleted.
+# Check W.11.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argo-executor.service-account-token
+  namespace: orchestration
+  annotations:
+    kubernetes.io/service-account.name: argo-executor
+type: kubernetes.io/service-account-token
+---
 # The operator's account for argo and kubectl on the workstation, through the
 # SSH tunnel to the API server. Its token is made for 12 hours at a time. It
-# starts, reads, stops, and deletes workflows, reads the templates and the
-# pods' logs, and nothing else. Templates come from the repository, so it
-# cannot change one.
+# starts, reads, stops, and deletes workflows, reads the templates, the pods'
+# logs, and the UI's settings, and nothing else. Templates come from the
+# repository, so it cannot change one.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -122,6 +136,10 @@ rules:
   - apiGroups: [""]
     resources: [pods/log]
     verbs: [get]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [argo-ui]
+    verbs: [get]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -136,3 +154,14 @@ subjects:
   - kind: ServiceAccount
     name: argo-operator
     namespace: orchestration
+---
+# The UI's settings. Argo's server, run on the workstation with the
+# operator's token, reads a config map in its namespace when it starts, and
+# exits if it cannot. Empty, so the defaults apply. The controller reads its
+# own map in argo, not this one.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argo-ui
+  namespace: orchestration
+data: {}

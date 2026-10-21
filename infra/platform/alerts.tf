@@ -100,7 +100,9 @@ locals {
     }
 
     # The table exists only after traffic analytics first writes, so the query
-    # cannot be validated when the rule is created.
+    # cannot be validated when the rule is created. For a public destination,
+    # traffic analytics leaves DestIp empty and puts the address in
+    # DestPublicIps.
     denied-flow-to-internet = {
       description = "A denied flow from the orchestrator or worker subnet to a public address. The checks make some on purpose (C.1, E.12)."
       severity    = 1
@@ -110,7 +112,7 @@ locals {
       query       = <<-KQL
         NTANetAnalytics
         | where SubType == "FlowLog" and FlowStatus == "Denied"
-        | where ipv4_is_in_range(SrcIp, "${local.contained_prefix}") and not(ipv4_is_private(DestIp))
+        | where ipv4_is_in_range(SrcIp, "${local.contained_prefix}") and isnotempty(DestPublicIps)
       KQL
     }
 

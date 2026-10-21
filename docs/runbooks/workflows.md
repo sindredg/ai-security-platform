@@ -1,6 +1,6 @@
 # Workflows and dispatch: operator procedure
 
-Status: Written on 2026-10-20 for [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) and [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), both proposed. Not run.
+Status: Written on 2026-10-20 for [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) and [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), both proposed. Implemented on 2026-10-21, from scripts with the same commands. Steps 1 to 8 ran between 04:16 and 04:24 UTC, step 1 without the signature check, which ran on 2026-10-19. Steps 9 to 16 ran between 15:11 and 15:26 UTC, and steps 13, 14, and 7's name lookups again between 15:37 and 15:44 UTC. The first round trip, at 14:12 UTC, never started: the executor's token secret was missing ([troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md)). The UI exited without its config map ([troubleshooting 15](../troubleshooting/15-argo-server-exits-without-its-config-map.md)). Both are in the manifests now. Results are in the [worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows).
 
 Run these steps to install Argo Workflows' controller, make the dispatch key, and send a job from a workflow to the worker and back: a round trip, a cancel, and the controller's refusal of anything but the template. No cloud resource changes. The worker's side is the [agent runtime runbook](agent-runtime.md#jobs-over-the-socket), steps 8 to 12, which come first.
 
@@ -65,7 +65,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
    REPLACE_WITH_SSH aisec-orchestrator 'cd feed/argo && sudo scripts/install.sh stage'
    ```
 
-   Expected: the eight custom resource definition names, `condition met` three times, the namespace and its default account patched, the policies, the controller, the accounts, and the template `created`, `successfully rolled out`, and one line with the controller pod, `Running`, and the image digest from `argo.yaml`. On the next check run, `W.1` to `W.9` pass.
+   Expected: the eight custom resource definition names, `condition met` three times, the namespace and its default account patched, the policies, the controller, the accounts, the executor's token secret, and the template `created`, `successfully rolled out`, and one line with the controller pod, `Running`, and the image digest from `argo.yaml`. On the next check run, `W.1` to `W.9` and `W.11` pass.
 
 ## The host rule
 
@@ -132,6 +132,24 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
    ```
 
    Expected: no `open` at any time. `timeout` where the host rule drops, `refused` where kube-router does.
+
+   Then name lookups from a new pod, at 0 and 20 seconds: the cluster's own name, and a public one. In `tool-services`, and in a dispatch pod as the comparison, since that pod may use DNS.
+
+   ```bash
+   LOOKUP='import socket, time
+   start = time.monotonic()
+   for at in (0, 20):
+       time.sleep(max(0, start + at - time.monotonic()))
+       for name in ("kubernetes.default.svc.cluster.local.", "example.com."):
+           try:
+               socket.getaddrinfo(name, 443); end = "resolves"
+           except OSError: end = "fails"
+           print(f"{at}s {name} {end}", end="  ")'
+   PROBE2=$LOOKUP probe2
+   PROBE=$LOOKUP probe '{"app.kubernetes.io/name": "dispatch"}'
+   ```
+
+   Expected: `example.com.` fails four times. The orchestrator gets no answer from Azure DNS (`E.13`, `E.14`), so no pod resolves a public name. The cluster's name resolves both times in the dispatch pod, which shows the probe can report a resolved name. In `tool-services` it fails at 20 seconds, where the namespace denies DNS, and may resolve at 0 seconds, before kube-router writes the policy.
 
 ## The dispatch key
 
@@ -226,7 +244,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
       entrypoint: main
       templates:
         - name: main
-          container: {image: busybox, command: [true]}
+          container: {image: busybox, command: ["true"]}
     EOF
     argo submit - <<'EOF'
     apiVersion: argoproj.io/v1alpha1
@@ -240,14 +258,14 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
     sleep 10; argo list
     ```
 
-    Expected: both `Error`, with messages about the template restriction. No pod starts for either. Record the messages.
+    Expected: both `Error`, and no pod starts for either. The messages: `workflows must use workflowTemplateRef to be executed when the controller is in reference mode` for the first, and `fields [PodSpecPatch] are not permitted when using workflowTemplateRef with templateReferencing restriction` for the second.
 
 ## The UI
 
 14. Run Argo's server on the workstation in local mode, with the same kubeconfig, and open it.
 
     ```bash
-    argo server --auth-mode server --namespaced --managed-namespace orchestration
+    argo server --auth-mode server --namespaced --managed-namespace orchestration --configmap argo-ui
     ```
 
     Expected: `https://localhost:2746` shows the workflows from the steps above, with each step's logs. Stop it with Ctrl-C. Nothing in the cluster changes.
@@ -268,8 +286,8 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
     validation/platform-checks.sh
     ```
 
-    Expected: `PASS` for `E.6`, `G.5` to `G.10`, `K.3`, `W.1` to `W.10`, and every check that passed before.
+    Expected: `PASS` for `E.6`, `G.5` to `G.10`, `K.3`, `W.1` to `W.11`, and every check that passed before.
 
 ## Remove
 
-To take Argo off the cluster: delete the template, the accounts and Roles in `rbac.yaml`, the policies in `network-policies.yaml`, the `argo` namespace, and the eight custom resource definitions. Delete the `dispatch-ssh` secret, and empty the key line on the worker by running `install-job.sh` with no argument after removing `/home/aisec-job/.ssh/authorized_keys`. Load the host rule from the template of the commit before this change, as in step 5.
+To take Argo off the cluster: delete the template, the accounts, Roles, and the executor's token secret in `rbac.yaml`, the policies in `network-policies.yaml`, the `argo` namespace, and the eight custom resource definitions. Delete the `dispatch-ssh` secret, and empty the key line on the worker by running `install-job.sh` with no argument after removing `/home/aisec-job/.ssh/authorized_keys`. Load the host rule from the template of the commit before this change, as in step 5.
