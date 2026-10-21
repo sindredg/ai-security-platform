@@ -25,7 +25,11 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 
 ## Status
 
-Milestone 3, toolchain integration, in progress. Since 2026-10-21 a workflow on the orchestrator hands a task to the agent on the worker, the agent calls the tool service with a token that only that job holds, and the checked result comes back to the workflow. No target exists yet, so no finding has been investigated. Details in the [roadmap](docs/roadmap.md#status).
+| | |
+| --- | --- |
+| Milestone | 3, toolchain integration, in progress ([roadmap](docs/roadmap.md#status)) |
+| Works since 2026-10-21 | A workflow hands a task to the agent on the worker. The agent calls the tool service with a token only that job holds, and the checked result comes back |
+| Not yet | No target, so no finding has been investigated |
 
 ## What this demonstrates
 
