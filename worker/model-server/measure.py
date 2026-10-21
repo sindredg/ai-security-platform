@@ -13,10 +13,16 @@ expected arguments, and its final answer names the finding and has the
 expected status and excess record types. The exit code is 1 unless every case
 is correct in every run.
 
-Usage: measure.py [--runs N] [--url URL] [--thinking]
+The system text is read from the job's installed copy, the one every dispatched
+job sends (G.8 compares it with the checkout), so the cases measure the job's
+own instructions. The first case's question and evidence are the fixture's, and
+a test in the pipeline holds them equal.
+
+Usage: measure.py [--runs N] [--url URL] [--thinking] [--system FILE]
 """
 
 import argparse
+import hashlib
 import json
 import statistics
 import sys
@@ -24,12 +30,7 @@ import time
 import urllib.error
 import urllib.request
 
-SYSTEM = (
-    "You investigate security findings for an infrastructure team. You have no "
-    "knowledge of the systems involved beyond what tools return. Call a tool to "
-    "get evidence before you conclude anything. Never guess a fact a tool can "
-    "establish. Keep answers short."
-)
+SYSTEM_FILE = "/usr/local/lib/aisec/job/system.txt"
 TOOLS = [
     {
         "type": "function",
@@ -318,7 +319,7 @@ def record(rows, row, reply, wall):
     print(json.dumps(row), flush=True)
 
 
-def run_case(url, case, mode, run, rows):
+def run_case(url, system, case, mode, run, rows):
     base = {
         "model": "local",
         "temperature": 0,
@@ -327,7 +328,7 @@ def run_case(url, case, mode, run, rows):
         "chat_template_kwargs": {"enable_thinking": mode == "thinking"},
     }
     messages = [
-        {"role": "system", "content": SYSTEM},
+        {"role": "system", "content": system},
         {"role": "user", "content": case["question"]},
     ]
     label = {"case": case["case"], "mode": mode, "run": run}
@@ -423,7 +424,23 @@ def main():
     parser.add_argument(
         "--thinking", action="store_true", help="also run every case with thinking on"
     )
+    parser.add_argument("--system", default=SYSTEM_FILE, help="the system text")
     args = parser.parse_args()
+    try:
+        with open(args.system, "rb") as file:
+            raw = file.read()
+    except OSError as error:
+        sys.exit(f"no system text: {error}")
+    # As run-agent.sh passes it: without the final newline.
+    system = raw.decode().strip()
+    if not system:
+        sys.exit(f"no system text: {args.system} is empty")
+    print(
+        json.dumps(
+            {"system": args.system, "system_sha256": hashlib.sha256(raw).hexdigest()}
+        ),
+        flush=True,
+    )
 
     props, _ = request(args.url, "/props")
     print(
@@ -439,7 +456,7 @@ def main():
         for run in range(1, args.runs + 1):
             for case in CASES:
                 start = time.monotonic()
-                ok = run_case(args.url, case, mode, run, rows)
+                ok = run_case(args.url, system, case, mode, run, rows)
                 results.append(
                     {
                         "case": case["case"],
