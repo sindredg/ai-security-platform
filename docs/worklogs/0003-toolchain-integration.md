@@ -1601,3 +1601,33 @@ The 0 failed units was timing, not a fix. `fwupd-refresh`'s timer started it aga
 - **The router's pin in Terraform does nothing to the running router.** Its first-boot template is ignored after creation. A rebuild installs 1.104.2.
 - **No model has been built with certifi 2026.10.19.**
 - **Other pinned programs were not checked for their Go version.** Only for a newer release.
+
+## Fix: one system text for the job, the fixture, and the comparison
+
+Date: 2026-10-21. Issue [#141](https://github.com/sindredg/ai-security-platform/issues/141): the agent's system text was in three files, the job's, the fixture's, and `measure.py`'s, and the fixture's question and evidence in more than one program. All copies were equal. The comparison runs `measure.py`, so a copy that drifted would make it measure instructions no dispatched job sends.
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| `worker/agent-runtime/system.txt` | The one system text. `job/system.txt` and `fixture/system.txt` are gone |
+| `install-agent.sh`, `install-job.sh` | Copy the one file to the worker's two paths, unchanged: the fixture directory and `/usr/local/lib/aisec/job/` |
+| `validation/platform-checks.sh` | `G.2` and `G.8` compute their expected hash from the one file |
+| `worker/model-server/measure.py` | Reads the job's installed copy, which `G.8` compares with the checkout, and prints its path and SHA-256 before the first case. Refuses to run without it. `--system FILE` overrides the path |
+| `job/tests/test_copies.py` | Holds the copies that stay equal: ev-0001 in the tool service, the fixture tool, and `measure.py`, and the fixture's question in `measure.py`'s first case. Holds the expected answer in `measure.py` and `check_answer.py` to what the evidence shows |
+
+The evidence stays in three programs because each runs on its own: the tool service serves it to dispatched jobs, the fixture tool to the agent without the service, and `measure.py` to the model server directly. A test is cheaper than shipping one data file to three places.
+
+### Tests
+
+| Test | Result | How |
+| --- | --- | --- |
+| `G.2` and `G.8` expected values, as the check script computes them | `207e1e91...` and `6042643a...`, before and after the move. A line added to `system.txt` changes both, and both return when it is restored | Locally |
+| The installed copies | `/usr/local/lib/aisec/job/system.txt` and `/opt/aisec/agent-fixture/system.txt` both `31a197af...`, the checkout file's SHA-256. The job's copy is root's, mode 644 | Live, read-only |
+| `test_copies.py` | 4 pass. On a copy of the checkout, eight broken inputs each fail the test that covers them: a changed record type in each of the three ev-0001 copies, the fixture tool's write flag, another reference in the question, another excess in `check_answer.py`, `measure.py` pointed at the fixture's path, an inline `SYSTEM` back in `measure.py`, and the installer copying another file | Locally, then in the pipeline's dispatch tests |
+| `measure.py` without its input | `--system /nonexistent` and an empty file each exit 1 with `no system text`. With the real file, the first line has the path and `31a197af...` | Locally, no model server |
+
+### Limits
+
+- **`measure.py` sends the system text as the job does, not Goose's own system prompt and tool list around it.** The Goose fixture runs in the comparison cover that part.
+- **`measure.py` has not run against the model server with this change.** The comparison is its first run.

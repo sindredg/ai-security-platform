@@ -30,7 +30,7 @@ install -d -m 0755 -o root -g root "/home/$account" "/home/$account/.ssh"
 
 install -m 0755 -o root -g root "$here/job/aisec_job_runner.py" /usr/local/sbin/aisec-job-runner
 install -d -m 0755 -o root -g root /usr/local/lib/aisec/job
-install -m 0644 -o root -g root "$here/job/agent_job.py" "$here/job/system.txt" /usr/local/lib/aisec/job/
+install -m 0644 -o root -g root "$here/job/agent_job.py" "$here/system.txt" /usr/local/lib/aisec/job/
 install -m 0644 -o root -g root "$here/job/aisec-agent-job.socket" /etc/systemd/system/aisec-agent-job.socket
 sed "s|@GOOSE@|$GOOSE_DIR/goose|" "$here/job/aisec-agent-job@.service" > /etc/systemd/system/aisec-agent-job@.service
 chmod 0644 /etc/systemd/system/aisec-agent-job@.service

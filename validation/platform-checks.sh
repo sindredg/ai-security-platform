@@ -80,12 +80,15 @@ agent="$here/../worker/agent-runtime"
 read -r GOOSE_BIN GOOSE_BIN_SHA FIXTURE_DIR < <(. "$agent/pins.env" &&
   echo "$GOOSE_DIR/goose $GOOSE_BINARY_SHA256 $FIXTURE_DIR")
 FIXTURE_FILES="check_answer.py evidence_tool.py question.txt system.txt"
+# The system text is one file in the checkout, beside the fixture, and the
+# worker has a copy of it in the fixture directory.
 # shellcheck disable=SC2086 # the file names are one word each
-FIXTURE_SHA=$(cd "$agent/fixture" && sha256sum $FIXTURE_FILES | sha256sum | cut -d " " -f 1)
+FIXTURE_SHA=$({ (cd "$agent/fixture" && sha256sum ${FIXTURE_FILES% system.txt}) && (cd "$agent" && sha256sum system.txt); } |
+  sha256sum | cut -d " " -f 1)
 # How a job arrives on the worker (ADR 0030), in install order, with the
 # service template filled in as install-job.sh does.
 job="$agent/job"
-JOB_SHA=$(cat "$job/aisec_job_runner.py" "$job/agent_job.py" "$job/system.txt" "$job/aisec-agent-job.socket" \
+JOB_SHA=$(cat "$job/aisec_job_runner.py" "$job/agent_job.py" "$agent/system.txt" "$job/aisec-agent-job.socket" \
   <(sed "s|@GOOSE@|$GOOSE_BIN|" "$job/aisec-agent-job@.service") | sha256sum | cut -d " " -f 1)
 # Argo (ADR 0029): the controller's image and arguments, and the workflow
 # template's spec as one SHA-256 over its JSON with sorted keys, as kubectl
