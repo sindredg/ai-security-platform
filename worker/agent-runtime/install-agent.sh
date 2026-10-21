@@ -40,7 +40,8 @@ fi
 echo "the binary matches GOOSE_BINARY_SHA256"
 
 install -m 0755 -o root -g root "$here/fixture/evidence_tool.py" "$here/fixture/check_answer.py" "$FIXTURE_DIR/"
-install -m 0644 -o root -g root "$here/fixture/system.txt" "$here/fixture/question.txt" "$FIXTURE_DIR/"
+# The system text is the job's own, one file for both (install-job.sh).
+install -m 0644 -o root -g root "$here/system.txt" "$here/fixture/question.txt" "$FIXTURE_DIR/"
 
 # Goose is not run here. This script is root, and the first thing to execute
 # that binary should be the sandboxed unit in run-agent.sh.

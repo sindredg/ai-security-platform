@@ -193,7 +193,9 @@ class TheJobLine(unittest.TestCase):
         )
 
     def test_the_system_text_has_no_template_syntax(self):
-        self.assertIsNone(agent_job.TEMPLATE.search((HERE / "system.txt").read_text()))
+        self.assertIsNone(
+            agent_job.TEMPLATE.search((HERE.parent / "system.txt").read_text())
+        )
 
     def test_a_line_over_the_limit_is_refused_before_it_is_parsed(self):
         read, write = os.pipe()
