@@ -18,3 +18,4 @@ Failures that taught something about the system or a procedure. Each entry recor
 | [12](12-slot-erase-needs-a-save-path.md) | 3 | llama.cpp refuses a slot erase without a save path, which its README does not say. A stub that answers as the documentation reads proves nothing about the server |
 | [13](13-the-denied-flow-alert-matches-no-public-address.md) | 3 | Traffic analytics leaves `DestIp` empty for a public address and lists it in `DestPublicIps`. An alert drilled only against an empty table proves nothing about its query |
 | [14](14-workflow-pods-wait-for-the-executors-token.md) | 3 | With the pod's token off, Argo mounts the executor's token from a secret that Kubernetes no longer makes. Checks on the controller say nothing about the pods it builds |
+| [15](15-argo-server-exits-without-its-config-map.md) | 3 | Argo's server exits if it cannot read a config map in its namespace, even in local mode. The operator's token has to reach one |

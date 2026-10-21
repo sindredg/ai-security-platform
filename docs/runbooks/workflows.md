@@ -247,7 +247,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
 14. Run Argo's server on the workstation in local mode, with the same kubeconfig, and open it.
 
     ```bash
-    argo server --auth-mode server --namespaced --managed-namespace orchestration
+    argo server --auth-mode server --namespaced --managed-namespace orchestration --configmap argo-ui
     ```
 
     Expected: `https://localhost:2746` shows the workflows from the steps above, with each step's logs. Stop it with Ctrl-C. Nothing in the cluster changes.
