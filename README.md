@@ -4,8 +4,6 @@ An AI agent on a self-hosted model investigates security findings on a target se
 
 Tools establish facts. The agent proposes changes. Neither approves anything.
 
-Status: [roadmap](docs/roadmap.md#status).
-
 ## Architecture
 
 Detailed breakdown in [Architecture](docs/architecture.md).
@@ -24,6 +22,14 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 | Fetch window | A time-limited allowlist: an operator command on the edge VM that opens code and package hosts for at most 60 minutes |
 
 </details>
+
+## Status
+
+| | |
+| --- | --- |
+| Milestone | 3, toolchain integration, in progress ([roadmap](docs/roadmap.md#status)) |
+| Works since 2026-10-21 | A workflow hands a task to the agent on the worker. The agent calls the tool service with a token only that job holds, and the checked result comes back |
+| Not yet | No target, so no finding has been investigated |
 
 ## Why it looks like this
 

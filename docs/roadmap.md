@@ -66,7 +66,7 @@ Deploy Argo Workflows, the agent runtime, and the model server. Prove the round 
 
 This is where the design is most likely to be wrong, so it comes before any target exists.
 
-**Depends on:** the dispatch, job identity, and tool service decisions, made in ADRs [0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), [0030](decisions/0030-how-a-job-reaches-the-worker.md) (proposed), [0029](decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) (proposed), [0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), and [0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md). Cloud identity for cluster workloads is not needed here and moves to milestone 4.
+**Depends on:** the dispatch, job identity, and tool service decisions, made in ADRs [0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), [0030](decisions/0030-how-a-job-reaches-the-worker.md), [0029](decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), [0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), and [0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md). Cloud identity for cluster workloads is not needed here and moves to milestone 4.
 
 **Completion criteria:**
 
