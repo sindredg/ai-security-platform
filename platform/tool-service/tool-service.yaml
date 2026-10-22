@@ -38,7 +38,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: tool-service
-          image: ghcr.io/sindredg/ai-security-platform/tool-service@sha256:28985261c3bf82a347f601e60a51582d26062822329aea817d1ab096ccbded68
+          image: ghcr.io/sindredg/ai-security-platform/tool-service@sha256:94e29510525bb07dd4784691da7a5ee273d2b914ab255482f246e517069d00ee
           imagePullPolicy: IfNotPresent
           ports:
             - name: tools

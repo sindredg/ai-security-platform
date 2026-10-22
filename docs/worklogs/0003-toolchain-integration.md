@@ -5,7 +5,7 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). The gate is not met: the footprint and the milestone's review are open.
+The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). Since 2026-10-22 the tool service and the dispatch step run on a base image with a fixed musl ([the images on the fixed base](#installed-the-images-on-the-fixed-base)). The gate is not met: the footprint and the milestone's review are open.
 
 | Gate | Result |
 | --- | --- |
@@ -1825,3 +1825,52 @@ Read on the workstation from the registry, from each image's own package databas
 Python 3.15.1 was released on 2026-10-21, read from python.org. Both Dockerfiles and the checks workflow move to the new digest in one change, because the pipeline fails while the workflow and the tool service's Dockerfile name different digests.
 
 Not in this change: the running tool service and the workflow template still pull images built on the old base. Their digests can move only after this merges and the pipeline publishes new images from `main`.
+
+## Installed: the images on the fixed base
+
+Date: 2026-10-22. The images the pipeline built from `main` at `96f91ba`, after [the musl fix](#fix-the-base-images-musl), replace the ones in the cluster. Steps 2 and 4 of the [tool service runbook](../runbooks/tool-service.md) and steps 3, 4, 9, and 10 of the [workflows runbook](../runbooks/workflows.md) ran on the live platform from a script with the same commands, between 16:22 and 16:31 UTC, from `96f91ba` with the two manifests moved to the new digests. Expected results were written down before the run.
+
+### The images
+
+| Image | In the cluster before | Now |
+| --- | --- | --- |
+| Dispatch | `04d35d6d...`, built from `73a4a49`. Python 3.15.0, musl 1.2.6-r2 | `b16b8589...`. Python 3.15.1, musl 1.2.6-r3 |
+| Tool service | `28985261...`, built from `b3cf4d9`. Python 3.15.0, musl 1.2.6-r2 | `94e29510...`. Python 3.15.1, musl 1.2.6-r3 |
+
+Read on the workstation before the deploy, anonymously from the registry. Each new digest is the one the pipeline pushed from `main` at `96f91ba`. Each answers 200, its manifest hashes to its digest, and its config names `linux/amd64`, user 65532:65532, and the same entry point as before. Python's version is from the config, musl's from the package database in the layers. `dispatch.py` in the image has the same SHA-256 as the repository's. Fail side: the old digests read 3.15.0 and 1.2.6-r2, and a digest of zeros answers 404.
+
+The code in the images did not change. `git diff` from `b3cf4d9` and from `73a4a49` to `96f91ba` changes only the `FROM` lines and their comments in `tool-service/` and `platform/dispatch/`, the two build contexts.
+
+### The deploy
+
+| Step | Result |
+| --- | --- |
+| No workflow running | Two workflows from 2026-10-21, both `Error`, from the restriction test. None `Running` |
+| Fetch window | Open from 16:23:08 to 16:23:23 UTC, read from the edge's journal. `have namespace-install.yaml` and an `ok` line for the dispatch image, the executor, and the controller. `crictl pull` of the tool service image printed `Image is up to date for sha256:29c2572a...`, the image's config digest, read from the registry. No `TCP_DENIED` in Squid's log between the open and the close |
+| Tool service | The four token lines: RS256, the cluster's issuer, `aisec-tool-service`, the dispatch account. Two audit copier passes, `successfully rolled out`, and one pod on `94e29510...` |
+| Argo, installed again | Every object `unchanged` except the template and the UI's config map, `configured`. The controller `Running` on the digest in `argo.yaml`. The template's dispatch and revoke steps name `b16b8589...` |
+| Round trip | `investigate-t6rnv` `Succeeded` in 1 minute 56 seconds, the dispatch step and the exit handler green, both pods on `b16b8589...`. Result: `completed`, `tool_calls` 1, `tool_errors` 0, 91.1 seconds on the worker, 2187 input and 137 output tokens, an answer that names `tenancy.contact` and `circuits.circuit`, and five transcript parts |
+
+The UI's config map read `configured` without a change. Its manifest has `data: {}`, and the stored map has no `data` field. That difference is the likely cause: a hypothesis from the stored object, not traced in `kubectl`'s source.
+
+The audit lines of the round trip, the first from the new pod:
+
+```text
+{"seq":1,"event":"register","decision":"allowed","job":"investigate-t6rnv","caller":"10.42.0.61",...}
+{"seq":2,"event":"call","decision":"allowed","job":"investigate-t6rnv","caller":"10.40.0.36","tool":"get_evidence",...,"result_bytes":313}
+{"seq":3,"event":"revoke","decision":"allowed","job":"investigate-t6rnv","caller":"10.42.0.62",...}
+```
+
+### Checks before and after
+
+| Time, UTC | Run | Result |
+| --- | --- | --- |
+| 16:18 | Without the Azure and workstation checks, before the deploy | 233 passed, 6 failed. `T.2`: the pod ran `28985261...`, the checkout names `94e29510...`. `W.9`: the template in the cluster differs from the checkout's. `U.1`, `U.5`, `U.9`, `U.13` |
+| 16:26 | Every check, after the deploy | 281 passed, 4 failed. `T.2` and `W.9` pass. `U.1`, `U.5`, `U.9`, `U.13`: two security updates pending on each VM, `libnss3` and `distro-info-data`, published after the morning's unattended runs |
+
+The first run is the fail side of `T.2` and `W.9` on a real change, not a stub. `HR.1` and `HE.1` passed in the second run ([#145](https://github.com/sindredg/ai-security-platform/issues/145)).
+
+### Limits
+
+- **One round trip** on the new images. The stop, the lock, and the restriction were not run again.
+- **The tool service's restart ended no job,** because none was running. A restart during a job ends it, since jobs live in memory ([tool service](../security/tool-service.md#what-this-does-not-do)).

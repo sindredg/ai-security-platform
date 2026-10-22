@@ -59,7 +59,7 @@ One JSON object per decision, on standard output. Standard output carries nothin
 | `reason` | Why, for a refusal |
 | `result_bytes` | The size of an allowed tool result. The result itself is not logged |
 
-The pod runs the image with the rate limit, from commit `b3cf4d9`, since 2026-10-16 (`T.2`).
+The pod runs the image its manifest names (`T.2`). Since 2026-10-22 that is the build from commit `96f91ba`, on the [fixed base image](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base). Its code is the same as the image with the rate limit, deployed on 2026-10-16.
 
 The service writes to standard output and opens no log file. A host service, `aisec-audit-copy`, appends them to a file that no pod mounts. It runs on the orchestrator since 2026-10-16. Storage and who can change it are on the [audit log](audit-log.md) page.
 
