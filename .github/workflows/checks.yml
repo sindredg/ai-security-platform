@@ -42,9 +42,9 @@ env:
   ARGOCLI_IMAGE: quay.io/argoproj/argocli@sha256:e0824b55297b8d7a92351a634ff399d01349e41dc16007abdea0cc00dba7dce8
   # hadolint 2.15.1
   HADOLINT_IMAGE: hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
-  # Python 3.15.0 on Alpine 3.24. The tool service's tests run on it, and its
+  # Python 3.15.1 on Alpine 3.24. The tool service's tests run on it, and its
   # image is built from it. tool-service/Dockerfile names the same digest.
-  PYTHON_IMAGE: python@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928
+  PYTHON_IMAGE: python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3
   # ADR 0016: the tool service without its tools stays under this many lines.
   TOOL_SERVICE_LINE_LIMIT: "300"
 

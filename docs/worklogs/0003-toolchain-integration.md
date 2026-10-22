@@ -1631,3 +1631,27 @@ The evidence stays in three programs because each runs on its own: the tool serv
 
 - **`measure.py` sends the system text as the job does, not Goose's own system prompt and tool list around it.** The Goose fixture runs in the comparison cover that part.
 - **`measure.py` has not run against the model server with this change.** The comparison is its first run.
+
+## Fix: the base image's musl
+
+Date: 2026-10-22, from `main` at `b58a7f6`.
+
+The image jobs of [#150](https://github.com/sindredg/ai-security-platform/pull/150), a documentation change, failed. Trivy 0.76.1 found the same thing in "Dispatch image" and "Tool service image":
+
+```text
+Total: 2 (UNKNOWN: 2, LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0)
+│ musl       │ CVE-2026-107891 │ UNKNOWN  │ fixed  │ 1.2.6-r2          │ 1.2.6-r3      │
+```
+
+The scan fails on any finding that has a fix (`--ignore-unfixed`), so it failed as written. The cause is the base image both images share, not the change. Alpine published musl 1.2.6-r3 on 2026-10-21, and its security database lists CVE-2026-107891 as fixed there. NVD had no record of it, and CVE.org answered 404, both on 2026-10-22. Nothing says whether the vulnerable code is reachable, so the pin moves.
+
+Read on the workstation from the registry, from each image's own package database in its layers, for `linux/amd64`:
+
+| Image | Python | musl |
+| --- | --- | --- |
+| The pin until now, `ff4d3c9b...` | 3.15.0 | 1.2.6-r2 |
+| `python:3.15.1-alpine3.24`, `54448f67...` | 3.15.1 | 1.2.6-r3 |
+
+Python 3.15.1 was released on 2026-10-21, read from python.org. Both Dockerfiles and the checks workflow move to the new digest in one change, because the pipeline fails while the workflow and the tool service's Dockerfile name different digests.
+
+Not in this change: the running tool service and the workflow template still pull images built on the old base. Their digests can move only after this merges and the pipeline publishes new images from `main`.

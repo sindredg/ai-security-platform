@@ -2,10 +2,10 @@
 # scanned, and pushed to the repository's registry from main only. The
 # workflow pulls it by digest.
 #
-# The tool service's base image, pinned by the same digest: Python 3.15.0 on
+# The tool service's base image, pinned by the same digest: Python 3.15.1 on
 # Alpine 3.24. It adds OpenSSH's client, which the tool service image must not
 # carry, and the dispatch script, which uses the standard library only.
-FROM python@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928
+FROM python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3
 
 # OpenSSH's client from Alpine's signed index, unpinned on purpose: the index
 # keeps only the current version, so a pin fails the build at the next
