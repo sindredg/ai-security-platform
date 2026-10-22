@@ -32,7 +32,7 @@ Candidates, not selections, except the rows that name a decision record. Each ha
 | --- | --- | --- | --- |
 | Workflow engine and UI | Argo Workflows v4.1.5, the controller in the cluster and the UI on the operator's machine, [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md). Installed on 2026-10-21, and the first workflows ran ([runbook](../runbooks/workflows.md), [worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)) | Dispatch to the worker VM, restart recovery, footprint | 3 |
 | Agent runtime | Goose 1.55.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. Goose's call to the tool service from the worker, with a job token, was seen on 2026-10-20, allowed and logged on the orchestrator. Still to test: validation of the result against a schema by the dispatch step | 3 |
-| Starting model | Qwen3.5-4B, running | Structured output and tool calling on held-out fixtures. One fixed exchange passes so far | 3 |
+| Starting model | Qwen3.5-4B, running. Kept after a comparison with Granite 4.2 3B and Qwen3.5-2B, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3, the same in both runs ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). Still to show: a real investigation | 3 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
 | First target | NetBox | See [ADR 0004](../decisions/0004-netbox-as-first-target.md) | 4 |
@@ -57,7 +57,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | kube-bench | 0.16.0 | The [runbook](../runbooks/platform-compute.md) | By hand, at each run | 2026-10-19 |
 | Lynis | 3.1.7 | The runbook | By hand, at each run | 2026-10-19 |
 | llama.cpp | v0.7.0, the newest stable release, as build `b11669`, the same commit. The release carries no binaries, its numbered build does | `worker/model-server/pins.env` and `artifacts.tsv`, with a checksum | By hand | 2026-10-19 |
-| Model | Qwen3.5-4B, revision `851bf6e8`, built to `Q4_K_M` on the worker. Two more models are pinned beside it for a [comparison](../worklogs/0003-toolchain-integration.md#model-comparison) | `worker/model-server/models/Qwen3.5-4B.tsv`, with a checksum per file. `MODEL_NAME` in `pins.env` picks the list | By hand | 2026-10-19 |
+| Model | Qwen3.5-4B, revision `851bf6e8`, built to `Q4_K_M` on the worker. Two more models are pinned beside it, compared with it on 2026-10-21 ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)) | `worker/model-server/models/Qwen3.5-4B.tsv`, with a checksum per file. `MODEL_NAME` in `pins.env` picks the list | By hand | 2026-10-19 |
 | Converter packages | 27, PyTorch 2.11.0 the largest | `worker/model-server/artifacts.tsv` and `converter-requirements.txt` | By hand. Used only during a build | 2026-10-11 |
 | Goose | 1.55.0, one static binary | `worker/agent-runtime/pins.env` and `artifacts.tsv`, with a checksum for the archive and one for the binary | By hand | 2026-10-19 |
 | `actions/checkout` | v7.0.1, by commit | The checks workflow | Dependabot, weekly | 2026-10-19 |

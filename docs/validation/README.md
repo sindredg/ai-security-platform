@@ -88,6 +88,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-21 | 281 of 285 passed | From the branch at `5f3c27d`, at 15:26 UTC, after the first workflows. First run with `W.11` and the new `O.17`, both passed. `U.5` and `U.7` failed as before, and `HR.1` and `HE.1` on a failed firmware metadata refresh ([#145](https://github.com/sindredg/ai-security-platform/issues/145)) |
 | 2026-10-21 | 282 of 285 passed | From the branch at `5d0b550`, at 15:44 UTC, after the UI's config map. `U.5`, `U.7`, and `HR.1` failed as before |
 | 2026-10-21 | 283 of 285 passed | From the branch at `fd12a42`, ending at 16:37 UTC, after the worker's security updates and the mesh agent's move to 1.104.2 ([worklog](../worklogs/0003-toolchain-integration.md#pins-and-updates-before-the-model-comparison)). `U.5` and `U.7` passed. `HR.1` and `HE.1` failed on the firmware metadata refresh ([#145](https://github.com/sindredg/ai-security-platform/issues/145)) |
+| 2026-10-21 | 283 of 285 passed | From `main` at `b58a7f6`, ending at 18:31 UTC, after the [first model comparison run](../worklogs/0003-toolchain-integration.md#first-run). The output kept only its last lines, so the failed IDs were read from a run that finished at 19:00 UTC: `HR.1` and `HE.1`, the firmware metadata refresh. `S.7` passed against Qwen3.5-4B |
+| 2026-10-21 | 285 of 285 passed | From the branch at `0fa8f65`, ending at 20:14 UTC, after the [second model comparison run](../worklogs/0003-toolchain-integration.md#second-run). Written before: `HR.1` and `HE.1` failing. Both passed. `S.7` passed against Qwen3.5-4B |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 

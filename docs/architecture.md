@@ -204,6 +204,8 @@ The easy way to pass a security check is to break the service. So a fix that loc
 
 Models explain and propose. Tools establish facts. A confident model does not authorize a change, and neither does a green test.
 
+A proposal goes ahead only when the model's verdict agrees with the deterministic checks. A disagreement, an inconclusive verdict, or a failed job stops the workflow for the operator to look at. A wrong verdict then costs the operator a look instead of a wrong pull request, and no verdict closes a finding the checks found.
+
 ## Trust boundaries
 
 | Component | Trust | Reason |

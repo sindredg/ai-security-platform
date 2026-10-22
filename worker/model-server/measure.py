@@ -266,6 +266,17 @@ VERDICT_SCHEMA = {
     "required": ["finding", "status", "excess", "evidence"],
     "additionalProperties": False,
 }
+# The last message of the verdict turn. The server turns the schema into a
+# grammar and does not show it to the model, so without this the model does not
+# know what a field holds. Added after the first comparison on 2026-10-21, where
+# models wrote the status or a sentence into "finding".
+ANSWER = (
+    "Give your final answer as JSON with four fields: finding, the finding's ID "
+    "as the question gives it; status, one of confirmed, refuted, or "
+    "inconclusive; excess, the record types the token can list that its "
+    "consumer does not need, or an empty list; evidence, the references of the "
+    "evidence you used."
+)
 
 
 def request(url, path, body=None):
@@ -384,7 +395,7 @@ def run_case(url, system, case, mode, run, rows):
         "/v1/chat/completions",
         {
             **base,
-            "messages": messages,
+            "messages": [*messages, {"role": "user", "content": ANSWER}],
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {
