@@ -34,7 +34,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0028](0028-alert-rules-flow-logs-and-drills.md) | Alert rules that fire once and resolve, flow logs written by the bootstrap root as the operator, Activity Log rules where no deployment identity reaches, and a drill file for firing the audit alerts on purpose. Adds to 0021 and 0027 | Accepted |
 | [0029](0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) | Argo Workflows v4.1.5: the controller in its own namespace, managing `orchestration` only, images pinned by digest after a signature check, and the UI run by the operator on the workstation | Accepted |
 | [0030](0030-how-a-job-reaches-the-worker.md) | How a job reaches the worker: one host rule exception for the worker's SSH port, a dispatch image of its own, and a socket on the worker that starts the job's sandboxed unit. Changes three parts of 0012, adds to 0018 | Accepted |
-| [0031](0031-qwen3-5-4b-stays-the-workers-model.md) | Qwen3.5-4B stays the worker's model, by a rule written before it was compared with Granite 4.2 3B and Qwen3.5-2B | Proposed |
+| [0031](0031-qwen3-5-4b-stays-the-workers-model.md) | Qwen3.5-4B stays the worker's model, by a rule written before it was compared with Granite 4.2 3B and Qwen3.5-2B | Accepted |
 
 ## Format
 

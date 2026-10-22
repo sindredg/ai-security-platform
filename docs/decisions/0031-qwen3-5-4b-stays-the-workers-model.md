@@ -1,6 +1,6 @@
 # 0031. Qwen3.5-4B stays the worker's model
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-22
 
 ## Context
