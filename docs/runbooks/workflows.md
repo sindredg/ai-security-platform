@@ -1,6 +1,6 @@
 # Workflows and dispatch: operator procedure
 
-Status: Written on 2026-10-20 for [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) and [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md). Implemented on 2026-10-21, from scripts with the same commands. Steps 1 to 8 ran between 04:16 and 04:24 UTC, step 1 without the signature check, which ran on 2026-10-19. Steps 9 to 16 ran between 15:11 and 15:26 UTC, and steps 13, 14, and 7's name lookups again between 15:37 and 15:44 UTC. The first round trip, at 14:12 UTC, never started: the executor's token secret was missing ([troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md)). The UI exited without its config map ([troubleshooting 15](../troubleshooting/15-argo-server-exits-without-its-config-map.md)). Both are in the manifests now. Results are in the [worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows).
+Status: Written on 2026-10-20 for [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) and [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md). Implemented on 2026-10-21, from scripts with the same commands. Steps 1 to 8 ran between 04:16 and 04:24 UTC, step 1 without the signature check, which ran on 2026-10-19. Steps 9 to 16 ran between 15:11 and 15:26 UTC, and steps 13, 14, and 7's name lookups again between 15:37 and 15:44 UTC. The first round trip, at 14:12 UTC, never started: the executor's token secret was missing ([troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md)). The UI exited without its config map ([troubleshooting 15](../troubleshooting/15-argo-server-exits-without-its-config-map.md)). Both are in the manifests now. Results are in the [worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows). [A new dispatch image](#a-new-dispatch-image) ran on 2026-10-22: steps 3, 4, 9, and 10 again ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base)).
 
 Run these steps to install Argo Workflows' controller, make the dispatch key, and send a job from a workflow to the worker and back: a round trip, a cancel, and the controller's refusal of anything but the template. No cloud resource changes. The worker's side is the [agent runtime runbook](agent-runtime.md#jobs-over-the-socket), steps 8 to 12, which come first.
 
@@ -287,6 +287,32 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
     ```
 
     Expected: `PASS` for `E.6`, `G.5` to `G.10`, `K.3`, `W.1` to `W.11`, and every check that passed before.
+
+## A new dispatch image
+
+After a change to `workflow-template.yaml` merges, such as a new dispatch digest, run steps 3 and 4 again, then 9 and 10, then 16. Start when no workflow is running:
+
+```bash
+REPLACE_WITH_SSH aisec-orchestrator 'sudo k3s kubectl -n orchestration get workflows --no-headers'
+```
+
+Expected: no line with `Running`.
+
+Expected in step 3: an `ok` line with the new dispatch digest. In step 4: the template `configured`, and the other objects `unchanged`. The UI's config map read `configured` on 2026-10-22 without a change ([worklog](../worklogs/0003-toolchain-integration.md#the-deploy)). Then read the template's images:
+
+```bash
+REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n orchestration get workflowtemplate investigate \
+  -o jsonpath='{range .spec.templates[*]}{.name} {.container.image}{\"\\n\"}{end}'"
+```
+
+Expected: `dispatch` and `revoke`, each with the new digest. After step 10, read the images the workflow's pods ran:
+
+```bash
+REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n orchestration get pods -l workflows.argoproj.io/workflow=REPLACE_WITH_WORKFLOW \
+  -o jsonpath='{range .items[*]}{.metadata.name}{range .status.containerStatuses[*]} {.name}={.imageID}{end}{\"\\n\"}{end}'"
+```
+
+Expected: two pods, each with `main=` on the new dispatch digest and `wait=` on the executor's digest from `argo.yaml`. In step 16, `W.9` passes. It fails from the merge until step 4, because the template in the cluster differs from the checkout's.
 
 ## Remove
 

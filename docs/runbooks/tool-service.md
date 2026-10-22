@@ -1,6 +1,6 @@
 # Tool service: operator procedure
 
-Status: Implemented on 2026-10-15. Deployed once, on an orchestrator built before the node port setting and the pod egress rule were in its first-boot template. Every step below was run during that deployment, except that steps 5 and 6 were applied by hand there instead of read back. A deployment on an orchestrator built from the current template, and a certificate rotation, have not been run. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#the-deployment-on-the-orchestrator).
+Status: Implemented on 2026-10-15. Deployed once, on an orchestrator built before the node port setting and the pod egress rule were in its first-boot template. Every step below was run during that deployment, except that steps 5 and 6 were applied by hand there instead of read back. A deployment on an orchestrator built from the current template, and a certificate rotation, have not been run. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#the-deployment-on-the-orchestrator). Steps 2 and 4 ran again on 2026-10-22 for a new image, with the pull in a fetch window that step 4 has named since then ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base)).
 
 Run these steps to put the tool service in K3s on the orchestrator and prove one round trip from the worker: open the port, make the certificate, deploy, give the worker the certificate and the name, run the checks, then register a job, call a tool with its token, and revoke it. The evidence is synthetic.
 
@@ -17,7 +17,7 @@ Run these steps to put the tool service in K3s on the orchestrator and prove one
 
 The design is in ADRs [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), [0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md), [0017](../decisions/0017-no-udp-from-the-orchestrator.md), and [0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md). The controls are on the [tool service page](../security/tool-service.md#deployment-controls).
 
-No dispatch step exists yet. `register.sh` stands in for it: it starts one short-lived pod in `orchestration`, as the dispatch account, that registers or revokes one job.
+The dispatch step registers and revokes each workflow's job since 2026-10-21 ([workflows runbook](workflows.md)). The round trip below uses `register.sh` instead, so the service can be tested without Argo: it starts one short-lived pod in `orchestration`, as the dispatch account, that registers or revokes one job.
 
 ## Open the port
 
@@ -54,19 +54,27 @@ No dispatch step exists yet. `register.sh` stands in for it: it starts one short
 
    Expected: the subject `CN=tool-service.aisec.internal`, an end date 90 days out, the three DNS names, `CA:FALSE`, and a SHA-256 fingerprint. Record the fingerprint for step 8. The script refuses to replace a certificate that exists. See [Rotate the certificate](#rotate-the-certificate).
 
-4. Deploy.
+4. Pull the image in a fetch window, then deploy. The orchestrator reaches the registry only while a window is open ([edge runbook](edge-vm.md#open-a-fetch-window)). Run this when no workflow is running: jobs live in the service's memory, and the restart ends them.
 
    ```bash
+   IMAGE=$(grep -oE 'ghcr\.io/[^ ]+@sha256:[0-9a-f]{64}' platform/tool-service/tool-service.yaml)
+   REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window open 20'
+   REPLACE_WITH_SSH aisec-orchestrator "sudo k3s crictl pull $IMAGE"
+   REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window close'
    REPLACE_WITH_SSH aisec-orchestrator 'sudo ~/feed/tool-service/platform/tool-service/deploy.sh ~/feed/tool-service'
    ```
 
-   Expected, among the apply lines:
+   Expected: `open for 20 minutes`, then `Image is up to date for sha256:REPLACE_WITH_CONFIG_DIGEST`, the image's config digest, which is not the digest in the manifest. `crictl` prints this line for a fresh pull too. Then `closed`. Without the pull, the new pod cannot fetch its image and the rollout stops after 180 seconds. That is reasoned from `deploy.sh`, not observed.
+
+   Then, among the apply lines:
 
    ```text
    token: alg RS256 kid REPLACE_WITH_KEY_ID
    token issuer: https://kubernetes.default.svc.cluster.local
    token audience: aisec-tool-service
    token subject: system:serviceaccount:orchestration:dispatch
+   audit copier pass 1 after the last line: done
+   audit copier pass 2 after the last line: done
    deployment "tool-service" successfully rolled out
    tool-service-REPLACE_WITH_POD_SUFFIX ghcr.io/sindredg/ai-security-platform/tool-service@sha256:REPLACE_WITH_DIGEST
    ```
@@ -222,6 +230,4 @@ Then steps 7 to 9. Between the restart and the copy, the worker does not trust t
 
 ## Not covered yet
 
-- The dispatch step. `register.sh` and a `curl` on the worker stand in for it and for the agent.
-- Storing the audit lines, and copying the worker's journal to the orchestrator.
 - A deployment on an orchestrator built from the current template. Steps 5 and 6 there read back what first boot wrote. On 2026-10-15 both were applied by hand.
