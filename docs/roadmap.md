@@ -147,6 +147,7 @@ Define the consumer contract. Deploy NetBox, synthetic inventory, and the consum
 - The consumer contract lists endpoints, fields, permitted records, and expected denials.
 - Deterministic checks confirm the finding and a known unaffected case.
 - The AI investigation cites tool evidence for each conclusion, and says so when evidence disagrees.
+- The workflow compares the model's verdict with the deterministic checks. A mismatch, an inconclusive verdict, or a failed job stops the workflow for the operator. Both a match and a stop are shown.
 - A baseline without AI, using the same tools, is recorded for comparison.
 - Every image on the target side is pinned by digest. Signatures are verified where upstream signs.
 
@@ -159,6 +160,7 @@ Rehearse a proposed fix on the rehearsal copy, publish it as a pull request, and
 **Completion criteria:**
 
 - A proposal becomes a pull request with evidence, and the worker never holds repository credentials.
+- An investigation that stopped for the operator opens no pull request.
 - A deliberately unsafe patch is rejected even though its functional tests pass.
 - Delivery applies only the approved commit to the approved target. A changed commit voids the approval.
 - After delivery, the consumer gets its required records, forbidden records stay hidden, and writes stay denied.
