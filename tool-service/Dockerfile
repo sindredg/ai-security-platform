@@ -3,11 +3,12 @@
 # pulls it by digest.
 #
 # Both stages start from the image the tests run on, pinned by digest: Python
-# 3.15.0 on Alpine 3.24. Its 30 system packages had no known vulnerability when
-# it was pinned, against 164 for the Debian slim image. Nothing here is fetched
-# except the packages in requirements.txt, and pip refuses any file whose hash
-# is not listed there.
-FROM python@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928 AS build
+# 3.15.1 on Alpine 3.24. Alpine because its 30 system packages had no known
+# vulnerability when 3.15.0 was first pinned, against 164 for the Debian slim
+# image. 3.15.1 since 2026-10-22: its musl 1.2.6-r3 fixes CVE-2026-107891.
+# Nothing here is fetched except the packages in requirements.txt, and pip
+# refuses any file whose hash is not listed there.
+FROM python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3 AS build
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -18,7 +19,7 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-deps --require-hashes -r /tmp/requirements.txt \
     && /opt/venv/bin/pip uninstall --yes pip
 
-FROM python@sha256:ff4d3c9b1a48f646eedd93182aaea385c7a5452f4c8a8cd7cef686babacf4928
+FROM python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3
 
 # The base image's own pip is not needed at run time. It also carries its own
 # copies of urllib3 and msgpack, which is where the base image's only known
