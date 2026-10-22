@@ -50,6 +50,27 @@ Limits:
 - **It holds for one commit and the models pinned in `models/`.** A change to `pins.env`, `artifacts.tsv`, or a list in `models/` means running the scan and this search again, in the same pull request. A new model also means reading which converter class and tokenizer path it takes, as for the [model comparison](../worklogs/0003-toolchain-integration.md#will-the-pinned-converter-build-them).
 - **It covers known advisories.** The tokenizer loader still parses the publisher's files, which is the trust in the publisher that [ADR 0015](../decisions/0015-build-the-model-file-on-the-worker.md) already states.
 
+## musl in the pipeline's Trivy image
+
+The Trivy 0.76.1 image that both repositories' pipelines use carries musl 1.2.6-r2, which CVE-2026-107891 affects. Alpine fixed it in 1.2.6-r3. Trivy 0.76.1 is the newest release, and its tag has not been rebuilt, so there is no fixed image to move to. The advisory's details are not public: NVD had no record of it, and CVE.org answered 404.
+
+It is accepted because nothing the pipelines do runs that musl. Read on 2026-10-22 from the image pinned in the checks workflow, for `linux/amd64`:
+
+| What | Read from | Result |
+| --- | --- | --- |
+| How the image starts | Its configuration | The entry point is `trivy`, with no shell |
+| `/usr/local/bin/trivy` | Its ELF header and Go build settings | Static, with no interpreter, built with `CGO_ENABLED=0`. It uses no C library |
+| What the pipelines ask of it | The checks workflows | `config` on files in a mounted directory, and `image` through the Docker socket. The one remote Terraform module, in the targets repository, is fetched first by the runner's own `terraform` and `git`, and Trivy reads it from disk |
+
+The same reading does not clear gitleaks: its `git` mode starts the image's own `git`, which is linked to musl ([#155](https://github.com/sindredg/ai-security-platform/issues/155)).
+
+Limits:
+
+- **Reasoned for the two modes, not traced.** That `config` and `image` start no other program is read from how the pipelines call them, not from a trace of Trivy's code. A Terraform module that Trivy has to fetch itself would start `git`.
+- **It holds for this digest.** The musl version, the build settings, and the entry point were read from one image.
+
+Read again when the Trivy pin moves, when a pipeline calls Trivy in a new way, or when the targets repository's step that checks for the fetched module changes.
+
 ## Open items
 
 Threats that no decision or gate covers yet. Each needs an answer before the milestone named.
