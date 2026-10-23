@@ -6,7 +6,8 @@
 # The names come from what the orchestrator fetches. The hosts those names
 # redirect to are read from Squid's log on a window, and added here then.
 
-# K3s, its install script, and the model converter's source.
+# K3s, its install script, its system images' archive (ADR 0033), and the
+# model converter's source.
 github.com
 raw.githubusercontent.com
 release-assets.githubusercontent.com
@@ -20,12 +21,6 @@ pkg-containers.githubusercontent.com
 # under its own name: cdn01.quay.io, read from the workstation on
 # 2026-10-19. The leading dot takes quay.io and every name under it.
 .quay.io
-
-# The cluster's system images. Layers come from the CDN host, read from
-# Squid's log on 2026-10-17.
-registry-1.docker.io
-auth.docker.io
-production.cloudfront.docker.com
 
 # Model and agent inputs.
 huggingface.co

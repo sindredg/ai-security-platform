@@ -134,6 +134,12 @@ variable "k3s_install_sha256" {
   default     = "46177d4c99440b4c0311b67233823a8e8a2fc09693f6c89af1a7161e152fbfad"
 }
 
+variable "k3s_images_sha256" {
+  description = "SHA-256 of k3s-airgap-images-amd64.tar for k3s_version, from the release's sha256sum-amd64.txt. K3s imports its system images from it (ADR 0033). k3s-images.txt lists the digests inside."
+  type        = string
+  default     = "f72c4147b0cc9068e1c81d4c3d163e37a37d38ac22608fb6f736789e27e87188"
+}
+
 variable "log_daily_cap_gb" {
   description = "Daily ingestion cap of the workspace, in GB. Ingestion stops until the reset hour when it is reached. At least three times the 66.6 MB measured from 2026-10-18 10:00 to 2026-10-19 10:00 UTC (ADR 0028)."
   type        = number

@@ -1,6 +1,6 @@
 # Edge VM: operator procedure
 
-Status: Implemented on 2026-10-17. Run once, on the live platform, between 18:40 and 19:59 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm). Steps 5, 6, 8, 10, and 13 ran from scripts with the same commands, and are written here in fewer lines. They have not run in this form. Step 10 is shorter than the two window tests in the worklog. The rebuild note at the end is reasoned from the template and has not run. The close test in step 10 ran on 2026-10-23 from a script with the same checks, not in this form ([worklog](../worklogs/0003-toolchain-integration.md#fix-closing-a-fetch-window-ends-its-tunnels)).
+Status: Implemented on 2026-10-17. Run once, on the live platform, between 18:40 and 19:59 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm). Steps 5, 6, 8, 10, and 13 ran from scripts with the same commands, and are written here in fewer lines. They have not run in this form. Step 10 is shorter than the two window tests in the worklog. The rebuild note at the end is reasoned from the template and has not run. The close test in step 10 ran on 2026-10-23 from a script with the same checks, not in this form ([worklog](../worklogs/0003-toolchain-integration.md#fix-closing-a-fetch-window-ends-its-tunnels)). Also on 2026-10-23, Docker Hub left the list ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)), and step 10 pulls Argo's executor from quay.io instead. That pull has not run.
 
 This builds the edge VM in Denmark East, moves the package proxy onto it, and takes the orchestrator's way out away ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)). It is the second of two stages of the edge network. The first is the [router](mesh-router.md).
 
@@ -143,9 +143,9 @@ The orchestrator keeps its own NAT gateway until step 8. Until then each step ca
                  https://huggingface.co/Qwen/Qwen3.5-4B/resolve/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/config.json \
                  https://download.pytorch.org/whl/jinja2-3.1.6-py3-none-any.whl; do
         curl -s -L -r 0-0 -o /dev/null -w "%{http_code} %{url_effective}\n" "$url" | cut -c1-80
-      done
-      sudo k3s crictl pull docker.io/rancher/mirrored-pause:3.10 | tail -n 1
-      sudo k3s crictl rmi docker.io/rancher/mirrored-pause:3.10'
+      done'
+    IMAGE=$(grep -o 'quay.io/argoproj/argoexec@sha256:[0-9a-f]*' REPLACE_WITH_PLATFORM_CHECKOUT/platform/argo/argo.yaml)
+    REPLACE_WITH_SSH aisec-orchestrator "sudo k3s crictl pull $IMAGE | tail -n 1"
     REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window close
       sudo tail -n 40 /var/log/squid/access.log | awk "\$3 == \"10.40.0.4\" {print \$4, \$7}" | sort | uniq -c'
     REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window open 1'
@@ -155,7 +155,7 @@ The orchestrator keeps its own NAT gateway until step 8. Until then each step ca
       sudo tail -n 5 /var/log/squid/access.log | awk "\$3 == \"10.40.0.4\" {print \$2, \$4, \$7}"'
     ```
 
-    Expected: `206` for each URL, the image pulled and removed, `TCP_TUNNEL/200` for each host in the log and no `TCP_DENIED`. Then the held download ends about a minute after the open, `exit 55`, when the timer closes the window. `closed`, then `open tunnels ended: 1` and `closed, by timer or root`, and a `TCP_TUNNEL/200` line of about 60000 milliseconds for `release-assets.githubusercontent.com:443`. A `TCP_DENIED` line inside a window names a host the list lacks: add it to `edge/fetch-hosts` and install the list as in step 13.
+    Expected: `206` for each URL, `Image is up to date` for Argo's executor, which containerd already holds, so the pull only reads its manifest, `TCP_TUNNEL/200` for each host in the log and no `TCP_DENIED`. Then the held download ends about a minute after the open, `exit 55`, when the timer closes the window. `closed`, then `open tunnels ended: 1` and `closed, by timer or root`, and a `TCP_TUNNEL/200` line of about 60000 milliseconds for `release-assets.githubusercontent.com:443`. A `TCP_DENIED` line inside a window names a host the list lacks: add it to `edge/fetch-hosts` and install the list as in step 13.
 
 ## Verify
 
@@ -193,4 +193,4 @@ The orchestrator keeps its own NAT gateway until step 8. Until then each step ca
 
 ## Rebuild the orchestrator
 
-The orchestrator's first boot fetches K3s from GitHub and its system images from Docker Hub, through the edge. Open a window of 60 minutes (step 9) before the apply that replaces it, and close it once `K.10` passes. Without a window, first boot stops at the K3s download and writes no marker.
+The orchestrator's first boot fetches K3s and the archive of its system images from GitHub, through the edge ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)). Open a window of 60 minutes (step 9) before the apply that replaces it, and close it once `K.10` passes. Without a window, first boot stops at the K3s download and writes no marker.

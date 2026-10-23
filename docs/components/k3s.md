@@ -6,7 +6,7 @@ The cluster on the orchestrator. One server, no agents. It runs the tool service
 | --- | --- |
 | State | Built. The tool service runs in `tool-services`, the Argo controller in `argo`, and the workflows in `orchestration`, since 2026-10-21. Verified by the [`K` checks](../validation/cluster.md), which passed in the run on 2026-10-23 at 14:02 UTC ([last run](../validation/README.md#last-run)) |
 | Version | `v1.36.5+k3s1`, the release the project's `stable` channel points at |
-| Pinned in | `infra/platform/variables.tf`: the version, the binary's SHA-256, and the install script's SHA-256 |
+| Pinned in | `infra/platform/variables.tf`: the version, and the SHA-256 of the binary, the install script, and the archive of the system images. `infra/platform/k3s-images.txt`: the digest of each system image in that archive ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)) |
 | Datastore | SQLite behind `kine`. No etcd |
 | Configuration | `/etc/rancher/k3s/config.yaml`, from cloud-init |
 | Decision | [0001](../decisions/0001-k3s-for-initial-orchestration.md) |
@@ -27,7 +27,7 @@ The cluster on the orchestrator. One server, no agents. It runs the tool service
 | `kube-system` labelled `enforce=baseline` | Its pods pass `baseline` and not `restricted`. Applied after install. Checked by `K.9` and `K.10` |
 | `CONTAINERD_HTTPS_PROXY` in `k3s.service.env` | containerd pulls images through Squid on the edge. K3s and the kubelet get no proxy. A pull works only while a fetch window is open. Checked by `U.11` |
 
-The installer is not piped from the network into a shell. The script is fetched at the release tag and checked against its pinned checksum first, and so is the binary.
+The installer is not piped from the network into a shell. The script is fetched at the release tag and checked against its pinned checksum first, and so is the binary. So is the archive of the system images, which K3s imports when it starts, so that containerd pulls none of them by tag. `K.11` compares the images K3s holds with the list of digests.
 
 ## Namespaces
 
@@ -57,7 +57,7 @@ The first run, on 2026-10-11, on the orchestrator that was replaced on 2026-10-1
 
 - **One server.** The cluster is down while the VM is.
 - **The pin moves by hand.** Nothing proposes a new K3s release.
-- **The system images follow their tags.** The binary is pinned, and the four images it names are pulled from Docker Hub by tag at first boot ([supply chain](../security/supply-chain.md)).
+- **The archive of system images is trusted as the release ships it.** K3s publishes no signature or provenance for it, as for the binary ([supply chain](../security/supply-chain.md)).
 - **No datastore backup.** Nothing worth restoring is in it yet.
 - **The benchmark profile is older than the cluster.** It was written for K3s 1.27 to 1.29.
 - **The audit log stays on the machine it audits.**

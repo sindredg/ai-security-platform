@@ -291,6 +291,13 @@ write_files:
       echo "${k3s_sha256}  $work/k3s" | sha256sum -c -
       curl -fsSL --proxy "$proxy" "https://raw.githubusercontent.com/k3s-io/k3s/${urlencode(k3s_version)}/install.sh" -o "$work/install.sh"
       echo "${k3s_install_sha256}  $work/install.sh" | sha256sum -c -
+      # The system images, from the release's archive. K3s imports every
+      # archive in agent/images when it starts, so containerd pulls none of
+      # them by tag, and Docker Hub is not on the edge's list (ADR 0033).
+      curl -fsSL --proxy "$proxy" "$release/k3s-airgap-images-amd64.tar" -o "$work/k3s-airgap-images-amd64.tar"
+      echo "${k3s_images_sha256}  $work/k3s-airgap-images-amd64.tar" | sha256sum -c -
+      install -d -m 0755 /var/lib/rancher/k3s/agent/images
+      install -m 0644 "$work/k3s-airgap-images-amd64.tar" /var/lib/rancher/k3s/agent/images/
 
       install -d -m 0700 /var/lib/rancher/k3s/server/logs
       install -m 0755 "$work/k3s" /usr/local/bin/k3s
