@@ -1,6 +1,6 @@
 # Edge VM: operator procedure
 
-Status: Implemented on 2026-10-17. Run once, on the live platform, between 18:40 and 19:59 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm). Steps 5, 6, 8, 10, and 13 ran from scripts with the same commands, and are written here in fewer lines. They have not run in this form. Step 10 is shorter than the two window tests in the worklog. The rebuild note at the end is reasoned from the template and has not run.
+Status: Implemented on 2026-10-17. Run once, on the live platform, between 18:40 and 19:59 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm). Steps 5, 6, 8, 10, and 13 ran from scripts with the same commands, and are written here in fewer lines. They have not run in this form. Step 10 is shorter than the two window tests in the worklog. The rebuild note at the end is reasoned from the template and has not run. The close test in step 10 ran on 2026-10-23 from a script with the same checks, not in this form ([worklog](../worklogs/0003-toolchain-integration.md#fix-closing-a-fetch-window-ends-its-tunnels)).
 
 This builds the edge VM in Denmark East, moves the package proxy onto it, and takes the orchestrator's way out away ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)). It is the second of two stages of the edge network. The first is the [router](mesh-router.md).
 
@@ -131,9 +131,9 @@ The orchestrator keeps its own NAT gateway until step 8. Until then each step ca
    REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window close'
    ```
 
-   Expected: `open for 30 minutes, until <UTC time>, by aisec`, then `closed, by aisec`. Without `close`, the timer closes it at the time printed. The longest window is 60 minutes. A tunnel opened inside the window runs on until its download ends.
+   Expected: `open for 30 minutes, until <UTC time>, by aisec`, then `closed, by aisec`. Without `close`, the timer closes it at the time printed. The longest window is 60 minutes. A close that ends a tunnel still open prints `open tunnels ended: <n>` before `closed`. A download on port 80 goes on.
 
-10. Test the window: one small fetch from each listed host, then the log, then a short window that the timer closes.
+10. Test the window: one small fetch from each listed host, then the log, then a short window that the timer closes during a download.
 
     ```bash
     REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window open 10'
@@ -148,10 +148,14 @@ The orchestrator keeps its own NAT gateway until step 8. Until then each step ca
       sudo k3s crictl rmi docker.io/rancher/mirrored-pause:3.10'
     REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window close
       sudo tail -n 40 /var/log/squid/access.log | awk "\$3 == \"10.40.0.4\" {print \$4, \$7}" | sort | uniq -c'
-    REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window open 1; sleep 75; sudo aisec-fetch-window status'
+    REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window open 1'
+    REPLACE_WITH_SSH aisec-orchestrator 'curl -s -L --limit-rate 20k --max-time 120 -o /dev/null -w "%{http_code} %{size_download}\n" \
+      https://github.com/k3s-io/k3s/releases/download/v1.36.5%2Bk3s1/k3s; echo "exit $?"'
+    REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window status; sudo journalctl -t aisec-fetch-window -n 2 -o cat
+      sudo tail -n 5 /var/log/squid/access.log | awk "\$3 == \"10.40.0.4\" {print \$2, \$4, \$7}"'
     ```
 
-    Expected: `206` for each URL, the image pulled and removed, `TCP_TUNNEL/200` for each host in the log and no `TCP_DENIED`, then `closed` after 75 seconds. A `TCP_DENIED` line inside a window names a host the list lacks: add it to `edge/fetch-hosts` and install the list as in step 13.
+    Expected: `206` for each URL, the image pulled and removed, `TCP_TUNNEL/200` for each host in the log and no `TCP_DENIED`. Then the held download ends about a minute after the open, `exit 55`, when the timer closes the window. `closed`, then `open tunnels ended: 1` and `closed, by timer or root`, and a `TCP_TUNNEL/200` line of about 60000 milliseconds for `release-assets.githubusercontent.com:443`. A `TCP_DENIED` line inside a window names a host the list lacks: add it to `edge/fetch-hosts` and install the list as in step 13.
 
 ## Verify
 

@@ -5,7 +5,7 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). Since 2026-10-22 the tool service and the dispatch step run on a base image with a fixed musl ([the images on the fixed base](#installed-the-images-on-the-fixed-base)). The gate is not met: the footprint and the milestone's review are open.
+The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). Since 2026-10-22 the tool service and the dispatch step run on a base image with a fixed musl ([the images on the fixed base](#installed-the-images-on-the-fixed-base)). Since 2026-10-23 closing a fetch window on the edge ends the tunnels still open, and Squid logs each ([the fix](#fix-closing-a-fetch-window-ends-its-tunnels)). The gate is not met: the footprint and the milestone's review are open.
 
 | Gate | Result |
 | --- | --- |
@@ -1874,3 +1874,55 @@ The first run is the fail side of `T.2` and `W.9` on a real change, not a stub. 
 
 - **One round trip** on the new images. The stop, the lock, and the restriction were not run again.
 - **The tool service's restart ended no job,** because none was running. A restart during a job ends it, since jobs live in memory ([tool service](../security/tool-service.md#what-this-does-not-do)).
+
+## Fix: closing a fetch window ends its tunnels
+
+Date: 2026-10-23, from `main` at `73fcbd8`.
+
+Closing a fetch window reloaded Squid without the window's rule. A reload keeps the connections Squid holds, so a tunnel opened inside the window ran on after the close until its download ended: 27 seconds after a close on 2026-10-17, and 50 seconds on 2026-10-22, when the test's download reached its own time limit. For T40 that is the case that matters: an upload already running keeps going after the operator closes the window.
+
+### What changed
+
+`aisec-fetch-window close` reloads Squid as before, waits one second, and then closes Squid's connections to port 443 with `ss -K`. Outside a window Squid refuses every `CONNECT`, so each of those connections is a tunnel. Squid sees each one fail, ends the tunnel, and writes its access log line with the host and the bytes. When the close ended any, the journal gets `open tunnels ended: <n>` before `closed`. A download on port 80 is not touched.
+
+- **Not a restart.** A restart of Squid ends the tunnels too, and was tried first, on 2026-10-22. Squid then writes no line for the tunnels it cut, so the host and the bytes of exactly the transfer T40 is about are lost. Its runs are the fail side in the table below.
+- **Squid's connections only.** The Azure Monitor agent on the edge holds connections to port 443 of its own, to the private endpoint. The filter is Squid's control group, read from systemd at each close. Read on the edge before the change, without `-K`: the filter with the agent's group listed the agent's connection, and with Squid's group listed nothing. With Squid's group and `sport = :3128` it listed Squid's listener, and with `sport = :22` nothing.
+- **The wait.** Squid's journal on 2026-10-22 and 2026-10-23 has nine reloads. From systemd's reload to Squid accepting connections again took 68 to 106 milliseconds.
+
+Read on the edge on 2026-10-23: iproute2 6.19.0, Squid 7.2, and `CONFIG_INET_DIAG_DESTROY=y` in the kernel's configuration, which `ss -K` needs. The edge VM ignores changes to its cloud-init data, so `terraform plan` on the platform root printed `No changes` with the new command in the template's input.
+
+### Tests
+
+On the live system, from a script, with the expected results written down before each run. Each run held a download of the K3s binary at 20 KB/s from the orchestrator through the edge while the window closed. Run B also held a `GET` on port 80 for the mirror's `Contents-amd64.gz` at 10 KB/s, with a 45-second limit. Squid's connections to port 443 were counted 3 seconds after the close, by control group and by process name, and on 2026-10-22 by process name only. The log check counts the orchestrator's `CONNECT` lines that end within 5 seconds of the close, by the edge's clock, and passes when that equals the number the close ended.
+
+| Date, run | Close | Squid's PID | Connections to 443, 3 s after | Held download | `CONNECT` lines for the tunnels the close ended |
+| --- | --- | --- | --- | --- | --- |
+| 2026-10-22 A, reload (`main`) | By hand | Same | 2, and 1 at 20 s | Ran to its 60 s limit, exit 28 | None ended. The download's line ended 50 s after the close |
+| 2026-10-22 B, restart | By hand | New | 0 | Exit 55 | None |
+| 2026-10-22 C, restart | Timer | New | 0 | Exit 55 | None |
+| 2026-10-23 A, restart | By hand | New | 0 and 0 | Exit 55 | `logged: 0 of 2, FAIL` |
+| 2026-10-23 B, `ss -K` | By hand | Same | 0 and 0 | Exit 55. Port 80: ran to its 45 s limit, exit 28 | `logged: 2 of 2, PASS` |
+| 2026-10-23 C, `ss -K` | Timer | Same | 0 and 0 | Exit 55 | `logged: 1 of 1, PASS` |
+
+2026-10-23 A is the fail side of the log check on the same day: the restart ends the tunnels and leaves no line for them. 2026-10-22 A is the fail side of the count.
+
+Squid's lines from the orchestrator in runs B and C, end time in UTC, milliseconds, result, bytes, method, and URL:
+
+```text
+05:02:32 13582 TCP_TUNNEL/200 8630 CONNECT github.com:443
+05:02:32 13472 TCP_TUNNEL/200 295151 CONNECT release-assets.githubusercontent.com:443
+05:03:04 44986 TCP_MISS_ABORTED/200 824603 GET http://azure.archive.ubuntu.com/ubuntu/dists/resolute/Contents-amd64.gz
+05:03:40 32076 TCP_TUNNEL/200 8731 CONNECT github.com:443
+05:04:08 59190 TCP_TUNNEL/200 1240261 CONNECT release-assets.githubusercontent.com:443
+```
+
+The journal had `open tunnels ended: 2` at 05:02:33 and `open tunnels ended: 1` at 05:04:08, each followed by its `closed` line. The port-80 line ended 31 seconds after B's close, when the download reached its limit. In C, the redirect's tunnel to `github.com` ended by itself 32 seconds after it opened, before the timer, as it did on 2026-10-22. So the close ended one tunnel, not two.
+
+The runs used the command with SHA-256 `cb82c7c3...`. The one in this change, `bc897cd3...`, differs from it only in a comment, which gave a reload time that the journal did not support.
+
+### Limits
+
+- **A tunnel that opens just after the close is not ended.** The close ends Squid's connections one second after the reload. A request Squid allowed before the reload, whose connection to the host opens after that second, keeps its tunnel. Not seen. Reasoned from the order of the steps.
+- **Nothing checks that the close left no tunnel.** On a kernel built without `CONFIG_INET_DIAG_DESTROY`, `ss -K` skips every connection without an error. The close would end nothing, and only the missing `open tunnels ended` line in the journal would show it.
+- **The held transfers were downloads.** No upload ran through a tunnel at a close. `ss -K` closes the connection whatever the direction of the data, so the same result is expected. Reasoned, not tested.
+- **The curl end times are upper bounds.** The script reads them after its SSH calls for the counts. Squid's lines give the end of each tunnel.

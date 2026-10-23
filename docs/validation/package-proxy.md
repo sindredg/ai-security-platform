@@ -61,6 +61,6 @@ The orchestrator's and the worker's only outbound access: Squid on the edge VM, 
 ## Limits of these checks
 
 - `P.22` reads Squid's journal. Root on the edge can change the journal and the change times, as it can change anything these checks read. A journal that has lost Squid's start lines fails the check.
-- `P.15` and `P.16` cannot show that a window opens. Opening one changes state, and the checks only read. The [edge runbook](../runbooks/edge-vm.md#open-a-fetch-window) has that step.
+- `P.15` and `P.16` cannot show that a window opens, or that a close ends its tunnels. Opening one changes state, and the checks only read. The [edge runbook](../runbooks/edge-vm.md#open-a-fetch-window) has that step.
 - `U.1` and `U.5` read the package lists on the machine. If the daily refresh has stopped, the lists are stale and the check still passes. Nothing alerts on a refresh that stopped.
 - `U.2` is also a gap: a held package gets no security fixes until someone moves the pin. `U.7` catches that for the mesh agent. Nothing catches it for the pinned K3s release.
