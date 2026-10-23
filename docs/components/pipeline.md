@@ -21,14 +21,15 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Ruff | Lint and format check on all Python files under `worker/`, `platform/`, and `tool-service/`. The tool service adds bugbear, the security rules, and import order |
 | Kubernetes manifests | kubeconform over every manifest under `platform/`, strict, against the cluster's Kubernetes release. Then every image line has to name a digest that is not the placeholder of zeros |
 | Tool service tests | The line count against the limit of 300, then the tests, on the pinned Python image with every package installed by hash |
-| Log copier tests | The unit tests of the audit copier and the journal puller under `platform/logs/`, on the pinned Python image. They use the standard library only, so nothing is installed |
-| Dispatch tests | The unit tests of the job runner and the job program under `worker/agent-runtime/job/`, with the copies of the fixture and the model comparison's `measure.py` against a stub model server, then the dispatch step's under `platform/dispatch/`, which run the real job runner and job program behind a fake `ssh`. On the pinned Python image, with a fake Goose and stubs for registration and the model server. Standard library only |
+| Log copier tests | The unit tests of the audit copier and the journal puller under `platform/logs/`, on the runner's `python3`: Ubuntu 26.04's, the release the orchestrator runs them with. The step fails when it is not the release `HOST_PYTHON` names. `-S` leaves Ubuntu's own packages off the path, so the tests have the standard library only ([#168](https://github.com/sindredg/ai-security-platform/issues/168)) |
+| Dispatch tests | The unit tests of the job runner and the job program under `worker/agent-runtime/job/`, with the copies of the fixture and the model comparison's `measure.py` against a stub model server, on the runner's `python3`, as for the log copiers. Then the dispatch step's under `platform/dispatch/`, on the pinned Python image, which the dispatch image is built from. They run the real job runner and job program behind a fake `ssh`. Both with a fake Goose and stubs for registration and the model server. Standard library only |
 | Tool service image | hadolint on the Dockerfile, a build from the pinned base image, and a Trivy scan of the image that blocks on any finding with a fix. On `main`, the job pushes the image to the repository's package registry and writes its digest to the run summary |
 | Dispatch image | The same for `platform/dispatch/`, from the same base image, plus a check that `ssh` starts as the image's user |
-| Dependency scan | Trivy over the converter's Python pins: reports, never blocks. Trivy over the tool service's pins: blocks |
+| Tool service dependency scan | Trivy over the tool service's pins, the runtime and the development lists apart. Blocks on any finding, with a fix or without. The image scan covers the runtime packages only, and only findings with a fix ([#167](https://github.com/sindredg/ai-security-platform/issues/167)) |
+| Converter dependency scan | Trivy over the converter's Python pins. Reports, never blocks |
 | Commit signatures | `git verify-commit` on every commit in the pull request, against `.github/allowed_signers`: the public half of the operator's signing key, nothing else. A commit signed by GitHub, by another key, or not at all fails. See [below](#the-signature-check) |
 
-All but the dependency scan are required by the ruleset on `main`. The dependency scan runs on every pull request and does not block a merge. The two image jobs are the only jobs with write permission. Each can write its package to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, except Terraform and gitleaks, which run from release archives checked against a pinned SHA-256. No third-party action runs.
+All but the converter dependency scan are required by the ruleset on `main`. The converter dependency scan runs on every pull request and does not block a merge ([advisories](../security/accepted-risks.md#advisories-in-the-converters-packages)). The two image jobs are the only jobs with write permission. Each can write its package to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, except Terraform and gitleaks, which run from release archives checked against a pinned SHA-256. No third-party action runs.
 
 ## The signature check
 
@@ -45,13 +46,15 @@ The range is every commit reachable from the pull request's head and not from `m
 Read from the GitHub API on 2026-10-17 at 07:10 UTC, after the changes for [0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md):
 
 - Secret scanning with push protection is on.
-- The ruleset `protect-main`, on the default branch, refuses deletion and force pushes, requires signed commits, and requires a pull request with every check above except the dependency scan. Each required check names GitHub Actions as its source, so a status with the same name from anything else does not count. The only merge method it allows is squash. No one can bypass it.
+- The ruleset `protect-main`, on the default branch, refuses deletion and force pushes, requires signed commits, and requires a pull request with every check above except the converter dependency scan. Each required check names GitHub Actions as its source, so a status with the same name from anything else does not count. The only merge method it allows is squash. No one can bypass it.
 - A second ruleset, on every branch, requires signed commits and nothing else. No one can bypass it.
 - In the repository settings, squash is the only merge method. Merge commits and rebase merges are off. On `main`, the ruleset allows squash only as well.
 
 Read again on 2026-10-18 at 12:52 UTC, after "Squid configuration" was made required: the same, with that check in the list, twelve checks, each from GitHub Actions.
 
 Read again on 2026-10-20 at 15:00 UTC, after "Dispatch tests" and "Dispatch image" were made required: fourteen checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. Configured, not tested: no pull request has been seen blocked by either of the two.
+
+Read again on 2026-10-23 at 19:26 UTC, after "Tool service dependency scan" was made required ([#167](https://github.com/sindredg/ai-security-platform/issues/167)): fifteen checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. The read-back equals the ruleset that was written. Tested the same day: a pull request with a known-vulnerable development pin was blocked by that check alone, and was clean again once the pin was removed ([worklog](../worklogs/0003-toolchain-integration.md#fix-a-required-tool-service-scan-and-the-host-code-on-the-hosts-python)).
 
 The [repository settings runbook](../runbooks/repository-settings.md) sets these up and repeats the fail side.
 
@@ -72,7 +75,7 @@ Its settings were set through the API with the runbook on 2026-10-17 and read ba
 - **Every version update is made by hand.** Dependabot's commits are signed by GitHub, so its pull requests fail the signature check. The operator makes the same change in a pull request of their own.
 - **Push protection is read as enabled, not tested with a pushed secret.**
 - **The secret scan has false positives.** A `curl -u` with a command substitution was flagged once.
-- **The dependency scan does not block for the converter's packages.** It blocks for the tool service's. The converter's packages follow llama.cpp's own pins, so an advisory in them has no fix here short of leaving upstream's list. On 2026-10-12, `trivy fs --scanners vuln` (0.75.0) on those pins listed 8 advisories, 5 of them high: 5 in `transformers` 4.57.6 and one each in `protobuf`, `setuptools`, and `torch`. The packages run once per model build, with no network. None of the eight is reachable in that build, and each is [accepted with its reason](../security/accepted-risks.md#advisories-in-the-converters-packages).
+- **The converter dependency scan does not block.** The tool service's scan has a job of its own, which does. The converter's packages follow llama.cpp's own pins, so an advisory in them has no fix here short of leaving upstream's list. On 2026-10-12, `trivy fs --scanners vuln` (0.75.0) on those pins listed 8 advisories, 5 of them high: 5 in `transformers` 4.57.6 and one each in `protobuf`, `setuptools`, and `torch`. The packages run once per model build, with no network. None of the eight is reachable in that build, and each is [accepted with its reason](../security/accepted-risks.md#advisories-in-the-converters-packages).
 - **Dependabot cannot see every pin.** See the version table in the [index](README.md#versions).
 
 ## Official documentation

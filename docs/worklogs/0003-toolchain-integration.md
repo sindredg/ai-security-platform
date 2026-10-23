@@ -2176,3 +2176,33 @@ The 50 warnings were read one by one, against the cluster's settings read on the
 
 - **No first boot from the changed template.** The archive went onto a running orchestrator, and the restart showed that K3s imports it at start. A rebuild would show that nothing is pulled by tag from an empty image store.
 - **Tags not in use are now held too.** The archive brings four images this cluster does not run. `K.11` holds all eight to the list.
+
+## Fix: a required tool service scan, and the host code on the host's Python
+
+Date: 2026-10-23, on the branch of [#169](https://github.com/sindredg/ai-security-platform/pull/169). Two findings of a review, each opened as an issue.
+
+### What changed
+
+- **[#167](https://github.com/sindredg/ai-security-platform/issues/167).** The tool service's dependency scans failed on a finding, but they shared the job "Dependency scan" with the converter's report-only scan, and the ruleset did not require that job. "Tool service dependency scan" now runs them alone, and the ruleset requires it. "Converter dependency scan" reports only, and is not required.
+- **[#168](https://github.com/sindredg/ai-security-platform/issues/168).** The job runner, the job program, and the log copiers run on the VMs with Ubuntu 26.04's `python3`, and their tests ran only on the pinned 3.15 image. They now run on the runner's `/usr/bin/python3 -I -S`, from the same Ubuntu release, and each step fails when the release is not `HOST_PYTHON`, 3.14. The dispatch step's tests stay on the pinned image, which the dispatch image is built from.
+
+### Tests
+
+The expected results were written in each test pull request's description before its run.
+
+| What | Where | Result |
+| --- | --- | --- |
+| Both host suites with `/usr/bin/python3 -I -S` | Local, Python 3.12.3 | 29 and 51 tests, `OK` |
+| The pipeline on #169 | GitHub | All 16 jobs pass. Both host steps print `Host Python: 3.14.4` |
+| A log copier test that needs 3.15, on #170 | GitHub | "Log copier tests" failed, `(3, 14) not greater than or equal to (3, 15)`, and every other job passed. The pinned image would have passed it |
+| `HOST_PYTHON` set to 3.13, on #170 | GitHub | Both host steps failed at the version check, with no test run |
+| `protect-main` with "Tool service dependency scan" added, as in [Add a required check](../runbooks/repository-settings.md#add-a-required-check), at 19:26 UTC | GitHub | The diff showed the one check and nothing else. Fifteen checks, each from GitHub Actions, and the read-back equals the ruleset written. #169 was the only open pull request, and its run of the job had passed |
+| `urllib3==1.26.4`, with its hash, added to `tool-service/requirements-dev.txt`, on #171 | GitHub | "Tool service dependency scan" failed on 11 advisories in `urllib3`, 8 of them high. "Tool service tests" and every other job passed. GitHub reported the pull request `BLOCKED`, with the scan `FAILURE` and required |
+| The pin removed again, on #171 | GitHub | All 16 jobs passed, and GitHub reported the pull request `CLEAN` |
+
+#170 and #171 were closed unmerged, and their branches deleted.
+
+### Limits
+
+- **The VMs' patch release was not read.** The runner reported 3.14.4. The VMs take Ubuntu's updates on their own schedule, and the runner image on GitHub's.
+- **`-S` is stricter than the units.** The units run `-I`, which keeps Ubuntu's own packages on the path. A test that passes here also runs without them.

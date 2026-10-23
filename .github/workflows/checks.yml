@@ -51,6 +51,11 @@ env:
   # Python 3.15.1 on Alpine 3.24. The tool service's tests run on it, and its
   # image is built from it. tool-service/Dockerfile names the same digest.
   PYTHON_IMAGE: python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3
+  # The Python release the VMs run their host units with: Ubuntu 26.04's
+  # python3. This runner is the same Ubuntu release, so its python3 is the
+  # same package. The host suites run on it, and fail when it is another
+  # release (issue 168).
+  HOST_PYTHON: "3.14"
   # ADR 0016: the tool service without its tools stays under this many lines.
   TOOL_SERVICE_LINE_LIMIT: "300"
 
@@ -376,14 +381,16 @@ jobs:
         with:
           persist-credentials: false
 
-      # The copiers use the standard library only, so nothing is installed.
-      # The orchestrator runs them with Ubuntu's Python, 3.14 on 26.04, and
-      # this image is 3.15. The tests use nothing that differs between them.
-      - name: Run the tests
+      # The copiers run on the orchestrator with Ubuntu's python3, so the
+      # tests run with the runner's. -S leaves Ubuntu's own packages off the
+      # path, so a test that needs anything outside the standard library fails.
+      - name: Run the tests on the host's Python
         run: |
-          docker run --rm --volume "${PWD}:/src:ro" --workdir /src/platform/logs \
-            --env PYTHONDONTWRITEBYTECODE=1 "${PYTHON_IMAGE}" \
-            python -m unittest discover -s tests -v
+          version=$(/usr/bin/python3 -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])')
+          echo "Host Python: ${version}" | tee -a "${GITHUB_STEP_SUMMARY}"
+          [ "${version%.*}" = "${HOST_PYTHON}" ]
+          cd platform/logs
+          PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
 
   dispatch-tests:
     name: Dispatch tests
@@ -395,17 +402,20 @@ jobs:
           persist-credentials: false
 
       # Both sides of dispatch use the standard library only, so nothing is
-      # installed. The worker runs its side with Ubuntu's Python, 3.14 on
-      # 26.04, and the dispatch image has 3.15, as this image does. The
-      # dispatch tests run the real job runner and job program behind a fake
-      # ssh, with a fake Goose and stubs for registration and the model server.
-      # The same directory tests the model comparison's measure.py against a
-      # stub model server.
-      - name: Test the worker's side
+      # installed. The worker runs its side with Ubuntu's python3, so its tests
+      # run with the runner's, as the log copiers' do. The dispatch image has
+      # 3.15, as the pinned image does, so the dispatch step's tests run there.
+      # They run the real job runner and job program behind a fake ssh, with a
+      # fake Goose and stubs for registration and the model server. The
+      # worker's directory also tests the model comparison's measure.py against
+      # a stub model server.
+      - name: Test the worker's side on the host's Python
         run: |
-          docker run --rm --volume "${PWD}:/src:ro" --workdir /src/worker/agent-runtime/job \
-            --env PYTHONDONTWRITEBYTECODE=1 "${PYTHON_IMAGE}" \
-            python -m unittest discover -s tests -v
+          version=$(/usr/bin/python3 -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])')
+          echo "Host Python: ${version}" | tee -a "${GITHUB_STEP_SUMMARY}"
+          [ "${version%.*}" = "${HOST_PYTHON}" ]
+          cd worker/agent-runtime/job
+          PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
 
       - name: Test the dispatch step against it
         run: |
@@ -538,8 +548,8 @@ jobs:
           docker logout ghcr.io
           echo "Pushed \`${digest}\` from commit \`${GITHUB_SHA}\`." | tee -a "${GITHUB_STEP_SUMMARY}"
 
-  dependencies:
-    name: Dependency scan
+  converter-dependencies:
+    name: Converter dependency scan
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
@@ -547,10 +557,11 @@ jobs:
         with:
           persist-credentials: false
 
-      # Reports and never blocks. The versions follow the pins of llama.cpp's
-      # converter at one commit, so an advisory in them cannot be fixed here
-      # without leaving upstream's list, and a blocking scan would fail every
-      # unrelated pull request until upstream moves. The packages run once,
+      # Reports and never blocks, and the ruleset does not require it. The
+      # versions follow the pins of llama.cpp's converter at one commit, so an
+      # advisory in them cannot be fixed here without leaving upstream's list,
+      # and a blocking scan would fail every unrelated pull request until
+      # upstream moves. The packages run once,
       # during a model build, in a unit with no network and one writable
       # directory. The job still fails if the scanner itself cannot run.
       #
@@ -568,9 +579,20 @@ jobs:
             echo '```'
           } | tee -a "${GITHUB_STEP_SUMMARY}"
 
-      # This one blocks. The tool service's pins are this project's own, so an
-      # advisory in them is fixed by moving the pin. The two files are scanned
-      # apart, each under the one name Trivy reads.
+  tool-service-dependencies:
+    name: Tool service dependency scan
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # This one blocks, and the ruleset requires it (issue 167). The tool
+      # service's pins are this project's own, so an advisory in them is fixed
+      # by moving the pin. Unlike the image scan, it covers the development
+      # packages and findings without a fix. The two files are scanned apart,
+      # each under the one name Trivy reads.
       - name: Scan the tool service's packages
         run: |
           for list in requirements requirements-dev; do
