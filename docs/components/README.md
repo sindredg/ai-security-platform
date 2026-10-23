@@ -61,7 +61,8 @@ Every pin in one place. Checked against the official source on the date shown.
 | Converter packages | 27, PyTorch 2.11.0 the largest | `worker/model-server/artifacts.tsv` and `converter-requirements.txt` | By hand. Used only during a build | 2026-10-11 |
 | Goose | 1.55.0, one static binary | `worker/agent-runtime/pins.env` and `artifacts.tsv`, with a checksum for the archive and one for the binary | By hand | 2026-10-19 |
 | `actions/checkout` | v7.0.1, by commit | The checks workflow | Dependabot, weekly | 2026-10-19 |
-| Checkov, Trivy, gitleaks images | 3.3.30, 0.76.1, and 8.30.1, by digest | The checks workflow | By hand | 2026-10-21 |
+| Checkov, Trivy images | 3.3.30 and 0.76.1, by digest | The checks workflow | By hand | 2026-10-21 |
+| gitleaks | 8.30.1, the release's archive for linux x64, by SHA-256, since 2026-10-23. The release has no signature. The image ran its own `git`, linked to an affected musl ([#155](https://github.com/sindredg/ai-security-platform/issues/155)) | The checks workflow | By hand | 2026-10-23 |
 | ShellCheck, Ruff images | 0.11.0 and 0.17.1, by digest | The checks workflow | By hand | 2026-10-19 |
 | hadolint image | 2.15.1, by digest | The checks workflow | By hand | 2026-10-19 |
 | kubeconform image | 0.8.0, by digest. Validates the manifests against the schemas for Kubernetes 1.36.5, the cluster's release | The checks workflow | By hand, and the Kubernetes version with K3s | 2026-10-19 |
