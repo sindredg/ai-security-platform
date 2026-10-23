@@ -1,6 +1,6 @@
 # 0033. K3s's system images come from the release's archive, not from Docker Hub by tag
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-23
 
 ## Context
