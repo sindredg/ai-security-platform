@@ -68,6 +68,8 @@ The key and the host key are one secret in `orchestration`, mounted by the dispa
 4. Asks the model server to erase its slot, so the next job starts with nothing of this one ([#32](https://github.com/sindredg/ai-security-platform/issues/32)).
 5. Writes one JSON line with the result and exits. systemd deletes the private `/tmp` when the unit stops.
 
+[0032](0032-erase-the-slot-before-each-job-and-refuse-on-failure.md) changes step 4: the slot is erased before the job as well, the job is refused when that fails, and the result says whether the erase after it worked.
+
 The result carries the agent's transcript: the recipe's instructions, then each part of each message as role, type, and text, with the token taken out. Without it, a run shows counts and the last answer, and nobody can see what the agent asked for or read. The text fields are cut by the size of their JSON form, so the line stays within 64 KiB, and a last part says how many parts did not fit. The transcript goes to the socket only. The job program's standard error goes to the worker's journal, which the journal pull copies to the workspace ([0019](0019-how-the-audit-lines-and-the-worker-journal-are-copied.md)), so nothing from the transcript is written there.
 
 The unit's time limit is the backstop for a job that misses the cancel, as in 0012. The workflow's own deadline is shorter than the unit's and the token's.

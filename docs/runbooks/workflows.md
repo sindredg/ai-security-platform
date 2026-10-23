@@ -200,7 +200,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
     argo logs @latest
     ```
 
-    Expected, after one to three minutes: `Succeeded`, with the dispatch step and the exit handler both green. The result has `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, an answer that names `tenancy.contact` and `circuits.circuit`, and a `transcript`. The dispatch step's log shows each part of the transcript under a `-- role type` line, from `-- system instructions` to the `get_evidence` call, the evidence, and `-- answer`. The audit file on the orchestrator has `register`, `call allowed` for `get_evidence`, and `revoke`, each with the workflow's name as the job.
+    Expected, after one to three minutes: `Succeeded`, with the dispatch step and the exit handler both green. The result has `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, `"slot_erased": true`, an answer that names `tenancy.contact` and `circuits.circuit`, and a `transcript`. The dispatch step's log shows each part of the transcript under a `-- role type` line, from `-- system instructions` to the `get_evidence` call, the evidence, and `-- answer`. The audit file on the orchestrator has `register`, `call allowed` for `get_evidence`, and `revoke`, each with the workflow's name as the job.
 
     This is the first gate criterion of milestone 3: a workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back.
 
