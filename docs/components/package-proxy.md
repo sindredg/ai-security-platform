@@ -42,6 +42,7 @@ sudo aisec-fetch-window close
 
 - **Root on the edge only.** The orchestrator has no rule that reaches the edge on SSH, so root on the orchestrator cannot open a window.
 - **At most 60 minutes.** A transient systemd timer closes the window at the time `open` prints.
+- **Closing ends the tunnels.** A close ends every tunnel still open, and Squid logs each with its host and bytes. A download on port 80 goes on. Tested on the live system on 2026-10-23 ([worklog](../worklogs/0003-toolchain-integration.md#fix-closing-a-fetch-window-ends-its-tunnels)).
 - **Logged.** Every open and close goes to the edge's journal under `aisec-fetch-window`, with the operator's name. Every request goes to Squid's access log.
 - **A reboot closes it.** The window is one line in a file under `/run`, which Squid includes.
 
@@ -66,7 +67,7 @@ Squid is the one service the orchestrator and the worker can reach on the edge. 
 
 - **The orchestrator and the worker can start a connection to the edge.** One port, one service.
 - **During a window the upload hosts are open.** A compromised orchestrator can push data to an account of its own on a listed host while the window lasts (T40).
-- **A tunnel outlives the window.** Closing stops new tunnels. One opened inside the window runs until its download ends: 27 seconds after a close on 2026-10-17.
+- **A tunnel that opens just after the close is not ended.** The close ends Squid's tunnels one second after the reload. A request allowed before the reload whose connection opens after that second keeps its tunnel. Reasoned, not seen.
 - **Squid sees the host name and the bytes, not the content.** TLS is not inspected.
 - **Hostnames, not addresses.** If the repositories or the CDNs move, fetches stop until the list changes.
 - **The image phoned home and was refused.** The login message and Ubuntu Pro's apt hook asked for `motd.ubuntu.com`, `changelogs.ubuntu.com`, and `esm.ubuntu.com`, and on the orchestrator each refusal raised `squid-refused-orchestrator`, Sev1. Since 2026-10-19 the units behind them are masked on every VM, checked by `.21` ([#124](https://github.com/sindredg/ai-security-platform/issues/124), [worklog](../worklogs/0003-toolchain-integration.md#ubuntus-own-requests)). Whether the refusals have stopped shows in the proxy log after the next daily apt run.
