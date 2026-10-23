@@ -3,8 +3,8 @@
 #
 # While the window is open, Squid lets the orchestrator open a tunnel on port
 # 443 to the hosts in /etc/squid/aisec-fetch-hosts. A timer closes it after at
-# most 60 minutes. Closing stops new tunnels. A tunnel already open runs until
-# its download ends.
+# most 60 minutes. Closing stops new tunnels and ends the ones still open, each
+# with its line in Squid's access log. A package download on port 80 goes on.
 #
 # The window is one line in a file under /run, which Squid includes. A reboot
 # empties /run, so the window starts closed.
@@ -30,6 +30,22 @@ write_window() {
   chmod 0644 "$tmp"
   mv -f "$tmp" "$window"
   systemctl reload squid
+}
+
+# A reload keeps the connections Squid holds, so a tunnel opened inside the
+# window would outlive it. ss closes Squid's connections to port 443 in the
+# kernel, and all of them are tunnels: outside a window Squid refuses every
+# CONNECT. Squid then ends each tunnel and logs it. A restart ends them as
+# well, without their log lines. The filter is Squid's control group, because
+# the log agent holds connections to port 443 too. From the reload to Squid
+# accepting connections again took 68 to 106 ms in nine reloads on 2026-10-22
+# and 23, and the wait gives it that several times over. Prints how many it
+# closed.
+end_tunnels() {
+  local group
+  group=$(systemctl show squid -p ControlGroup --value)
+  sleep 1
+  ss -HtnK "cgroup $group and dport = :443" | wc -l
 }
 
 # A failed close leaves its transient units behind, and systemd-run refuses a
@@ -65,7 +81,9 @@ case "${1:-}" in
     ;;
   close)
     write_window ''
+    ended=$(end_tunnels)
     stop_timer
+    [ "$ended" = 0 ] || say "open tunnels ended: $ended"
     say "closed, by ${SUDO_USER:-timer or root}"
     ;;
   status)
