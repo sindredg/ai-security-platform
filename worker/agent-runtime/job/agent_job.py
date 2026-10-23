@@ -9,9 +9,13 @@ into the unit's private /tmp, runs Goose against the model server and the tool
 service, and writes one JSON line back, the result, with the agent's
 transcript in it. The transcript goes only to the socket, never to the
 journal, which leaves the worker for the workspace. An end of input before
-Goose ends is a cancel: Goose is stopped, and nothing is written back. Either
-way the model server's slot is erased afterwards, so the next job does not
-start from this one's prompt (#32). Standard library only.
+Goose ends is a cancel: Goose is stopped, and nothing is written back.
+
+The model server's slot is erased before the job, and the job is refused when
+that fails: the erase after the last job may have failed, or never run because
+its unit was stopped first (#157). It is erased again afterwards, whatever the
+outcome, so the next job does not start from this one's prompt (#32). The
+result says whether that second erase worked. Standard library only.
 
 The tool service's address and certificate are fixed here, not taken from the
 job line. The token goes in the recipe, never on a command line.
@@ -300,7 +304,14 @@ def erase_slot():
         return False
 
 
-def result_line(job, system, outcome, code, started, out, err):
+def log_erase(job, step, erased):
+    """One line to the journal, where G.10 reads the last slot_erased."""
+    print(
+        json.dumps({"job": job["job"], **step, "slot_erased": erased}), file=sys.stderr
+    )
+
+
+def result_line(job, system, outcome, code, started, out, err, erased):
     """The token is taken out of each text before it is cut, so no part of it
     is left at a cut."""
     token = job["token"]
@@ -330,6 +341,7 @@ def result_line(job, system, outcome, code, started, out, err):
         "agent_status": agent_status,
         "tool_calls": calls,
         "tool_errors": errors,
+        "slot_erased": erased,
         "answer": cut(answer.replace(token, "[token]"), ANSWER_BYTES),
         "stderr_tail": cut(stderr[::-1], STDERR_BYTES)[::-1],
         **tokens,
@@ -347,6 +359,10 @@ def main():
     try:
         line, _ = read_line(0, JOB_BYTES)
         job = parse_job(line)
+        erased = erase_slot()
+        log_erase(job, {"erase": "before"}, erased)
+        if not erased:
+            raise Refused("the model server's slot could not be erased")
     except Refused as reason:
         write_all(
             1,
@@ -369,13 +385,12 @@ def main():
     )
     recipe.unlink()
     erased = erase_slot()
-    print(
-        json.dumps({"job": job["job"], "outcome": outcome, "slot_erased": erased}),
-        file=sys.stderr,
-    )
+    log_erase(job, {"outcome": outcome}, erased)
     if outcome == "cancelled":
         return 0
-    write_all(1, result_line(job, system, outcome, code, started, out, err).encode())
+    write_all(
+        1, result_line(job, system, outcome, code, started, out, err, erased).encode()
+    )
     return 0
 
 

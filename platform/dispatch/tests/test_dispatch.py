@@ -71,6 +71,8 @@ class Stub(BaseHTTPRequestHandler):
 
     calls: ClassVar[list] = []
     register_status: ClassVar[int] = 201
+    # One status for each erase in turn, then 200.
+    erase_statuses: ClassVar[list] = []
 
     def answer(self, status, body):
         data = json.dumps(body).encode()
@@ -86,7 +88,8 @@ class Stub(BaseHTTPRequestHandler):
         if self.path == "/jobs":
             self.answer(Stub.register_status, {"job": json.loads(body)["job"]})
         else:
-            self.answer(200, {"id_slot": 0})
+            status = Stub.erase_statuses.pop(0) if Stub.erase_statuses else 200
+            self.answer(status, {"id_slot": 0})
 
     def do_DELETE(self):
         Stub.calls.append(("DELETE", self.path, self.headers.get("Authorization"), b""))
@@ -99,7 +102,7 @@ class Stub(BaseHTTPRequestHandler):
 class Chain(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
-        Stub.calls, Stub.register_status = [], 201
+        Stub.calls, Stub.register_status, Stub.erase_statuses = [], 201, []
         self.http = HTTPServer(("127.0.0.1", 0), Stub)
         threading.Thread(target=self.http.serve_forever, daemon=True).start()
         self.url = f"http://127.0.0.1:{self.http.server_port}"
@@ -227,6 +230,9 @@ class Chain(unittest.TestCase):
         )
         result = json.loads((self.tmp / "result.json").read_text())
         self.assertEqual((result["status"], result["tool_calls"]), ("completed", 1))
+        self.assertIs(result["slot_erased"], True)
+        erases = [c for c in Stub.calls if c[1] == "/slots/0?action=erase"]
+        self.assertEqual(len(erases), 2)
         self.assertIn("Confirmed.", out)
 
     def test_the_transcript_reaches_the_output_and_the_log(self):
@@ -291,6 +297,25 @@ class Chain(unittest.TestCase):
             json.loads((self.tmp / "result.json").read_text())["exit_code"], 1
         )
 
+    def test_a_slot_not_erased_after_the_job_fails_the_step(self):
+        Stub.erase_statuses = [200, 501]
+        code, _, err = self.run_dispatch("dispatch", "job-1", "6", "60", "task")
+        self.assertEqual(code, 1)
+        self.assertIn("slot was not erased", err)
+        result = json.loads((self.tmp / "result.json").read_text())
+        self.assertEqual(
+            (result["status"], result["slot_erased"]), ("completed", False)
+        )
+
+    def test_a_slot_not_erased_before_the_job_refuses_it(self):
+        Stub.erase_statuses = [501]
+        code, _, err = self.run_dispatch("dispatch", "job-1", "6", "60", "task")
+        self.assertEqual(code, 1)
+        self.assertIn("refused the job", err)
+        self.assertIn("slot could not be erased", err)
+        self.assertFalse((self.tmp / "recipe-seen.json").exists(), "Goose ran")
+        self.assertFalse((self.tmp / "result.json").exists())
+
     def test_a_stop_is_a_cancel_on_the_worker(self):
         self.mode = "sleep"
         process = self.start("dispatch", "job-1", "6", "60", "task")
@@ -347,6 +372,7 @@ class TheResult(unittest.TestCase):
         "tool_errors": 0,
         "answer": "Confirmed.",
         "stderr_tail": "",
+        "slot_erased": True,
         "input_tokens": 700,
         "transcript": [PART],
     }
@@ -369,6 +395,9 @@ class TheResult(unittest.TestCase):
             ),
             "calls as text": json.dumps({**self.GOOD, "tool_calls": "1"}),
             "calls as a bool": json.dumps({**self.GOOD, "tool_calls": True}),
+            "no slot_erased": json.dumps(
+                {k: v for k, v in self.GOOD.items() if k != "slot_erased"}
+            ),
             "another job": json.dumps({**self.GOOD, "job": "job-2"}),
             "an unknown status": json.dumps({**self.GOOD, "status": "approved"}),
             "a transcript as text": json.dumps({**self.GOOD, "transcript": "x"}),
@@ -387,6 +416,15 @@ class TheResult(unittest.TestCase):
         }
         for name, line in bad.items():
             with self.subTest(name), self.assertRaises(dispatch.Failed):
+                dispatch.check_result(line, "job-1")
+
+    def test_slot_erased_is_true_or_false_and_nothing_else(self):
+        for value in ("true", 1, 0, None):
+            line = json.dumps({**self.GOOD, "slot_erased": value})
+            with (
+                self.subTest(value),
+                self.assertRaisesRegex(dispatch.Failed, "slot_erased has the wrong"),
+            ):
                 dispatch.check_result(line, "job-1")
 
 
