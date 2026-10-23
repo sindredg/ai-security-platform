@@ -5,7 +5,7 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). Since 2026-10-22 the tool service and the dispatch step run on a base image with a fixed musl ([the images on the fixed base](#installed-the-images-on-the-fixed-base)). Since 2026-10-23 closing a fetch window on the edge ends the tunnels still open, and Squid logs each ([the fix](#fix-closing-a-fetch-window-ends-its-tunnels)). The gate is not met: the footprint and the milestone's review are open.
+The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). Since 2026-10-22 the tool service and the dispatch step run on a base image with a fixed musl ([the images on the fixed base](#installed-the-images-on-the-fixed-base)). Since 2026-10-23 closing a fetch window on the edge ends the tunnels still open, and Squid logs each ([the fix](#fix-closing-a-fetch-window-ends-its-tunnels)). Since 2026-10-23 the secret scan in both pipelines runs gitleaks's release binary with the runner's `git` ([the fix](#fix-the-secret-scan-without-the-gitleaks-image)). The gate is not met: the footprint and the milestone's review are open.
 
 | Gate | Result |
 | --- | --- |
@@ -1926,3 +1926,60 @@ The runs used the command with SHA-256 `cb82c7c3...`. The one in this change, `b
 - **Nothing checks that the close left no tunnel.** On a kernel built without `CONFIG_INET_DIAG_DESTROY`, `ss -K` skips every connection without an error. The close would end nothing, and only the missing `open tunnels ended` line in the journal would show it.
 - **The held transfers were downloads.** No upload ran through a tunnel at a close. `ss -K` closes the connection whatever the direction of the data, so the same result is expected. Reasoned, not tested.
 - **The curl end times are upper bounds.** The script reads them after its SSH calls for the counts. Squid's lines give the end of each tunnel.
+
+## Fix: the secret scan without the gitleaks image
+
+Date: 2026-10-23, from `main` at `ce914a7`.
+
+The gitleaks 8.30.1 image that both repositories' pipelines pinned starts its own `git`, which is linked to musl 1.2.5-r10, affected by CVE-2026-107891 ([#155](https://github.com/sindredg/ai-security-platform/issues/155)). 8.30.1 is still the newest gitleaks release, read from GitHub on 2026-10-23, so there is no rebuilt image to move to. Both pipelines now download the release's archive for linux x64, check it against a SHA-256 pinned in the workflow, and run the binary with the runner's own `git`. The scan's arguments stay the same, plus `--no-color`, so that the step can read the log.
+
+### The archive
+
+Read on the workstation on 2026-10-23:
+
+| What | Read from | Result |
+| --- | --- | --- |
+| SHA-256 of `gitleaks_8.30.1_linux_x64.tar.gz` | GitHub's digest of the release asset, the release's checksums file, and the downloaded file | `551f6fc8...` in all three |
+| The binary in it | Its ELF header and Go build settings | Static, with no interpreter. `CGO_ENABLED=0`, `GOOS=linux`, `GOARCH=amd64`, and version 8.30.1 in the link flags |
+| A signature | The release's assets, and GitHub's attestations for the digest | None. No signature file, and the attestation API answered 404 |
+
+With no signature to check, the pin trusts the archive as GitHub served it on 2026-10-23, as the image digest did before.
+
+### A failing `git` passed the scan
+
+When `git` fails, gitleaks logs the error, reports `0 commits scanned` and `no leaks found`, and exits 0. Seen with the binary on the workstation, in the tests below. The image runs the same gitleaks, so the old step had the same gap: a `git` that refused the checkout would have passed. Reasoned, not run with the image.
+
+The step now keeps gitleaks's log and fails when gitleaks exits non-zero, when the log has an `ERR` line, or when it has no `commits scanned` line with a count above zero.
+
+### Tests
+
+Locally, with the linux_arm64 build of the same release (the workstation is arm64) and the workstation's `git` 2.43.0. The step's body was read out of the workflow and run under `bash -e`, as GitHub's default shell runs it. The expected exits were written down before the run.
+
+| Input | Expected | Result |
+| --- | --- | --- |
+| A scratch repository with a GitHub token, generated at random for the run, added in one commit and removed in the next | 1 | 1. `leaks found: 1` |
+| A clone of `main` at `ce914a7` | 0 | 0. `116 commits scanned`, `no leaks found` |
+| The scratch repository, with a `git` earlier on the path that writes an error and exits 128 | 1 | 1. `gitleaks logged an error` |
+| The same, with a `git` that writes nothing and exits 0 | 1 | 1. `gitleaks scanned no commits` |
+| An empty directory, not a repository | 1 | 1. `gitleaks logged an error` |
+
+In the last three, gitleaks itself exited 0. The step's own checks are what fail them.
+
+The install step ran locally with `curl` replaced by a copy of the linux_arm64 archive under the linux_x64 name. With that archive's SHA-256, it unpacked `gitleaks` into `bin` and added `bin` to the path file. With the pinned SHA-256, `sha256sum -c` printed `FAILED`, the step exited 1, and the path file was not written.
+
+ShellCheck 0.11.0 on the bodies of both steps: no findings.
+
+On GitHub, on 2026-10-23, the "Secret scan" job of each pull request, on `ubuntu-26.04` with the runner's `git` 2.55.0:
+
+| Repository | Commit | `sha256sum -c` | gitleaks's log |
+| --- | --- | --- | --- |
+| Platform, [#160](https://github.com/sindredg/ai-security-platform/pull/160) | `4604af9` | `gitleaks_8.30.1_linux_x64.tar.gz: OK` | `117 commits scanned`, `no leaks found`, no `ERR` line |
+| Targets, [targets #8](https://github.com/sindredg/ai-security-platform-test/pull/8) | `28e0def` | The same | `7 commits scanned`, `no leaks found`, no `ERR` line |
+
+The image's last runs, for comparison: `118 commits scanned` on the platform's `main` at `ce914a7`, and `6 commits scanned` on the targets' `main` at `32ef37f`. The count depends on the references the checkout fetched, so the numbers are not compared one to one. On GitHub only the pass was seen.
+
+### Limits
+
+- **The fail side ran on the linux_arm64 build, on the workstation.** The pipelines run the linux_x64 build of the same release, with the same build settings apart from the architecture. No planted secret went to GitHub.
+- **The step reads the log as text.** If a later release words the `commits scanned` line differently, the step fails until it is changed. That is a false failure, not a false pass.
+- **Any `ERR` line fails the step.** One that does not mean a failed scan would fail it too. None appeared in the runs without a broken `git`.

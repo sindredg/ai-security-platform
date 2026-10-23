@@ -62,7 +62,7 @@ It is accepted because nothing the pipelines do runs that musl. Read on 2026-10-
 | `/usr/local/bin/trivy` | Its ELF header and Go build settings | Static, with no interpreter, built with `CGO_ENABLED=0`. It uses no C library |
 | What the pipelines ask of it | The checks workflows | `config` on files in a mounted directory, and `image` through the Docker socket. The one remote Terraform module, in the targets repository, is fetched first by the runner's own `terraform` and `git`, and Trivy reads it from disk |
 
-The same reading does not clear gitleaks: its `git` mode starts the image's own `git`, which is linked to musl ([#155](https://github.com/sindredg/ai-security-platform/issues/155)).
+The same reading did not clear the gitleaks image: its `git` mode starts the image's own `git`, which is linked to musl. Since 2026-10-23 the pipelines run the gitleaks release binary instead, which is static, with the runner's `git` ([#155](https://github.com/sindredg/ai-security-platform/issues/155)).
 
 Limits:
 
