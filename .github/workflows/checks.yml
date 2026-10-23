@@ -538,8 +538,8 @@ jobs:
           docker logout ghcr.io
           echo "Pushed \`${digest}\` from commit \`${GITHUB_SHA}\`." | tee -a "${GITHUB_STEP_SUMMARY}"
 
-  dependencies:
-    name: Dependency scan
+  converter-dependencies:
+    name: Converter dependency scan
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
@@ -547,10 +547,11 @@ jobs:
         with:
           persist-credentials: false
 
-      # Reports and never blocks. The versions follow the pins of llama.cpp's
-      # converter at one commit, so an advisory in them cannot be fixed here
-      # without leaving upstream's list, and a blocking scan would fail every
-      # unrelated pull request until upstream moves. The packages run once,
+      # Reports and never blocks, and the ruleset does not require it. The
+      # versions follow the pins of llama.cpp's converter at one commit, so an
+      # advisory in them cannot be fixed here without leaving upstream's list,
+      # and a blocking scan would fail every unrelated pull request until
+      # upstream moves. The packages run once,
       # during a model build, in a unit with no network and one writable
       # directory. The job still fails if the scanner itself cannot run.
       #
@@ -568,9 +569,20 @@ jobs:
             echo '```'
           } | tee -a "${GITHUB_STEP_SUMMARY}"
 
-      # This one blocks. The tool service's pins are this project's own, so an
-      # advisory in them is fixed by moving the pin. The two files are scanned
-      # apart, each under the one name Trivy reads.
+  tool-service-dependencies:
+    name: Tool service dependency scan
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # This one blocks, and the ruleset requires it (issue 167). The tool
+      # service's pins are this project's own, so an advisory in them is fixed
+      # by moving the pin. Unlike the image scan, it covers the development
+      # packages and findings without a fix. The two files are scanned apart,
+      # each under the one name Trivy reads.
       - name: Scan the tool service's packages
         run: |
           for list in requirements requirements-dev; do
