@@ -55,7 +55,7 @@ env:
   # python3. This runner is the same Ubuntu release, so its python3 is the
   # same package. The host suites run on it, and fail when it is another
   # release (issue 168).
-  HOST_PYTHON: "3.14"
+  HOST_PYTHON: "3.13"
   # ADR 0016: the tool service without its tools stays under this many lines.
   TOOL_SERVICE_LINE_LIMIT: "300"
 
