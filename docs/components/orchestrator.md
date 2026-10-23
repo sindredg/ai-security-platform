@@ -4,7 +4,7 @@ The one trusted machine. It runs the cluster, copies software to the other machi
 
 | | |
 | --- | --- |
-| State | Built on 2026-10-11, rebuilt from its template on 2026-10-13 ([worklog](../worklogs/0002-platform-compute.md#orchestrator-rebuild)). Verified by the `HO`, `K`, `E`, and `A` checks, which passed in the run on 2026-10-19 ([last run](../validation/README.md#last-run)) |
+| State | Built on 2026-10-11, rebuilt from its template on 2026-10-13 ([worklog](../worklogs/0002-platform-compute.md#orchestrator-rebuild)). Verified by the `HO`, `K`, `E`, and `A` checks, which passed in the run on 2026-10-23 at 14:02 UTC ([last run](../validation/README.md#last-run)) |
 | Where | Sweden Central, `snet-orchestrator`, fixed private address `10.40.0.4` |
 | Size | `Standard_B2as_v2`: 2 vCPUs, 8 GiB, x64 |
 | Image | Ubuntu 26.04 LTS, `Canonical:ubuntu-26_04-lts:server` |
@@ -18,10 +18,11 @@ The one trusted machine. It runs the cluster, copies software to the other machi
 
 | Service | Job | Page |
 | --- | --- | --- |
-| `k3s` | The cluster. One server. The tool service runs in it | [K3s](k3s.md) |
+| `k3s` | The cluster. One server. The tool service, the Argo controller, and the workflows' pods run in it | [K3s](k3s.md) |
 | `aisec-pod-egress` | Loads the host rule that drops forwarded traffic from pods to anything but pods, and traffic from pods to the host except ports 6443 and 10250 | [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md), [ADR 0023](../decisions/0023-the-host-rule-limits-what-pods-reach-on-the-host.md), [containment](../validation/containment.md#the-orchestrators-side) |
 | `aisec-audit-copy` | Copies the tool service's audit lines into an append-only file. Running since 2026-10-16 (`L.1`) | [Audit log](../security/audit-log.md) |
 | `aisec-journal-pull.timer` | Pulls the worker's journal every five minutes into an append-only file. Running since 2026-10-16 (`J.1`) | [Audit log](../security/audit-log.md#the-workers-journal) |
+| The Azure Monitor agent | Sends the audit copy, the worker's journal copy, syslog, and CPU, memory, and disk use to the workspace over Private Link, since 2026-10-17 (`O` checks) | [Monitoring](monitoring.md) |
 | `ssh` | Administration. The administrator account takes only the operator's certificate, and may forward to the API server on loopback and nowhere else, since 2026-10-16 (`HO.17`, `A.8`) | [Validation: host hardening](../validation/host-hardening.md), [access](../validation/access.md) |
 
 ## First boot

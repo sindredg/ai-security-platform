@@ -54,7 +54,7 @@ The risk column describes what an attacker could do, or what could fail, because
 | One K3s node, one VM per role | A quota of 4 vCPUs per region | No redundancy. A stuck job blocks the only worker (T20) | A highly available control plane across zones and multiple workers |
 | One worker VM shared by consecutive jobs | No capacity for more | Agent files are cleaned up, but jobs share the kernel and model server memory (T19, A6) | A fresh sandbox or VM per job |
 | The tool service runs in a container on the orchestrator | The lab has one trusted machine | A service vulnerability could expose the machine that holds the credentials (T22) | A sandboxed runtime or separate machine, plus independent code review |
-| Credentials stored as files on the orchestrator and, for planned workloads, Kubernetes Secrets | K3s secret encryption is enabled. One operator has root access | Root on the orchestrator can read them (T36) | A managed secret store, hardware-backed keys, and short-lived credentials |
+| Credentials stored as files on the orchestrator and as Kubernetes Secrets, such as the dispatch key since 2026-10-21 | K3s secret encryption is enabled. One operator has root access | Root on the orchestrator can read them (T36) | A managed secret store, hardware-backed keys, and short-lived credentials |
 | A small model, built on the worker from the publisher's weights | It fits in 8 GiB and keeps inference local | Investigation quality has not been evaluated (A3) | A model selected through evaluation, with request logging and appropriate data controls |
 
 ### Tool service and job identity
