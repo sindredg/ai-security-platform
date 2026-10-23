@@ -15,7 +15,7 @@ Status: **tested** on the running system on 2026-10-19. `G.1` to `G.4` pass, wit
 | `G.7` | The job socket listens, and only root and the job account may use it | Any process that can connect starts a job | The socket unit is `active`, and the socket is `root aisec-job 660` |
 | `G.8` | The worker runs the job runner, program, and units in this checkout | They are the boundary on the worker, and the sandbox is in the unit file | One SHA-256 over the five installed files, in install order, equal to the same over the checkout, with the Goose path filled into the service template as `install-job.sh` does |
 | `G.9` | No dispatched job's unit is loaded between jobs | A unit left loaded keeps its private `/tmp`, and the socket allows one connection at a time | `systemctl list-units --all 'aisec-agent-job@*'` lists nothing |
-| `G.10` | The last job erased the model server's slot | The slot keeps a job's prompt for the next one, which reuses whatever matches, and a job learns from its own timing what came before (T19, A6) | The last `"slot_erased"` value in the journal of the `aisec-agent-job@*` units is `true`. The job program writes it after Goose has stopped. No such line is `no job outcome in the journal`, a failure |
+| `G.10` | The last job erased the model server's slot | The slot keeps a job's prompt for the next one, which reuses whatever matches, and a job learns from its own timing what came before (T19, A6) | The last `"slot_erased"` value in the journal of the `aisec-agent-job@*` units is `true`. The job program writes one before the job and one after Goose has stopped ([0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md)). No such line is `no job outcome in the journal`, a failure |
 
 `G.3`, `G.4`, and `G.9` assume the checks run between jobs, as every check run has so far. During a job they read `loaded` and `2`. Once dispatch runs jobs on its own, a check run that meets one needs a look before it counts as a failure.
 
@@ -39,4 +39,4 @@ Each check's own probe line, run on the worker on 2026-10-18 at 19:04 UTC with t
 - `G.1` reads the file. A binary replaced while a run holds it open is not seen until the next check run.
 - The sandbox of the transient unit is not checked. It exists only during a run, and `run-agent.sh` sets it from the operator's checkout. Its exposure score was read once, during a run on 2026-10-12.
 - No check reads which tools a run offers the model. On the worker on 2026-10-20, Goose's first request offered its own `load_skill` beside the tool service's tool ([#139](https://github.com/sindredg/ai-security-platform/issues/139)).
-- `G.10` reads the last job only. A job before it that left the slot full is not seen.
+- `G.10` reads the last erase only. A job before it that left the slot full is not seen here. With [0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md) installed, the job after it erases the slot first or is refused.

@@ -1983,3 +1983,42 @@ The image's last runs, for comparison: `118 commits scanned` on the platform's `
 - **The fail side ran on the linux_arm64 build, on the workstation.** The pipelines run the linux_x64 build of the same release, with the same build settings apart from the architecture. No planted secret went to GitHub.
 - **The step reads the log as text.** If a later release words the `commits scanned` line differently, the step fails until it is changed. That is a false failure, not a false pass.
 - **Any `ERR` line fails the step.** One that does not mean a failed scan would fail it too. None appeared in the runs without a broken `git`.
+
+## Fix: a job starts only after an erase worked
+
+Date: 2026-10-23, from `main` at `f7000bd`.
+
+The job program erased the model server's slot after Goose ended, and wrote the outcome to the journal only. A failed erase still gave a `completed` result, and nothing stopped the next job. When a unit was stopped before the job program reached the erase, it never ran ([#157](https://github.com/sindredg/ai-security-platform/issues/157)). [ADR 0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md), proposed, changes step 4 of ADR 0030.
+
+### What changed
+
+- `agent_job.py` erases the slot once the job line passes its checks, before it writes the recipe. Without a 200 within 90 seconds, it refuses the job with `{"status": "refused", "reason": "the model server's slot could not be erased"}`, and Goose does not start.
+- The erase after the job runs as before. Its outcome goes into the result line as `slot_erased`.
+- Each erase writes one line to the journal: `"erase": "before"` for the first, and the outcome line as before for the second. `G.10` reads the last `slot_erased`, so a job refused for its erase fails it.
+- `dispatch.py` requires `slot_erased` as a boolean, and fails the step when it is `false`, after writing the result. A refusal fails the step as before, with its reason.
+
+### Tests
+
+Locally, with Python 3.12.3. The tests of this change ran first against `main`'s `agent_job.py` and `dispatch.py`, in a copy of the tree, then against this change:
+
+| Test | Against `main` | With this change |
+| --- | --- | --- |
+| A job erases the slot twice, and both lines reach the journal | Fails: one erase | Passes |
+| An erase answered 501 or 503 before the job refuses it: exit 2, the refusal, one erase, no work directory | Fails | Passes |
+| A model server that is down refuses the job | Fails | Passes |
+| An erase answered 501 after the job: the result says `completed` and `"slot_erased": false` | Error: no such field | Passes |
+| A failed and a cancelled job each erase twice | Fail: one erase | Pass |
+| The dispatch step, against the real job program: a slot not erased after the job fails the step, and the result is kept | Fails | Passes |
+| The same, a slot not erased before the job: the step fails with the refusal, Goose never starts, and no result is written | Fails | Passes |
+| A result without `slot_erased` fails the check | Fails | Passes |
+| `slot_erased` as `"true"`, `1`, `0`, or `null` fails with the field's type error | Fails: refused as an extra field, a different error | Passes |
+
+Totals against `main`: the job program's 46 tests, 6 failures and 5 errors, three of the errors from the result line's new argument. The dispatch step's 16 tests, 7 failures and 2 errors. With this change, all pass. Ruff 0.17.1: format and lint clean.
+
+### Not in this change
+
+The pipeline builds and pushes the dispatch image from `main` only. The template's digest and the job program on the worker move together in a later change: the dispatch step on the cluster now refuses a result with `slot_erased`, a field it does not know, and the new one requires it. Until the worker runs this job program, `G.8` fails from `main`.
+
+### Limits
+
+- **Stubs only.** A fake Goose and a stub model server that answers each erase with a set status. What the server on the worker answers for an erase of an empty slot, and how long it takes, is for the install.

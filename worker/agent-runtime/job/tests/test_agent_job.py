@@ -66,12 +66,15 @@ FAKE_GOOSE = textwrap.dedent(
 
 
 class Erases(BaseHTTPRequestHandler):
+    """The model server's erase. Answers each request with the next status in
+    statuses, and 200 when none is left."""
+
     seen: ClassVar[list] = []
-    status = 200
+    statuses: ClassVar[list] = []
 
     def do_POST(self):
         Erases.seen.append(self.path)
-        self.send_response(Erases.status)
+        self.send_response(Erases.statuses.pop(0) if Erases.statuses else 200)
         self.end_headers()
 
     def log_message(self, *args):
@@ -84,7 +87,8 @@ class Base(unittest.TestCase):
         self.server = HTTPServer(("127.0.0.1", 0), Erases)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         Erases.seen = []
-        Erases.status = 200
+        Erases.statuses = []
+        self.model_url = f"http://127.0.0.1:{self.server.server_port}"
 
     def tearDown(self):
         self.server.shutdown()
@@ -107,7 +111,7 @@ class Base(unittest.TestCase):
             "AISEC_GOOSE": str(self.fake_goose(mode)),
             "AISEC_SYSTEM": str(system),
             "AISEC_WORK": str(self.tmp / "job"),
-            "AISEC_MODEL_URL": f"http://127.0.0.1:{self.server.server_port}",
+            "AISEC_MODEL_URL": self.model_url,
             "PATH": os.environ["PATH"],
         }
         process = subprocess.Popen(
@@ -245,6 +249,7 @@ class AWholeJob(Base):
         self.assertEqual((result["tool_calls"], result["tool_errors"]), (1, 0))
         self.assertEqual(result["answer"], "Confirmed.")
         self.assertEqual(result["input_tokens"], 700)
+        self.assertIs(result["slot_erased"], True)
 
     def test_goose_gets_the_recipe_and_no_token_on_its_command_line(self):
         self.run_job(json.dumps(JOB).encode() + b"\n")
@@ -259,19 +264,52 @@ class AWholeJob(Base):
         )
         self.assertEqual(seen["env"]["SSL_CERT_FILE"], "/etc/aisec/tool-service.crt")
 
-    def test_the_recipe_is_gone_and_the_slot_erased_afterwards(self):
+    def test_the_slot_is_erased_before_and_after_and_the_recipe_is_gone(self):
         self.run_job(json.dumps(JOB).encode() + b"\n")
         self.assertFalse((self.tmp / "job" / "recipe.json").exists())
-        self.assertEqual(Erases.seen, ["/slots/0?action=erase"])
-        self.assertIn(b'"slot_erased": true', self.stderr)
+        self.assertEqual(Erases.seen, ["/slots/0?action=erase"] * 2)
+        self.assertIn(b'"erase": "before", "slot_erased": true', self.stderr)
+        self.assertIn(b'"outcome": "ended", "slot_erased": true', self.stderr)
 
-    def test_an_erase_the_server_refuses_is_reported(self):
+    def test_an_erase_refused_after_the_job_is_in_the_result(self):
         # What the server on the worker answered on 2026-10-20: 501, without
-        # --slot-save-path.
-        Erases.status = 501
+        # --slot-save-path. The status stays the job's own. The dispatch step
+        # fails the workflow on the field.
+        Erases.statuses = [200, 501]
         _, data = self.run_job(json.dumps(JOB).encode() + b"\n")
-        self.assertEqual(json.loads(data)["status"], "completed")
+        result = json.loads(data)
+        self.assertEqual(result["status"], "completed")
+        self.assertIs(result["slot_erased"], False)
         self.assertIn(b'"slot_erased": false', self.stderr)
+
+    def test_an_erase_refused_before_the_job_refuses_it(self):
+        # The erase after the last job failed, or never ran because its unit
+        # was stopped first. The slot may hold that job's prompt.
+        for status in (501, 503):
+            with self.subTest(status):
+                Erases.seen, Erases.statuses = [], [status]
+                code, data = self.run_job(json.dumps(JOB).encode() + b"\n")
+                self.assertEqual(code, 2)
+                self.assertEqual(
+                    json.loads(data),
+                    {
+                        "status": "refused",
+                        "reason": "the model server's slot could not be erased",
+                    },
+                )
+                self.assertEqual(Erases.seen, ["/slots/0?action=erase"])
+                self.assertFalse((self.tmp / "job").exists())
+                self.assertIn(b'"erase": "before", "slot_erased": false', self.stderr)
+
+    def test_a_model_server_that_is_down_refuses_the_job(self):
+        # A port nothing listens on: the connection is refused.
+        with socket.socket() as closed:
+            closed.bind(("127.0.0.1", 0))
+            self.model_url = f"http://127.0.0.1:{closed.getsockname()[1]}"
+        code, data = self.run_job(json.dumps(JOB).encode() + b"\n")
+        self.assertEqual(code, 2)
+        self.assertEqual(json.loads(data)["status"], "refused")
+        self.assertFalse((self.tmp / "job").exists())
 
     def test_the_token_never_comes_back_in_the_result(self):
         _, data = self.run_job(json.dumps(JOB).encode() + b"\n")
@@ -308,7 +346,7 @@ class AWholeJob(Base):
         result = json.loads(data)
         self.assertEqual((result["status"], result["exit_code"]), ("failed", 1))
         self.assertIn("model unreachable", result["stderr_tail"])
-        self.assertEqual(Erases.seen, ["/slots/0?action=erase"])
+        self.assertEqual(Erases.seen, ["/slots/0?action=erase"] * 2)
 
     def test_a_bad_job_line_is_refused_and_starts_nothing(self):
         code, data = self.run_job(b'{"job": "x"}\n')
@@ -334,7 +372,7 @@ class AWholeJob(Base):
         self.assertLess(time.monotonic() - started, 8)
         self.assertEqual(rest, b"", "a cancelled job writes nothing back")
         self.assertEqual(process.returncode, 0)
-        self.assertEqual(Erases.seen, ["/slots/0?action=erase"])
+        self.assertEqual(Erases.seen, ["/slots/0?action=erase"] * 2)
         self.assertIn(b'"outcome": "cancelled"', process.stderr.read())
         process.stderr.close()
         ours.close()
@@ -353,7 +391,7 @@ class TheResultLine(unittest.TestCase):
         )
         err.write_text(stderr)
         return agent_job.result_line(
-            JOB, "system text", "ended", 0, time.monotonic(), out, err
+            JOB, "system text", "ended", 0, time.monotonic(), out, err, True
         )
 
     def test_a_long_transcript_is_cut_to_the_limit_and_says_so(self):
@@ -382,7 +420,7 @@ class TheResultLine(unittest.TestCase):
         (tmp / "err.txt").write_text("")
         line = agent_job.result_line(
             JOB, "system text", "timeout", None, time.monotonic(),
-            tmp / "out.json", tmp / "err.txt",
+            tmp / "out.json", tmp / "err.txt", True,
         )  # fmt: skip
         self.assertEqual(
             json.loads(line)["transcript"],

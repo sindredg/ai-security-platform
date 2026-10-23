@@ -11,8 +11,9 @@ token's digest, opens an SSH session to the worker's job account, writes one
 job line, keeps the session's input open, and reads one result line. It checks
 the result's size and fields, writes it to the step's output file, prints the
 agent's transcript and answer to the step's log, and exits 0 only for a
-completed job that called a tool. A stop of the step closes the
-session's input, which the worker takes as a cancel.
+completed job that called a tool, after which the model server's slot was
+erased. A stop of the step closes the session's input, which the worker takes
+as a cancel.
 
 revoke ends the job at the tool service. The workflow's exit handler runs it
 on success, failure, and stop.
@@ -71,6 +72,7 @@ RESULT_FIELDS = {
     "agent_status": (str, type(None)),
     "tool_calls": int,
     "tool_errors": int,
+    "slot_erased": bool,
     "answer": str,
     "stderr_tail": str,
 }
@@ -149,7 +151,11 @@ def check_result(line, job):
                 raise Failed(f"the result has no {field}")
             continue
         value = result[field]
-        if isinstance(value, bool) or not isinstance(value, kind):
+        if kind is bool:
+            right = type(value) is bool
+        else:
+            right = not isinstance(value, bool) and isinstance(value, kind)
+        if not right:
             raise Failed(f"the result's {field} has the wrong type")
     for part in result.get("transcript", []):
         if not isinstance(part, dict) or set(part) != PART_FIELDS:
@@ -258,6 +264,10 @@ def dispatch(job, max_turns, seconds, task):
         print(printable(part["text"]))
     print("-- answer")
     print(printable(result["answer"]))
+    # The next job erases the slot first and is refused if that fails too. The
+    # operator hears of a slot left full here, from the job that left it.
+    if not result["slot_erased"]:
+        raise Failed("the model server's slot was not erased after the job")
     if result["status"] != "completed":
         raise Failed(f"the job ended {result['status']}")
     if result["tool_calls"] < 1:
