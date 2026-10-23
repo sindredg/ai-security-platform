@@ -1,6 +1,6 @@
 # 0032. The slot is erased before each job as well, and a job is refused when that fails
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-23
 
 Changes step 4 of [0030](0030-how-a-job-reaches-the-worker.md), where the job program erases the model server's slot after Goose ends and writes the outcome to the journal only.

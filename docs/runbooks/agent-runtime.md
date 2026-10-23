@@ -1,6 +1,6 @@
 # Agent runtime: operator procedure
 
-Status: Implemented on 2026-10-12. Installed once. Every step below was run during that install. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-agent-runtime). Steps 2 to 4 and 7 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the worker gets the scripts from the checkout and the staged archive in the feed account's directory. Steps 2 to 7 ran in that form on 2026-10-19, for Goose 1.55.0 ([worklog](../worklogs/0003-toolchain-integration.md#llamacpp-and-goose-on-the-worker)). Steps 8 to 12, for jobs that arrive over a socket ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)), were written on 2026-10-19 and ran on 2026-10-20: the job and the cancel worked, and the model server refused the slot erase ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md)). The fix went on the same day, and steps 8 to 12 ran again in their current form, with step 10 naming `G.10` and step 11 waiting for the unit to end: a completed and a cancelled job each erased the slot, three malformed tasks were refused, and `G.10` passed.
+Status: Implemented on 2026-10-12. Installed once. Every step below was run during that install. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-agent-runtime). Steps 2 to 4 and 7 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the worker gets the scripts from the checkout and the staged archive in the feed account's directory. Steps 2 to 7 ran in that form on 2026-10-19, for Goose 1.55.0 ([worklog](../worklogs/0003-toolchain-integration.md#llamacpp-and-goose-on-the-worker)). Steps 8 to 12, for jobs that arrive over a socket ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)), were written on 2026-10-19 and ran on 2026-10-20: the job and the cancel worked, and the model server refused the slot erase ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md)). The fix went on the same day, and steps 8 to 12 ran again in their current form, with step 10 naming `G.10` and step 11 waiting for the unit to end: a completed and a cancelled job each erased the slot, three malformed tasks were refused, and `G.10` passed. On 2026-10-23 step 8 and `install-fixture.sh` ran for the erase before each job and the answer's two last lines, and step 5 with the new check: 3 of 3 runs correct ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines)).
 
 Run these steps to put Goose on the AI worker and prove one headless run against the local model server: download and verify on the orchestrator, push, install, run, and measure. No cloud resource changes. Nothing is left running: the agent is a program that runs once per job, not a service.
 
@@ -55,7 +55,15 @@ Run these steps to put Goose on the AI worker and prove one headless run against
    REPLACE_WITH_SSH aisec-worker 'cd feed/agent-runtime && sudo scripts/install-agent.sh /home/aisec-feed/agent-runtime/stage'
    ```
 
-   Expected: `the archive matches artifacts.tsv`, one checksum line for `goose`, then `the binary matches GOOSE_BINARY_SHA256`. The script checks the archive again, takes the one file out of it, checks that file against its own pin, and does not run it. A binary that does not match is removed and the script fails. On the next check run, `G.1` and `G.2` pass ([agent runtime checks](../validation/agent-runtime.md)).
+   Expected: `the archive matches artifacts.tsv`, one checksum line for `goose`, then `the binary matches GOOSE_BINARY_SHA256`. The script checks the archive again, takes the one file out of it, checks that file against its own pin, and does not run it. A binary that does not match is removed and the script fails. The script then runs `install-fixture.sh`, which prints the SHA-256 of the fixture's four files. On the next check run, `G.1` and `G.2` pass ([agent runtime checks](../validation/agent-runtime.md)).
+
+   After a change to the fixture or to `system.txt` alone, no staged archive is needed:
+
+   ```bash
+   REPLACE_WITH_SSH aisec-worker 'cd feed/agent-runtime && sudo scripts/install-fixture.sh'
+   ```
+
+   Expected: the four files' SHA-256, the same as `sha256sum` prints for them in the checkout. `system.txt` is also the job's: run step 8 as well.
 
 ## Run and measure
 
@@ -135,7 +143,7 @@ How a dispatched job arrives on the worker: an account the dispatch key logs in 
       REPLACE_WITH_SSH aisec-worker "sudo -u aisec-job python3 -I -c '$SEND'"
     ```
 
-    Expected, after one to two minutes: one JSON line with `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, `"slot_erased": true`, an answer that names `tenancy.contact` and `circuits.circuit`, and a `transcript`: the instructions from `system.txt`, the question, the `get_evidence` call, the evidence, and the answer, with no `"type": "cut"` part. The tool service's audit file on the orchestrator has a `call allowed hand-1` line for `get_evidence`. This is the agent calling the tool service from the worker, which no run had done before. On the next check run, `G.10` passes: the job erased the model server's slot.
+    Expected, after one to two minutes: one JSON line with `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, `"slot_erased": true`, an answer that ends with `Status: confirmed` and `Excess: tenancy.contact, circuits.circuit`, and a `transcript`: the instructions from `system.txt`, the question, the `get_evidence` call, the evidence, and the answer, with no `"type": "cut"` part. The tool service's audit file on the orchestrator has a `call allowed hand-1` line for `get_evidence`. This is the agent calling the tool service from the worker, which no run had done before. On the next check run, `G.10` passes: the job erased the model server's slot.
 
 11. Cancel a job while it runs: send a second job, close the connection after 20 seconds, and look for what it left.
 

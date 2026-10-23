@@ -39,4 +39,4 @@ Each check's own probe line, run on the worker on 2026-10-18 at 19:04 UTC with t
 - `G.1` reads the file. A binary replaced while a run holds it open is not seen until the next check run.
 - The sandbox of the transient unit is not checked. It exists only during a run, and `run-agent.sh` sets it from the operator's checkout. Its exposure score was read once, during a run on 2026-10-12.
 - No check reads which tools a run offers the model. On the worker on 2026-10-20, Goose's first request offered its own `load_skill` beside the tool service's tool ([#139](https://github.com/sindredg/ai-security-platform/issues/139)).
-- `G.10` reads the last erase only. A job before it that left the slot full is not seen here. With [0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md) installed, the job after it erases the slot first or is refused.
+- `G.10` reads the last erase only. A job before it that left the slot full is not seen here. Since [0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md) was installed on 2026-10-23, the job after it erases the slot first or is refused.

@@ -92,6 +92,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-21 | 285 of 285 passed | From the branch at `0fa8f65`, ending at 20:14 UTC, after the [second model comparison run](../worklogs/0003-toolchain-integration.md#second-run). Written before: `HR.1` and `HE.1` failing. Both passed. `S.7` passed against Qwen3.5-4B |
 | 2026-10-22 | 233 of 239 passed | Without the Azure and workstation checks, at 16:18 UTC, from `96f91ba` with the two manifests on the new image digests, before the [deploy](../worklogs/0003-toolchain-integration.md#checks-before-and-after). `T.2` and `W.9` failed, the cluster still on the old images. `U.1`, `U.5`, `U.9`, and `U.13` on two security updates published after the morning's unattended runs |
 | 2026-10-22 | 281 of 285 passed | The same checkout, at 16:26 UTC, after the deploy. `T.2` and `W.9` passed. The four `U` checks failed as before |
+| 2026-10-23 | 283 of 285 passed | From the branch of [#163](https://github.com/sindredg/ai-security-platform/pull/163) at `83fe17f`, ending at 15:14 UTC, after the [erase before each job and the answer lines](../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines) were installed. `G.2`, `G.8`, `G.10`, and `W.9` passed. `U.1` and `U.13` failed on `zlib1g` |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
