@@ -1,6 +1,6 @@
 # Cluster
 
-K3s on the orchestrator, one server. The tool service is its one workload, checked on [its own page](tool-service.md). The design is [ADR 0001](../decisions/0001-k3s-for-initial-orchestration.md). These checks hold the benchmark fixes in place and prove the cluster came back after a restart.
+K3s on the orchestrator, one server. Its workloads are checked on their own pages: the [tool service](tool-service.md) and [Argo with its workflows](workflows.md). The design is [ADR 0001](../decisions/0001-k3s-for-initial-orchestration.md). These checks hold the benchmark fixes in place and prove the cluster came back after a restart.
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
@@ -14,10 +14,13 @@ K3s on the orchestrator, one server. The tool service is its one workload, check
 | `K.8` | The kubelet refuses anonymous requests | Every pod reaches the kubelet's port ([ADR 0023](../decisions/0023-the-host-rule-limits-what-pods-reach-on-the-host.md)). Only authentication stands between a pod and the node's containers | The kubelet's running configuration from its `configz` endpoint: anonymous access `false`, authorization `Webhook`. Read from the kubelet, not from a file, so a later file in its configuration folder cannot change it unseen |
 | `K.9` | Every namespace refuses a privileged pod | A namespace without a label, `default` or one added later, used to admit a pod that mounts the host. A cluster-wide default closes it ([#70](https://github.com/sindredg/ai-security-platform/issues/70)) | A privileged pod that mounts `/`, sent to every namespace as a server-side dry run. Each namespace has to refuse it for pod security. Admission runs and nothing is stored |
 | `K.10` | Every system deployment is ready | `kube-system` enforces `baseline`. A system pod that a K3s release changes to need more is refused, never created, and `K.3` does not see it | Ready replicas against replicas, for each deployment in `kube-system` |
+| `K.11` | K3s's system images are the ones in the release's archive | The binary names them by tag, and a tag that moves upstream would reach the cluster at the next pull ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)) | Every `docker.io/rancher/` tag containerd holds, and every image a `kube-system` pod runs, with the digest containerd has for it, is a line of `infra/platform/k3s-images.txt` |
 
 ## Limits of these checks
 
 - `K.6` is a patch on existing namespaces. A namespace created later starts without it, and the check then fails. That is the point of the check.
 - `K.3` can fail for a minute after a restart while a pod is still starting.
 - `K.9` covers the namespaces that exist when it runs. The default level is what holds a namespace created later.
+- `K.11` was seen to fail on 2026-10-23, with its probe run on the orchestrator against a changed list: a digest changed by one character named CoreDNS, a missing line named `pause`, and an empty list named all four.
+- `K.11` compares the cluster with the list. The list is compared with the archive only when it is written, from the archive's `index.json`. A list that does not match the archive fails `K.11` after the next import, not before.
 - The benchmark itself is not run here. kube-bench with the `k3s-cis-1.9` profile is step 16 of the [runbook](../runbooks/platform-compute.md).

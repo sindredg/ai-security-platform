@@ -1,6 +1,6 @@
 # Platform compute: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. Steps 16 and 19 ran in their current form on 2026-10-19, from a script with the same commands. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). On 2026-10-16 the logins changed to SSH certificates and the feed key to an account of its own on the worker ([SSH certificates runbook](ssh-certificates.md)). Steps 12, 14, 19, 24, and 29 and the feed key and operator key rotations were rewritten for that and have not been run in that form. On 2026-10-17 the mesh VPN moved to a router VM ([router runbook](mesh-router.md)), and the orchestrator's template no longer joins the mesh. The mesh steps below describe the build as it was run. They are superseded, not rewritten: the notes at each say what changes. Later on 2026-10-17 the package proxy moved to an edge VM and the orchestrator's NAT gateway was removed ([edge runbook](edge-vm.md)). Steps 21 and 25 to 31 are superseded the same way.
+Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. Steps 16 and 19 ran in their current form on 2026-10-19, from a script with the same commands. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). On 2026-10-16 the logins changed to SSH certificates and the feed key to an account of its own on the worker ([SSH certificates runbook](ssh-certificates.md)). Steps 12, 14, 19, 24, and 29 and the feed key and operator key rotations were rewritten for that and have not been run in that form. On 2026-10-17 the mesh VPN moved to a router VM ([router runbook](mesh-router.md)), and the orchestrator's template no longer joins the mesh. The mesh steps below describe the build as it was run. They are superseded, not rewritten: the notes at each say what changes. Later on 2026-10-17 the package proxy moved to an edge VM and the orchestrator's NAT gateway was removed ([edge runbook](edge-vm.md)). Steps 21 and 25 to 31 are superseded the same way. Steps 32 and 33 ran on 2026-10-23, from a script with the same commands ([worklog](../worklogs/0003-toolchain-integration.md#installed-k3ss-system-images-from-the-releases-archive)). Step 34 has not run.
 
 Run these steps to build milestone 2: the public address policy, the NAT gateway, the orchestrator and AI worker VMs, the mesh VPN, and K3s. Never commit local values, plans, state, keys, or raw output.
 
@@ -243,7 +243,7 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
       cd /; rm -rf \$d"
     ```
 
-    Expected: both checksum lines end in `OK`. On 2026-10-19, on the orchestrator built from the current template: 64 pass, 2 fail, 50 warn, 14 info. The fails are 1.2.26, which asks for an etcd flag on a cluster without etcd, and 5.1.6, which is not explained ([#127](https://github.com/sindredg/ai-security-platform/issues/127)).
+    Expected: both checksum lines end in `OK`. On 2026-10-19 and again on 2026-10-23: 64 pass, 2 fail, 50 warn, 14 info. The warnings are read one by one in [hardening](../security/hardening.md#the-kube-bench-warnings). The fails are 1.2.26, which asks for an etcd flag on a cluster without etcd, and 5.1.6, which is not explained ([#127](https://github.com/sindredg/ai-security-platform/issues/127)).
 
     On the first build, before steps 17 and 18, the summary was 63 pass and 3 fail, the fails 1.1.20, 1.2.26, and 5.1.5. After them it was 65 pass and 1 fail. First boot has applied steps 17 and 18 since 2026-10-12.
 
@@ -545,6 +545,51 @@ ssh $SSH_OPTS aisec@10.40.0.36 hostname
 ```
 
 Expected: a different `nodekey:` value from before, an empty `/run/aisec`, and `aisec-worker`. On this build the node kept its address, its tag, and its approved routes. If the worker is unreachable, approve the routes again in the admin console.
+
+## K3s's system images
+
+First boot puts the release's archive of K3s's system images where K3s imports it, and Docker Hub is not on the edge's list ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)). An orchestrator whose first boot predates that gets the archive with steps 32 and 33. A K3s upgrade needs step 34 first. `REPLACE_WITH_SSH` is the operator's `ssh` command with its options, as in the [monitoring runbook](monitoring.md).
+
+32. Open a fetch window, put the archive on the orchestrator, install the edge's list from the checkout, and restart K3s so it imports the archive as first boot does. Run from the checkout's root.
+
+    ```bash
+    version=$(sed -n '/variable "k3s_version"/,/}/s/^ *default *= *"\(.*\)"/\1/p' infra/platform/variables.tf)
+    sum=$(sed -n '/variable "k3s_images_sha256"/,/}/s/^ *default *= *"\(.*\)"/\1/p' infra/platform/variables.tf)
+    url="https://github.com/k3s-io/k3s/releases/download/${version/+/%2B}/k3s-airgap-images-amd64.tar"
+    REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window open 20'
+    REPLACE_WITH_SSH aisec-orchestrator "set -e; w=\$(mktemp -d)
+      curl -fsSL --proxy http://10.45.0.4:3128 '$url' -o \$w/archive.tar
+      echo '$sum  '\$w/archive.tar | sha256sum -c -
+      sudo install -d -m 0755 /var/lib/rancher/k3s/agent/images
+      sudo install -o root -g root -m 0644 \$w/archive.tar /var/lib/rancher/k3s/agent/images/k3s-airgap-images-amd64.tar
+      rm -rf \$w"
+    REPLACE_WITH_SSH aisec-edge 't=$(mktemp) && cat > "$t" && sudo install -o root -g root -m 0644 "$t" /etc/squid/aisec-fetch-hosts && rm -f "$t"' < edge/fetch-hosts
+    REPLACE_WITH_SSH aisec-edge 'sudo systemctl reload squid && systemctl is-active squid'
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo systemctl restart k3s && sudo k3s kubectl wait --for=condition=Ready node --all --timeout=180s'
+    REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window close'
+    ```
+
+    Expected: `OK` for the archive, `active` for Squid, the node `condition met`, and `closed, by aisec`. The pods keep running through the restart: their restart counts do not change.
+
+33. Run every check, with no window open.
+
+    Expected: `K.11` and `P.18` pass. Before step 32, `P.18` fails: the edge still lists Docker Hub.
+
+34. For a K3s upgrade, pin the new release's archive and write its list, in the same pull request as `k3s_version`, `k3s_sha256`, and `k3s_install_sha256`. Download on the workstation into a new directory.
+
+    ```bash
+    d=$(mktemp -d); cd "$d"
+    b="https://github.com/k3s-io/k3s/releases/download/REPLACE_WITH_K3S_VERSION_URL_ENCODED"
+    curl -fsSLO "$b/k3s-airgap-images-amd64.tar"
+    curl -fsSLO "$b/sha256sum-amd64.txt"
+    grep ' k3s-airgap-images-amd64.tar$' sha256sum-amd64.txt | sha256sum -c -
+    tar -xf k3s-airgap-images-amd64.tar index.json
+    python3 -I -c 'import json, sys
+    for e in sorted(json.load(open(sys.argv[1]))["manifests"], key=lambda e: e["annotations"]["io.containerd.image.name"]):
+        print(e["annotations"]["io.containerd.image.name"] + "@" + e["digest"])' index.json
+    ```
+
+    Expected: `OK`, then one line per image. The checksum goes to `k3s_images_sha256`, and the lines replace those in `infra/platform/k3s-images.txt` under its comment. Then steps 32 and 33 on the running orchestrator, with the new binary.
 
 ## Not covered yet
 

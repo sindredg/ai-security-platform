@@ -22,7 +22,7 @@ These controls are part of the design. Their current implementation and evidence
 | One deployment identity per side, each unable to change the other | Verified by the [identity separation test](../worklogs/0001-network-foundation.md#identity-separation) |
 | Every tool call authorized on the server, from a scope the caller cannot widen | Verified on the live system for a tool outside the job's scope and a revoked or expired token: [worklog](../worklogs/0003-toolchain-integration.md#the-round-trip). See [tool service](tool-service.md) |
 | Read-only tools. A separate trusted runner applies approved changes | Built for one [evidence tool](tool-service.md), deployed. The runner is planned |
-| Downloaded artifacts are pinned by digest and verified before use | Built for the model server and agent runtime: [milestone 3 worklog](../worklogs/0003-toolchain-integration.md). Tool service dependencies install by hash. Its image is pulled by digest, checked by `T.2`. The installed Goose binary is compared with its own pin, `G.1`, since 2026-10-18 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#before-the-ai-part)) |
+| Downloaded artifacts are pinned by digest and verified before use | Built, per artifact on the [supply chain](supply-chain.md) page |
 | A target change requires an approved pull request | Built for the repository rules: [pipeline settings](../components/pipeline.md#repository-settings). Delivery is planned |
 | Threats documented before implementation, with validation tied to each control | Decided in [ADR 0010](../decisions/0010-threat-model-and-security-checks-per-milestone.md) |
 
@@ -61,7 +61,7 @@ The risk column describes what an attacker could do, or what could fail, because
 
 | Lab choice | Reason in this lab | Risk | Production approach |
 | --- | --- | --- | --- |
-| Job authentication uses a bearer token; issuing tokens is not implemented | Simple to issue, validate, and revoke | Anyone who reads the token can use the job's permissions until revocation or expiry (T18) | A credential restricted to the job's sandbox, such as a private key kept there for mutual TLS |
+| Job authentication uses a bearer token, issued per job by the dispatch step | Simple to issue, validate, and revoke | Anyone who reads the token can use the job's permissions until revocation or expiry (T18) | A credential restricted to the job's sandbox, such as a private key kept there for mutual TLS |
 | One self-signed server certificate copied to the worker ([ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md)) | One server, with no certificate authority key to protect | Revocation requires replacing the certificate. Rotation requires a manual copy to the worker | An internal certificate authority with automatic issuance and renewal |
 | Registration tokens are verified using a copied public key | The service needs no cluster credential or Kubernetes API connection | A deleted pod's token remains valid until expiry. A stale key copy stops registration | Automatic signing-key discovery and rotation, or mutual TLS between workloads |
 | Jobs and call counts live in memory | The design uses one replica | A restart invalidates every job token. Replicas would have separate job records | A job store shared by replicas |

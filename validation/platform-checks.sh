@@ -58,6 +58,9 @@ EXPORT_SHA=$(sha256sum "$here/../worker/log-export/aisec-journal-export" | cut -
 # The fetch window's command and host list, from this checkout.
 WINDOW_SHA=$(sha256sum "$here/../edge/aisec-fetch-window" | cut -d " " -f 1)
 HOSTS_SHA=$(sha256sum "$here/../edge/fetch-hosts" | cut -d " " -f 1)
+# K3s's system images and the digest of each, as the release's archive gives
+# them (ADR 0033), from this checkout. One line each, joined by spaces.
+SYSTEM_IMAGES=$(grep -v "^#" "$here/../infra/platform/k3s-images.txt" 2>/dev/null | tr "\n" " ")
 # Squid's configuration as the edge template writes it, with the platform's
 # addresses. The x keeps the trailing newline. A failed rendering leaves a
 # value no file can hash to.
@@ -241,6 +244,18 @@ for ns in $namespaces; do
 done
 echo "privileged_admitted=$([ -z "$namespaces" ] && echo "no namespaces" || echo "${admitted:- none}" | sed "s/^ //")"
 echo "system_deployments_not_ready=$(k3s kubectl get deployments -n kube-system -o jsonpath="{range .items[*]}{.metadata.name} {.status.replicas} {.status.readyReplicas}{\"\n\"}{end}" 2>/dev/null | awk "NF { n++; if (\$2 != \$3) bad++ } END { print n ? bad + 0 : \"no deployments\" }")"
+# Each tag K3s holds from rancher/ and each image a system pod runs, with the
+# digest containerd has for it. A name that is not in the list with that
+# digest is printed.
+pinned="'"$SYSTEM_IMAGES"'"
+held=$(k3s ctr -n k8s.io images ls 2>/dev/null | awk "NR > 1 && \$1 ~ /^docker\.io\/rancher\// && \$1 !~ /@/ {print \$1 \"@\" \$3}")
+running=$(k3s kubectl get pods -n kube-system -o jsonpath="{range .items[*]}{range .status.containerStatuses[*]}{.image}{\"\n\"}{end}{end}" 2>/dev/null)
+unpinned=""
+for name in $({ printf "%s\n" "$held" | sed "s/@.*//"; printf "%s\n" "$running"; } | sort -u); do
+  digest=$(printf "%s\n" "$held" | awk -F@ -v n="$name" "\$1 == n {print \$2}")
+  case " $pinned " in *" $name@$digest "*) ;; *) unpinned="$unpinned $name" ;; esac
+done
+echo "system_images=$([ -z "$running" ] && echo "no system pods" || echo "${unpinned:- none}" | sed "s/^ //")"
 echo "pod_egress=$(nft list chain inet aisec_pod_egress forward 2>/dev/null | sed -n "s/^\t\t//p" | sed "s/counter packets [0-9]* bytes [0-9]* /counter /" | tr "\n" "|")"
 echo "pod_egress_input=$(nft list chain inet aisec_pod_egress input 2>/dev/null | sed -n "s/^\t\t//p" | sed "s/counter packets [0-9]* bytes [0-9]* /counter /" | tr "\n" "|")"
 echo "pod_egress_unit=$(systemctl is-enabled aisec-pod-egress 2>/dev/null)"
@@ -504,6 +519,10 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # A system pod that pod security refuses is never created, so K.3 does not
   # see it. Its deployment stays short of ready.
   check K.10 "Every system deployment is ready" 0 "$(value system_deployments_not_ready)"
+  # The binary names them by tag. First boot imports them from the release's
+  # archive, checked against its pin, and Docker Hub is not on the edge's
+  # list, so a tag that moves upstream does not reach the cluster.
+  check K.11 "K3s's system images are the ones in the release's archive" none "$(value system_images)"
   # Both addresses answer when the path is open, so a timeout is the
   # security group's deny. Before the way out closed, both were "open".
   check E.12 "The orchestrator opens no connection to the internet" timeout "$(value egress_https)"

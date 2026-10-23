@@ -36,7 +36,7 @@ Candidates, not selections, except the rows that name a decision record. Each ha
 | Workflow engine and UI | Argo Workflows v4.1.5, built, [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) | Dispatch to the worker VM, shown on 2026-10-21 ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)). A controller restart during a job, which then succeeded, on 2026-10-23 ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines)). Still to show: its footprint | 3 |
 | Starting model | Qwen3.5-4B, running. Kept after a comparison with Granite 4.2 3B and Qwen3.5-2B, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3, the same in both runs ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). Still to show: a real investigation || 4 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
-| Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
+| Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 4 |
 | First target | NetBox | See [ADR 0004](../decisions/0004-netbox-as-first-target.md) | 4 |
 
 ## Versions
@@ -52,7 +52,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | Ubuntu image | 26.04 LTS, `26.04.202610070`. The release offer in Sweden Central has `26.04.202610180` since 2026-10-18, which the pin takes at the next rebuild. The daily builds offer newer versions that the release offer does not have ([troubleshooting 01](../troubleshooting/01-image-version-only-in-daily-offer.md)) | `infra/platform/variables.tf` | By hand, and only at a rebuild | 2026-10-19 |
 | Ubuntu packages | Whatever the archive serves | Not pinned | Unattended upgrades, daily, security suite | |
 | Mesh VPN agent | 1.104.2 | `infra/platform/variables.tf`, held on the VM | By hand. `U.7` fails when a newer stable release exists | 2026-10-21 |
-| K3s | `v1.36.5+k3s1`, the `stable` channel | `infra/platform/variables.tf`, with two checksums | By hand | 2026-10-19 |
+| K3s | `v1.36.5+k3s1`, the `stable` channel | `infra/platform/variables.tf`, with checksums for the binary, the install script, and the system images' archive. The images' digests in `infra/platform/k3s-images.txt` ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)) | By hand | 2026-10-19 |
 | Azure Monitor Agent | Extension `1.45`. The newest version in both regions is `1.45.1` | `monitor_agent_version` in `infra/platform/variables.tf`, automatic upgrades off | By hand. Azure picks the patch release within the minor version | 2026-10-19 |
 | Squid | 7.2, `7.2-2ubuntu2.2` on the edge | Not pinned, see [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) | Unattended upgrades | 2026-10-17 |
 | `acl` package | Whatever the archive serves. Sets the default ACL on the pod logs for the audit copier | Not pinned. The archive drops old versions, as for Squid | Unattended upgrades | |

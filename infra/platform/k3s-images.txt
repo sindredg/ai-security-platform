@@ -1,0 +1,14 @@
+# K3s's system images for k3s_version in variables.tf (ADR 0033): each tag
+# with the digest of its image index, as the release's
+# k3s-airgap-images-amd64.tar names them in its index.json. First boot checks
+# the archive against k3s_images_sha256 and puts it where K3s imports it, so
+# containerd pulls none of these by tag. K.11 compares the tags K3s holds
+# with this list. A K3s upgrade moves both checksums and this list together.
+docker.io/rancher/klipper-helm:v0.13.3-build20260727@sha256:5425a2b4613d2458dbdff99218e8d487ebb59c20e7a941f061c0777070f0aac1
+docker.io/rancher/klipper-lb:v0.4.17@sha256:910944bb0bd94f060a82a56ca1ea1c577d3e49b3473a093a47a985f32e92d94a
+docker.io/rancher/local-path-provisioner:v0.0.37@sha256:e757967a5ec338f6a9b371c5a9688bedaa8c3578ea3dd4db329ea0084be0a86f
+docker.io/rancher/mirrored-coredns-coredns:1.14.7@sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286
+docker.io/rancher/mirrored-library-busybox:1.37.0@sha256:101b4afd76732482eff9b95cae5f94bcf295e521fbec4e01b69c5421f3f3f3e5
+docker.io/rancher/mirrored-library-traefik:3.7.13@sha256:f86a2cab1b5c649070c49f883c743dd32d8485a56e3368c5f93b9e91f1e91259
+docker.io/rancher/mirrored-metrics-server:v0.9.0@sha256:d9862115e7c7881280d3d75ca26bda8ffc0fc213315979575bf23ce9826205c0
+docker.io/rancher/mirrored-pause:3.10.2@sha256:f548e0e8e3dc1896ca956272154dde3314e8cc4fde0a57577ee9fa1c63f5baf4
