@@ -8,11 +8,12 @@ The method is in [ADR 0010](../decisions/0010-threat-model-and-security-checks-p
 
 | Topic | What it holds | State |
 | --- | --- | --- |
-| [Threat model](threat-model.md) | Scope, assets, attackers, six trust boundaries, and the threats at each, with the control and the gate for each | First pass. States reviewed on 2026-10-15, and revised on 2026-10-16 to 2026-10-19 as milestone 3a was decided, built, reviewed, and measured. Dispatch and Argo rows moved on 2026-10-21, after the first workflows |
-| [AI-specific threats](ai-threats.md) | Threats that exist because a model reads untrusted text and can act on it | First pass. States reviewed on 2026-10-15. A4 and A6 moved on 2026-10-18, and A6 and A7 on 2026-10-21 |
+| [Threat model](threat-model.md) | Scope, assets, attackers, six trust boundaries, and the threats at each, with the control and the gate for each | First pass. States reviewed on 2026-10-15, and revised on 2026-10-16 to 2026-10-19 as milestone 3a was decided, built, reviewed, and measured. Dispatch and Argo rows moved on 2026-10-21, after the first workflows. States read again on 2026-10-23 for the milestone 3 close |
+| [AI-specific threats](ai-threats.md) | Threats that exist because a model reads untrusted text and can act on it | First pass. States reviewed on 2026-10-15. A4 and A6 moved on 2026-10-18, A6 and A7 on 2026-10-21, and A3, A4, and A6 on 2026-10-23 |
 | [Tool service and job identity](tool-service.md) | Job authentication, tool authorization, and audit fields | Deployed on 2026-10-15, redeployed on 2026-10-16 with numbered audit lines. The deployment and one round trip from the worker are tested on the running system |
-| [Credential inventory](credentials.md) | Every secret: where it lives, who can read it, how it is rotated | Current on 2026-10-19. The milestone 3a credentials are in use, and the workspace's shared keys are listed: the SSH certificate authority and its certificates, the router's mesh node key, and the managed identities of the log agents. Since 2026-10-21 the dispatch key, the operator's Argo token, and the Argo executor's token, which does not expire, are in use |
+| [Credential inventory](credentials.md) | Every secret: where it lives, who can read it, how it is rotated | Current on 2026-10-23, read again for the milestone 3 close. The last credentials added are the dispatch key, the operator's Argo token, and the Argo executor's token, which does not expire, all in use since 2026-10-21 |
 | [Hardening](hardening.md) | The baseline on the VMs and the cluster, benchmark results, what was left alone, and what is open | Current on 2026-10-19. kube-bench and Lynis ran that day on the current VMs, and one kube-bench fail is not explained ([#127](https://github.com/sindredg/ai-security-platform/issues/127)) |
+| [Supply chain](supply-chain.md) | Which artifacts are pinned, where each pin is checked before the artifact runs, and which signatures are checked | Written on 2026-10-23 from the code and the release pages. K3s's four system images are pulled by tag |
 | [Accepted risks and open items](accepted-risks.md) | Risks carried on purpose, and threats that no decision covers yet | Current on 2026-10-19. The converter's advisories were read again that day, at the new llama.cpp commit |
 | [Audit log](audit-log.md) | Where the tool service's audit lines are stored, and who can change them | Verified on 2026-10-16: both copies run on the live VMs ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). Verified on 2026-10-17: each line also reaches Azure Monitor ([worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring)) |
 | [Lab against production](lab-vs-production.md) | Controls to retain, lab limitations, and risks that production infrastructure cannot remove | Rewritten on 2026-10-14. States moved on 2026-10-16 and 2026-10-18 |
@@ -23,7 +24,6 @@ No page yet. Each gets one when the milestone that builds it starts.
 
 | Topic | Question it answers | Milestone |
 | --- | --- | --- |
-| Supply chain | Which artifacts are pinned by digest, which signatures are checked, and where an SBOM is needed | 3, 4, 8 |
 | Pull request content | What the broker allows a worker's proposal to carry into a public page | 5 |
 | Incident response | What to do about a compromised worker, a compromised target, or a leaked credential | 6 |
 

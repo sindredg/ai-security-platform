@@ -5,7 +5,7 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). Since 2026-10-22 the tool service and the dispatch step run on a base image with a fixed musl ([the images on the fixed base](#installed-the-images-on-the-fixed-base)). Since 2026-10-23 closing a fetch window on the edge ends the tunnels still open, and Squid logs each ([the fix](#fix-closing-a-fetch-window-ends-its-tunnels)). Since 2026-10-23 the secret scan in both pipelines runs gitleaks's release binary with the runner's `git` ([the fix](#fix-the-secret-scan-without-the-gitleaks-image)). Since the same day, a job starts only after the model server's slot is erased, and answers end with a status line and an excess line that the fixture check reads ([installed](#installed-the-erase-before-each-job-and-the-answer-lines)). The gate is not met: the footprint and the milestone's review are open.
+The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). Since 2026-10-22 the tool service and the dispatch step run on a base image with a fixed musl ([the images on the fixed base](#installed-the-images-on-the-fixed-base)). Since 2026-10-23 closing a fetch window on the edge ends the tunnels still open, and Squid logs each ([the fix](#fix-closing-a-fetch-window-ends-its-tunnels)). Since 2026-10-23 the secret scan in both pipelines runs gitleaks's release binary with the runner's `git` ([the fix](#fix-the-secret-scan-without-the-gitleaks-image)). Since the same day, a job starts only after the model server's slot is erased, and answers end with a status line and an excess line that the fixture check reads ([installed](#installed-the-erase-before-each-job-and-the-answer-lines)). The gate is not met: the footprint, K3s's system images, and the milestone's review are open. The [supply chain](#read-for-the-close-the-supply-chain) was read for the close on 2026-10-23.
 
 | Gate | Result |
 | --- | --- |
@@ -15,7 +15,7 @@ The milestone is built in slices, and all are on the system: the model server on
 | Model memory use, latency per turn, and tokens per second are measured on the chosen size | **Tested** for the model server alone, and for one agent run beside it on a fixture. **Tested** on the live system on 2026-10-21 for the model that stays, Qwen3.5-4B, on eight held-out cases: a memory peak of 3.29 GiB, about 19 prompt and 6 output tokens per second, and a median of 50 seconds per case ([second run](#second-run)). Not measured with a tool over the network |
 | Component footprint on the orchestrator is measured | Partly **tested**: the log agent across a day ([monitoring](../components/monitoring.md#footprint)), and the Argo controller in one reading at rest and one after the first workflows, 23 MiB at most ([the first workflows](#installed-argo-and-the-first-workflows)). The dispatch pods and the tool service were not measured for this |
 | The threat model covers dispatch, workload identity, and the AI-specific threats | Written: T45 to T51 for dispatch and Argo, from ADRs 0029 and 0030, both accepted on 2026-10-21, and their states moved the same day after the install. Every one rated high has a control: T50, the controller image. Workload identity is unchanged, with no cloud identity ([0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)) |
-| Every image and every model input is pinned by digest and verified on the orchestrator | **Tested** for the model server (38 files and one commit) and for the agent runtime (one file). **Tested** for the tool service image: `T.2` passes against the running pod and failed against a manifest with one digest character changed ([fail side](#the-fail-side-of-each-new-check)) |
+| Every image and every model input is pinned by digest and verified on the orchestrator | **Tested** for the model server (38 files and one commit) and for the agent runtime (one file). **Tested** for the tool service image: `T.2` passes against the running pod and failed against a manifest with one digest character changed ([fail side](#the-fail-side-of-each-new-check)). **Tested** for the dispatch image: `W.9` failed on a template with the previous digest, and passed after the apply ([checks](#checks-before-and-after)). **Tested** for Argo's images: their signatures before the pin ([ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md)), and `W.2` and `W.3` on the running controller. Open for K3s's four system images, neither tested nor accepted: the K3s binary names them by tag, and first boot pulls them from Docker Hub. On 2026-10-23 the running four matched the release's airgap archive ([K3s's system images](#k3ss-system-images)) |
 | Every tool call is logged with caller, job, and decision, out of the worker's reach | Partly **tested**: the live service printed one line per decision with caller, job, and decision, and no token ([round trip](#the-round-trip), step 10). **Tested** for storage on the live system: the [audit copier](#slice-the-audit-copier) copies every line into an append-only file that no pod mounts, `L.1` to `L.7` pass, and each was seen to fail, on a broken condition or before the install ([rollout](#rollout-of-the-log-copies)). Root on the orchestrator can edit it |
 | A revoked or expired job token is refused | **Tested** on the live system: [round trip](#the-round-trip) step 8, and [an expired job token](#an-expired-job-token) |
 | A pod in a workload namespace cannot open a connection to the internet | **Tested** on the live system: `T.8` from the tool service pod, `E.6` and `E.7` for the host rule, and a [probe in a new pod](#pods-and-the-internet) in `orchestration`. A new pod in `tool-services` was refused at 0, 5, and 20 seconds and resolved no public name, on 2026-10-21 ([pods and names](#pods-and-names)) |
@@ -2070,3 +2070,65 @@ So 4 of the 5 answers in this run were right: one of the two dispatched jobs and
 - **The failed erase after a job is tested with stubs only.** Making the server refuse the second erase and not the first was not tried on the worker.
 - **One controller restart, at one point of one job.** The dispatch step's pod kept running through it. A restart while the controller creates a pod, or during the exit handler, was not tried.
 - **The answer lines rest on the model.** The format is in the system text, not enforced. An answer without the lines fails the fixture check, and passes the dispatch step.
+
+## Read for the close: the supply chain
+
+Date: 2026-10-23. Read-only: the orchestrator over SSH, and release files downloaded to the workstation. Nothing changed on the system. The result is the [supply chain](../security/supply-chain.md) page.
+
+### K3s's system images
+
+K3s pins its binary and its install script by checksum (`infra/platform/variables.tf`). Its four system images are not pinned by anything in the repository: the binary names them by tag, and containerd pulls them from Docker Hub at first boot. The criterion asks for every image pinned by digest.
+
+What would show the running images are the release's: their digests equal those in the release's airgap image archive, and the archive equals the release's checksum. Written before the comparison.
+
+```bash
+sudo k3s crictl images -o json      # on the orchestrator
+curl -fsSL -o airgap.tar 'https://github.com/k3s-io/k3s/releases/download/v1.36.5%2Bk3s1/k3s-airgap-images-amd64.tar'
+echo "f72c4147b0cc9068e1c81d4c3d163e37a37d38ac22608fb6f736789e27e87188  airgap.tar" | sha256sum -c -
+tar -xf airgap.tar index.json manifest.json
+```
+
+The checksum is the one in the release's `sha256sum-amd64.txt` and GitHub's digest of the asset. A short script compared each running `docker.io/rancher/` image: the index digest in `index.json` against the image's repository digests, and the config digest in `manifest.json` against its image ID.
+
+| Image | Index digest | Config digest |
+| --- | --- | --- |
+| `local-path-provisioner:v0.0.37` | Equal | Equal |
+| `mirrored-coredns-coredns:1.14.7` | Equal | Equal |
+| `mirrored-metrics-server:v0.9.0` | Equal | Equal |
+| `mirrored-pause:3.10.2` | Equal | Equal |
+
+Fail side: the same script, with one hexadecimal digit of CoreDNS's repository digest changed, reported the index as different.
+
+This shows the images were the release's on this day. It does not hold them: a rebuild pulls whatever the tags name then, and no check compares them.
+
+### Provenance of llama.cpp and Goose
+
+The checksums in `artifacts.tsv` pin both downloads, and neither project's release carries a signature file. Both publish SLSA provenance through GitHub's attestations, signed through Sigstore. Read with `gh api repos/OWNER/REPO/attestations/sha256:DIGEST`, for the pinned digest of each archive.
+
+What would show each archive is the project's build: cosign verifies the bundle against the archive, with the identity of the release workflow that the provenance names. Written before the run. cosign is v3.1.4, the newest release, checked against GitHub's digest of the asset.
+
+```bash
+cosign verify-blob-attestation --bundle BUNDLE --type https://slsa.dev/provenance/v1 \
+  --certificate-identity IDENTITY \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com ARCHIVE
+```
+
+| Archive | Identity | Result | Source commit in the provenance |
+| --- | --- | --- | --- |
+| `llama-b11669-bin-ubuntu-arm64.tar.gz` | `https://github.com/ggml-org/llama.cpp/.github/workflows/release-publish.yml@refs/heads/master` | `Verified OK` | `620d2225...`, the `LLAMA_COMMIT` in `pins.env` |
+| `goose-aarch64-unknown-linux-musl.tar.gz` | `https://github.com/aaif-goose/goose/.github/workflows/release.yml@refs/tags/v1.55.0` | `Verified OK` | `2bcb8583...`, the commit of the tag `v1.55.0` |
+
+Both archives matched their pins before the run. Fail sides, each with exit code 1:
+
+| Input | cosign |
+| --- | --- |
+| llama.cpp's bundle with Goose's identity | `no matching CertificateIdentity found` |
+| Goose's bundle with its archive and one byte appended | `provided artifact digests do not match digests in statement` |
+| Goose's bundle with llama.cpp's archive | The same |
+
+K3s v1.36.5+k3s1 and gitleaks 8.30.1 have no attestation: the API answers 404 for the pinned digest of each.
+
+### Limits
+
+- **Checked once, on the workstation.** The fetch scripts do not check provenance. The pinned checksum carries the result, so a new pin needs the check again.
+- **llama.cpp builds its releases from `master`.** The signed identity names the branch, not the build tag. The commit in the provenance is what ties it to the pin.

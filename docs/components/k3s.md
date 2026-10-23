@@ -57,6 +57,7 @@ The first run, on 2026-10-11, on the orchestrator that was replaced on 2026-10-1
 
 - **One server.** The cluster is down while the VM is.
 - **The pin moves by hand.** Nothing proposes a new K3s release.
+- **The system images follow their tags.** The binary is pinned, and the four images it names are pulled from Docker Hub by tag at first boot ([supply chain](../security/supply-chain.md)).
 - **No datastore backup.** Nothing worth restoring is in it yet.
 - **The benchmark profile is older than the cluster.** It was written for K3s 1.27 to 1.29.
 - **The audit log stays on the machine it audits.**
