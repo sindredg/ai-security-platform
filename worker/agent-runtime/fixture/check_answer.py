@@ -7,19 +7,48 @@ Prints one JSON line and exits 0 only if all of this holds:
 - the run completed
 - the agent asked the fixture tool for ev-0001, and for nothing else
 - the tool answered without an error
-- the agent's last message names both record types the evidence shows in
-  excess
+- the agent's last message has one "Status:" line that says confirmed
+- and one "Excess:" line that names the two record types the evidence shows
+  in excess, and nothing else
 
-Only the agent's last message is searched. The tool's answer holds the same
-two names, so a search of the whole transcript would pass an agent that said
-nothing. Standard library only.
+The system text asks every answer to end with those two lines. Names in the
+prose do not count: an answer that lists both types and then says the finding
+is not confirmed has to fail (#149). Only the agent's last message is read.
+The tool's answer holds the same two names, so a search of the whole
+transcript would pass an agent that said nothing. Standard library only.
 """
 
 import json
+import re
 import sys
 
 EXCESS = ("tenancy.contact", "circuits.circuit")
 WANTED_CALL = ("evidence__get_evidence", {"reference": "ev-0001"})
+STATUSES = ("confirmed", "refuted", "inconclusive")
+# A line that starts with the label, after markdown emphasis and code marks are
+# taken out. Small models wrap the label in ** often enough to allow it.
+LINE = re.compile(r"^\s*(status|excess)\s*:(.*)$", re.IGNORECASE)
+
+
+def verdict(answer):
+    """The status and the excess types the answer's lines give, or the reasons
+    they cannot be read."""
+    found = {"status": [], "excess": []}
+    for line in answer.splitlines():
+        match = LINE.match(line.replace("*", "").replace("`", ""))
+        if match:
+            found[match[1].lower()].append(match[2].strip())
+    reasons = [
+        f"the last message has {len(values)} {label} lines, not one"
+        for label, values in found.items()
+        if len(values) != 1
+    ]
+    if reasons:
+        return None, None, reasons
+    status = found["status"][0].lower().rstrip(".").strip()
+    names = [n.strip() for n in found["excess"][0].rstrip(".").split(",")]
+    excess = set() if names == ["none"] else set(names)
+    return status, excess, []
 
 
 def main():
@@ -57,9 +86,12 @@ def main():
         reasons.append(f"tool calls were {calls!r}")
     if tool_errors:
         reasons.append(f"{tool_errors} tool errors")
-    missing = [name for name in EXCESS if name not in answer]
-    if missing:
-        reasons.append(f"the last message does not name {missing!r}")
+    status, excess, unread = verdict(answer)
+    reasons += unread
+    if not unread and status != "confirmed":
+        reasons.append(f"status is {status!r}")
+    if not unread and excess != set(EXCESS):
+        reasons.append(f"excess is {sorted(excess)!r}")
 
     print(
         json.dumps(

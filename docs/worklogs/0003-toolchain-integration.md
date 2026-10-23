@@ -5,7 +5,7 @@ Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). Since 2026-10-22 the tool service and the dispatch step run on a base image with a fixed musl ([the images on the fixed base](#installed-the-images-on-the-fixed-base)). Since 2026-10-23 closing a fetch window on the edge ends the tunnels still open, and Squid logs each ([the fix](#fix-closing-a-fetch-window-ends-its-tunnels)). Since 2026-10-23 the secret scan in both pipelines runs gitleaks's release binary with the runner's `git` ([the fix](#fix-the-secret-scan-without-the-gitleaks-image)). The gate is not met: the footprint and the milestone's review are open.
+The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). Since 2026-10-22 the tool service and the dispatch step run on a base image with a fixed musl ([the images on the fixed base](#installed-the-images-on-the-fixed-base)). Since 2026-10-23 closing a fetch window on the edge ends the tunnels still open, and Squid logs each ([the fix](#fix-closing-a-fetch-window-ends-its-tunnels)). Since 2026-10-23 the secret scan in both pipelines runs gitleaks's release binary with the runner's `git` ([the fix](#fix-the-secret-scan-without-the-gitleaks-image)). Since the same day, a job starts only after the model server's slot is erased, and answers end with a status line and an excess line that the fixture check reads ([installed](#installed-the-erase-before-each-job-and-the-answer-lines)). The gate is not met: the footprint and the milestone's review are open.
 
 | Gate | Result |
 | --- | --- |
@@ -2022,3 +2022,51 @@ The pipeline builds and pushes the dispatch image from `main` only. The template
 ### Limits
 
 - **Stubs only.** A fake Goose and a stub model server that answers each erase with a set status. What the server on the worker answers for an erase of an empty slot, and how long it takes, is for the install.
+
+## Installed: the erase before each job and the answer lines
+
+Date: 2026-10-23, from the branch of [#163](https://github.com/sindredg/ai-security-platform/pull/163) at `83fe17f`, which is `main` at `cceb292` with three commits.
+
+[ADR 0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md) was accepted after this run.
+
+### The answer's two lines
+
+[#149](https://github.com/sindredg/ai-security-platform/issues/149): the fixture check passed a run whose last message named both excess record types, whatever its verdict. The model comparison's run 2 named both and said "Not confirmed", and passed.
+
+The system text now asks every answer to end with two lines: `Status: confirmed`, `Status: refuted`, or `Status: inconclusive`, then `Excess:` and the items in excess, or `Excess: none`. The words are those of the comparison's schema. `check_answer.py` reads exactly one of each line from the last message, after taking out markdown emphasis and code marks, and requires `confirmed` and exactly `tenancy.contact` and `circuits.circuit`. The names in the prose no longer count.
+
+Its tests ran first against the old check: 11 failures, among them run 2's answer, run 3's answer with `ipam.prefix` added to the excess, and an answer with no lines. With the change, the job side's 51 tests pass.
+
+`install-agent.sh` checked the staged Goose archive before it copied the fixture, and the stage was gone from the worker, read on 2026-10-23. The copy is now `install-fixture.sh`, which needs nothing staged, and `install-agent.sh` runs it.
+
+### The dispatch image
+
+The template moves to `dispatch@sha256:3d59905d...`, which the pipeline pushed from `main` at `cceb292`. Read anonymously from the registry before the move: the manifest hashes to the digest, the config is `linux/amd64` with user `65532:65532`, and `dispatch.py` in the image has the repository's SHA-256, `63cb1b43...`. Fail side: the old digest's `dispatch.py` differs and has no `slot_erased`, and a digest of zeros answers 404.
+
+### The run
+
+On the live system, from a script, between 14:59 and 15:14 UTC. The expected results were written in the script before the run.
+
+| Step | Result |
+| --- | --- |
+| The job program and the fixture on the worker (agent runtime step 8, `install-fixture.sh`) | The socket `root aisec-job 660` and `active`. The four fixture files on the worker have the checkout's SHA-256 |
+| The dispatch image and the template (workflows steps 3 and 4) | One window, `ok` for `3d59905d...` and both Argo images, then the template `configured` with both lines on the new digest. The close printed `open tunnels ended: 7`, and Squid wrote seven `CONNECT` lines at the close: the registries' connections that containerd had left open. No request was refused during the window |
+| A round trip, `investigate-q6ttr` | `Succeeded` in 1 minute 53 seconds. `"slot_erased": true`, two calls, one refused. The journal has an `"erase": "before"` line and an `"outcome": "ended"` line, both `true`. The answer is wrong, below |
+| The model server stopped, `investigate-55hwd` | `Failed` in 20 seconds: `the worker refused the job: "the model server's slot could not be erased"`. The journal has the `"erase": "before"` line with `false`, and no outcome line. The audit file has `register` and `revoke`, and no call. The exit handler ran. The server started again and answered 200 on `/health` |
+| The controller restarted 30 seconds into `investigate-fvvpc` | The restart rolled out while the dispatch step ran. The workflow `Succeeded` in 1 minute 41 seconds, with `"slot_erased": true` and a right answer |
+| The fixture run three times with the new check (agent runtime step 5) | `3 of 3 runs correct`. Each answer is a sentence or two, then the two lines. 84, 27, and 24 seconds. The first run read its whole prompt, 1040 tokens in 60 seconds: the last job had erased the slot |
+| Every check | 283 of 285, between 15:07 and 15:14 UTC. `G.2`, `G.8`, `G.10`, and `W.9` passed. `U.1` and `U.13` failed on `zlib1g`, as at 14:02 |
+
+The erase before a job took under 0.1 seconds: in each of the three jobs, the `"erase": "before"` line came 85 or 86 milliseconds after systemd started the unit, the job program's own start included.
+
+### The wrong answer
+
+`investigate-q6ttr` read `ev-0001`, then asked for `ev-0002`, which does not exist. The tool service refused it, `nothing by that reference`, and logged the refusal. The answer was the two lines and nothing else: `Status: confirmed` and `Excess: none`. The evidence shows `tenancy.contact` and `circuits.circuit` in excess.
+
+So 4 of the 5 answers in this run were right: one of the two dispatched jobs and all three fixture runs. The dispatch step passed the wrong one, because it checks the job's status and that a tool was called, not the verdict. The fixture check would have failed it on the `Excess` line. How often the model gets it wrong is milestone 4's question, with held-out cases.
+
+### Limits
+
+- **The failed erase after a job is tested with stubs only.** Making the server refuse the second erase and not the first was not tried on the worker.
+- **One controller restart, at one point of one job.** The dispatch step's pod kept running through it. A restart while the controller creates a pod, or during the exit handler, was not tried.
+- **The answer lines rest on the model.** The format is in the system text, not enforced. An answer without the lines fails the fixture check, and passes the dispatch step.

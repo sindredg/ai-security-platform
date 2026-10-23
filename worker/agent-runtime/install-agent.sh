@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs on the worker, as root. Checks the pushed archive against its pin again,
-# unpacks Goose, and installs the fixture tool and its two prompt files. It
+# unpacks Goose, and installs the fixture with install-fixture.sh. It
 # starts nothing: the agent is not a service, it runs once per job.
 #
 # Usage: install-agent.sh STAGE_DIR
@@ -24,7 +24,7 @@ echo "the archive matches artifacts.tsv"
 
 # The archive holds one file. Take that file and nothing else, whatever else
 # a changed archive might carry.
-install -d -m 0755 -o root -g root "$GOOSE_DIR" "$FIXTURE_DIR"
+install -d -m 0755 -o root -g root "$GOOSE_DIR"
 tar -xzf "$stage/goose/$GOOSE_ARCHIVE" -C "$GOOSE_DIR" --no-same-owner --no-same-permissions ./goose
 chown root:root "$GOOSE_DIR/goose"
 chmod 0755 "$GOOSE_DIR/goose"
@@ -39,9 +39,7 @@ if ! echo "$GOOSE_BINARY_SHA256  $GOOSE_DIR/goose" | sha256sum --check --quiet; 
 fi
 echo "the binary matches GOOSE_BINARY_SHA256"
 
-install -m 0755 -o root -g root "$here/fixture/evidence_tool.py" "$here/fixture/check_answer.py" "$FIXTURE_DIR/"
-# The system text is the job's own, one file for both (install-job.sh).
-install -m 0644 -o root -g root "$here/system.txt" "$here/fixture/question.txt" "$FIXTURE_DIR/"
+"$here/install-fixture.sh"
 
 # Goose is not run here. This script is root, and the first thing to execute
 # that binary should be the sandboxed unit in run-agent.sh.
