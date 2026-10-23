@@ -1,10 +1,10 @@
 # K3s
 
-The cluster on the orchestrator. One server, no agents. The tool service is the one workload.
+The cluster on the orchestrator. One server, no agents. It runs the tool service, the Argo controller, and the pods of each workflow.
 
 | | |
 | --- | --- |
-| State | Built. The tool service runs in `tool-services`. Verified by the [`K` checks](../validation/cluster.md), which passed in the run on 2026-10-19 ([last run](../validation/README.md#last-run)) |
+| State | Built. The tool service runs in `tool-services`, the Argo controller in `argo`, and the workflows in `orchestration`, since 2026-10-21. Verified by the [`K` checks](../validation/cluster.md), which passed in the run on 2026-10-23 at 14:02 UTC ([last run](../validation/README.md#last-run)) |
 | Version | `v1.36.5+k3s1`, the release the project's `stable` channel points at |
 | Pinned in | `infra/platform/variables.tf`: the version, the binary's SHA-256, and the install script's SHA-256 |
 | Datastore | SQLite behind `kine`. No etcd |

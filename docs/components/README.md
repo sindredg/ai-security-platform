@@ -4,7 +4,7 @@ The stack, one page per part. Each page says what the part does, where it is def
 
 The [architecture](../architecture.md) is the overview: trust, flows, and boundaries. This folder is the detail.
 
-![The stack on the orchestrator and the worker: both share the private network, the machine type, Ubuntu 26.04, and host hardening. The orchestrator runs K3s with the tool service, is not on the mesh VPN, and has no way out of its own. The worker runs the model server and the agent runtime](../diagrams/stack.svg)
+![The stack on the orchestrator and the worker: both share the private network, the machine type, Ubuntu 26.04, and host hardening. The orchestrator runs K3s with the tool service and Argo Workflows, is not on the mesh VPN, and has no way out of its own. The worker runs the model server and the agent runtime](../diagrams/stack.svg)
 
 The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 
@@ -21,6 +21,9 @@ The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 | [Deployment identities and state](identities-and-state.md) | Who can change which side | Azure, Microsoft Entra ID |
 | [Repository and pipeline](pipeline.md) | The approval channel and its checks | GitHub |
 | [Tool service](../security/tool-service.md) | A small MCP server written for this project. Authorizes every tool call from the worker | Orchestrator, in K3s |
+| Workflow engine | Argo Workflows. The controller runs in the cluster, and the UI on the operator's machine, [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md). Each workflow's dispatch step hands one job to the worker, [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), [runbook](../runbooks/workflows.md) | Orchestrator, in K3s |
+| [Model server](ai-worker.md#the-model-server) | llama.cpp's server with Qwen3.5-4B, built on the worker from the publisher's weights, [ADR 0015](../decisions/0015-build-the-model-file-on-the-worker.md), [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | AI worker |
+| [Agent runtime](ai-worker.md#the-agent-runtime) | Goose, one run per job in a sandboxed unit that a socket starts | AI worker |
 | SSH certificates | OpenSSH's own certificate authority. The administrator account takes only a certificate that expires within 12 hours, [ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md), [credentials](../security/credentials.md) | Every VM |
 | [Monitoring](monitoring.md) | The Azure Monitor Agent and a Log Analytics workspace reached over Private Link, alert rules shown in the portal, flow logs, and a workbook | The orchestrator, the edge, the router, and Azure |
 
@@ -30,9 +33,8 @@ Candidates, not selections, except the rows that name a decision record. Each ha
 
 | Role | Candidate | Has to prove | Milestone |
 | --- | --- | --- | --- |
-| Workflow engine and UI | Argo Workflows v4.1.5, the controller in the cluster and the UI on the operator's machine, [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md). Installed on 2026-10-21, and the first workflows ran ([runbook](../runbooks/workflows.md), [worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)) | Dispatch to the worker VM, restart recovery, footprint | 3 |
-| Agent runtime | Goose 1.55.0, installed | Headless runs, a restricted tool set, and a private model endpoint are shown on one fixture. Goose's call to the tool service from the worker, with a job token, was seen on 2026-10-20, allowed and logged on the orchestrator. Still to test: validation of the result against a schema by the dispatch step | 3 |
-| Starting model | Qwen3.5-4B, running. Kept after a comparison with Granite 4.2 3B and Qwen3.5-2B, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3, the same in both runs ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). Still to show: a real investigation | 3 |
+| Workflow engine and UI | Argo Workflows v4.1.5, built, [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) | Dispatch to the worker VM, shown on 2026-10-21 ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)). A controller restart during a job, which then succeeded, on 2026-10-23 ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines)). Still to show: its footprint | 3 |
+| Starting model | Qwen3.5-4B, running. Kept after a comparison with Granite 4.2 3B and Qwen3.5-2B, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3, the same in both runs ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). Still to show: a real investigation || 4 |
 | Model gateway | LiteLLM | That it earns its footprint while there is only one model backend | 3 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 3 |
 | First target | NetBox | See [ADR 0004](../decisions/0004-netbox-as-first-target.md) | 4 |
