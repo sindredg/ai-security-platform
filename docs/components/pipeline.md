@@ -46,13 +46,15 @@ The range is every commit reachable from the pull request's head and not from `m
 Read from the GitHub API on 2026-10-17 at 07:10 UTC, after the changes for [0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md):
 
 - Secret scanning with push protection is on.
-- The ruleset `protect-main`, on the default branch, refuses deletion and force pushes, requires signed commits, and requires a pull request with every check above except the dependency scan. Each required check names GitHub Actions as its source, so a status with the same name from anything else does not count. The only merge method it allows is squash. No one can bypass it.
+- The ruleset `protect-main`, on the default branch, refuses deletion and force pushes, requires signed commits, and requires a pull request with every check above except the converter dependency scan. Each required check names GitHub Actions as its source, so a status with the same name from anything else does not count. The only merge method it allows is squash. No one can bypass it.
 - A second ruleset, on every branch, requires signed commits and nothing else. No one can bypass it.
 - In the repository settings, squash is the only merge method. Merge commits and rebase merges are off. On `main`, the ruleset allows squash only as well.
 
 Read again on 2026-10-18 at 12:52 UTC, after "Squid configuration" was made required: the same, with that check in the list, twelve checks, each from GitHub Actions.
 
 Read again on 2026-10-20 at 15:00 UTC, after "Dispatch tests" and "Dispatch image" were made required: fourteen checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. Configured, not tested: no pull request has been seen blocked by either of the two.
+
+Read again on 2026-10-23 at 19:26 UTC, after "Tool service dependency scan" was made required ([#167](https://github.com/sindredg/ai-security-platform/issues/167)): fifteen checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. The read-back equals the ruleset that was written. Tested the same day: a pull request with a known-vulnerable development pin was blocked by that check alone, and was clean again once the pin was removed ([worklog](../worklogs/0003-toolchain-integration.md#fix-a-required-tool-service-scan-and-the-host-code-on-the-hosts-python)).
 
 The [repository settings runbook](../runbooks/repository-settings.md) sets these up and repeats the fail side.
 
@@ -73,7 +75,7 @@ Its settings were set through the API with the runbook on 2026-10-17 and read ba
 - **Every version update is made by hand.** Dependabot's commits are signed by GitHub, so its pull requests fail the signature check. The operator makes the same change in a pull request of their own.
 - **Push protection is read as enabled, not tested with a pushed secret.**
 - **The secret scan has false positives.** A `curl -u` with a command substitution was flagged once.
-- **The dependency scan does not block for the converter's packages.** It blocks for the tool service's. The converter's packages follow llama.cpp's own pins, so an advisory in them has no fix here short of leaving upstream's list. On 2026-10-12, `trivy fs --scanners vuln` (0.75.0) on those pins listed 8 advisories, 5 of them high: 5 in `transformers` 4.57.6 and one each in `protobuf`, `setuptools`, and `torch`. The packages run once per model build, with no network. None of the eight is reachable in that build, and each is [accepted with its reason](../security/accepted-risks.md#advisories-in-the-converters-packages).
+- **The converter dependency scan does not block.** The tool service's scan has a job of its own, which does. The converter's packages follow llama.cpp's own pins, so an advisory in them has no fix here short of leaving upstream's list. On 2026-10-12, `trivy fs --scanners vuln` (0.75.0) on those pins listed 8 advisories, 5 of them high: 5 in `transformers` 4.57.6 and one each in `protobuf`, `setuptools`, and `torch`. The packages run once per model build, with no network. None of the eight is reachable in that build, and each is [accepted with its reason](../security/accepted-risks.md#advisories-in-the-converters-packages).
 - **Dependabot cannot see every pin.** See the version table in the [index](README.md#versions).
 
 ## Official documentation
