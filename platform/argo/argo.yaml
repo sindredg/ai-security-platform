@@ -1,4 +1,4 @@
-# Argo Workflows v4.1.5, the controller only (ADR 0029). Adapted from the
+# Argo Workflows v4.1.6, the controller only (ADR 0029). Adapted from the
 # release's namespace-install.yaml: the controller's service account, its Role
 # and binding, its configuration, its priority class, and its Deployment. The
 # custom resource definitions come from that file as released, applied by
@@ -12,7 +12,7 @@
 # context. The controller also runs as a high user ID and has a CPU limit and
 # a readiness probe, as the scanners ask.
 #
-# The Role is upstream's without `secrets: get`. In v4.1.5 the controller
+# The Role is upstream's without `secrets: get`. In v4.1.6 the controller
 # reads a secret only for the agent of HTTP and plugin templates
 # (workflow/controller/agent.go), which these workflows do not use.
 # rbac.yaml binds a copy of it in orchestration.
@@ -142,14 +142,14 @@ spec:
             - --managed-namespace
             - orchestration
             - --executor-image
-            - quay.io/argoproj/argoexec@sha256:8275c3b970f399e9264ebd5f57e17f554e7494046d0f36f5f05ae2570a601de2
+            - quay.io/argoproj/argoexec@sha256:28432d912a716167709429b28e2755f49416eb4754c35ca3013863fb72717a00
           env:
             - name: LEADER_ELECTION_IDENTITY
               valueFrom:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.name
-          image: quay.io/argoproj/workflow-controller@sha256:328307c9436f40883b2e9ada14ca4082f062159818a1ca9a4e88577d5dbba257
+          image: quay.io/argoproj/workflow-controller@sha256:a012a639ead374a4a9306093d6b29dfdc7e6c4c1a85c684582cb961a6cc8bcf3
           livenessProbe:
             failureThreshold: 3
             httpGet:

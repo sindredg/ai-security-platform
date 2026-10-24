@@ -22,8 +22,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TERRAFORM_VERSION: "1.16.6"
-  TERRAFORM_SHA256: 38034b38d03096399a7a1264a14561a8029b2b496fd1f169452656e53968f1b7
+  TERRAFORM_VERSION: "1.17.0"
+  TERRAFORM_SHA256: c168cab7c637a8769fdb90089ddd19de701bc6ff8aca64dc2e2185fe46f59f67
   # Checkov 3.3.30
   CHECKOV_IMAGE: bridgecrew/checkov@sha256:4b65e89f1fde292249fc0aa0d0db43302c036dfe39f7370b2d3517571082b894
   # Trivy 0.76.1
@@ -36,16 +36,16 @@ env:
   GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
   # ShellCheck 0.11.0
   SHELLCHECK_IMAGE: koalaman/shellcheck@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d
-  # Ruff 0.17.1
-  RUFF_IMAGE: ghcr.io/astral-sh/ruff@sha256:eae3102808b46de58204237a3433001cae4d45d832f31be1c8121f7145a62661
+  # Ruff 0.17.2
+  RUFF_IMAGE: ghcr.io/astral-sh/ruff@sha256:d69a8c8d529a866a6aaea0dfda672693d68671a08827db765514abc1571a78a0
   # kubeconform 0.8.0, and the Kubernetes version its schemas are checked
   # against: the cluster's, from infra/platform/variables.tf.
   KUBECONFORM_IMAGE: ghcr.io/yannh/kubeconform@sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e
   KUBERNETES_VERSION: "1.36.5"
-  # Argo's command line v4.1.5, the release the cluster runs (ADR 0029). Its
+  # Argo's command line v4.1.6, the release the cluster runs (ADR 0029). Its
   # cosign signature was checked against the release's key before it was
   # pinned. It lints the workflow templates offline.
-  ARGOCLI_IMAGE: quay.io/argoproj/argocli@sha256:e0824b55297b8d7a92351a634ff399d01349e41dc16007abdea0cc00dba7dce8
+  ARGOCLI_IMAGE: quay.io/argoproj/argocli@sha256:acb4c1de9a9c5fa109fb3094eebbc3eac42d2dd328181b0a395488cc97de75e5
   # hadolint 2.15.1
   HADOLINT_IMAGE: hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
   # Python 3.15.1 on Alpine 3.24. The tests of the tool service and the

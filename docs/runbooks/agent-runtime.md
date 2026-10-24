@@ -1,6 +1,6 @@
 # Agent runtime: operator procedure
 
-Status: Implemented on 2026-10-12. Installed once. Every step below was run during that install. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-agent-runtime). Steps 2 to 4 and 7 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the worker gets the scripts from the checkout and the staged archive in the feed account's directory. Steps 2 to 7 ran in that form on 2026-10-19, for Goose 1.55.0 ([worklog](../worklogs/0003-toolchain-integration.md#llamacpp-and-goose-on-the-worker)). Steps 8 to 12, for jobs that arrive over a socket ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)), were written on 2026-10-19 and ran on 2026-10-20: the job and the cancel worked, and the model server refused the slot erase ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md)). The fix went on the same day, and steps 8 to 12 ran again in their current form, with step 10 naming `G.10` and step 11 waiting for the unit to end: a completed and a cancelled job each erased the slot, three malformed tasks were refused, and `G.10` passed. On 2026-10-23 step 8 and `install-fixture.sh` ran for the erase before each job and the answer's two last lines, and step 5 with the new check: 3 of 3 runs correct ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines)).
+Status: Implemented on 2026-10-12. Installed once. Every step below was run during that install. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-agent-runtime). Steps 2 to 4 and 7 changed on 2026-10-16 for the feed account ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md)): the worker gets the scripts from the checkout and the staged archive in the feed account's directory. Steps 2 to 7 ran in that form on 2026-10-19, for Goose 1.55.0 ([worklog](../worklogs/0003-toolchain-integration.md#llamacpp-and-goose-on-the-worker)). Steps 8 to 12, for jobs that arrive over a socket ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)), were written on 2026-10-19 and ran on 2026-10-20: the job and the cancel worked, and the model server refused the slot erase ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md)). The fix went on the same day, and steps 8 to 12 ran again in their current form, with step 10 naming `G.10` and step 11 waiting for the unit to end: a completed and a cancelled job each erased the slot, three malformed tasks were refused, and `G.10` passed. On 2026-10-23 step 8 and `install-fixture.sh` ran for the erase before each job and the answer's two last lines, and step 5 with the new check: 3 of 3 runs correct ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines)). On 2026-10-24 steps 2 to 5, 7, and 8 ran for Goose 1.56.0: step 5 had 2 of 3 runs correct, and step 7 read 8.6 GB, with the model comparison's files still on the worker ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-install)).
 
 Run these steps to put Goose on the AI worker and prove one headless run against the local model server: download and verify on the orchestrator, push, install, run, and measure. No cloud resource changes. Nothing is left running: the agent is a program that runs once per job, not a service.
 
@@ -17,7 +17,7 @@ Run these steps to put Goose on the AI worker and prove one headless run against
 1. Compare the pinned checksum with the digest the release lists.
 
    ```bash
-   gh api repos/aaif-goose/goose/releases/tags/v1.55.0 \
+   gh api repos/aaif-goose/goose/releases/tags/v1.56.0 \
      -q '.assets[] | select(.name == "goose-aarch64-unknown-linux-musl.tar.gz") | .digest'
    grep -v '^#' worker/agent-runtime/artifacts.tsv | cut -f1
    ```
@@ -45,7 +45,7 @@ Run these steps to put Goose on the AI worker and prove one headless run against
    REPLACE_WITH_SSH aisec-orchestrator 'cd feed/agent-runtime && scripts/fetch.sh stage && scripts/push.sh stage'
    ```
 
-   Expected: `ok    goose/goose-aarch64-unknown-linux-musl.tar.gz`, then `49M	/home/aisec-feed/agent-runtime/stage`. A file that does not match its pin is removed and the script stops.
+   Expected: `ok    goose/goose-aarch64-unknown-linux-musl.tar.gz`, then `47M	/home/aisec-feed/agent-runtime/stage`. A file that does not match its pin is removed and the script stops.
 
 ## Install
 
@@ -105,7 +105,7 @@ Run these steps to put Goose on the AI worker and prove one headless run against
    REPLACE_WITH_SSH aisec-worker 'sudo rm -rf /home/aisec-feed/agent-runtime/stage && df -h / | tail -1'
    ```
 
-   Expected: about 5.0 GB used on the worker's disk.
+   Expected: about 5.0 GB used on the worker's disk with one model file. 8.6 GB on 2026-10-24, with two more.
 
 ## Jobs over the socket
 

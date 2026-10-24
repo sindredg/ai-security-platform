@@ -9,3 +9,4 @@ One worklog per milestone: what was done, the commands that were run, and the ev
 | [0002](0002-platform-compute.md) | Platform compute |
 | [0003](0003-toolchain-integration.md) | Toolchain integration |
 | [0004](0004-edge-network-and-monitoring.md) | Edge network and monitoring |
+| [0005](0005-netbox-target-and-exercise-1.md) | NetBox target and exercise 1 investigation |
