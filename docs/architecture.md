@@ -272,7 +272,7 @@ That gives two VMs per region, with nothing to spare. The limit cannot be raised
 Idle use of the orchestrator and the worker is on their [component pages](components/README.md). Where it will hurt:
 
 - **Inference.** Two x64 vCPUs are one physical core. Arm sizes give two real cores for the same quota, at the price of arm64 builds for everything on the worker.
-- **The orchestrator.** It carries K3s, Argo, collectors, tool services, and the change components. The model gateway goes in only if measurement shows room. Monitoring is in Azure Monitor, so the orchestrator carries only a log agent: about 290 MiB and under half a percent of one core, across a day measured on 2026-10-19 ([monitoring](components/monitoring.md#footprint)). The Argo controller used 2 millicores and 23 MiB after the first workflows, one reading on 2026-10-21 ([worklog](worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)).
+- **The orchestrator.** It carries K3s, Argo, collectors, tool services, and the change components. There is no model gateway while there is one model backend ([ADR 0034](decisions/0034-no-model-gateway-while-there-is-one-backend.md)). Monitoring is in Azure Monitor, so the orchestrator carries only a log agent: about 290 MiB and under half a percent of one core, across a day measured on 2026-10-19 ([monitoring](components/monitoring.md#footprint)). Across 15.3 hours to 2026-10-24, the whole machine's CPU averaged 3.3 %, and its available memory never fell below 5,389 of 7,881 MB ([worklog](worklogs/0003-toolchain-integration.md#orchestrator-footprint)).
 - **Concurrency.** One investigation at a time, one loaded model.
 
 ## Repository layout
