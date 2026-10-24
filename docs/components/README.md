@@ -43,7 +43,7 @@ Every pin in one place. Checked against the official source on the date shown.
 
 | Component | Version | Pinned in | Moves | Checked |
 | --- | --- | --- | --- | --- |
-| Terraform | 1.16.6. Newest: 1.17.0, released on 2026-10-21 | `versions.tf` in each root, and the checks workflow | By hand | 2026-10-24 |
+| Terraform | 1.17.0, released on 2026-10-21. Checked against HashiCorp's signed checksums | `versions.tf` in each root, and the checks workflow | By hand | 2026-10-24 |
 | `hashicorp/azurerm` | 5.10.0. Newest: 5.11.0, released on 2026-10-23 | `versions.tf` and the lock files | Dependabot, weekly | 2026-10-24 |
 | `hashicorp/azuread` | 3.10.0 | The same | Dependabot, weekly | 2026-10-24 |
 | `hashicorp/random` | 3.9.1 | The same | Dependabot, weekly | 2026-10-24 |
