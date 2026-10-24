@@ -41,7 +41,7 @@ These are not pinned by checksum. The vendor's signature on its package index is
 | What | Pinned | Check | State |
 | --- | --- | --- | --- |
 | Ubuntu packages on every platform VM, Squid among them | Not pinned. Unattended upgrades install security fixes daily | apt checks the archive's signed metadata with the key in the image | Built |
-| Ubuntu packages on the targets, Podman, PostgreSQL, and Valkey among them | Not pinned. Installed and updated only by an update run from the orchestrator. Unattended upgrades are off ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)) | The same, by `apt` on the target | Decided on 2026-10-24. Not built |
+| Ubuntu packages on the targets, Podman, PostgreSQL, and Valkey among them | Not pinned. Installed and updated only by an update run from the orchestrator. Unattended upgrades are off ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)) | The same, by `apt` on the target | Built on 2026-10-24: the first update run installed Podman 5.7.0, PostgreSQL 18.6, and Valkey 9.0.4 on the NetBox VM from the Azure mirror. `U.14` and `U.15` fail when a target misses a run ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-update-run)) |
 | The mesh VPN agent on the router | Version, held. `U.2` holds it | apt checks Tailscale's signed repository. First boot fetches Tailscale's key over HTTPS, with no fingerprint pinned | Built |
 | The Azure Monitor Agent | Minor version, automatic upgrades off | Azure installs and checks it. Nothing on the project's side does | Built |
 | The Ubuntu image | Version, in `infra/platform/variables.tf` | Azure. Trusted Launch checks the boot chain with Secure Boot | Built |

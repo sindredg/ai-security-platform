@@ -5,7 +5,7 @@ Milestone: 4, NetBox target and exercise 1 investigation
 
 ## Summary
 
-Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). The NetBox VM and the lab VM are built, with the checks that read them ([below](#the-target-vms)). NetBox itself and the update run are not. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
+Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). The NetBox VM and the lab VM are built, with the checks that read them ([below](#the-target-vms)). The update run is built, and has run once on each target ([below](#the-update-run)). NetBox itself is not. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
 
 Before the build, five pins moved to their newest stable release: Terraform, `hashicorp/azurerm`, Ruff, Goose, and Argo Workflows. Goose and Argo run on the platform, so both were installed and every check ran after them.
 
@@ -272,3 +272,67 @@ Every check, on the live system, from the branch with the changes uncommitted, e
 - No packages are installed. The targets carry the image's state from 2026-10-21 until the first update run, and no check reads their pending security updates yet.
 - Nothing from the targets reaches Azure Monitor: no log agent, and no path to the private endpoint. Operator sessions to the targets are an [open item](../security/accepted-risks.md#open-items).
 - The first-boot template ran once, on these two VMs. The [network foundation runbook](../runbooks/network-foundation.md)'s target steps are still not run in their current form ([#108](https://github.com/sindredg/ai-security-platform/issues/108)).
+
+## The update run
+
+Date: 2026-10-24. The orchestrator's side of [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md): a command that opens the session, forwards Squid's target port into the target, and lets the update key's one command run.
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| `platform/target-update/aisec-target-update-run` | Root's command on the orchestrator: `aisec-target-update-run netbox` or `lab`. SSH with no configuration file, the pinned host key, no agent, and one remote forward from the target's `127.0.0.1:3129` to `10.45.0.4:3129`. A journal line when the run starts and one when it ends, with the target, the exit status, and the target's two result lines |
+| `platform/target-update/install-target-update.sh` | Makes the update key if there is none, pins both targets' host keys when given, and installs the command as `root 700` |
+| `validation/platform-checks.sh` | `E.17`, `E.18` on the orchestrator. `VN.20`, `VL.20`, `U.14`, and `U.15` on the targets |
+| The targets repository's `target.yaml.tftpl` | The Azure mirror named for both archives under `apt:` |
+
+### The targets' apt sources
+
+The first run of the new checks, at 17:30 UTC without the Azure and workstation checks, read `330 passed, 6 failed`. Written before the run: `E.17`, `E.18`, `VN.20`, `VL.20`, `U.14`, and `U.15` fail, the rest pass. All six failed on absence. `U.14` and `U.15` read `no 0 no`: the image's package list from 2026-10-21 shows nothing pending, which is why the check also asks for a refresh after first boot.
+
+`VN.20` and `VL.20` showed a problem that would have stopped every update run: the targets' apt sources named `archive.ubuntu.com` and `security.ubuntu.com`, which Squid's target port refuses. Cloud-init keeps the Azure mirror only if its name resolves, and the targets have no DNS ([troubleshooting 16](../troubleshooting/16-targets-apt-sources-fall-back-without-dns.md)). The target template now names the mirror.
+
+What proves the template change is valid: the target's own cloud-init, 26.04's, accepts the rendered template with `cloud-init schema`, and refuses a copy with `uri` misspelled. Written before the run. Read only, with the rendering on standard input.
+
+| Input | Result |
+| --- | --- |
+| The template rendered with placeholder values | `Valid schema /dev/stdin` |
+| The same with `uri` changed to `urii` | `Invalid user-data /dev/stdin` |
+
+### The rebuild
+
+On the live system, from the targets repository's branch, to prove the template at first boot. The targets held nothing yet.
+
+| Time (UTC) | What | Result |
+| --- | --- | --- |
+| 17:39 | Plan with `-replace` for both VMs | `2 to add, 0 to change, 2 to destroy`. Only the custom data differs. `26.04.202610210` is still the newest version `image show` finds in Poland Central |
+| Ending about 17:45 | Applied | `2 added, 0 changed, 2 destroyed`. Each VM destroyed in 56 s and created in 49 s |
+| 17:47 | Host keys | The fingerprint in each serial log equals the one the scan reads through the router. Both are new |
+| 17:48 | First boot | Each cloud-init log reads `Apt Mirror info: {'PRIMARY': 'http://azure.archive.ubuntu.com/ubuntu/', 'SECURITY': 'http://azure.archive.ubuntu.com/ubuntu/', ...}`, with no search. The marker exists, no failed unit, and each target sees `10.45.0.36` |
+
+### The first update runs
+
+A script ran the [targets runbook](../runbooks/targets.md#update-run)'s install with both host keys, then steps 10 to 12, 18:03:06 to 18:04:53 UTC. Each step printed what it expected before it ran. A first attempt at 17:51 stopped at the install: the install script was not executable, and nothing on the orchestrator had changed but the copied files. The install that ran took both host keys. The script's path without them was added after the run and tested on the workstation with stubs: it makes a key, two keys are pinned, and a key in another form is refused.
+
+| Step | Expected | Seen |
+| --- | --- | --- |
+| Install | The existing key's fingerprint, `root 700`, the command's SHA-256 equal to the checkout's, both pins | As expected. The key is the one made at 15:24, `SHA256:uCvSmvHu...` |
+| NetBox VM, 18:03:09 to 18:04:33 | Lists and packages from the Azure mirror, `podman`, `postgresql-18`, and `valkey-server` installed, an upgrade, `security_updates_pending=0`, exit 0 | As expected. 45 packages installed, `podman` `5.7.0+ds2-3build1`, `postgresql-18` `18.6-0ubuntu0.26.04.1`, `valkey-server` `9.0.4-0ubuntu0.2`. Then `zlib1g` and `libnss3` upgraded. `reboot_required=no` |
+| Lab VM, 18:04:34 to 18:04:46 | The same, with nothing extra | `zlib1g` and `libnss3` upgraded. `security_updates_pending=0`, `reboot_required=no` |
+| The orchestrator's journal | A start and an end line per target | As expected, each end with `status=0` |
+| Squid's log, from `10.40.0.4` since the first run | `GET` to `azure.archive.ubuntu.com` only, and no refusal | `133 TCP_MISS/200` and `2 TCP_MISS/304`, all `GET` to `azure.archive.ubuntu.com` |
+| A listener on 3129 on either target afterwards | None | `0` on each |
+| Reboot | Only where asked for | Neither target asked |
+
+Squid's log names the orchestrator for every request, as ADR 0036 says. The journal's start and end lines are what tie each request to a target.
+
+### Every check
+
+On the live system, from the branch with the changes uncommitted, ending at 18:12 UTC: `386 passed, 0 failed`. `E.17`, `E.18`, `VN.20`, `VL.20`, `U.14`, and `U.15` passed after failing at 17:30. Every earlier target check passed on the rebuilt VMs too, the first run of first boot from the template on new VMs after the first build.
+
+### Not verified
+
+- The pending count and the reboot field of `U.14` and `U.15` were not seen to fail on their own. The age part failed before the first run.
+- A run that needs a reboot. Neither did.
+- A run on a target whose host key changed without a new pin. `StrictHostKeyChecking=yes` should refuse it. Not tried.
+- A run whose forward fails, for example a second run on the same target at the same time. `ExitOnForwardFailure=yes` should end it. Not tried.

@@ -22,6 +22,7 @@ The one trusted machine. It runs the cluster, copies software to the other machi
 | `aisec-pod-egress` | Loads the host rule that drops forwarded traffic from pods to anything but pods, and traffic from pods to the host except ports 6443 and 10250 | [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md), [ADR 0023](../decisions/0023-the-host-rule-limits-what-pods-reach-on-the-host.md), [containment](../validation/containment.md#the-orchestrators-side) |
 | `aisec-audit-copy` | Copies the tool service's audit lines into an append-only file. Running since 2026-10-16 (`L.1`) | [Audit log](../security/audit-log.md) |
 | `aisec-journal-pull.timer` | Pulls the worker's journal every five minutes into an append-only file. Running since 2026-10-16 (`J.1`) | [Audit log](../security/audit-log.md#the-workers-journal) |
+| `aisec-target-update-run` | Not a service: a command the operator runs as root. One update run on a target, through a forward of Squid's target port, with the targets' update key and their pinned host keys. Installed by `platform/target-update/install-target-update.sh`, not by first boot. First run on 2026-10-24 (`E.17`, `E.18`) | [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md), [targets runbook](../runbooks/targets.md#update-run) |
 | The Azure Monitor agent | Sends the audit copy, the worker's journal copy, syslog, and CPU, memory, and disk use to the workspace over Private Link, since 2026-10-17 (`O` checks) | [Monitoring](monitoring.md) |
 | `ssh` | Administration. The administrator account takes only the operator's certificate, and may forward to the API server on loopback and nowhere else, since 2026-10-16 (`HO.17`, `A.8`) | [Validation: host hardening](../validation/host-hardening.md), [access](../validation/access.md) |
 
@@ -41,13 +42,14 @@ About 20 minutes after boot, with an empty cluster: 1.0 of 7.9 GiB memory used, 
 
 ## Validation
 
-`A`, `K`, `E`, `P.12` to `P.15`, `U.1`, `U.10`, `U.11`, `T`, `L`, `J`, and `HO` in the [validation pages](../validation/README.md).
+`A`, `K`, `E`, `P.12` to `P.15`, `P.23` to `P.27`, `U.1`, `U.10`, `U.11`, `T`, `L`, `J`, and `HO` in the [validation pages](../validation/README.md).
 
 ## Limits
 
 - **It is the supply chain.** What it copies to the worker and the targets is what runs there.
 - **A compromise of it is not contained.** It holds every credential that matters. Its mesh node moved to the router, and its way out to the edge, on 2026-10-17 ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md), [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm)). During a fetch window it can still upload to a listed host (T40).
 - **No encryption at host.** The subscription feature is not registered.
+- **A rebuild loses the update run and its key.** First boot installs neither. The [targets runbook](../runbooks/targets.md#the-update-key) installs the command again, and a new key means rebuilding the targets with its public half.
 - **Rebuilt once, with an empty cluster.** The [rebuild](../worklogs/0002-platform-compute.md#orchestrator-rebuild) on 2026-10-13 proves the template. It says nothing about bringing workloads back.
 
 ## Official documentation

@@ -4,7 +4,7 @@ The NetBox VM and the lab VM. Each runs what a lab target needs and reaches noth
 
 The checks are the same list on each VM: `VN` on the NetBox VM, `VL` on the lab VM. The hardening checks on the same VMs are `HN` and `HL` on [host hardening](host-hardening.md). The orchestrator's side of the same paths is `E.15` and `E.16` on [containment](containment.md#the-orchestrators-side), and the effective rules on each interface are `Z.27` and `Z.28`.
 
-Each check was seen to fail on 2026-10-24, on the live system, with a copy of the script that fed it a broken input: another file, another account, a port that listens, or a field it does not compare ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-checks-for-the-targets)).
+Each check was seen to fail on 2026-10-24, on the live system, with a copy of the script that fed it a broken input: another file, another account, a port that listens, or a field it does not compare ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-checks-for-the-targets)). `.20`, `U.14`, and `U.15` failed on the live system before the first update run, and passed after it ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-update-run)). The pending count and the reboot field of `U.14` and `U.15` have not been seen to fail on their own.
 
 ## Access
 
@@ -35,7 +35,11 @@ The orchestrator's update key logs in to `aisec-update`. The limits are set twic
 | `.11` | apt uses the port an update run forwards | apt reaches the mirror through the orchestrator's session, and through nothing else | `apt-config dump` holds `Acquire::http::Proxy "http://127.0.0.1:3129"` once |
 | `.12` | Nothing listens on the forwarded port between update runs | A listener there is a session left open, or a process in the forward's place that apt would trust | `ss` lists no listener on port 3129 |
 
-Whether security updates are pending is not checked yet. It needs the first update run.
+| ID | Claim | Why it matters | How it is checked |
+| --- | --- | --- | --- |
+| `U.14`, `U.15` | An update run in the last 7 days on the NetBox VM and on the lab VM, no security update pending, no reboot required | Nothing updates a target between runs. A missed run, a run that failed, or a kernel update not yet booted shows here, as `U.1` does on the platform VMs | apt's `update-success-stamp`, touched after each successful package list refresh, is newer than first boot's marker and at most 7 days old. The image build touched it too, so only a refresh on the VM counts. `apt list --upgradable` has nothing from the security suite, and `/run/reboot-required` does not exist. Before the first run on 2026-10-24 both read `no 0 no` |
+
+The list `apt list` reads is the one the last run left, so the count says what was pending then, not today. The 7 days bound that.
 
 ## No way out
 
@@ -54,4 +58,5 @@ Each far end listens: `1.1.1.1` on 443, Azure DNS (it answers the edge), Squid o
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
 | `.18` | First boot ran to its end | First boot stops at its first error, and the marker is its last line | `/var/lib/aisec-first-boot.done` exists, owned by root |
+| `.20` | apt's sources name only the mirror the target port serves | Squid's target port refuses every other host (`P.24`), so another source fails each update run ([troubleshooting 16](../troubleshooting/16-targets-apt-sources-fall-back-without-dns.md)) | Every `URIs:` and `deb` line under `/etc/apt` names `http://azure.archive.ubuntu.com/ubuntu/` |
 | `.19` | No log agent | Nothing on the targets reaches Azure Monitor, so an agent there could only fail. What the targets log stays on them. Operator sessions to the targets in the audit log are an [open item](../security/accepted-risks.md#open-items) | `dpkg-query` does not report `azuremonitoragent` installed |
