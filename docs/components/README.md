@@ -44,7 +44,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | Component | Version | Pinned in | Moves | Checked |
 | --- | --- | --- | --- | --- |
 | Terraform | 1.17.0, released on 2026-10-21. Checked against HashiCorp's signed checksums | `versions.tf` in each root, and the checks workflow | By hand | 2026-10-24 |
-| `hashicorp/azurerm` | 5.10.0. Newest: 5.11.0, released on 2026-10-23 | `versions.tf` and the lock files | Dependabot, weekly | 2026-10-24 |
+| `hashicorp/azurerm` | 5.11.0, released on 2026-10-23 | `versions.tf` and the lock files | Dependabot, weekly | 2026-10-24 |
 | `hashicorp/azuread` | 3.10.0 | The same | Dependabot, weekly | 2026-10-24 |
 | `hashicorp/random` | 3.9.1 | The same | Dependabot, weekly | 2026-10-24 |
 | Ubuntu image | 26.04 LTS, `26.04.202610070`. The release offer in Sweden Central has `26.04.202610220`, read on 2026-10-24, which the pin takes at the next rebuild. The daily builds offer newer versions that the release offer does not have ([troubleshooting 01](../troubleshooting/01-image-version-only-in-daily-offer.md)) | `infra/platform/variables.tf` | By hand, and only at a rebuild | 2026-10-24 |
