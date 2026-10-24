@@ -31,6 +31,7 @@ The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.
 | Orchestrator | Outbound | Deny | The internet, Azure DNS | `deny-to-internet`, `deny-to-azure-dns` |
 | Orchestrator | Outbound | Allow | TCP 22 to the worker subnet and the target network | `allow-ssh-to-worker`, `allow-ssh-to-targets` |
 | Orchestrator | Outbound | Allow | TCP 3128 to the edge subnet | `allow-proxy-to-edge` |
+| Orchestrator | Outbound | Allow | TCP 443 to the monitoring subnet, the log agent | `allow-monitoring-private-endpoint` |
 | Worker | Inbound | Deny | Anything from the target network | `deny-from-targets` |
 | Worker | Inbound | Allow | TCP 22 from the orchestrator subnet and the router subnet | `allow-ssh-from-orchestrator`, `allow-ssh-from-router` |
 | Worker | Outbound | Deny | The target network, the internet, Azure DNS | `deny-to-targets`, `deny-to-internet`, `deny-to-azure-dns` |
@@ -38,14 +39,18 @@ The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.
 | Worker | Outbound | Allow | TCP 30443 to the orchestrator subnet | `allow-tool-service-to-orchestrator` |
 | Router | Outbound | Allow | TCP 443 and 80 to the internet, through the edge network's NAT gateway | `allow-https-to-internet`, `allow-http-to-internet` |
 | Router | Outbound | Allow | TCP 22 to the platform network, the target network, and the edge subnet | `allow-ssh-to-platform`, `allow-ssh-to-targets`, `allow-ssh-to-edge` |
+| Router | Outbound | Allow | TCP 443 to the monitoring subnet, the log agent | `allow-monitoring-private-endpoint` |
 | Router | Inbound | Allow | Nothing | |
 | Edge | Inbound | Deny | Anything from the target network | `deny-from-targets` |
 | Edge | Inbound | Allow | TCP 3128 from the orchestrator subnet and the worker subnet | `allow-proxy-from-orchestrator`, `allow-proxy-from-worker` |
 | Edge | Inbound | Allow | TCP 22 from the router subnet | `allow-ssh-from-router` |
 | Edge | Outbound | Allow | TCP 443 and 80 to the internet, through the NAT gateway. Azure DNS is not denied: Squid resolves names | `allow-https-to-internet`, `allow-http-to-internet` |
-| All four | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
+| Edge | Outbound | Allow | TCP 443 to the monitoring subnet, the log agent | `allow-monitoring-private-endpoint` |
+| Monitoring | Inbound | Deny | Anything from the target network | `deny-from-targets` |
+| Monitoring | Inbound | Allow | TCP 443 from the orchestrator subnet, the edge subnet, and the router subnet, to the private endpoint | `allow-agents-from-orchestrator`, `allow-agents-from-edge`, `allow-agents-from-router` |
+| All five | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
 
-The table is read from `infra/platform/main.tf` and `infra/platform/edge.tf` on 2026-10-17. `Z.4`, `Z.5`, `Z.16`, and `Z.20` compare each group's effective rules with its configured ones. `Z.21` counts what is allowed into the edge, and `Z.22` and `Z.23` test the orchestrator's paths.
+The table is read from `infra/platform/main.tf` and `infra/platform/edge.tf` on 2026-10-24. `Z.4`, `Z.5`, `Z.16`, and `Z.20` compare the effective rules on each VM's interface with its group's configured ones. The monitoring group protects a private endpoint, not a VM, and no check compares its rules ([#178](https://github.com/sindredg/ai-security-platform/issues/178)). `Z.21` counts what is allowed into the edge, and `Z.22` and `Z.23` test the orchestrator's paths.
 
 Administration arrives from the router subnet, translated to the router's address. The router has no inbound allow: its mesh tunnel is opened outbound (`Z.17`).
 
