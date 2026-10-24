@@ -43,7 +43,7 @@ llama.cpp v0.7.0, build `b11669`, serves Qwen3.5-4B, quantized to `Q4_K_M`, on `
 
 ## The agent runtime
 
-Goose 1.55.0, one static binary. It is not a service. A job starts it: the workflow's dispatch step opens an SSH session to the job runner, and the runner hands the job line to a socket that starts one sandboxed unit for that job. The job program in the unit checks the job, writes the recipe, runs Goose, and writes one result line back the same way ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)).
+Goose 1.56.0, one static binary. It is not a service. A job starts it: the workflow's dispatch step opens an SSH session to the job runner, and the runner hands the job line to a socket that starts one sandboxed unit for that job. The job program in the unit checks the job, writes the recipe, runs Goose, and writes one result line back the same way ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)).
 
 ![One dispatched job: the dispatch step on the orchestrator opens an SSH session to the job runner on the worker, which hands the job over a socket to a sandboxed unit started for that job. The job program checks it and runs Goose, which calls the model server on 127.0.0.1 port 8080 and the tool service on the orchestrator on port 30443 with the job's token. The result goes back the same way](../diagrams/agent-run.svg)
 
@@ -51,7 +51,7 @@ The diagram source is [`diagrams/agent-run.html`](../diagrams/agent-run.html). T
 
 | | |
 | --- | --- |
-| Binary | `/opt/aisec/goose/goose-1.55.0/goose`, the project's release build, checked against the release's digest on the orchestrator and again on the worker. The unpacked binary has its own pin, which the install checks, and `G.1` on every check run |
+| Binary | `/opt/aisec/goose/goose-1.56.0/goose`, the project's release build, checked against the release's digest on the orchestrator and again on the worker. The unpacked binary has its own pin, which the install checks, and `G.1` on every check run |
 | Unit | For a job, `aisec-agent-job@`, started by the socket: a throwaway account, a read-only file system, localhost and the orchestrator only, a 2 GB memory limit, a 30-minute time limit. For a run by hand, `aisec-agent-job`, transient, localhost only, with a 15-minute time limit. Exposure score 1.3 for the transient unit, the same as the model server |
 | Tools | For the fixture run: one, named on the command line. `--no-profile` keeps Goose from loading its own, including the one that runs shell commands, and also disables tools declared in a recipe. For a dispatched job: the recipe's one extension, the tool service, with an empty configuration directory in place of `--no-profile`. Goose adds its own `load_skill` to a dispatched job, which no recipe removes ([#139](https://github.com/sindredg/ai-security-platform/issues/139)). The job program refuses a task with template syntax, which Goose would render into the recipe, and one that Goose would run as a shell or slash command |
 | Session | Goose writes a session database and a log of every prompt, even when told to keep no session. Both land in the unit's private `/tmp`, which systemd deletes when the unit stops |

@@ -48,11 +48,13 @@ SECONDS = range(60, 1201)
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 TOKEN = re.compile(r"[0-9a-f]{64}")
 FIELDS = {"job", "token", "task", "max_turns", "seconds"}
-# Goose 1.55.0 renders the recipe file as a MiniJinja template before it parses
+# Goose renders the recipe file as a MiniJinja template before it parses
 # it, so template syntax in the task would run, and its output could replace
 # the recipe. It also runs a first message that starts with "!" as a shell
 # command, and one that starts with "/" as a slash command, after white space.
-# Python's strip removes every character Rust's does, and a few more.
+# Python's strip removes every character Rust's does, and a few more. Read in
+# Goose 1.55.0's source. In 1.56.0 the recipe code is the same, and the
+# session code changed only to report status to a terminal.
 TEMPLATE = re.compile(r"\{[{%#]")
 COMMAND_PREFIXES = ("!", "/")
 

@@ -2,6 +2,6 @@
 # under the staging directory, source URL. fetch.sh refuses a file that does not
 # match.
 #
-# Goose 1.55.0, from the project's release pipeline. The checksum is the digest
+# Goose 1.56.0, from the project's release pipeline. The checksum is the digest
 # the release lists for the file.
-56b1f79254aef3ddfec1532b7703c1cea9599a3299e716e141f3965801f77786	goose/goose-aarch64-unknown-linux-musl.tar.gz	https://github.com/aaif-goose/goose/releases/download/v1.55.0/goose-aarch64-unknown-linux-musl.tar.gz
+a3e86032aa147aa511b0d996e4540bcd19baf037c66f33f995a2127edc935ec3	goose/goose-aarch64-unknown-linux-musl.tar.gz	https://github.com/aaif-goose/goose/releases/download/v1.56.0/goose-aarch64-unknown-linux-musl.tar.gz
