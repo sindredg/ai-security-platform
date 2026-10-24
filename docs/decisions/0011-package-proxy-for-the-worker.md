@@ -37,7 +37,7 @@ The orchestrator runs a forward proxy for the worker's package manager. The work
 - **The worker:** `apt` is pointed at the proxy. The image's unattended upgrades do the rest.
 - **The SOCKS forward is gone.** The worker's SSH daemon refuses TCP forwarding again.
 
-The targets do not get this path. A target may not open a connection into the platform network, and that rule is worth more than convenient patching of machines that are weak on purpose. How they are kept current is a milestone 4 decision. Rebuilding them from a seed is the likely answer.
+The targets do not get this path. A target may not open a connection into the platform network, and that rule is worth more than convenient patching of machines that are weak on purpose. How they are kept current is a milestone 4 decision. Rebuilding them from a seed is the likely answer. [0036](0036-target-packages-through-a-port-the-orchestrator-forwards.md) decides it.
 
 Plain HTTP is enough here. `apt` verifies every package against signed repository metadata, so the proxy cannot change what gets installed without the signature check failing.
 
