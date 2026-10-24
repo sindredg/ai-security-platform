@@ -42,6 +42,17 @@ module "edge_network" {
           description                = "The worker's packages. Squid forwards them to two package hosts and nothing else."
         },
         {
+          name                       = "allow-target-packages-from-orchestrator"
+          priority                   = 1030
+          direction                  = "Inbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = "${local.orchestrator_ip}/32"
+          destination_address_prefix = local.edge_prefix
+          destination_port_range     = "3129"
+          description                = "The targets' packages, forwarded by the orchestrator. Squid serves one mirror on this port (ADR 0036)."
+        },
+        {
           name                       = "allow-https-to-internet"
           priority                   = 1000
           direction                  = "Outbound"

@@ -72,12 +72,18 @@ write_files:
   # orchestrator gets its own package host, and a tunnel to the hosts in the
   # fetch list only while the operator holds a fetch window open. Squid
   # resolves every name, so neither client needs DNS.
+  #
+  # Port 3129 carries the targets' packages, which the orchestrator forwards
+  # over SSH (ADR 0036). It serves the orchestrator's mirror and nothing else.
+  # Its rules come before the fetch window's, so a window does not open it.
   - path: /etc/squid/squid.conf
     permissions: "0644"
     content: |
       http_port ${edge_ip}:3128
+      http_port ${edge_ip}:3129 name=target-packages
       acl worker src ${worker_prefix}
       acl orchestrator src ${orchestrator_ip}/32
+      acl target_packages myportname target-packages
       acl worker_repositories dstdomain archive.ubuntu.com security.ubuntu.com
       acl orchestrator_repositories dstdomain azure.archive.ubuntu.com
       acl fetch_hosts dstdomain "/etc/squid/aisec-fetch-hosts"
@@ -85,6 +91,8 @@ write_files:
       acl tls_port port 443
       acl downloads method GET HEAD
       http_access deny !worker !orchestrator
+      http_access allow target_packages orchestrator orchestrator_repositories plain_http downloads
+      http_access deny target_packages
       include /run/aisec/fetch-window.conf
       http_access deny CONNECT
       http_access deny !plain_http

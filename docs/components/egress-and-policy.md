@@ -19,7 +19,7 @@ One outbound path for the whole system: a NAT gateway on the edge network, used 
 
 ## Rules on the platform side
 
-![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else drawn is denied. The log agents' port 443 to the monitoring private endpoint is not drawn](../diagrams/network-flows.svg)
+![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the orchestrator also reaches port 3129 on the edge for the targets' packages, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else drawn is denied. The log agents' port 443 to the monitoring private endpoint is not drawn](../diagrams/network-flows.svg)
 
 The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). The table below names the rule behind each path.
 
@@ -31,6 +31,7 @@ The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.
 | Orchestrator | Outbound | Deny | The internet, Azure DNS | `deny-to-internet`, `deny-to-azure-dns` |
 | Orchestrator | Outbound | Allow | TCP 22 to the worker subnet and the target network | `allow-ssh-to-worker`, `allow-ssh-to-targets` |
 | Orchestrator | Outbound | Allow | TCP 3128 to the edge subnet | `allow-proxy-to-edge` |
+| Orchestrator | Outbound | Allow | TCP 3129 from the orchestrator's address to the edge subnet, the targets' packages | `allow-target-packages-to-edge` |
 | Orchestrator | Outbound | Allow | TCP 443 to the monitoring subnet, the log agent | `allow-monitoring-private-endpoint` |
 | Worker | Inbound | Deny | Anything from the target network | `deny-from-targets` |
 | Worker | Inbound | Allow | TCP 22 from the orchestrator subnet and the router subnet | `allow-ssh-from-orchestrator`, `allow-ssh-from-router` |
@@ -43,6 +44,7 @@ The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.
 | Router | Inbound | Allow | Nothing | |
 | Edge | Inbound | Deny | Anything from the target network | `deny-from-targets` |
 | Edge | Inbound | Allow | TCP 3128 from the orchestrator subnet and the worker subnet | `allow-proxy-from-orchestrator`, `allow-proxy-from-worker` |
+| Edge | Inbound | Allow | TCP 3129 from the orchestrator's address, the targets' packages | `allow-target-packages-from-orchestrator` |
 | Edge | Inbound | Allow | TCP 22 from the router subnet | `allow-ssh-from-router` |
 | Edge | Outbound | Allow | TCP 443 and 80 to the internet, through the NAT gateway. Azure DNS is not denied: Squid resolves names | `allow-https-to-internet`, `allow-http-to-internet` |
 | Edge | Outbound | Allow | TCP 443 to the monitoring subnet, the log agent | `allow-monitoring-private-endpoint` |

@@ -1,15 +1,16 @@
 # Package proxy
 
-The orchestrator's and the worker's only outbound access: Squid on the edge VM, which forwards package downloads, and tunnels for the orchestrator during a fetch window. The design is [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) for the worker and [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) for the edge and the orchestrator. It is the exception to T05 and T17, so it gets its own checks.
+The orchestrator's and the worker's only outbound access: Squid on the edge VM, which forwards package downloads, and tunnels for the orchestrator during a fetch window. A second port serves the targets' packages. The design is [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) for the worker, [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) for the edge and the orchestrator, and [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md) for the targets' port. It is the exception to T05 and T17, so it gets its own checks.
 
 ## On the edge
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
 | `P.1` | Squid is active | Updates and fetches stop without it | `systemctl is-active` |
-| `P.2` | Squid listens on the edge's private address only | Not on every address | The only listener on 3128 is `10.45.0.4:3128` |
+| `P.2` | Squid listens on the edge's private address only | Not on every address | The listeners on 3128 and 3129 are `10.45.0.4:3128` and `10.45.0.4:3129`, and nothing else |
 | `P.3` | Squid cannot gain privileges | It is the one service the orchestrator and the worker can reach on the edge | `NoNewPrivileges` is `yes` on the unit |
 | `P.4` | Squid refuses a client outside the two subnets | Nothing else gets to use it | A request from the edge's own address returns 403 |
+| `P.29` | Squid refuses the target port to any client but the orchestrator | The port's rules name the orchestrator. The worker's own rules drop it first (`P.28`), so this shows Squid's half | A request to the mirror on 3129 from the edge's own address returns 403 |
 | `P.16` | No fetch window is open | The checks run between windows. A window left open is an upload path left open (T40) | `/run/aisec/fetch-window.conf` is root's, mode `644`, and empty, and the close timer is `inactive`. During a window this check fails, on purpose |
 | `P.17` | The fetch window command is root's and the one in this checkout | Root on the edge is the only one who opens a window. The command has to be the reviewed one | Owner and mode `root 700`, and the SHA-256 of `/usr/local/sbin/aisec-fetch-window` equals that of `edge/aisec-fetch-window` |
 | `P.18` | Squid's fetch host list is the one in this checkout | A name added on the edge alone would open a host nobody reviewed | The SHA-256 of `/etc/squid/aisec-fetch-hosts` equals that of `edge/fetch-hosts` |
@@ -28,6 +29,7 @@ The orchestrator's and the worker's only outbound access: Squid on the edge VM, 
 | `P.9` | The proxy refuses an upload | Package hosts accept uploads. The proxy does not pass them | A `POST` to a package host returns 403 |
 | `P.10` | The proxy refuses another port | Only plain package downloads | Port 8080 on a package host returns 403 |
 | `P.11` | The proxy refuses a tunnel | A tunnel would carry anything | `CONNECT` returns 403 |
+| `P.28` | The worker's rules drop the target port on the edge | The port is the orchestrator's, for the targets. The worker keeps its own path | TCP to `10.45.0.4:3129` times out. Squid listens there (`P.2`), so `refused` would mean the packet reached the edge |
 
 ## From the orchestrator
 
@@ -37,6 +39,18 @@ The orchestrator's and the worker's only outbound access: Squid on the edge VM, 
 | `P.13` | The edge serves the orchestrator's package mirror | Its unattended upgrades keep working | A release file from `azure.archive.ubuntu.com` returns 200 |
 | `P.14` | The edge refuses the orchestrator another host | Its standing list is one mirror and nothing else | A release file from `archive.ubuntu.com`, the worker's host, returns 403 |
 | `P.15` | The edge refuses the orchestrator a tunnel while no window is open | Every upload host is behind a tunnel | `CONNECT` to `github.com:443` returns 403. During a window this check fails, on purpose |
+
+## The targets' port, from the orchestrator
+
+An update run forwards port 3129 from a target's loopback address, so the target's requests arrive from the orchestrator ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)). These checks send the same requests from the orchestrator itself.
+
+| ID | Claim | Why it matters | How it is checked |
+| --- | --- | --- | --- |
+| `P.23` | The target port serves the orchestrator's mirror | The targets' update runs work | A release file from `azure.archive.ubuntu.com` through `10.45.0.4:3129` returns 200 |
+| `P.24` | The target port refuses another host | A target reaches one mirror and nothing else | A release file from `archive.ubuntu.com` returns 403 |
+| `P.25` | The target port refuses an upload | As `P.9` | A `POST` to the mirror returns 403 |
+| `P.26` | The target port refuses another port | As `P.10` | Port 8080 on the mirror returns 403 |
+| `P.27` | The target port refuses a tunnel | A target is assumed compromised. A tunnel from it would reach the fetch hosts during a window | `CONNECT` to `github.com:443` returns 403. The port's rules come before the fetch window's, so this holds during a window too. The checks do not open one: the [edge runbook](../runbooks/edge-vm.md#the-targets-package-port) step does |
 
 ## Updates
 
@@ -61,6 +75,6 @@ The orchestrator's and the worker's only outbound access: Squid on the edge VM, 
 ## Limits of these checks
 
 - `P.22` reads Squid's journal. Root on the edge can change the journal and the change times, as it can change anything these checks read. A journal that has lost Squid's start lines fails the check.
-- `P.15` and `P.16` cannot show that a window opens, or that a close ends its tunnels. Opening one changes state, and the checks only read. The [edge runbook](../runbooks/edge-vm.md#open-a-fetch-window) has that step.
+- `P.15` and `P.16` cannot show that a window opens, or that a close ends its tunnels. `P.27` cannot show that a window leaves the target port closed. Opening one changes state, and the checks only read. The [edge runbook](../runbooks/edge-vm.md#open-a-fetch-window) has that step.
 - `U.1` and `U.5` read the package lists on the machine. If the daily refresh has stopped, the lists are stale and the check still passes. Nothing alerts on a refresh that stopped.
 - `U.2` is also a gap: a held package gets no security fixes until someone moves the pin. `U.7` catches that for the mesh agent. Nothing catches it for the pinned K3s release.

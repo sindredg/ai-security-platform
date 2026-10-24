@@ -1,16 +1,16 @@
 # Package proxy
 
-The platform's one way to the internet for the orchestrator and the worker. Squid on the edge VM forwards package downloads to the Ubuntu mirrors, and, while the operator holds a fetch window open, tunnels from the orchestrator to the build and deploy hosts. It refuses everything else.
+The platform's one way to the internet for the orchestrator and the worker. Squid on the edge VM forwards package downloads to the Ubuntu mirrors, and, while the operator holds a fetch window open, tunnels from the orchestrator to the build and deploy hosts. A second port serves the targets' packages, which the orchestrator forwards to a target during an update run ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)). It refuses everything else.
 
 | | |
 | --- | --- |
-| State | Built. Verified by `P` and `U` on 2026-10-17 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm)). Since 2026-10-18, `P.20` to `P.22` also show that Squid runs the reviewed configuration, not only that the file is the reviewed one ([worklog](../worklogs/0004-edge-network-and-monitoring.md#before-the-ai-part)) |
+| State | Built. Verified by `P` and `U` on 2026-10-17 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm)). Since 2026-10-18, `P.20` to `P.22` also show that Squid runs the reviewed configuration, not only that the file is the reviewed one ([worklog](../worklogs/0004-edge-network-and-monitoring.md#before-the-ai-part)). The targets' port is built since 2026-10-24, verified by `P.23` to `P.29` ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-targets-package-port)) |
 | Runs on | The edge VM, `Standard_B2als_v2` at `10.45.0.4` in Denmark East. Squid and nothing else: no mesh agent, no workload, no credential |
 | Software | Squid 7.2, from the Ubuntu `main` repository |
 | Version | Not pinned. The archive drops superseded versions, and a pin would hold back security fixes |
-| Listens on | `10.45.0.4:3128` only |
+| Listens on | `10.45.0.4:3128`, and `10.45.0.4:3129` for the targets' packages. Nothing else |
 | Configuration | `/etc/squid/squid.conf`, the fetch host list from `edge/fetch-hosts`, and a systemd sandbox, all from cloud-init (`infra/platform/cloud-init/edge.yaml.tftpl`) |
-| Decisions | [0011](../decisions/0011-package-proxy-for-the-worker.md) for the worker's rules, [0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) for the edge VM, the orchestrator's rules, and the fetch window |
+| Decisions | [0011](../decisions/0011-package-proxy-for-the-worker.md) for the worker's rules, [0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) for the edge VM, the orchestrator's rules, and the fetch window, [0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md) for the targets' port |
 
 ![How a package reaches the worker: from apt on the worker to Squid on the edge VM over TCP 3128, through the edge network's NAT gateway to two Ubuntu package hosts, with every other request refused](../diagrams/update-path.svg)
 
@@ -23,6 +23,8 @@ The diagram source is [`diagrams/update-path.html`](../diagrams/update-path.html
 | `GET` or `HEAD` on port 80 to `archive.ubuntu.com` or `security.ubuntu.com` | The worker subnet | Forwarded |
 | `GET` or `HEAD` on port 80 to `azure.archive.ubuntu.com` | The orchestrator, `10.40.0.4` | Forwarded |
 | `CONNECT` on port 443 to a host in `edge/fetch-hosts` | The orchestrator, while a fetch window is open | Tunnelled |
+| `GET` or `HEAD` on port 80 to `azure.archive.ubuntu.com`, on port 3129 | The orchestrator, for a target during an update run | Forwarded. A fetch window does not change this port's answers |
+| Anything else on port 3129 | Either | 403 |
 | Any other host, port, or method, and any other `CONNECT` | Either | 403 |
 | Anything | Any other address, the edge itself included | 403 |
 

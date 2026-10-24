@@ -45,6 +45,9 @@ WORK_PREFIX=10.40.0.32/27
 ROUTES="10.40.0.0/20 10.45.0.0/27 10.50.0.0/20"
 # Squid on the edge, for the worker and the orchestrator (ADR 0020).
 PROXY="http://$EDGE_IP:3128"
+# Squid's port for the targets' packages, which the orchestrator forwards to a
+# target during an update run (ADR 0036).
+TARGET_PROXY="http://$EDGE_IP:3129"
 MODEL_UNIT=aisec-llama-server
 MODEL_PORT=8080
 TOOL_PORT=30443
@@ -265,6 +268,11 @@ code() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 "$@"; }
 echo "proxy_own_mirror=$(code -x '"$PROXY"' http://azure.archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
 echo "proxy_worker_mirror=$(code -x '"$PROXY"' http://archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
 echo "proxy_tunnel=$(curl -s -o /dev/null -w "%{http_connect}" --max-time 8 -x '"$PROXY"' https://github.com/ 2>/dev/null)"
+echo "target_proxy_mirror=$(code -x '"$TARGET_PROXY"' http://azure.archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
+echo "target_proxy_other_host=$(code -x '"$TARGET_PROXY"' http://archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
+echo "target_proxy_post=$(code -x '"$TARGET_PROXY"' -X POST -d x http://azure.archive.ubuntu.com/ubuntu/)"
+echo "target_proxy_other_port=$(code -x '"$TARGET_PROXY"' http://azure.archive.ubuntu.com:8080/)"
+echo "target_proxy_tunnel=$(curl -s -o /dev/null -w "%{http_connect}" --max-time 8 -x '"$TARGET_PROXY"' https://github.com/ 2>/dev/null)"
 echo "apt_proxy=$(apt-config dump 2>/dev/null | grep -c "Acquire::http::Proxy \"'"$PROXY"'\"")"
 echo "containerd_proxy=$(tr "\0" "\n" < /proc/$(pidof containerd)/environ 2>/dev/null | sed -n "s/^HTTPS_PROXY=//p")"
 echo "azure_dns=$(tcp 168.63.129.16 53)"
@@ -372,6 +380,7 @@ echo "orchestrator_ssh=$(tcp '"$ORCH_IP"' 22)"
 echo "orchestrator_api=$(tcp '"$ORCH_IP"' 6443)"
 echo "orchestrator_kubelet=$(tcp '"$ORCH_IP"' 10250)"
 echo "edge_proxy=$(tcp '"$EDGE_IP"' 3128)"
+echo "edge_target_proxy=$(tcp '"$EDGE_IP"' 3129)"
 echo "proxy_archive=$(code -x '"$PROXY"' http://archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
 echo "proxy_security=$(code -x '"$PROXY"' http://security.ubuntu.com/ubuntu/dists/resolute-security/InRelease)"
 echo "proxy_other_host=$(code -x '"$PROXY"' http://example.com/)"
@@ -443,10 +452,11 @@ echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- 
 probe_edge="$probe_common"'
 code() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 "$@"; }
 echo "unit_squid=$(systemctl is-active squid)"
-echo "squid_listen=$(ss -ltn | awk "{print \$4}" | grep ":3128$" | tr "\n" " " | sed "s/ $//")"
+echo "squid_listen=$(ss -ltn | awk "{print \$4}" | grep -E ":312[89]$" | sort | tr "\n" " " | sed "s/ $//")"
 echo "squid_no_new_privileges=$(systemctl show squid -p NoNewPrivileges --value)"
 # The edge itself is neither client, so Squid refuses it.
 echo "squid_from_edge=$(code -x '"$PROXY"' http://azure.archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
+echo "squid_from_edge_target_port=$(code -x '"$TARGET_PROXY"' http://azure.archive.ubuntu.com/ubuntu/dists/resolute/InRelease)"
 echo "window=$(stat -c "%U %a %s" /run/aisec/fetch-window.conf 2>/dev/null) $(systemctl is-active aisec-fetch-window-close.timer 2>/dev/null)"
 echo "window_command=$(stat -c "%U %a" /usr/local/sbin/aisec-fetch-window 2>/dev/null) $(sha256sum /usr/local/sbin/aisec-fetch-window 2>/dev/null | cut -d " " -f 1)"
 echo "fetch_hosts=$(sha256sum /etc/squid/aisec-fetch-hosts 2>/dev/null | cut -d " " -f 1)"
@@ -539,6 +549,14 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # A procedure step opens a window and sees 200. The checks only read, so a
   # window open while they run shows here as a failure.
   check P.15 "The edge refuses the orchestrator a tunnel while no window is open" 403 "$(value proxy_tunnel)"
+  # Port 3129, which an update run forwards to a target (ADR 0036). Its rules
+  # come before the fetch window's, so P.27 holds during a window too. A
+  # runbook step shows that, because the checks do not open one.
+  check P.23 "The target port serves the orchestrator's mirror" 200 "$(value target_proxy_mirror)"
+  check P.24 "The target port refuses another host" 403 "$(value target_proxy_other_host)"
+  check P.25 "The target port refuses an upload" 403 "$(value target_proxy_post)"
+  check P.26 "The target port refuses another port" 403 "$(value target_proxy_other_port)"
+  check P.27 "The target port refuses a tunnel" 403 "$(value target_proxy_tunnel)"
   check U.10 "apt on the orchestrator uses the edge" 1 "$(value apt_proxy)"
   check U.11 "containerd pulls images through the edge" "$PROXY" "$(value containerd_proxy)"
   # The model server listens on the worker's loopback address only (S.4), so
@@ -653,6 +671,9 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check C.8 "No connection to the kubelet" timeout "$(value orchestrator_kubelet)"
   check C.9 "The worker does not forward packets" 0 "$(value ip_forward)"
   check P.5 "The worker reaches the proxy port on the edge" open "$(value edge_proxy)"
+  # Squid listens on 3129 (P.2), so a timeout is the rules. "refused" would
+  # mean the packet reached the edge.
+  check P.28 "The worker's rules drop the target port on the edge" timeout "$(value edge_target_proxy)"
   check P.6 "The proxy serves archive.ubuntu.com" 200 "$(value proxy_archive)"
   check P.7 "The proxy serves security.ubuntu.com" 200 "$(value proxy_security)"
   check P.8 "The proxy refuses another host" 403 "$(value proxy_other_host)"
@@ -775,9 +796,10 @@ if probe=$($SSH "$EDGE" 'sudo bash -s' <<<"$probe_edge" 2>/dev/null) && [ -n "$p
   check A.17 "The administrator forwards nothing on the edge" "no any" "$(value sshd_admin_forwarding)"
   check A.18 "The edge is not on the mesh VPN" 0 "$(value mesh_agent)"
   check P.1 "Squid is active" active "$(value unit_squid)"
-  check P.2 "Squid listens on the edge's private address only" "$EDGE_IP:3128" "$(value squid_listen)"
+  check P.2 "Squid listens on the edge's private address only" "$EDGE_IP:3128 $EDGE_IP:3129" "$(value squid_listen)"
   check P.3 "Squid cannot gain privileges" yes "$(value squid_no_new_privileges)"
   check P.4 "Squid refuses a client outside the two subnets" 403 "$(value squid_from_edge)"
+  check P.29 "Squid refuses the target port to any client but the orchestrator" 403 "$(value squid_from_edge_target_port)"
   # Empty file, no close timer: no window is open while the checks run.
   check P.16 "No fetch window is open" "root 644 0 inactive" "$(value window)"
   check P.17 "The fetch window command is root's and the one in this checkout" "root 700 $WINDOW_SHA" "$(value window_command)"
@@ -815,6 +837,7 @@ if [ "$workstation" = 1 ]; then
   # above). The mesh drops what its policy does not grant, so a timeout is the
   # policy. "refused" would mean the packet reached the VM.
   check M.3 "The mesh policy drops the proxy port on the edge" timeout "$(tcp $EDGE_IP 3128 6)"
+  check M.9 "The mesh policy drops the target port on the edge" timeout "$(tcp $EDGE_IP 3129 6)"
   check M.8 "The mesh policy allows SSH to the edge" open "$(tcp $EDGE_IP 22 6)"
   check M.4 "The mesh policy drops the kubelet port" timeout "$(tcp $ORCH_IP 10250 6)"
   check M.5 "The mesh policy drops the tool port" timeout "$(tcp $ORCH_IP $TOOL_PORT 6)"
@@ -933,14 +956,15 @@ print("\n".join(sorted(lines)))
     elif [ "$vm" = router ]; then
       check Z.17 "Nothing is allowed into the router" 0 "no usable answer"
     fi
-    # Into the edge: Squid from the orchestrator and the worker subnets, and
-    # SSH from the router subnet. Nothing else.
+    # Into the edge: Squid from the orchestrator and the worker subnets, its
+    # target port from the orchestrator, and SSH from the router subnet.
+    # Nothing else.
     if [ "$vm" = edge ] && [ -n "$effective" ]; then
-      check Z.21 "Only the proxy port and SSH from the router are allowed into the edge" \
-        "allow-proxy-from-orchestrator 3128-3128 allow-proxy-from-worker 3128-3128 allow-ssh-from-router 22-22" \
+      check Z.21 "Only the proxy ports and SSH from the router are allowed into the edge" \
+        "allow-proxy-from-orchestrator 3128-3128 allow-proxy-from-worker 3128-3128 allow-ssh-from-router 22-22 allow-target-packages-from-orchestrator 3129-3129" \
         "$(printf '%s\n' "$effective" | awk '$1 == "Inbound" && $3 == "Allow" { print $4, $NF }' | sort | tr '\n' ' ' | sed 's/ $//')"
     elif [ "$vm" = edge ]; then
-      check Z.21 "Only the proxy port and SSH from the router are allowed into the edge" allowed "no usable answer"
+      check Z.21 "Only the proxy ports and SSH from the router are allowed into the edge" allowed "no usable answer"
     fi
   done
   rm -f "$az_err"
@@ -957,6 +981,7 @@ print("\n".join(sorted(lines)))
   check Z.13 "Worker to the tool port is allowed by its own rule" "Allow allow-tool-service-to-orchestrator" "$(flow $ORCH_IP:$TOOL_PORT)"
   check Z.22 "Orchestrator to the internet is denied by its own rule" "Deny deny-to-internet" "$(flow 1.1.1.1:443 orchestrator $ORCH_IP)"
   check Z.23 "Orchestrator to the proxy on the edge is allowed by its own rule" "Allow allow-proxy-to-edge" "$(flow $EDGE_IP:3128 orchestrator $ORCH_IP)"
+  check Z.26 "Orchestrator to the target port on the edge is allowed by its own rule" "Allow allow-target-packages-to-edge" "$(flow $EDGE_IP:3129 orchestrator $ORCH_IP)"
 
   # A network interface with a public address, validated and never deployed.
   sub=$(az account show --query id -o tsv 2>/dev/null)

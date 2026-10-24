@@ -17,7 +17,7 @@ The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 | [K3s](k3s.md) | The cluster | Orchestrator |
 | [Mesh VPN](mesh-vpn.md) | The only way in. The agent runs alone on the router VM, [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md) | The router VM, operator devices |
 | [Egress and policy](egress-and-policy.md) | The outbound paths, and what blocks outbound access everywhere else | Azure |
-| [Package proxy](package-proxy.md) | Squid: the one way out for the orchestrator and the worker, and the fetch window, [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) | The edge VM |
+| [Package proxy](package-proxy.md) | Squid: the one way out for the orchestrator and the worker, the fetch window, and the targets' package port, [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) and [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md) | The edge VM |
 | [Deployment identities and state](identities-and-state.md) | Who can change which side | Azure, Microsoft Entra ID |
 | [Repository and pipeline](pipeline.md) | The approval channel and its checks | GitHub |
 | [Tool service](../security/tool-service.md) | A small MCP server written for this project. Authorizes every tool call from the worker | Orchestrator, in K3s |
