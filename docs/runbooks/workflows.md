@@ -1,6 +1,6 @@
 # Workflows and dispatch: operator procedure
 
-Status: Written on 2026-10-20 for [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) and [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md). Implemented on 2026-10-21, from scripts with the same commands. Steps 1 to 8 ran between 04:16 and 04:24 UTC, step 1 without the signature check, which ran on 2026-10-19. Steps 9 to 16 ran between 15:11 and 15:26 UTC, and steps 13, 14, and 7's name lookups again between 15:37 and 15:44 UTC. The first round trip, at 14:12 UTC, never started: the executor's token secret was missing ([troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md)). The UI exited without its config map ([troubleshooting 15](../troubleshooting/15-argo-server-exits-without-its-config-map.md)). Both are in the manifests now. Results are in the [worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows). [A new dispatch image](#a-new-dispatch-image) ran on 2026-10-22: steps 3, 4, 9, and 10 again ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base)), and again on 2026-10-23, for the image that reads `slot_erased`, with a job refused while the model server was stopped and a controller restart during a job ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines)).
+Status: Written on 2026-10-20 for [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) and [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md). Implemented on 2026-10-21, from scripts with the same commands. Steps 1 to 8 ran between 04:16 and 04:24 UTC, step 1 without the signature check, which ran on 2026-10-19. Steps 9 to 16 ran between 15:11 and 15:26 UTC, and steps 13, 14, and 7's name lookups again between 15:37 and 15:44 UTC. The first round trip, at 14:12 UTC, never started: the executor's token secret was missing ([troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md)). The UI exited without its config map ([troubleshooting 15](../troubleshooting/15-argo-server-exits-without-its-config-map.md)). Both are in the manifests now. Results are in the [worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows). [A new dispatch image](#a-new-dispatch-image) ran on 2026-10-22: steps 3, 4, 9, and 10 again ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base)), and again on 2026-10-23, for the image that reads `slot_erased`, with a job refused while the model server was stopped and a controller restart during a job ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines)). Steps 3, 4, 9, and 10 ran on 2026-10-24 for v4.1.6, after the signature check of step 1 on the workstation ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#argo)).
 
 Run these steps to install Argo Workflows' controller, make the dispatch key, and send a job from a workflow to the worker and back: a round trip, a cancel, and the controller's refusal of anything but the template. No cloud resource changes. The worker's side is the [agent runtime runbook](agent-runtime.md#jobs-over-the-socket), steps 8 to 12, which come first.
 
@@ -12,7 +12,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
 | The tool service, deployed | The [tool service runbook](tool-service.md). The `T` checks pass |
 | SSH to the orchestrator, the worker, and the edge | `REPLACE_WITH_SSH` below stands for the operator's `ssh` command with its options, for example `ssh -F <config>` |
 | The tunnel to the API server | `REPLACE_WITH_SSH -N -L 6443:127.0.0.1:6443 aisec-orchestrator` in its own terminal ([ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md)) |
-| Argo's command line v4.1.5 on the workstation | `argo-linux-<arch>.gz` from the release, checked against the digest the release lists for it |
+| Argo's command line v4.1.6 on the workstation | `argo-linux-<arch>.gz` from the release, checked against the digest the release lists for it |
 | cosign on the workstation, for step 1 | The newest release, checked against its listed digest. v3.1.3 on 2026-10-19 |
 | A checkout of this repository on the workstation | `platform/argo/`, `platform/dispatch/`, `worker/agent-runtime/` |
 
@@ -22,16 +22,16 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
 
    ```bash
    gh api repos/argoproj/argo-workflows/releases/latest -q .tag_name
-   gh api repos/argoproj/argo-workflows/releases/tags/v4.1.5 \
+   gh api repos/argoproj/argo-workflows/releases/tags/v4.1.6 \
      -q '.assets[] | select(.name == "namespace-install.yaml" or .name == "argo-workflows-cosign.pub") | "\(.name) \(.digest)"'
    grep ARGO_INSTALL_SHA256 platform/argo/pins.env
-   curl -sSLO https://github.com/argoproj/argo-workflows/releases/download/v4.1.5/argo-workflows-cosign.pub
+   curl -sSLO https://github.com/argoproj/argo-workflows/releases/download/v4.1.6/argo-workflows-cosign.pub
    for image in $(grep -ohE 'quay.io/argoproj/[a-z-]+@sha256:[0-9a-f]{64}' platform/argo/argo.yaml); do
      cosign verify --key argo-workflows-cosign.pub "$image" > /dev/null && echo "verified $image"
    done
    ```
 
-   Expected: `v4.1.5`, the install file's digest equal to `ARGO_INSTALL_SHA256`, and `verified` for `workflow-controller` and `argoexec`. A newer release is a decision, not a step: change the pins in a pull request first.
+   Expected: `v4.1.6`, the install file's digest equal to `ARGO_INSTALL_SHA256`, and `verified` for `workflow-controller` and `argoexec`. A newer release is a decision, not a step: change the pins in a pull request first.
 
 ## The way out
 
@@ -57,7 +57,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
    REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window close'
    ```
 
-   Expected: `open for 20 minutes`, then `ok    namespace-install.yaml (v4.1.5)` and one `ok` line for each of the three images: the controller, the executor, and the dispatch image. Then `closed`. A `TCP_DENIED` in Squid's log during the window names a host the list lacks.
+   Expected: `open for 20 minutes`, then `ok    namespace-install.yaml (v4.1.6)` and one `ok` line for each of the three images: the controller, the executor, and the dispatch image. Then `closed`. A `TCP_DENIED` in Squid's log during the window names a host the list lacks.
 
 4. Install.
 

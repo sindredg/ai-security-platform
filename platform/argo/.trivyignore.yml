@@ -1,6 +1,6 @@
 # Findings on the Argo controller's Role, accepted with their reason. Each is
 # limited to the two files that hold the Role. The Role is upstream's for
-# v4.1.5, without `secrets: get` (argo.yaml).
+# v4.1.6, without `secrets: get` (argo.yaml).
 misconfigurations:
   # Creating and deleting pods is the controller's job: a workflow step is a
   # pod. A compromised controller can therefore start a pod that mounts the
@@ -11,7 +11,7 @@ misconfigurations:
       - "argo/rbac.yaml"
     statement: The controller creates the workflow pods (ADR 0029)
   # The controller delivers a stop to a running step by running `argoexec
-  # kill` inside it (workflow/signal/signal.go at v4.1.5). Without
+  # kill` inside it (workflow/signal/signal.go at v4.1.6). Without
   # pods/exec, `argo stop` cannot end a step, and the stop is the cancel
   # ADR 0030 relies on.
   - id: KSV-0053
