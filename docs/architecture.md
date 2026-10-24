@@ -300,7 +300,7 @@ Each gets a decision record before the milestone that depends on it.
 
 | Decision | Needed before |
 | --- | --- |
-| Cloud identity for K3s workloads | Target deployment |
+| Cloud identity for K3s workloads | Target deployment, and only if a collector reads from Azure |
 | Worker isolation beyond VM separation | Connecting real target evidence |
 | NetBox version, consumer scope, seeded settings | Target deployment |
 | How the targets get packages and stay current. [ADR 0011](decisions/0011-package-proxy-for-the-worker.md) left it open | Target deployment |

@@ -48,8 +48,9 @@ env:
   ARGOCLI_IMAGE: quay.io/argoproj/argocli@sha256:e0824b55297b8d7a92351a634ff399d01349e41dc16007abdea0cc00dba7dce8
   # hadolint 2.15.1
   HADOLINT_IMAGE: hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
-  # Python 3.15.1 on Alpine 3.24. The tool service's tests run on it, and its
-  # image is built from it. tool-service/Dockerfile names the same digest.
+  # Python 3.15.1 on Alpine 3.24. The tests of the tool service and the
+  # dispatch step run on it, and both images are built from it. Both
+  # Dockerfiles name the same digest.
   PYTHON_IMAGE: python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3
   # The Python release the VMs run their host units with: Ubuntu 26.04's
   # python3. This runner is the same Ubuntu release, so its python3 is the

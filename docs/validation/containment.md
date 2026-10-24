@@ -2,7 +2,7 @@
 
 The AI worker runs untrusted model output. It gets no path to the internet, to the targets, or to a name server, and two ports: the tool service on the orchestrator, and the package proxy on the edge VM. The design is [ADR 0005](../decisions/0005-ai-workers-on-a-separate-vm.md), [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), and [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md). The threat is T17: the worker reaches a target or the internet directly.
 
-![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else is denied](../diagrams/network-flows.svg)
+![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else drawn is denied. The log agents' port 443 to the monitoring private endpoint is not drawn](../diagrams/network-flows.svg)
 
 The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). It shows what is enforced today. The [target architecture](../architecture.md#system-overview) shows what is planned on top of it.
 
