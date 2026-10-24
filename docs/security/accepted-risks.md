@@ -77,13 +77,12 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 
 | Item | Threats | Needed before |
 | --- | --- | --- |
-| Cloud identity for cluster workloads | T36 | Milestone 4, if a collector reads from Azure |
+| Cloud identity for cluster workloads | T36 | A collector that reads from Azure. None does in exercise 1 ([0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)) |
 | Operator sessions to targets in the audit log | T04 | Milestone 4 |
 | Evidence written for one job is readable by the next job on the same target. The tool service stores evidence per target | T16, T19 | Milestone 4, with the first collector |
-| How the targets get packages and stay current | T09 | Milestone 4 |
 | How long a job's transcript is kept. It holds the evidence the agent read, and stays on the orchestrator with its workflow for 24 hours, readable by the operator's Argo account ([0030](../decisions/0030-how-a-job-reaches-the-worker.md)) | T45 | Milestone 4, with the first real target |
 | What the broker allows into a pull request | A5 | Milestone 5 |
 | Repository app permissions | T12 | Milestone 5 |
 | Sign-in strength on the operator's accounts cannot be shown by a gate | T15, T30 | Not planned |
 
-Two items left this table on 2026-10-16. A rate limit for requests without a valid token is now a [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring) criterion. The mesh agent's log upload is turned off on the router by [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md), since 2026-10-17 (`R.5`).
+Two items left this table on 2026-10-16. A rate limit for requests without a valid token is now a [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring) criterion. The mesh agent's log upload is turned off on the router by [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md), since 2026-10-17 (`R.5`). One more left on 2026-10-24: how the targets get packages, decided by [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md).

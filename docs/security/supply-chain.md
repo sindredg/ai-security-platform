@@ -2,7 +2,7 @@
 
 Which artifacts the platform runs, what pins each one, where the pin is checked before the artifact runs, and which signatures are checked. The versions are in the [version table](../components/README.md#versions). The threats are T06 in the [threat model](threat-model.md#b2-egress-and-downloads) and A4 in the [AI-specific threats](ai-threats.md).
 
-Read from the code and the release pages on 2026-10-23. Each state uses the threat model's [words](threat-model.md#scope-and-method).
+Read from the code and the release pages on 2026-10-23. The target rows are decisions of 2026-10-24, not code. Each state uses the threat model's [words](threat-model.md#scope-and-method).
 
 ## The rule
 
@@ -19,6 +19,7 @@ A pin proves that a file is the one first chosen, not that the first choice was 
 | Dispatch | The same, in `platform/argo/workflow-template.yaml` | containerd checks the digest at the pull. The pipeline refuses a manifest image without one | None, as above | `W.9` | Verified. `W.9` failed while the cluster held the template with the previous digest, and passed after it was applied, in the same runs |
 | The Python base of both | Digest, in `.github/workflows/checks.yml` and both Dockerfiles. The pipeline fails when they differ | The pipeline, at the build | Not checked | | Built |
 | K3s's system images: `local-path-provisioner`, CoreDNS, `metrics-server`, and `pause` | The checksum of the release's airgap archive, in `infra/platform/variables.tf`, and each image's digest, in `infra/platform/k3s-images.txt` ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)) | First boot checks the archive and puts it where K3s imports it at start. containerd pulls none of them: Docker Hub is not on the edge's list | None published | `K.11` | Verified on 2026-10-23: installed on the running orchestrator, and `K.11` passes. It named the changed image for a changed digest, a missing line, and an empty list ([worklog](../worklogs/0003-toolchain-integration.md#installed-k3ss-system-images-from-the-releases-archive)). Until that day they were pulled by tag ([worklog](../worklogs/0003-toolchain-integration.md#k3ss-system-images)). No first boot from the changed template has run |
+| NetBox, from `netbox-docker`, on the target | Digest of the image index, on the [version table](../components/README.md#versions) once it is built ([ADR 0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md)) | The orchestrator pulls it in a fetch window and checks the digest. The target checks the image it loaded before it starts it. How the target compares it is not seen yet: `podman load` does not keep the manifest digest | None published: no cosign signature or attestation on `ghcr.io`, read on 2026-10-24 | | Decided on 2026-10-24. Not built |
 
 ## Files
 
@@ -40,6 +41,7 @@ These are not pinned by checksum. The vendor's signature on its package index is
 | What | Pinned | Check | State |
 | --- | --- | --- | --- |
 | Ubuntu packages on every VM, Squid among them | Not pinned. Unattended upgrades install security fixes daily | apt checks the archive's signed metadata with the key in the image | Built |
+| Ubuntu packages on the targets, Podman, PostgreSQL, and Valkey among them | Not pinned. Installed and updated only by an update run from the orchestrator. Unattended upgrades are off ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)) | The same, by `apt` on the target | Decided on 2026-10-24. Not built |
 | The mesh VPN agent on the router | Version, held. `U.2` holds it | apt checks Tailscale's signed repository. First boot fetches Tailscale's key over HTTPS, with no fingerprint pinned | Built |
 | The Azure Monitor Agent | Minor version, automatic upgrades off | Azure installs and checks it. Nothing on the project's side does | Built |
 | The Ubuntu image | Version, in `infra/platform/variables.tf` | Azure. Trusted Launch checks the boot chain with Secure Boot | Built |
