@@ -72,7 +72,7 @@
     <div class="diagram-container">
       <svg viewBox="0 0 960 656" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="mesh-path-title mesh-path-desc">
         <title id="mesh-path-title">Mesh VPN path</title>
-        <desc id="mesh-path-desc">Architecture diagram of the mesh VPN path: the operator device and the router's mesh agent each open outbound connections to a third-party coordination service for control and to a relay server over TLS on port 443 for the tunnel, the router's through its NAT gateway in the edge network, and the router decrypts, filters to TCP 22, clamps the segment size to 1240, translates the source to 10.45.0.36, and forwards to the orchestrator and the worker on TCP 22. The path to the target network waits for the target side of the peering.</desc>
+        <desc id="mesh-path-desc">Architecture diagram of the mesh VPN path: the operator device and the router's mesh agent each open outbound connections to a third-party coordination service for control and to a relay server over TLS on port 443 for the tunnel, the router's through its NAT gateway in the edge network, and the router decrypts, filters to TCP 22, clamps the segment size to 1240, translates the source to 10.45.0.36, and forwards to the orchestrator, the worker, and the two target VMs on TCP 22.</desc>
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
           <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
@@ -113,7 +113,7 @@
         <line x1="780" y1="264" x2="780" y2="304" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
         <line x1="780" y1="392" x2="780" y2="472" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
         <path d="M 720,392 V 428 Q 720,436 712,436 H 572 Q 564,436 564,444 V 472" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
-        <path d="M 688,348 H 456 Q 448,348 448,356 V 488 Q 448,496 440,496 H 416" fill="none" stroke="#bfc0c0" stroke-width="1.2" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+        <path d="M 688,348 H 456 Q 448,348 448,356 V 488 Q 448,496 440,496 H 416" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
         <!-- Labels -->
         <rect x="120" y="134" width="48" height="12" rx="2" fill="#2d3142"/>
         <text x="144" y="143" fill="#739fdf" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CONTROL</text>
@@ -129,8 +129,8 @@
         <text x="812" y="447" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TCP 22</text>
         <rect x="512" y="450" width="40" height="12" rx="2" fill="#2d3142"/>
         <text x="532" y="459" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TCP 22</text>
-        <rect x="540" y="328" width="64" height="12" rx="2" fill="#2d3142"/>
-        <text x="572" y="337" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">NOT PEERED</text>
+        <rect x="552" y="328" width="40" height="12" rx="2" fill="#2d3142"/>
+        <text x="572" y="337" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TCP 22</text>
         <!-- Nodes -->
         <rect x="40" y="176" width="144" height="64" rx="6" fill="#2d3142"/>
         <rect x="40" y="176" width="144" height="64" rx="6" fill="rgba(245,245,245,0.03)" stroke="rgba(245,245,245,0.30)" stroke-width="1"/>
@@ -187,7 +187,7 @@
         <rect x="256" y="472" width="56" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.40)" stroke-width="0.8"/>
         <text x="284" y="481" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">UNTRUSTED</text>
         <text x="332" y="500" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Target network</text>
-        <text x="332" y="516" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.50.0.0/20 · no VMs yet</text>
+        <text x="332" y="516" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.50.0.4, .36 · sees 10.45.0.36</text>
         <line x1="40" y1="576" x2="920" y2="576" stroke="rgba(245,245,245,0.10)" stroke-width="0.8"/>
         <text x="40" y="592" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
         <rect x="40" y="608" width="14" height="10" rx="2" fill="rgba(240,138,89,0.08)" stroke="#f08a59" stroke-width="1"/>

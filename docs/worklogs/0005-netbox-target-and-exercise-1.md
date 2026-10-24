@@ -5,7 +5,7 @@ Milestone: 4, NetBox target and exercise 1 investigation
 
 ## Summary
 
-Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). No target VM exists yet. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
+Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). The NetBox VM and the lab VM are built, with the checks that read them ([below](#the-target-vms)). NetBox itself and the update run are not. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
 
 Before the build, five pins moved to their newest stable release: Terraform, `hashicorp/azurerm`, Ruff, Goose, and Argo Workflows. Goose and Argo run on the platform, so both were installed and every check ran after them.
 
@@ -177,3 +177,98 @@ On the live system, 14:38 to 14:43 UTC, from the branch with the changes uncommi
 - The listener on 3129 at first boot of a rebuilt edge. The template has it, and the running edge got it from a copy and a reload.
 - A target using the port. No target VM exists, and the update run that forwards it is not written yet.
 - `P.27` during a window is shown by the runbook step only, once, at 14:37 UTC. The checks run with no window open.
+
+## The target VMs
+
+Date: 2026-10-24. The two VMs from the targets repository, and their checks on the platform side.
+
+| VM | Address | Subnet | Packages its update run installs |
+| --- | --- | --- | --- |
+| `vm-aisec-netbox` | `10.50.0.4` | netbox | `podman postgresql-18 valkey-server` ([ADR 0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md)) |
+| `vm-aisec-lab` | `10.50.0.36` | consumer | None |
+
+Both are `Standard_B2as_v2` in Poland Central, zone 3, with secure boot, a vTPM, a 30 GB disk, and no public address. Zones 1 and 2 are restricted for this size in this subscription. The two fill the region's 4 vCPUs. The lab VM has one interface, the consumer viewpoint.
+
+First boot downloads nothing: the targets have no way out. It applies the platform VMs' hardening, takes only a certificate for the administrator, makes the update account, masks apt's timers and unattended upgrades, and points apt at `127.0.0.1:3129`, where an update run forwards Squid's target port ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)). The first-boot script and the update command are files in the targets repository's `host/`.
+
+### Before the apply
+
+| What | How | Result |
+| --- | --- | --- |
+| The packages exist for Ubuntu 26.04 | `apt-cache policy` on the orchestrator, read only, from the same mirror the targets use. Read again at 17:00 UTC | Candidates `podman` `5.7.0+ds2-3build1`, `postgresql-18` `18.6-0ubuntu0.26.04.1`, `valkey-server` `9.0.4-0ubuntu0.2` |
+| The sshd block | The block given to the orchestrator's OpenSSH 10.2 as `sshd -T -f /dev/stdin -C user=...`, read only | The update account: forwarding `remote`, listen `127.0.0.1:3129`, open `none`, no terminal, the forced command. The administrator: no forwarding. A copy with a bad port: `rc=255` |
+| The update key | A script on the orchestrator, 15:24 UTC | `/etc/aisec/target-update` `root root 700`, the private half `600`, the public half `644`, ED25519, comment `aisec-target-update`. The public half went into the targets root's local variables |
+
+### The applies
+
+On the live system, from the targets repository's branch.
+
+| Time (UTC) | What | Result |
+| --- | --- | --- |
+| 15:25 | Plan `4 to add`, applied | The two interfaces were created. Both VMs failed with `PlatformImageNotFound` for image `26.04.202610220` |
+| 15:27 | Plan with image `26.04.202610210`, `2 to add`, applied | `2 added, 0 changed, 0 destroyed`. Cloud-init finished on both at 15:28:47 |
+| After | Targets plan | `No changes`, exit 0 |
+
+`az vm image list` named versions up to `26.04.202610220` in Poland Central. `az vm image show` found `26.04.202610210` and did not find `26.04.202610220`. Hypothesis: the newest versions are listed before they reach the region. The variable's comment in the targets repository now says to pick the version with `image show`.
+
+### First readings
+
+On the live system, about 15:30 UTC, read only.
+
+| What | Result |
+| --- | --- |
+| Host keys | The ED25519 fingerprint in each VM's serial log equals the one `ssh-keyscan` reads through the router |
+| Login through the router with an operator certificate, 15:30 UTC | Accepted by certificate. Each target sees `10.45.0.36`, the router, as the client ([#106](https://github.com/sindredg/ai-security-platform/issues/106)) |
+| First boot | The marker exists, no failed unit, the administrator's `authorized_keys` empty, `aisec-update` locked with a root-owned key file, one `sudo` command, the apt units `masked`, apt names the forwarded port, `binutils` removed |
+| Ways out, from each VM | The internet, Azure DNS, the edge's port 3129, and the orchestrator's port 22 time out. Name lookups fail. `apt-get update` fails at once |
+| The orchestrator to each VM on 22 | `open` |
+
+The administrator's `authorized_keys` exists with no line: cloud-init writes it back empty after first boot removes it, as on the edge and the router. The checks count lines.
+
+### The checks for the targets
+
+`validation/platform-checks.sh` gains a section for each target, and four checks elsewhere:
+
+| Checks | What they read |
+| --- | --- |
+| `VN.1` to `VN.19`, `VL.1` to `VL.19` | The login and the address the target sees, the update account's sshd settings, key line, key, groups, `sudo` rule, and command, apt's units and proxy, no listener on the forwarded port, no way out, first boot's marker, and no log agent ([targets](../validation/targets.md)) |
+| `HN`, `HL` | The [hardening](../validation/host-hardening.md) list, as on the platform VMs |
+| `E.15`, `E.16` | The orchestrator reaches both targets on 22, and the update key on it is `root 600` |
+| `C.11` | The worker gets no connection to the lab VM. `C.2` now aims at a VM that listens |
+| `Z.27`, `Z.28` | The effective rules on each target interface equal its subnet group's configured rules ([#107](https://github.com/sindredg/ai-security-platform/issues/107)) |
+| `Z.1` | Reads the target group too |
+
+`VN.9` and `VL.9` compare the update command with a checkout of the targets repository, named by `AISEC_TARGETS`.
+
+What proves each new check can fail: a copy of the script with one broken input per check, run against the live system, and every new check `FAIL`. Written before the run. The copy and its output are kept outside the repository.
+
+| Checks | Broken input |
+| --- | --- |
+| `.1` | The whole `SSH_CLIENT`, not its first field |
+| `.2` | Root's `authorized_keys`, which has a line |
+| `.3` | `permittty` in place of `permitopen` |
+| `.4`, `.7`, `.8` | The administrator in place of `aisec-update` |
+| `.5` | The certificate authority's file in place of the key file |
+| `.6`, `E.16` | The orchestrator's host key in place of the update key, and the group in place of the mode |
+| `.9` | No `AISEC_TARGETS` |
+| `.10` | `ssh.service` in place of `unattended-upgrades.service` |
+| `.11` | The platform's proxy line |
+| `.12` | Port 22 |
+| `.13` to `.17` | The target's own loopback, where sshd and the stub resolver listen |
+| `.18` | A marker that does not exist |
+| `.19` | `openssh-server` in place of the agent's package |
+| `E.15` | Port 80 on the lab VM |
+| `C.11` | The worker's own port 22 |
+| `Z.1` | A resource group that does not exist |
+| `Z.27`, `Z.28` | Each interface against the other target's group |
+
+Result, ending at 16:58 UTC: `318 passed, 53 failed`. The 53 are the 44 new and changed checks, and nine checks that share a changed probe line: `A.5`, `A.7`, `A.13`, `A.16` (root's file), `A.8`, `A.10`, `A.14`, `A.17` (`permittty`), and `O.4` (the package). Each `.6` failure showed two different keys, and `Z.27` printed the rule whose destination differed. `HN` and `HL` were not given a broken input: they run the same code as the other hardening checks, whose fail side is in the [milestone 3a worklog](0004-edge-network-and-monitoring.md#the-fail-side-of-the-edge-checks).
+
+Every check, on the live system, from the branch with the changes uncommitted, ending at 16:51 UTC: `380 passed, 0 failed`.
+
+### Not verified
+
+- The update account has not been logged in to. That is the update run, next.
+- No packages are installed. The targets carry the image's state from 2026-10-21 until the first update run, and no check reads their pending security updates yet.
+- Nothing from the targets reaches Azure Monitor: no log agent, and no path to the private endpoint. Operator sessions to the targets are an [open item](../security/accepted-risks.md#open-items).
+- The first-boot template ran once, on these two VMs. The [network foundation runbook](../runbooks/network-foundation.md)'s target steps are still not run in their current form ([#108](https://github.com/sindredg/ai-security-platform/issues/108)).

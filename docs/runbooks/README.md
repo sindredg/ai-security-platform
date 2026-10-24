@@ -17,3 +17,4 @@ One operator procedure per milestone, or per slice of a milestone that is built 
 | [Edge VM](edge-vm.md) | 3a | Implemented on 2026-10-17. Run once, on the live platform, partly from scripts. A rebuild of the orchestrator through a fetch window not run |
 | [Workflows and dispatch](workflows.md) | 3 | Implemented on 2026-10-21. Run once, on the live platform. A new dispatch image on 2026-10-22 |
 | [Monitoring](monitoring.md) | 3a | Implemented on 2026-10-17 to 2026-10-19. Run once, on the live platform, alert rules, flow logs, drills, and the daily cap included. Undo and rebuild not run |
+| [Target VMs](targets.md) | 4 | Implemented on 2026-10-24. Run once, on the live system. Rebuild not run |

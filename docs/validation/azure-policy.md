@@ -4,7 +4,7 @@ No machine in this project has a public address, and a policy outside both deplo
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
-| `Z.1` | No VM has a public address | Inbound from the internet has nowhere to land | `az vm list -d` |
+| `Z.1` | No VM has a public address | Inbound from the internet has nowhere to land | `az vm list -d` in the platform group and in the target group, one count each. Before 2026-10-24 it read the platform group alone |
 | `Z.2` | The platform group holds one public address | The edge network's NAT gateway, the platform's only way out. A second is something nobody decided. Until 2026-10-17 there were two: the orchestrator's gateway in Sweden Central went with [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) | `az network public-ip list` |
 | `Z.3` | The target group holds no public address | Without an address the target side has no egress at all | `az network public-ip list` |
 | `Z.10` | A public address on a network interface is refused in the platform group | Each identity is Contributor on its own group. The policy is what stops it | A template with such an interface is validated, and Azure answers `RequestDisallowedByPolicy` |

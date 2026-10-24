@@ -6,11 +6,12 @@ The [worklogs](../worklogs/README.md) are history: what was run on which day. Th
 
 ## Run the checks
 
-From a workstation on the mesh VPN, signed in to Azure as the operator. The `Z` checks need `python3`. `P.19` and `P.21` need `terraform`, on the `PATH` or named by `TERRAFORM`, to render the edge template:
+From a workstation on the mesh VPN, signed in to Azure as the operator. The `Z` checks need `python3`. `P.19` and `P.21` need `terraform`, on the `PATH` or named by `TERRAFORM`, to render the edge template. `VN.9` and `VL.9` need a checkout of the targets repository, named by `AISEC_TARGETS`:
 
 ```bash
 export AISEC_SSH="ssh -o UserKnownHostsFile=REPLACE_WITH_KNOWN_HOSTS_FILE -o StrictHostKeyChecking=yes -i REPLACE_WITH_OPERATOR_KEY -o CertificateFile=REPLACE_WITH_OPERATOR_KEY.aisec-cert.pub -o IdentitiesOnly=yes"
 export AISEC_USER_CA=REPLACE_WITH_CA_PUBLIC_KEY_FILE
+export AISEC_TARGETS=REPLACE_WITH_TARGETS_CHECKOUT
 validation/platform-checks.sh
 ```
 
@@ -30,7 +31,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | Page | Checks | What it covers |
 | --- | --- | --- |
 | [Access](access.md) | `A`, `M`, `R` | Who can get in, and through what |
-| [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.25` | What the worker and the orchestrator cannot reach, and what they can |
+| [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.28` | What the worker and the orchestrator cannot reach, and what they can |
+| [Targets](targets.md) | `VN`, `VL` | The NetBox and lab VMs: the operator's login, the update account, and no way out |
 | [Package proxy](package-proxy.md) | `P`, `U` | Squid on the edge, the one path out for the orchestrator and the worker, the fetch window, and whether updates arrive |
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Agent runtime](agent-runtime.md) | `G` | The Goose binary and the fixture are the pinned ones, and no finished job leaves its unit or its files |
@@ -39,7 +41,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | [Tool service](tool-service.md) | `T` | The deployed tool service: its pod, namespaces, network paths, and certificate |
 | [Audit log](audit-log.md) | `L`, `J` | The copier that stores the tool service's audit lines, the pull of the worker's journal, and the append-only files they write |
 | [Monitoring](monitoring.md) | `O` | The log agents, their hosts entries, the workspace and its scope, heartbeats, and the identities |
-| [Host hardening](host-hardening.md) | `HO`, `HW`, `HR`, `HE` | SSH daemon, kernel settings, file modes, on every VM |
+| [Host hardening](host-hardening.md) | `HO`, `HW`, `HR`, `HE`, `HN`, `HL` | SSH daemon, kernel settings, file modes, on every VM |
 | [Azure policy](azure-policy.md) | `Z.1` to `Z.3`, `Z.10` to `Z.12` | Public addresses and the policy that refuses them |
 
 ## Last run
@@ -98,6 +100,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-23 | 284 of 286 passed | From the branch of [#165](https://github.com/sindredg/ai-security-platform/pull/165) at `ea6c501`, ending at 16:39 UTC, after [K3s's system images](../worklogs/0003-toolchain-integration.md#installed-k3ss-system-images-from-the-releases-archive) came from the release's archive and the edge's list lost Docker Hub. First run with `K.11`, which passed, and `P.18` passed on the new list. `U.1` and `U.13` failed on `zlib1g`, as before |
 | 2026-10-24 | 286 of 286 passed | From `main` at `2117b2d`, ending at 06:53 UTC, after the morning's unattended upgrades installed `zlib1g`. `U.1` and `U.13` passed. Again from the branch of [#172](https://github.com/sindredg/ai-security-platform/pull/172) at `5be567e`, 07:12 to 07:18 UTC, for the [milestone 3 close](../worklogs/0003-toolchain-integration.md#read-for-the-close-the-orchestrators-footprint-and-the-daily-volume) |
 | 2026-10-24 | 286 of 286 passed | From the branch `chore/move-pins` at `4b18089`, with the Goose 1.56.0 and Argo v4.1.6 pins not yet committed, 13:08 to 13:13 UTC, after both were installed ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-install)) |
+| 2026-10-24 | 295 of 295 passed | From the branch of [#183](https://github.com/sindredg/ai-security-platform/pull/183) with the changes uncommitted, 14:38 to 14:43 UTC, after the [targets' package port](../worklogs/0005-netbox-target-and-exercise-1.md#every-check) was installed. First run with `P.23` to `P.29`, `M.9`, and `Z.26` |
+| 2026-10-24 | 380 of 380 passed | From the branch with the target checks uncommitted, ending at 16:51 UTC, after the [target VMs](../worklogs/0005-netbox-target-and-exercise-1.md#the-checks-for-the-targets) were built. First run with `VN`, `VL`, `HN`, `HL`, `C.11`, `E.15`, `E.16`, `Z.27`, and `Z.28`, and with `Z.1` reading both groups |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
@@ -112,14 +116,14 @@ The run on 2026-10-12 is the first with that version. What it adds:
 - `C.1`, `C.4`, and `C.6` to `C.8` timed out against ports that listen, so each is a drop on the path.
 - `Z.4` and `Z.5` got an answer from Azure for both interfaces, and every field of every rule matched.
 
-What it does not add: `C.2` and `C.3` also timed out, and still say nothing about the deny rule, because no target machine exists.
+What it does not add: `C.2` and `C.3` also timed out, and still say nothing about the deny rule, because no target machine existed then.
 
 The second run on 2026-10-12 adds the seven `S` checks, which brings the script to 101. All seven passed on their first run against the system. [Model server](model-server.md) says what each proves and how each was shown to fail first.
 
 ## What the checks do not cover
 
 - **A rebuild of everything at once.** Each VM has been rebuilt from its template and passed every check, the worker on 2026-10-11 and the orchestrator on 2026-10-13. Both together, or from an empty subscription, has not been run.
-- **The target side.** No target exists yet.
+- **The target side, beyond its VMs.** NetBox, its data, and the update run are not built yet.
 - **The agent runtime during a run.** The [`G` checks](agent-runtime.md) read what is installed and what a finished job leaves. The transient unit's sandbox and the tools a run loads are not checked.
 - **The tool service's round trip and audit lines.** They are steps in the [runbook](../runbooks/tool-service.md#round-trip), because they register and revoke jobs. Its rejection cases are tested in CI. The deployment itself is checked by the [tool service checks](tool-service.md).
 - **Anything a benchmark tool finds.** kube-bench and Lynis results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). The checks here hold the fixes in place.
