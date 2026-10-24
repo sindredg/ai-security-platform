@@ -96,6 +96,8 @@ Read across one day to 2026-10-19 10:00 UTC, from the systemd counters of the ag
 
 The router is the tight one. Its lowest available memory in any minute of the day was 339 MB of 836 MB.
 
+On the orchestrator, read again across 15.3 hours to 2026-10-24: 411 MiB and 0.44 % of one core ([worklog](../worklogs/0003-toolchain-integration.md#orchestrator-footprint)). `MemoryCurrent` both times, so page cache moves it.
+
 ## Limits
 
 - **Alerts wait for someone to look.** Nothing is sent. A fired alert at night is seen in the morning.

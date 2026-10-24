@@ -28,7 +28,7 @@ What has been tightened on the machines and the cluster, what was left alone on 
 | Lynis 3.1.7 | Router | Hardening index 72. The same two warnings | 2026-10-19 |
 | CIS benchmark for Ubuntu 26.04 | All four VMs | Not run. No tool has a profile for this release | |
 
-The Lynis warnings and the suggestions that milestone 2 had not triaged are in the [worklog](../worklogs/0003-toolchain-integration.md#benchmarks).
+The Lynis warnings and the suggestions that milestone 2 had not triaged are in the [worklog](../worklogs/0003-toolchain-integration.md#benchmarks). Milestone 2 measured 76 and 77 on the orchestrator before its rebuild and on the worker.
 
 ### The kube-bench warnings
 
@@ -50,7 +50,7 @@ Each is a manual check, or one whose audit cannot run on K3s. Read on 2026-10-23
 | 5.3.1, 5.3.2 | Network policies, in every namespace | kube-router enforces them (`T.8`). `argo`, `orchestration`, and `tool-services` have them. `default`, `kube-node-lease`, `kube-public`, and `kube-system` have none. The host rule holds every pod's traffic outside the pod network (`E.6`) |
 | 5.4.1, 5.4.2 | Secrets as files, and an external secret store | No container takes a secret as an environment variable. No external store, as in [lab against production](lab-vs-production.md#compute-and-isolation) |
 | 5.5.1 | `ImagePolicyWebhook` | Not used. Images are named by digest and compared with the checkout: `T.2`, `W.2`, `W.9`, and `K.11` ([supply chain](supply-chain.md)) |
-| 5.7.1 to 5.7.4 | Namespaces as boundaries, seccomp and security contexts in pods, nothing in `default` | Namespaces are not treated as a security boundary ([K3s](../components/k3s.md#namespaces)). `restricted` requires a seccomp profile and a security context. K3s's own pods in `kube-system` set no seccomp profile. `default` holds only the `kubernetes` service | Milestone 2 measured 76 and 77 on the orchestrator before its rebuild and on the worker.
+| 5.7.1 to 5.7.4 | Namespaces as boundaries, seccomp and security contexts in pods, nothing in `default` | Namespaces are not treated as a security boundary ([K3s](../components/k3s.md#namespaces)). `restricted` requires a seccomp profile and a security context. K3s's own pods in `kube-system` set no seccomp profile. `default` holds only the `kubernetes` service |
 
 ## Left alone on purpose
 

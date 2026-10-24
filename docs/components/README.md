@@ -33,7 +33,6 @@ Candidates, not selections, except the rows that name a decision record. Each ha
 
 | Role | Candidate | Has to prove | Milestone |
 | --- | --- | --- | --- |
-| Workflow engine and UI | Argo Workflows v4.1.5, built, [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) | Dispatch to the worker VM, shown on 2026-10-21 ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)). A controller restart during a job, which then succeeded, on 2026-10-23 ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines)). Its footprint, 0.10 % of one core and 18 MiB, across 15.3 hours to 2026-10-24 ([worklog](../worklogs/0003-toolchain-integration.md#orchestrator-footprint)) | 3 |
 | Starting model | Qwen3.5-4B, running. Kept after a comparison with Granite 4.2 3B and Qwen3.5-2B, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3, the same in both runs ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). Still to show: a real investigation || 4 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 4 |
 | First target | NetBox | See [ADR 0004](../decisions/0004-netbox-as-first-target.md) | 4 |
