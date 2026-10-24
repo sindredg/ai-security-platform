@@ -18,8 +18,8 @@
 #   AISEC_NETBOX  NetBox VM address or host alias. Default: 10.50.0.4
 #   AISEC_LAB   Lab VM address or host alias. Default: 10.50.0.36
 #   AISEC_TARGETS  The targets repository's checkout on the workstation, to
-#               compare the targets' update command with. Without it, that
-#               check fails.
+#               compare the targets' update command and NetBox's image with.
+#               Without it, those checks fail.
 #   AISEC_USER_CA  The SSH certificate authority's public key file on the
 #               workstation. The VMs have to trust this one and no other.
 #   TERRAFORM   The terraform command, to render a cloud-init template.
@@ -130,6 +130,11 @@ TARGET_RUN_SHA=$(sha256sum "$here/../platform/target-update/aisec-target-update-
 # The update key's one command on the targets, from the targets checkout.
 TARGET_UPDATE_SHA=$(sha256sum "${AISEC_TARGETS:-/nonexistent}/host/aisec-target-update" 2>/dev/null | cut -d " " -f 1)
 TARGET_UPDATE_SHA=${TARGET_UPDATE_SHA:-"AISEC_TARGETS not given or not the targets checkout"}
+# The image ID NetBox's containers have to run (ADR 0035), from the targets
+# checkout. Podman prints it without the sha256: prefix.
+NETBOX_IMAGE_ID=$(sed -n "s/^NETBOX_IMAGE_ID=sha256://p" "${AISEC_TARGETS:-/nonexistent}/netbox/image.env" 2>/dev/null)
+NETBOX_IMAGE_ID=${NETBOX_IMAGE_ID:-"AISEC_TARGETS not given or not the targets checkout"}
+NETBOX_PORT=8443
 RG=rg-aisec-platform
 RG_TARGETS=rg-aisec-targets
 
@@ -300,6 +305,12 @@ echo "to_worker_ssh=$(tcp '"$WORK_IP"' 22)"
 echo "to_worker_http=$(tcp '"$WORK_IP"' 80)"
 echo "to_worker_model=$(tcp '"$WORK_IP"' '"$MODEL_PORT"')"
 echo "to_targets_ssh=$(tcp '"$NETBOX_IP"' 22) $(tcp '"$LAB_IP"' 22)"
+# The NetBox API, with the certificate the NetBox VM made, which the orchestrator
+# pins (ADR 0038), then plain HTTP on the same port, which gets no page.
+cert=/etc/aisec/netbox/tls.crt
+echo "netbox_cert=$(stat -c "%U %a" $cert 2>/dev/null) $(openssl x509 -in $cert -noout -fingerprint -sha256 2>/dev/null | cut -d = -f 2)"
+echo "netbox_api=$(code --noproxy "*" --cacert $cert --resolve netbox.aisec.internal:'"$NETBOX_PORT:$NETBOX_IP"' \
+  https://netbox.aisec.internal:'"$NETBOX_PORT"'/login/) $(code --noproxy "*" http://'"$NETBOX_IP:$NETBOX_PORT"'/login/)"
 # The key an update run logs in to the targets with (ADR 0036), and its
 # public half, which each target holds.
 update_key=/etc/aisec/target-update/id_ed25519
@@ -403,6 +414,7 @@ probe_worker="$probe_common"'
 code() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 "$@"; }
 echo "internet=$(tcp 1.1.1.1 443)"
 echo "targets_netbox=$(tcp 10.50.0.4 22)"
+echo "targets_netbox_api=$(tcp 10.50.0.4 '"$NETBOX_PORT"')"
 echo "targets_rehearsal=$(tcp 10.50.1.4 22)"
 echo "targets_consumer=$(tcp '"$LAB_IP"' 22)"
 echo "azure_dns=$(tcp 168.63.129.16 53)"
@@ -468,6 +480,7 @@ echo "lock_signed=$(tailscale lock status 2>/dev/null | grep -c "This node is ac
 echo "auth_key_file=$(ls /run/aisec 2>/dev/null | wc -l)"
 echo "tailscale_held=$(apt-mark showhold | grep -c "^tailscale$")"
 echo "tailscale_installed=$(dpkg-query -W -f="\${Version}" tailscale 2>/dev/null)"
+echo "netbox_api=$(tcp '"$NETBOX_IP"' '"$NETBOX_PORT"')"
 prefs=$(tailscale debug prefs 2>/dev/null | tr -d " \n")
 pref() { printf "%s" "$prefs" | grep -o "\"$1\":[a-z]*" | head -n 1 | cut -d: -f2; }
 echo "tailscale_auto_apply=$(printf "%s" "$prefs" | grep -o "\"AutoUpdate\":{[^}]*}" | grep -o "\"Apply\":[a-z]*" | cut -d: -f2)"
@@ -605,6 +618,13 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check E.16 "The targets' update key is root's and closed to others" "root 600" "$(value target_update_key | cut -d " " -f 1,2)"
   check E.17 "The update run command is root's and the one in this checkout" "root 700 $TARGET_RUN_SHA" "$(value target_update_run)"
   check E.18 "The update run pins both targets' host keys" "match match" "$(value target_update_pins)"
+  # curl checks the certificate against the pinned file and nothing else.
+  # 000 is no HTTP answer at all.
+  check N.1 "The orchestrator reaches NetBox over TLS with the pinned certificate, and not in plain HTTP" \
+    "200 000" "$(value netbox_api)"
+  check N.2 "The pinned NetBox certificate is root's and not writable by others" "root 644" "$(value netbox_cert | cut -d " " -f 1,2)"
+  # Kept for N.10, which reads the certificate file on the NetBox VM.
+  NETBOX_CERT_FP=$(value netbox_cert | cut -d " " -f 3)
   # Kept for each target's .6, which reads the key the target accepts.
   TARGET_UPDATE_KEY=$(value target_update_key | cut -d " " -f 3,4)
   check P.12 "Squid is not installed on the orchestrator" 0 "$(value squid_installed)"
@@ -724,6 +744,8 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # deny rule. Z.6 names the rule.
   check C.2 "No connection to the NetBox subnet" timeout "$(value targets_netbox)"
   check C.11 "No connection to the consumer subnet" timeout "$(value targets_consumer)"
+  # NetBox listens on its port (N.1), so a timeout is a drop.
+  check C.12 "No connection to NetBox's port" timeout "$(value targets_netbox_api)"
   check C.3 "No connection to the rehearsal subnet" timeout "$(value targets_rehearsal)"
   check C.4 "No connection to the platform resolver" timeout "$(value azure_dns)"
   # The same query from the edge gets an answer, so a timeout here is the
@@ -833,6 +855,10 @@ if probe=$($SSH "$ROUTER" 'sudo bash -s' <<<"$probe_router" 2>/dev/null) && [ -n
   check R.6 "Tailscale SSH and the web client are off" "false false" "$(value tailscale_features)"
   # An empty configuration is "{}". No answer is a failure, not a match.
   check R.7 "Nothing is served or funnelled through the mesh VPN" "{}" "$(value serve_config)"
+  # NetBox listens on its port (N.1). The router's rules allow only SSH to the
+  # targets, for its own connections and the sessions it routes, so a timeout
+  # is a drop.
+  check N.3 "The router's rules drop NetBox's port" timeout "$(value netbox_api)"
   # The router's rules have no UDP to the internet, so it cannot reach a STUN
   # server, and the agent uses the relays over TCP 443.
   check E.5 "The router sends no UDP to the internet" false "$(value mesh_udp)"
@@ -948,6 +974,42 @@ target_checks() { # letter name host other-target-address update-check-ID
 }
 target_checks N NetBox "$NETBOX" "$LAB_IP" U.14
 target_checks L Lab "$LAB" "$NETBOX_IP" U.15
+
+# NetBox on its VM (ADR 0035). A value that podman could not read is printed
+# as an error, so that it cannot compare as equal.
+probe_netbox='
+echo "units=$(systemctl is-active netbox netbox-worker postgresql valkey-server 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+echo "images=$(podman inspect --format "{{.Image}}" netbox netbox-worker 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+echo "container=$(podman inspect --format "{{.Config.User}} {{.HostConfig.ReadonlyRootfs}} {{.HostConfig.Privileged}}" netbox netbox-worker 2>/dev/null | tr "\n" ";" | sed "s/;$//")"
+if env=$(podman inspect --format "{{range .Config.Env}}{{println .}}{{end}}" netbox netbox-worker 2>/dev/null) && [ -n "$env" ]; then
+  echo "env_secrets=$(printf "%s\n" "$env" | cut -d = -f 1 | grep -c -i -E "password|secret|pepper")"
+else
+  echo "env_secrets=no containers read"
+fi
+echo "listeners=$(ss -Hltn | awk "{print \$4}" | grep -v -E "^(127\.|\[::1\]:)" | sed "s/.*://" | sort -un | tr "\n" " " | sed "s/ $//")"
+echo "valkey_auth=$(valkey-cli -h 127.0.0.1 ping 2>&1 | cut -d " " -f 1)"
+echo "cert=$(openssl x509 -in /etc/aisec/netbox/tls.crt -noout -fingerprint -sha256 2>/dev/null | cut -d = -f 2)"
+'
+echo
+echo "== NetBox service ($NETBOX)"
+if probe=$($SSH "$NETBOX" 'sudo bash -s' <<<"$probe_netbox" 2>/dev/null) && [ -n "$(value units)" ]; then
+  check N.4 "NetBox, its worker, PostgreSQL, and Valkey run" "active active active active" "$(value units)"
+  check N.5 "Both containers run the image the targets checkout pins" "$NETBOX_IMAGE_ID $NETBOX_IMAGE_ID" "$(value images)"
+  check N.6 "Both containers run as the image's netbox account, read-only and unprivileged" \
+    "999:0 true false;999:0 true false" "$(value container)"
+  check N.7 "No secret in the containers' environment" 0 "$(value env_secrets)"
+  # PostgreSQL and Valkey listen on loopback only.
+  check N.8 "Only SSH and NetBox's port listen beyond loopback" "22 $NETBOX_PORT" "$(value listeners)"
+  check N.9 "Valkey refuses a client without the password" NOAUTH "$(value valkey_auth)"
+  check N.10 "The certificate file on the NetBox VM is the one the orchestrator pins" \
+    "${NETBOX_CERT_FP:-no certificate read on the orchestrator}" "$(value cert)"
+else
+  check N.4 "NetBox, its worker, PostgreSQL, and Valkey run" "active active active active" "not reached"
+fi
+# The consumer's subnet is the one other source the rules allow.
+lab_port=$($SSH "$LAB" "$tcp_fn"'
+tcp '"$NETBOX_IP $NETBOX_PORT" 2>/dev/null)
+check N.11 "The consumer subnet reaches NetBox's port" open "${lab_port:-not reached}"
 
 if [ "$workstation" = 1 ]; then
   echo
@@ -1160,14 +1222,19 @@ EOF
   # The configured inbound allows of each target group. The NetBox and lab
   # groups' effective rules are Z.27 and Z.28. No VM is in the other two
   # subnets, so there is no interface to read their effective rules from.
+  # NetBox's port is allowed into its subnet from the orchestrator's address
+  # and the consumer subnet (ADR 0035).
   want="" got=""
   for g in netbox consumer unintended rehearsal; do
-    want="$want$g: allow-ssh-from-orchestrator 10.40.0.0/27 22, allow-ssh-from-router 10.45.0.32/27 22; "
+    want="$want$g: "
+    [ "$g" = netbox ] && want="${want}allow-netbox-from-consumer 10.50.0.32/27 $NETBOX_PORT, allow-netbox-from-orchestrator $ORCH_IP/32 $NETBOX_PORT, "
+    want="${want}allow-ssh-from-orchestrator 10.40.0.0/27 22, allow-ssh-from-router 10.45.0.32/27 22; "
     got="$got$g: $(az network nsg rule list -g $RG_TARGETS --nsg-name "nsg-aisec-targets-$g" \
       --query "[?direction=='Inbound' && access=='Allow'].[name, sourceAddressPrefix, destinationPortRange]" \
       -o tsv 2>/dev/null | sort | tr '\t' ' ' | paste -sd ',' - | sed 's/,/, /g'); "
   done
-  check Z.25 "Only SSH from the orchestrator and the router is allowed into each target subnet" "$want" "$got"
+  check Z.25 "Only SSH from the orchestrator and the router, and NetBox's port from the orchestrator and the consumer, is allowed into the target subnets" \
+    "$want" "$got"
   check Z.19 "The edge network is in Denmark East" denmarkeast \
     "$(az network vnet show -g $RG -n vnet-aisec-edge --query location -o tsv 2>/dev/null)"
 
