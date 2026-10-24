@@ -77,7 +77,7 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 
 | Item | Threats | Needed before |
 | --- | --- | --- |
-| Cloud identity for cluster workloads | T36 | Milestone 4 |
+| Cloud identity for cluster workloads | T36 | Milestone 4, if a collector reads from Azure |
 | Operator sessions to targets in the audit log | T04 | Milestone 4 |
 | Evidence written for one job is readable by the next job on the same target. The tool service stores evidence per target | T16, T19 | Milestone 4, with the first collector |
 | How the targets get packages and stay current | T09 | Milestone 4 |

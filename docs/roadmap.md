@@ -140,15 +140,17 @@ When the milestone started, the orchestrator held every credential that matters,
 
 Define the consumer contract. Deploy NetBox, synthetic inventory, and the consumer. Seed the excess-permission finding and investigate it.
 
-**Depends on:** decisions about the NetBox version, consumer permissions, cloud identity for cluster workloads ([ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)), and target package updates ([ADR 0011](decisions/0011-package-proxy-for-the-worker.md)).
+**Depends on:** decisions about the NetBox version, consumer permissions, cloud identity for cluster workloads, only if a collector reads from Azure ([ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)), and target package updates ([ADR 0011](decisions/0011-package-proxy-for-the-worker.md)).
 
 **Completion criteria:**
 
 - The consumer contract lists endpoints, fields, permitted records, and expected denials.
 - Deterministic checks confirm the finding and a known unaffected case.
-- The AI investigation cites tool evidence for each conclusion, and says so when evidence disagrees.
-- The workflow compares the model's verdict with the deterministic checks. A mismatch, an inconclusive verdict, or a failed job stops the workflow for the operator. Both a match and a stop are shown.
-- A baseline without AI, using the same tools, is recorded for comparison.
+- Evidence is collected per job. The tool service refuses a job's call for another job's evidence on the same target ([#45](https://github.com/sindredg/ai-security-platform/issues/45)), and hands the model only the fields its schema names ([#152](https://github.com/sindredg/ai-security-platform/issues/152)).
+- The investigation is scored as a dispatched job, through the workflow, on held-out cases. The hash of the case file is committed before the first scored run.
+- The AI investigation cites tool evidence for each conclusion, and says so when evidence disagrees. Conclusions without tool evidence are counted.
+- The workflow compares the model's verdict with the deterministic checks. A mismatch, an inconclusive verdict, or a failed job stops the workflow for the operator. A match and a stop are each shown, with evidence from that job only.
+- A baseline without AI, using the same tools, is recorded for comparison. A usefulness rubric, written before the runs, scores both, and operator effort and elapsed time are measured for both. The result is recorded whichever way it falls. It is not a pass gate.
 - Every image on the target side is pinned by digest. Signatures are verified where upstream signs.
 
 ## 5. Remediation, pull requests, and delivery
@@ -181,6 +183,7 @@ Break the finished workflow on purpose.
 - Cleanup verification and measured resource use per investigation.
 - The incident response runbook, run for a compromised worker, a compromised target, and a leaked credential.
 - An audit daemon and file integrity monitoring on both VMs, with a drill that shows each one catching something.
+- A rebuild of each VM from the current templates, with every manual step recorded.
 
 Every threat rated high in the threat model maps to one of these drills or to a stated accepted risk. A high threat with neither is a gap, and the milestone stays open.
 
