@@ -436,7 +436,7 @@ A copy of the script with one broken input per new or changed check, run without
 
 ### Not verified
 
-- The `Quadlet units` job in the targets repository's pipeline has not run. Its fail side is inside the job: a unit with an unknown key has to fail the dry run. It is not a required check yet.
+- The `Quadlet units` job is not a required check yet. It ran once, on the targets repository's pull request [#12](https://github.com/sindredg/ai-security-platform-test/pull/12), on Podman 5.7.0, and passed. Its fail side is inside the job: a copy of a unit with an unknown key failed Quadlet's dry run, or the job would have failed.
 - One run of the install from start to end on a new VM. The first run stopped at the wait, and the second ran on the same VM.
 - The install script's refusal of an archive that holds another image. `N.5` fails on another ID, but the script's own comparison was only seen to pass ([#188](https://github.com/sindredg/ai-security-platform/issues/188)).
 - No capabilities and no new privileges for either container: configured in the units, and no check reads them ([#186](https://github.com/sindredg/ai-security-platform/issues/186)).
