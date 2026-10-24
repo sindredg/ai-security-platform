@@ -5,7 +5,7 @@ Milestone: 4, NetBox target and exercise 1 investigation
 
 ## Summary
 
-Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). Nothing on the target side is built yet. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
+Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). No target VM exists yet. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
 
 Before the build, five pins moved to their newest stable release: Terraform, `hashicorp/azurerm`, Ruff, Goose, and Argo Workflows. Goose and Argo run on the platform, so both were installed and every check ran after them.
 
@@ -112,3 +112,68 @@ On the live system, 2026-10-24 13:02 to 13:13 UTC, from `chore/move-pins` with t
 - The first request is Goose's only. A later request with tool results in it was not read.
 - No job hit its time limit or was stopped under v4.1.6.
 - The fixture's 2 of 3 is one run of three. It says nothing about whether 1.56.0 changes accuracy.
+
+## The targets' package port
+
+Date: 2026-10-24. The platform side of [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md): Squid's second port on the edge and the two rules to it. The update run that forwards the port to a target comes with the target VMs.
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| `infra/platform/cloud-init/edge.yaml.tftpl` | `http_port 10.45.0.4:3129 name=target-packages`, an ACL on that port name, and two rules before the fetch window's include: allow the orchestrator `GET` and `HEAD` on port 80 to `azure.archive.ubuntu.com`, then deny everything else on the port |
+| `infra/platform/main.tf` | `allow-target-packages-to-edge`: outbound TCP 3129 from `10.40.0.4/32` to the edge subnet, priority 1040 |
+| `infra/platform/edge.tf` | `allow-target-packages-from-orchestrator`: inbound TCP 3129 from `10.40.0.4/32`, priority 1030 |
+| `validation/platform-checks.sh` | `P.23` to `P.29`, `M.9`, `Z.26`. `P.2` lists both listeners, and `Z.21` the new inbound rule |
+
+The source address is the orchestrator's, not its subnet as on 3128, because the ADR names the address and Squid's ACL holds the same `/32`.
+
+### Before the change
+
+What proves Squid accepts the configuration: the edge's own Squid, 7.2, parses the rendering of the template and exits 0, and a copy with one broken ACL type makes it exit 1. Written before the run. The file went to `squid -k parse -f /dev/stdin` on the edge, which reads and changes nothing.
+
+| Input | Result |
+| --- | --- |
+| The template rendered with the platform's addresses | `rc=0`, no `ERROR` or `FATAL` line |
+| The same with `myportname` changed to `myportnam` | `FATAL: Bungled /dev/stdin line 5`, `rc=1` |
+
+The fail side of each new check, on the live system at 14:18 UTC, before the apply and the install:
+
+| Check | Expected after the change | Seen before |
+| --- | --- | --- |
+| `P.2` | `10.45.0.4:3128 10.45.0.4:3129` | `10.45.0.4:3128` |
+| `P.23` | 200 | `000`: nothing listened on 3129, and no rule allowed it |
+| `P.24` to `P.27`, `P.29` | 403 | `000` each |
+| `P.28` | `timeout` | `timeout`. Not seen to fail: the worker's rules cannot be loosened read-only. The same probe on 3128 reads `open` |
+| `M.9` | `timeout` | `timeout`. Not seen to fail, for the same reason. The same probe on port 22 of the edge reads `open` |
+| `Z.21`, `Z.26` | The new rule listed, and named | Not run before the apply. The plan showed neither rule existed. IP flow verify from the orchestrator to port 3129 read `Deny deny-all-outbound` when `Z.23`'s fail side was taken ([milestone 3a worklog](0004-edge-network-and-monitoring.md)) |
+
+`P.28` and `M.9` passed before Squid listened on 3129, so before the change they proved only that no path existed. After the install, Squid listens there (`P.2`), so a timeout is the rules.
+
+### Rollout
+
+On the live system. The plan read `0 to add, 2 to change, 0 to destroy`: one added rule in each of the orchestrator's and the edge's groups, nothing else. Applied at 14:34 UTC with `Resources: 0 added, 2 changed, 0 destroyed`. Right after, from the orchestrator, TCP to `10.45.0.4:3129` read `refused`: the packet now reached the edge, where nothing listened yet. From the worker it still read `timeout`.
+
+A script then ran the [edge runbook](../runbooks/edge-vm.md#the-targets-package-port) steps 15 and 16, 14:37:24 to 14:37:37 UTC. Each step printed what it expected before it ran.
+
+| Step | Expected | Seen |
+| --- | --- | --- |
+| Render | Two `http_port` lines | As expected. SHA-256 `c9568686...` |
+| Parse on the edge | `rc=0` | `rc=0` |
+| Install and reload | The installed file's SHA-256 equal to the rendering's, `root 644`, `active` | As expected. The old file is in `/var/backups/squid.conf.20261024T143727Z` |
+| Listeners | `10.45.0.4:3128 10.45.0.4:3129` | As expected, after a reload. No restart was needed |
+| The port, no window | Mirror 200, other host 403, upload 403, port 8080 403, tunnel 403 | As expected |
+| The port, window open | Tunnel on 3128 200, on 3129 403, mirror on 3129 200 | As expected. The window then closed |
+| Squid's log | The same requests from `10.40.0.4` | `TCP_MISS/200` for the two mirror requests, `TCP_DENIED/403` for the four refusals and the two refused tunnels, `TCP_TUNNEL/200` for the tunnel on 3128 |
+
+The log does not name the port a request came in on: the `squid` log format has no field for it. The order of the lines and the script's own output tie each line to its port.
+
+### Every check
+
+On the live system, 14:38 to 14:43 UTC, from the branch with the changes uncommitted: `295 passed, 0 failed`. The new and changed checks read as expected: `P.2` both listeners, `P.23` 200, `P.24` to `P.27` and `P.29` 403, `P.28` and `M.9` `timeout`, `Z.21` with `allow-target-packages-from-orchestrator 3129-3129`, and `Z.26` naming `allow-target-packages-to-edge`. `P.19` passed on the new file and `P.22` on the reload. A platform plan after the run printed `No changes` and exited 0.
+
+### Not verified
+
+- The listener on 3129 at first boot of a rebuilt edge. The template has it, and the running edge got it from a copy and a reload.
+- A target using the port. No target VM exists, and the update run that forwards it is not written yet.
+- `P.27` during a window is shown by the runbook step only, once, at 14:37 UTC. The checks run with no window open.

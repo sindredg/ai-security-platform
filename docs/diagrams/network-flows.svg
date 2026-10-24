@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg viewBox="0 0 960 680" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="network-flows-title network-flows-desc" id="network-flows-root">
         <title id="network-flows-title">Network flows</title>
-        <desc id="network-flows-desc">Architecture diagram showing every allowed and denied network path on the platform side: the operator reaches the router VM on port 22 over the mesh VPN, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the internet only through Squid on the edge VM on port 3128, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, and the orchestrator, the worker, and the targets are denied the internet. Not drawn: the log agents' TCP 443 to the monitoring private endpoint.</desc>
+        <desc id="network-flows-desc">Architecture diagram showing every allowed and denied network path on the platform side: the operator reaches the router VM on port 22 over the mesh VPN, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the internet only through Squid on the edge VM on port 3128, the orchestrator also reaches port 3129 for the targets' packages, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, and the orchestrator, the worker, and the targets are denied the internet. Not drawn: the log agents' TCP 443 to the monitoring private endpoint.</desc>
         <defs>
       <style>#network-flows-root { --color-paper:   #2d3142;   
       --color-ink:     #f5f5f5;   
@@ -72,8 +72,8 @@
         <text x="404" y="289" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
         <rect x="402" y="428" width="20" height="12" rx="2" fill="#2d3142"/>
         <text x="412" y="437" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">22</text>
-        <rect x="398" y="116" width="36" height="12" rx="2" fill="#2d3142"/>
-        <text x="416" y="125" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">3128</text>
+        <rect x="384" y="116" width="64" height="12" rx="2" fill="#2d3142"/>
+        <text x="416" y="125" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">3128 · 3129</text>
         <rect x="542" y="84" width="36" height="12" rx="2" fill="#2d3142"/>
         <text x="560" y="93" fill="#f08a59" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">3128</text>
         <rect x="576" y="370" width="40" height="12" rx="2" fill="#2d3142"/>

@@ -1,6 +1,6 @@
 # Edge VM: operator procedure
 
-Status: Implemented on 2026-10-17. Run once, on the live platform, between 18:40 and 19:59 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm). Steps 5, 6, 8, 10, and 13 ran from scripts with the same commands, and are written here in fewer lines. They have not run in this form. Step 10 is shorter than the two window tests in the worklog. The rebuild note at the end is reasoned from the template and has not run. The close test in step 10 ran on 2026-10-23 from a script with the same checks, not in this form ([worklog](../worklogs/0003-toolchain-integration.md#fix-closing-a-fetch-window-ends-its-tunnels)). Also on 2026-10-23, Docker Hub left the list ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)), and step 10 pulls Argo's executor from quay.io instead. That pull has not run.
+Status: Implemented on 2026-10-17. Run once, on the live platform, between 18:40 and 19:59 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm). Steps 5, 6, 8, 10, and 13 ran from scripts with the same commands, and are written here in fewer lines. They have not run in this form. Step 10 is shorter than the two window tests in the worklog. The rebuild note at the end is reasoned from the template and has not run. The close test in step 10 ran on 2026-10-23 from a script with the same checks, not in this form ([worklog](../worklogs/0003-toolchain-integration.md#fix-closing-a-fetch-window-ends-its-tunnels)). Also on 2026-10-23, Docker Hub left the list ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)), and step 10 pulls Argo's executor from quay.io instead. That pull has not run. Steps 14 to 17 ran on 2026-10-24, 14:34 to 14:43 UTC, steps 15 and 16 from a script with the same commands ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-targets-package-port)). They have not run in this form.
 
 This builds the edge VM in Denmark East, moves the package proxy onto it, and takes the orchestrator's way out away ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)). It is the second of two stages of the edge network. The first is the [router](mesh-router.md).
 
@@ -59,12 +59,12 @@ The orchestrator keeps its own NAT gateway until step 8. Until then each step ca
    ```bash
    REPLACE_WITH_SSH aisec-edge '
      ls /var/lib/aisec-first-boot.done; cloud-init status
-     systemctl is-active squid; ss -ltn | grep 3128
+     systemctl is-active squid; ss -ltn | grep -E ":312[89]"
      sudo aisec-fetch-window status
      apt list --upgradable 2>/dev/null | grep -c -- -security'
    ```
 
-   Expected: the marker exists, `status: done`, `active`, one listener on `10.45.0.4:3128`, `closed`, and `0`.
+   Expected: the marker exists, `status: done`, `active`, one listener on `10.45.0.4:3128` and one on `10.45.0.4:3129`, `closed`, and `0`. The listener on 3129 is in the template since 2026-10-24 and has not been seen at first boot.
 
 ## Move the clients
 
@@ -190,6 +190,53 @@ The orchestrator keeps its own NAT gateway until step 8. Until then each step ca
     ```
 
     Expected: `active`. `P.17` and `P.18` pass, and failed before.
+
+## The targets' package port
+
+Squid's second port, `10.45.0.4:3129`, serves `GET` and `HEAD` on port 80 to `azure.archive.ubuntu.com` for the orchestrator and nothing else. An update run forwards it to a target over SSH ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)). A rebuilt edge has the port from its template. A running edge needs steps 14 to 17.
+
+14. Apply the two rules, after reading the plan. Run in `infra/platform` as the platform identity.
+
+    ```bash
+    terraform plan -out=REPLACE_WITH_PLAN_FILE
+    terraform apply REPLACE_WITH_PLAN_FILE
+    ```
+
+    Expected: `0 to add, 2 to change, 0 to destroy`. Each change adds one rule and touches no other: `allow-target-packages-to-edge` on the orchestrator's group, and `allow-target-packages-from-orchestrator` on the edge's. Both are TCP 3129 from `10.40.0.4/32`.
+
+15. Install the configuration from the edge template on the running edge. Render it, let the edge's Squid parse it, keep the old file, install, and reload.
+
+    ```bash
+    conf=$(mktemp)
+    .github/scripts/render-cloud-init-file.sh edge /etc/squid/squid.conf \
+      edge_ip=10.45.0.4 orchestrator_ip=10.40.0.4 worker_prefix=10.40.0.32/27 > "$conf"
+    REPLACE_WITH_SSH aisec-edge 'sudo squid -k parse -f /dev/stdin 2>&1 | grep -E "ERROR|FATAL"; echo "rc=${PIPESTATUS[0]}"' < "$conf"
+    REPLACE_WITH_SSH aisec-edge "sudo cp -p /etc/squid/squid.conf /var/backups/squid.conf.\$(date -u +%Y%m%dT%H%M%SZ) &&
+      t=\$(mktemp) && cat > \"\$t\" && sudo install -o root -g root -m 0644 \"\$t\" /etc/squid/squid.conf && rm -f \"\$t\" &&
+      sudo systemctl reload squid && systemctl is-active squid && ss -ltn | grep -E ':312[89]'" < "$conf"
+    ```
+
+    Expected: `rc=0` with no `ERROR` or `FATAL` line, then `active`, and one listener each on `10.45.0.4:3128` and `10.45.0.4:3129`. A broken configuration prints `FATAL: Bungled` and `rc=1`. Do not install it.
+
+16. Test the port from the orchestrator, first with no window, then with one open.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-orchestrator '
+      m=http://azure.archive.ubuntu.com/ubuntu/dists/resolute/InRelease
+      c() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 -x http://10.45.0.4:3129 "$@"; }
+      t() { curl -s -o /dev/null -w "%{http_connect}" --max-time 8 -x "$1" https://github.com/; }
+      echo "$(c $m) $(c http://archive.ubuntu.com/) $(c -X POST -d x $m) $(c http://azure.archive.ubuntu.com:8080/) $(t http://10.45.0.4:3129)"'
+    REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window open 5'
+    REPLACE_WITH_SSH aisec-orchestrator 't() { curl -s -o /dev/null -w "%{http_connect}" --max-time 8 -x "$1" https://github.com/; }
+      echo "$(t http://10.45.0.4:3128) $(t http://10.45.0.4:3129)"'
+    REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window close'
+    ```
+
+    Expected: `200 403 403 403 403` with no window. With the window open, `200 403`: the window opens the tunnel on 3128 and not on 3129. Then `closed`.
+
+17. Run every check (step 11).
+
+    Expected: every check passes. `P.2` lists both listeners, `P.23` reads 200, `P.24` to `P.27` and `P.29` read 403, `P.28` and `M.9` time out, `Z.21` lists `allow-target-packages-from-orchestrator 3129-3129`, and `Z.26` names `allow-target-packages-to-edge`.
 
 ## Rebuild the orchestrator
 

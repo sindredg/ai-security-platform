@@ -99,7 +99,7 @@ Global virtual network peering joins the networks: platform to targets, platform
 
 Each security group ends in a deny-all rule in both directions at priority 4096. That rule is the point: Azure's built-in rules allow everything inside the `VirtualNetwork` tag, and peering puts the other network inside that tag.
 
-The table is the design. Rules exist for what is built: SSH from the orchestrator subnet to the worker and to the target network, SSH from the router subnet to the orchestrator, the worker, the edge, and the target network, the tool service port from the worker to the orchestrator, the proxy port from the orchestrator and the worker to the edge, TCP 443 from the orchestrator, the edge, and the router to the monitoring private endpoint, and outbound internet access from the router and the edge. The other allowed flows get their rules with the service that listens on them. The denied flows are enforced now.
+The table is the design. Rules exist for what is built: SSH from the orchestrator subnet to the worker and to the target network, SSH from the router subnet to the orchestrator, the worker, the edge, and the target network, the tool service port from the worker to the orchestrator, the proxy port from the orchestrator and the worker to the edge, the targets' package port from the orchestrator to the edge, TCP 443 from the orchestrator, the edge, and the router to the monitoring private endpoint, and outbound internet access from the router and the edge. The other allowed flows get their rules with the service that listens on them. The denied flows are enforced now.
 
 | Source | Destination | Purpose | State |
 | --- | --- | --- | --- |
@@ -108,6 +108,7 @@ The table is the design. Rules exist for what is built: SSH from the orchestrato
 | Orchestrator subnet | AI worker subnet | Artifact transfer and job dispatch, both over SSH | Allowed, TCP 22 |
 | AI worker subnet | Orchestrator subnet | The tool service | Allowed, TCP 30443 |
 | Orchestrator and AI worker subnets | Edge subnet | Squid: packages, and the orchestrator's fetches during a fetch window | Allowed, TCP 3128 |
+| Orchestrator | Edge subnet | Squid: the targets' packages, which the orchestrator forwards to a target during an update run ([ADR 0036](decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)) | Allowed, TCP 3129, from the orchestrator's address only |
 | Orchestrator, edge, and router subnets | Monitoring subnet | The log agents, to Azure Monitor's private endpoint | Allowed, TCP 443. The subnet starts nothing |
 | AI worker subnet | Target network | None | Denied, by an explicit rule on the platform side |
 | AI worker subnet | Internet | None. The orchestrator pushes what the worker needs | Denied, by an explicit rule on the platform side |
@@ -115,7 +116,7 @@ The table is the design. Rules exist for what is built: SSH from the orchestrato
 | Router subnet | Internet | The mesh VPN's coordination service and relays, packages | Allowed, through the edge network's NAT gateway: TCP 443 and 80 |
 | Edge subnet | Internet | Squid's upstream requests | Allowed, through the same NAT gateway: TCP 443 and 80. Squid decides which hosts |
 | Router subnet | Platform network, edge subnet, target network | Routed operator sessions | Allowed, TCP 22 |
-| Any other source | Edge subnet | None | Denied. Only TCP 3128 from two subnets and TCP 22 from the router are allowed in (`Z.21`) |
+| Any other source | Edge subnet | None | Denied. Only TCP 3128 from two subnets, TCP 3129 from the orchestrator, and TCP 22 from the router are allowed in (`Z.21`) |
 | Any subnet | Router subnet | None | Denied. The router has no inbound allow (`Z.17`) |
 | Target network | Internet | None. The orchestrator pushes what the targets need | Denied, by explicit rules and by a policy that refuses public IP resources on the target side |
 | Target network | Platform network | None | Denied for new connections, by an explicit rule on the platform side |
