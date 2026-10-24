@@ -96,11 +96,13 @@ Read across one day to 2026-10-19 10:00 UTC, from the systemd counters of the ag
 
 The router is the tight one. Its lowest available memory in any minute of the day was 339 MB of 836 MB.
 
+On the orchestrator, read again across 15.3 hours to 2026-10-24: 411 MiB and 0.44 % of one core ([worklog](../worklogs/0003-toolchain-integration.md#orchestrator-footprint)). `MemoryCurrent` both times, so page cache moves it.
+
 ## Limits
 
 - **Alerts wait for someone to look.** Nothing is sent. A fired alert at night is seen in the morning.
 - **Root on a monitored VM can stop its agent or send false lines.** It cannot change or delete what arrived ([T42](../security/threat-model.md)).
-- **The daily cap stops ingestion until the reset hour, 17:00 UTC.** It is 0.21 GB, at least three times the day measured on 2026-10-19 ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md), [T41](../security/threat-model.md)). Rows sent after it is reached are lost, and the agents see no error. On 2026-10-19, ingestion came back 44 minutes after the cap was raised, after nine more stops ([troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)).
+- **The daily cap stops ingestion until the reset hour, 17:00 UTC.** It is 0.21 GB, at least three times the day measured on 2026-10-19, and three times a day with jobs in it, 68.57 MB to 2026-10-24 06:00 UTC, with 4.29 MB to spare ([worklog](../worklogs/0003-toolchain-integration.md#the-daily-volume-with-jobs-in-it), [ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md), [T41](../security/threat-model.md)). Rows sent after it is reached are lost, and the agents see no error. On 2026-10-19, ingestion came back 44 minutes after the cap was raised, after nine more stops ([troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)).
 - **A new endpoint name from Azure breaks ingestion** until the hosts block is written again. A plan shows the change, and `O.5` to `O.7` fail.
 - **The edge and the router have outbound TCP 443.** Nothing stops root on either from sending to another workspace over the internet. Private Link closes that path for the orchestrator only, which has no other way out.
 

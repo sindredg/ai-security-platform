@@ -1,22 +1,22 @@
 # 0003. Toolchain integration
 
-Date: 2026-10-11, in progress
+Date: 2026-10-11 to 2026-10-24
 Milestone: 3, toolchain integration
 
 ## Summary
 
-The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). Since 2026-10-22 the tool service and the dispatch step run on a base image with a fixed musl ([the images on the fixed base](#installed-the-images-on-the-fixed-base)). Since 2026-10-23 closing a fetch window on the edge ends the tunnels still open, and Squid logs each ([the fix](#fix-closing-a-fetch-window-ends-its-tunnels)). Since 2026-10-23 the secret scan in both pipelines runs gitleaks's release binary with the runner's `git` ([the fix](#fix-the-secret-scan-without-the-gitleaks-image)). Since the same day, a job starts only after the model server's slot is erased, and answers end with a status line and an excess line that the fixture check reads ([installed](#installed-the-erase-before-each-job-and-the-answer-lines)). The gate is not met: the footprint and the milestone's review are open. The [supply chain](#read-for-the-close-the-supply-chain) was read for the close on 2026-10-23, and K3s's system images [come from the release's archive](#installed-k3ss-system-images-from-the-releases-archive) since the same day.
+The milestone is built in slices, and all are on the system: the model server on the AI worker, the agent runtime running headless against it, the tool service in K3s on the orchestrator, the audit copier, the journal pull, the [job socket](#slice-jobs-over-a-socket) on the worker, and [Argo with the workflow template](#slice-argo-and-the-workflow-template), which dispatches jobs with [the transcript in the result](#slice-the-transcript-in-the-result). Since 2026-10-21 a workflow hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back; a stopped workflow ends its job ([the first workflows](#installed-argo-and-the-first-workflows)). The installs found three defects, fixed the same day: [the denied flow alert](#fix-the-denied-flow-alert), [the executor's token](#fix-the-executors-token), and the UI's config map. The [model comparison](#model-comparison) kept Qwen3.5-4B ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)). Since 2026-10-22 the tool service and the dispatch step run on a base image with a fixed musl ([the images on the fixed base](#installed-the-images-on-the-fixed-base)). Since 2026-10-23 closing a fetch window on the edge ends the tunnels still open, and Squid logs each ([the fix](#fix-closing-a-fetch-window-ends-its-tunnels)). Since 2026-10-23 the secret scan in both pipelines runs gitleaks's release binary with the runner's `git` ([the fix](#fix-the-secret-scan-without-the-gitleaks-image)). Since the same day, a job starts only after the model server's slot is erased, and answers end with a status line and an excess line that the fixture check reads ([installed](#installed-the-erase-before-each-job-and-the-answer-lines)). The milestone is done on 2026-10-24, after an independent review of these claims against the code and the running system. Two gaps are accepted in the rows below: another job's evidence on the same target, and root on the orchestrator editing the audit file. The [supply chain](#read-for-the-close-the-supply-chain) was read for the close on 2026-10-23, and K3s's system images [come from the release's archive](#installed-k3ss-system-images-from-the-releases-archive) since the same day.
 
 | Gate | Result |
 | --- | --- |
 | A workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back | **Tested** on the live system on 2026-10-21: `investigate-fczp4` ran a job on the worker, its one call to `get_evidence` was allowed, and the dispatch step checked the result before the workflow `Succeeded` ([the first workflows](#installed-argo-and-the-first-workflows)). Tested in the pipeline with a fake Goose and stubs before ([tests](#tests-4)) |
-| A tool call for another job or target is refused by the tool service | Partly **tested** on the live system: a tool outside the job's scope and a revoked job's token are refused ([round trip](#the-round-trip), steps 3 and 8). Another job's evidence on the same target was not tried, and the service cannot refuse it ([issue #45](https://github.com/sindredg/ai-security-platform/issues/45)). Another target is refused in the service's own tests |
+| A tool call for another job or target is refused by the tool service | **Tested** on the live system: a tool outside the job's scope and a revoked job's token are refused ([round trip](#the-round-trip), steps 3 and 8). Another target is refused in the service's own tests. **Accepted gap** for another job on the same target: the service stores evidence per target, so it cannot refuse it ([issue #45](https://github.com/sindredg/ai-security-platform/issues/45)). Harmless while the evidence is synthetic. It is an [open item](../security/accepted-risks.md#open-items) for milestone 4, with the first collector |
 | Cancelling a workflow stops the worker job and cleans up its session | **Tested** on the live system on 2026-10-21: a workflow stopped 25 seconds in ended its job as `cancelled` with the slot erased, left no unit and no private directory on the worker, and its token was revoked ([the first workflows](#installed-argo-and-the-first-workflows)). `argo terminate` was not tried |
 | Model memory use, latency per turn, and tokens per second are measured on the chosen size | **Tested** for the model server alone, and for one agent run beside it on a fixture. **Tested** on the live system on 2026-10-21 for the model that stays, Qwen3.5-4B, on eight held-out cases: a memory peak of 3.29 GiB, about 19 prompt and 6 output tokens per second, and a median of 50 seconds per case ([second run](#second-run)). Not measured with a tool over the network |
-| Component footprint on the orchestrator is measured | Partly **tested**: the log agent across a day ([monitoring](../components/monitoring.md#footprint)), and the Argo controller in one reading at rest and one after the first workflows, 23 MiB at most ([the first workflows](#installed-argo-and-the-first-workflows)). The dispatch pods and the tool service were not measured for this |
-| The threat model covers dispatch, workload identity, and the AI-specific threats | Written: T45 to T51 for dispatch and Argo, from ADRs 0029 and 0030, both accepted on 2026-10-21, and their states moved the same day after the install. Every one rated high has a control: T50, the controller image. Workload identity is unchanged, with no cloud identity ([0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)) |
+| Component footprint on the orchestrator is measured | **Tested** on the live system, 2026-10-23 15:26 to 2026-10-24 06:47 UTC: the platform's systemd units and every pod from their counters, and the whole machine from `Perf`. CPU averaged 3.3 %, and available memory never fell below 5,389 of 7,881 MB. The model gateway, the last deferred component, is dropped ([ADR 0034](../decisions/0034-no-model-gateway-while-there-is-one-backend.md)). No job ran in the window, and the dispatch pods were not measured ([footprint](#orchestrator-footprint)) |
+| The threat model covers dispatch, workload identity, and the AI-specific threats | **Tested** by reading both pages on 2026-10-24: dispatch and Argo are T45 to T51, from ADRs 0029 and 0030. Workload identity is T18 and T36, with no cloud identity ([0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)). The AI-specific threats are A1 to A8 in [AI threats](../security/ai-threats.md). Every threat rated high on either page names a control, or is accepted (T15, T30). The read printed any high row with an empty control cell: none, and A2 on a copy with its control removed. Not every control is built yet: those of A1 and A3 are planned for milestones 4 to 6, and A5's is open until the broker's design in milestone 5 |
 | Every image and every model input is pinned by digest and verified on the orchestrator | **Tested** for the model server (38 files and one commit) and for the agent runtime (one file). **Tested** for the tool service image: `T.2` passes against the running pod and failed against a manifest with one digest character changed ([fail side](#the-fail-side-of-each-new-check)). **Tested** for the dispatch image: `W.9` failed on a template with the previous digest, and passed after the apply ([checks](#checks-before-and-after)). **Tested** for Argo's images: their signatures before the pin ([ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md)), and `W.2` and `W.3` on the running controller. **Tested** for K3s's system images on 2026-10-23: they come from the release's archive, checked against its pin, and `K.11` passes and failed on a changed list ([installed](#installed-k3ss-system-images-from-the-releases-archive)). Until then they were pulled by tag ([K3s's system images](#k3ss-system-images)). A first boot from the changed template has not run |
-| Every tool call is logged with caller, job, and decision, out of the worker's reach | Partly **tested**: the live service printed one line per decision with caller, job, and decision, and no token ([round trip](#the-round-trip), step 10). **Tested** for storage on the live system: the [audit copier](#slice-the-audit-copier) copies every line into an append-only file that no pod mounts, `L.1` to `L.7` pass, and each was seen to fail, on a broken condition or before the install ([rollout](#rollout-of-the-log-copies)). Root on the orchestrator can edit it |
+| Every tool call is logged with caller, job, and decision, out of the worker's reach | **Tested** on the live system: the service printed one line per decision with caller, job, and decision, and no token ([round trip](#the-round-trip), step 10). The [audit copier](#slice-the-audit-copier) copies every line into an append-only file that no pod mounts, `L.1` to `L.7` pass, and each was seen to fail, on a broken condition or before the install ([rollout](#rollout-of-the-log-copies)). **Accepted gap**: root on the orchestrator can edit the file, the trusted machine by design. A hole in the sequence raises `audit-sequence` ([T21](../security/threat-model.md)) |
 | A revoked or expired job token is refused | **Tested** on the live system: [round trip](#the-round-trip) step 8, and [an expired job token](#an-expired-job-token) |
 | A pod in a workload namespace cannot open a connection to the internet | **Tested** on the live system: `T.8` from the tool service pod, `E.6` and `E.7` for the host rule, and a [probe in a new pod](#pods-and-the-internet) in `orchestration`. A new pod in `tool-services` was refused at 0, 5, and 20 seconds and resolved no public name, on 2026-10-21 ([pods and names](#pods-and-names)) |
 | The worker's journal is copied to the orchestrator on a schedule | **Tested** on the live system: a pull every five minutes into an append-only file, `J.1` to `J.9` pass, and each was seen to fail, on a broken condition or before the install ([rollout](#rollout-of-the-log-copies)) |
@@ -2206,3 +2206,65 @@ The expected results were written in each test pull request's description before
 
 - **The VMs' patch release was not read.** The runner reported 3.14.4. The VMs take Ubuntu's updates on their own schedule, and the runner image on GitHub's.
 - **`-S` is stricter than the units.** The units run `-I`, which keeps Ubuntu's own packages on the path. A test that passes here also runs without them.
+
+## Read for the close: the orchestrator's footprint and the daily volume
+
+Date: 2026-10-24. Read-only: the orchestrator over SSH and the workspace through its query API. Nothing changed on the system.
+
+### Orchestrator footprint
+
+The criterion: the footprint is measured, and deferred components go in or get dropped based on it. The only deferred component left was the model gateway. What would decide it, written before the second reading: room on the orchestrator, and a reason to use it.
+
+Two readings, T0 at 2026-10-23 15:26:29 UTC and T1 at 2026-10-24 06:46:52 UTC, 15.3 hours apart. Each reads `CPUUsageNSec`, `MemoryCurrent`, `MemoryPeak`, and the start time of each systemd unit with `systemctl show`, the `anon` line of its cgroup's `memory.stat`, and for each pod the same from its cgroup under `kubepods.slice`. CPU is the difference between the readings over the time between them. A unit that restarted in between is counted from its start.
+
+The window holds the K3s restart at 16:23 UTC, a full check run, every daily timer on the orchestrator, and the morning's unattended upgrade. It holds no job: the three jobs of the [erase install](#installed-the-erase-before-each-job-and-the-answer-lines) ran between 14:59 and 15:14 UTC, before T0. The peaks cover them for two pods. The tool service's pod has run since 2026-10-22, and its highest memory since then is 66 MiB. The Argo controller restarted at 15:03:58, during the third job, and its highest since then is 21 MiB.
+
+| Component | CPU, of one core | Memory now | anon |
+| --- | --- | --- | --- |
+| K3s, from its restart, 14.4 hours | 4.84 % | 3,061 MiB | 811 MiB |
+| Log agent, its six units added up | 0.44 % | 411 MiB | 195 MiB |
+| Tool service pod | 0.10 % | 61 MiB | 58 MiB |
+| `metrics-server` pod | 0.27 % | 34 MiB | 21 MiB |
+| Argo controller pod | 0.10 % | 18 MiB | 17 MiB |
+| CoreDNS pod | 0.14 % | 18 MiB | 13 MiB |
+| `local-path-provisioner` pod | 0.01 % | 11 MiB | 7 MiB |
+
+K3s's `MemoryCurrent` counts page cache, which includes the archive of its system images it read at the restart. Its `anon` was 1,288 MiB at T0, before the restart.
+
+The log agent's six units are `azuremonitoragent` (0.16 %, 262 MiB), `metrics-extension` (0.15 %, 29 MiB), `azuremonitor-agentlauncher` (0.05 %, 35 MiB), `metrics-sourcer` (0.02 %, 15 MiB), and two that restarted, `azuremonitor-coreagent` and `azuremonitor-astextension`, with their CPU from the table below. They held 484 MiB at T0 and 411 MiB at T1, against 290 MiB in the [reading on 2026-10-19](0004-edge-network-and-monitoring.md#footprint-1). All three are `MemoryCurrent`, which counts page cache.
+
+The unattended upgrade installed `zlib1g` at 06:44 UTC and restarted five units two minutes before T1, so the diff covers too little of their run. Each unit's last run, from the `Consumed` line systemd wrote when it stopped:
+
+| Unit | CPU time over its run | CPU, of one core | Peak memory |
+| --- | --- | --- | --- |
+| `aisec-audit-copy` | 67.3 s over 71.8 hours | 0.03 % | 9 MiB |
+| `walinuxagent` | 217.8 s over 71.8 hours | 0.08 % | 70 MiB |
+| `azuremonitor-coreagent` | 319.1 s over 151.2 hours | 0.06 % | 147 MiB |
+| `azuremonitor-astextension` | 4.8 s over 151.2 hours | under 0.01 % | 27 MiB |
+
+The whole machine, from `Perf` in the workspace, one row a minute across the window: CPU averaged 3.3 %, with its highest minutes at the K3s restart (30.1 % at 16:24 UTC) and in the check run (28.0 % at 16:35). Available memory never fell below 5,389 MB, at 15:35 UTC, and averaged 5,837 MB of 7,881 MB.
+
+There is room. There is no reason: one model backend, on the worker, called over localhost. The gateway is dropped until there is a second backend ([ADR 0034](../decisions/0034-no-model-gateway-while-there-is-one-backend.md)).
+
+### The daily volume with jobs in it
+
+The cap is 0.21 GB, three times a day with no job in it ([ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md)). The rule for moving it was written when [#125](https://github.com/sindredg/ai-security-platform/issues/125) was opened: read a full day with jobs in it, and move the cap if three times that day is above 0.21 GB.
+
+The query is the one in the [monitoring runbook](../runbooks/monitoring.md#daily-cap), step 14, for `StartTime` from 2026-10-23 06:00 to 2026-10-24 06:00 UTC, 24 hourly rows. That day holds the three jobs, three installs, the K3s restart, three full check runs, and that morning's unattended upgrades.
+
+| Table | Billable MB |
+| --- | --- |
+| `AisecWorkerJournal_CL` | 41.77 |
+| `Perf` | 26.44 |
+| `Syslog` | 0.34 |
+| `AisecSquidAccess_CL` | 0.02 |
+| `AisecToolAudit_CL` | Under 0.01 |
+| Total | 68.57 |
+
+Three times 68.57 MB is 205.71 MB, under the cap. The cap stays. The 24 hours before, with one job in them, were 66.49 MB. The tool audit rows of the day were 4,429 bytes. The worker's journal's largest source is still `user@999.service`, 23.53 MB ([#164](https://github.com/sindredg/ai-security-platform/issues/164)).
+
+### Limits
+
+- **15.3 hours, not a day.** Every daily timer ran in the window, but a slow leak shows less in 15 hours than in 24. K3s's figures cover 14.4 hours from its restart.
+- **The margin under the cap is 4.29 MB**, about 2 %. A day with more jobs or more check runs can pass it. The cap's alert and the [monitoring runbook](../runbooks/monitoring.md#daily-cap) cover that day.
+- **No job in the footprint window.** The jobs' CPU on the orchestrator is not in the figures, and the dispatch pods were not measured: they run for a job and stop, and their cgroups go with them.

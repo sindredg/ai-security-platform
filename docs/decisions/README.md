@@ -37,6 +37,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0031](0031-qwen3-5-4b-stays-the-workers-model.md) | Qwen3.5-4B stays the worker's model, by a rule written before it was compared with Granite 4.2 3B and Qwen3.5-2B | Accepted |
 | [0032](0032-erase-the-slot-before-each-job-and-refuse-on-failure.md) | The model server's slot is erased before each job as well as after, a job is refused when the first erase fails, and a failed second erase fails its workflow. Changes step 4 of 0030 | Accepted |
 | [0033](0033-k3s-system-images-from-the-release-archive.md) | K3s's system images come from the release's archive, pinned by checksum, and Docker Hub leaves the edge's list | Accepted |
+| [0034](0034-no-model-gateway-while-there-is-one-backend.md) | No model gateway while there is one model backend | Accepted |
 
 ## Format
 

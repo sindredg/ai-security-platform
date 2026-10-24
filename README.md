@@ -27,7 +27,7 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 
 | | |
 | --- | --- |
-| Milestone | 3, toolchain integration, in progress ([roadmap](docs/roadmap.md#status)) |
+| Milestone | 3, toolchain integration, done on 2026-10-24. Next: 4, NetBox target and exercise 1 investigation ([roadmap](docs/roadmap.md#status)) |
 | Works since 2026-10-21 | A workflow hands a task to the agent on the worker. The agent calls the tool service with a token only that job holds, and the checked result comes back |
 | Not yet | No target, so no finding has been investigated |
 
