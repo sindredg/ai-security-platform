@@ -1,6 +1,6 @@
 # Access
 
-No VM has a public address. The only way in is the mesh VPN to the router, then SSH with a certificate that expires after 12 hours ([ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md)). The router is the only platform node on the mesh ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)). The certificate settings themselves are `HO.17` to `HO.20`, `HW.17` to `HW.20`, and `HR.17` to `HR.20` on [host hardening](host-hardening.md). The design is [ADR 0007](../decisions/0007-mesh-vpn-for-administrative-access.md). The threat is T01 in the [threat model](../security/threat-model.md): a device that is not the operator's joins the mesh.
+No VM has a public address. The only way in is the mesh VPN to the router, then SSH with a certificate that expires after 12 hours ([ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md)). The router is the only platform node on the mesh ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)). The certificate settings themselves are `.17` to `.20` on [host hardening](host-hardening.md), for every VM. The logins to the targets, and the address they see, are `VN.1` to `VN.3` and `VL.1` to `VL.3` on [targets](targets.md). The design is [ADR 0007](../decisions/0007-mesh-vpn-for-administrative-access.md). The threat is T01 in the [threat model](../security/threat-model.md): a device that is not the operator's joins the mesh.
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |

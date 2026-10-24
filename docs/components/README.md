@@ -26,6 +26,7 @@ The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 | [Agent runtime](ai-worker.md#the-agent-runtime) | Goose, one run per job in a sandboxed unit that a socket starts | AI worker |
 | SSH certificates | OpenSSH's own certificate authority. The administrator account takes only a certificate that expires within 12 hours, [ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md), [credentials](../security/credentials.md) | Every VM |
 | [Monitoring](monitoring.md) | The Azure Monitor Agent and a Log Analytics workspace reached over Private Link, alert rules shown in the portal, flow logs, and a workbook | The orchestrator, the edge, the router, and Azure |
+| Target VMs | The NetBox VM and the lab VM, from the [targets repository](https://github.com/sindredg/ai-security-platform-test). No way out. Packages only during an update run from the orchestrator, [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md), [checks](../validation/targets.md), [runbook](../runbooks/targets.md). NetBox is not installed yet | Poland Central |
 
 ## Planned
 
@@ -48,7 +49,8 @@ Every pin in one place. Checked against the official source on the date shown.
 | `hashicorp/azuread` | 3.10.0 | The same | Dependabot, weekly | 2026-10-24 |
 | `hashicorp/random` | 3.9.1 | The same | Dependabot, weekly | 2026-10-24 |
 | Ubuntu image | 26.04 LTS, `26.04.202610070`. The release offer in Sweden Central has `26.04.202610220`, read on 2026-10-24, which the pin takes at the next rebuild. The daily builds offer newer versions that the release offer does not have ([troubleshooting 01](../troubleshooting/01-image-version-only-in-daily-offer.md)) | `infra/platform/variables.tf` | By hand, and only at a rebuild | 2026-10-24 |
-| Ubuntu packages | Whatever the archive serves | Not pinned | Unattended upgrades, daily, security suite | |
+| Ubuntu image on the targets | 26.04 LTS, `26.04.202610210`, the newest version `az vm image show` found in Poland Central on 2026-10-24. `az vm image list` named `26.04.202610220`, which the region did not serve | `infra/targets/variables.tf` in the targets repository | By hand, at a rebuild of the targets | 2026-10-24 |
+| Ubuntu packages | Whatever the archive serves | Not pinned | Unattended upgrades, daily, security suite. On the targets, only an update run from the orchestrator ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)) | |
 | Mesh VPN agent | 1.104.2 | `infra/platform/variables.tf`, held on the VM | By hand. `U.7` fails when a newer stable release exists | 2026-10-24 |
 | K3s | `v1.36.5+k3s1`, the `stable` channel | `infra/platform/variables.tf`, with checksums for the binary, the install script, and the system images' archive. The images' digests in `infra/platform/k3s-images.txt` ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)) | By hand | 2026-10-24 |
 | Azure Monitor Agent | Extension `1.45`. The newest version is `1.45.1`, read in Sweden Central on 2026-10-24 | `monitor_agent_version` in `infra/platform/variables.tf`, automatic upgrades off | By hand. Azure picks the patch release within the minor version | 2026-10-24 |

@@ -27,7 +27,7 @@ Agent settings, each checked on the router:
 
 ## The path
 
-![Mesh VPN path: the operator device and the router each open outbound connections to the coordination service for control and to a relay server over TLS on port 443 for the tunnel, the router's through its NAT gateway, and the router decrypts, filters to TCP 22, clamps the segment size, translates the source address to 10.45.0.36, and forwards to the orchestrator and the worker on TCP 22. The target network waits for its half of the peering](../diagrams/mesh-path.svg)
+![Mesh VPN path: the operator device and the router each open outbound connections to the coordination service for control and to a relay server over TLS on port 443 for the tunnel, the router's through its NAT gateway, and the router decrypts, filters to TCP 22, clamps the segment size, translates the source address to 10.45.0.36, and forwards to the orchestrator, the worker, and the two target VMs on TCP 22](../diagrams/mesh-path.svg)
 
 The diagram source is [`diagrams/mesh-path.html`](../diagrams/mesh-path.html).
 

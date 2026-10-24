@@ -105,6 +105,7 @@ On the orchestrator, read again across 15.3 hours to 2026-10-24: 411 MiB and 0.4
 - **The daily cap stops ingestion until the reset hour, 17:00 UTC.** It is 0.21 GB, at least three times the day measured on 2026-10-19, and three times a day with jobs in it, 68.57 MB to 2026-10-24 06:00 UTC, with 4.29 MB to spare ([worklog](../worklogs/0003-toolchain-integration.md#the-daily-volume-with-jobs-in-it), [ADR 0028](../decisions/0028-alert-rules-flow-logs-and-drills.md), [T41](../security/threat-model.md)). Rows sent after it is reached are lost, and the agents see no error. On 2026-10-19, ingestion came back 44 minutes after the cap was raised, after nine more stops ([troubleshooting 10](../troubleshooting/10-raising-the-daily-cap-leaves-ingestion-flapping.md)).
 - **A new endpoint name from Azure breaks ingestion** until the hosts block is written again. A plan shows the change, and `O.5` to `O.7` fail.
 - **The edge and the router have outbound TCP 443.** Nothing stops root on either from sending to another workspace over the internet. Private Link closes that path for the orchestrator only, which has no other way out.
+- **Nothing from the targets arrives.** They have no agent and no path to the private endpoint (`VN.19`, `VL.19`). What a target logs stays on it and goes with a rebuild. Operator sessions to the targets are an [open item](../security/accepted-risks.md#open-items) (T04).
 
 ## Vendor documentation
 

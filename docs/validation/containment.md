@@ -1,6 +1,6 @@
 # Containment
 
-The AI worker runs untrusted model output. It gets no path to the internet, to the targets, or to a name server, and two ports: the tool service on the orchestrator, and the package proxy on the edge VM. The design is [ADR 0005](../decisions/0005-ai-workers-on-a-separate-vm.md), [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), and [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md). The threat is T17: the worker reaches a target or the internet directly.
+The AI worker runs untrusted model output. It gets no path to the internet, to the targets, or to a name server, and two ports: the tool service on the orchestrator, and the package proxy on the edge VM. The design is [ADR 0005](../decisions/0005-ai-workers-on-a-separate-vm.md), [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), and [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md). The threat is T17: the worker reaches a target or the internet directly. What the targets themselves cannot reach is on [targets](targets.md).
 
 ![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the orchestrator also reaches port 3129 on the edge for the targets' packages, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else drawn is denied. The log agents' port 443 to the monitoring private endpoint is not drawn](../diagrams/network-flows.svg)
 
@@ -19,14 +19,15 @@ The script reports how each connection attempt ended, not just that it failed.
 
 Network security groups and the mesh policy drop without answering. So a check that says a rule blocks a path expects `timeout`. `refused` on that path is a failure: the packet got through.
 
-A timeout proves a drop only when something listens at the far end. That holds for every check below except `C.2` and `C.3`.
+A timeout proves a drop only when something listens at the far end. That holds for every check below except `C.3`.
 
 ## From the worker
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
 | `C.1` | No connection to the internet | A compromised worker cannot connect out or download a payload | TCP to `1.1.1.1:443` times out |
-| `C.2`, `C.3` | No connection to the target network | The worker investigates through tool services, never directly | TCP to an address in two target subnets times out. No machine is there yet, so this would time out without the rule too. `Z.6` is the proof until targets exist |
+| `C.2`, `C.11` | No connection to the NetBox VM or the lab VM | The worker investigates through tool services, never directly | TCP to `10.50.0.4:22` and `10.50.0.36:22` times out. Both listen: the orchestrator reaches them (`E.15`). Until 2026-10-24 no machine was there, and `C.2` proved nothing about the rule |
+| `C.3` | No connection to the rehearsal subnet | The same | TCP to `10.50.1.4:22` times out. No machine is there, so this would time out without the rule too. `Z.6` names the rule |
 | `C.4` | No connection to the platform resolver | DNS is a way to pass data out, and a deny-all rule does not cover it | TCP to `168.63.129.16:53` times out |
 | `C.5` | A public name does not resolve | The same, tested end to end | `getent hosts example.com` has to fail |
 | `C.6` | No connection to the orchestrator on 22 | The worker never administers the trusted side | TCP times out. The port listens: `E.2` and `M.1` reach it |
@@ -36,11 +37,11 @@ A timeout proves a drop only when something listens at the far end. That holds f
 
 ## From Azure's side
 
-A timeout proves a packet was dropped. It does not say which rule dropped it, and the target network has no machines yet. These checks name the rule.
+A timeout proves a packet was dropped. It does not say which rule dropped it. These checks name the rule.
 
 | ID | Claim | How it is checked |
 | --- | --- | --- |
-| `Z.4`, `Z.5`, `Z.16`, `Z.20` | The effective rules on each network interface, the orchestrator's, the worker's, the router's, and the edge's, equal the configured rules | `az network nic list-effective-nsg` against `az network nsg show`, compared rule by rule. See below |
+| `Z.4`, `Z.5`, `Z.16`, `Z.20`, `Z.27`, `Z.28` | The effective rules on each network interface, the orchestrator's, the worker's, the router's, the edge's, the NetBox VM's, and the lab VM's, equal the configured rules. A target's group is its subnet's: `nsg-aisec-targets-netbox` and `nsg-aisec-targets-consumer` | `az network nic list-effective-nsg` against `az network nsg show`, compared rule by rule. See below |
 | `Z.6` | Worker to the target network is denied by `deny-to-targets` | IP flow verify |
 | `Z.7` | Worker to the internet is denied by `deny-to-internet` | IP flow verify |
 | `Z.8` | Worker to the proxy on the edge is allowed by `allow-package-proxy-to-edge` | IP flow verify |
@@ -51,7 +52,7 @@ A timeout proves a packet was dropped. It does not say which rule dropped it, an
 | `Z.17` | Nothing is allowed into the router | Inbound allow rules among the router's effective rules, counted once `Z.16` got an answer. `0`. Its tunnel is opened outbound, so no subnet needs a way in ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)) |
 | `Z.18` | Both halves of the platform and edge peering are connected | As `Z.15` |
 | `Z.24` | Both halves of the edge and target peering are connected | As `Z.15`. The router's sessions to the targets cross it |
-| `Z.25` | Only SSH from the orchestrator and the router is allowed into each target subnet | The configured inbound allows of each target group, by name, source, and port. Not the effective rules: those need a network interface, and no target VM exists |
+| `Z.25` | Only SSH from the orchestrator and the router is allowed into each target subnet | The configured inbound allows of each target group, by name, source, and port. `Z.27` and `Z.28` compare the effective rules of the two groups with a VM. The unintended and rehearsal subnets have none, so only their configured rules are read |
 | `Z.19` | The edge network is in Denmark East | The network's location. The group is in Sweden Central |
 | `Z.21` | Only the proxy ports and SSH from the router are allowed into the edge | The inbound allow rules among the edge's effective rules, by name and port, counted once `Z.20` got an answer: `allow-proxy-from-orchestrator` and `allow-proxy-from-worker` on 3128, `allow-target-packages-from-orchestrator` on 3129, `allow-ssh-from-router` on 22 |
 | `Z.22` | Orchestrator to the internet is denied by `deny-to-internet` | IP flow verify from the orchestrator. Before 2026-10-17 it named `allow-https-to-internet` |
@@ -72,7 +73,7 @@ The two commands write the same rule differently, so both are put in one form fi
 | Any port | `*` | `0-65535` | `0-65535` |
 | Lists | One value or a list | Both filled | One sorted list |
 
-Two differences are allowed. Azure's default rules appear in every effective list and are skipped. The platform adds one IPv6 deny through its network manager, and that one rule from that one source is skipped. A second security group on the interface is not skipped and fails the check.
+Two differences are allowed. Azure's default rules appear in every effective list and are skipped. The platform adds one IPv6 deny through its network manager, and that one rule from that one source is skipped. The target side has no network manager. A second security group on the interface is not skipped and fails the check.
 
 A failed or empty answer from Azure is a `FAIL` with the error. Two empty answers used to compare as equal and pass.
 
@@ -93,11 +94,13 @@ Limit: service tags such as `Internet` are compared by name. The addresses a tag
 | `E.10` | The feed account has no other group, no sudo, and not its own home | A group or sudo would undo the rest. A home it owns lets it write the files its shell reads at login | `id -nG`, `sudo -l -U`, and the owner of `/home/aisec-feed` |
 | `E.11` | The worker runs the feed command in this checkout | The command is the boundary on the worker. It has to be the reviewed one | The SHA-256 of `/usr/local/sbin/aisec-feed-receive` equals that of `worker/feed/aisec-feed-receive` |
 | `E.12` | The orchestrator opens no connection to the internet | It holds every credential. Its way out is Squid on the edge, and nothing else (T05) | TCP to `1.1.1.1:443` times out. Before 2026-10-17 it was `open` |
+| `E.15` | The orchestrator reaches both targets on 22 | Administration and update runs go from the orchestrator ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)) | TCP to `10.50.0.4:22` and `10.50.0.36:22` reads `open` |
+| `E.16` | The targets' update key is root's and closed to others | The key logs in to every target. Each target holds its public half, checked by `VN.6` and `VL.6` on [targets](targets.md) | `stat` on `/etc/aisec/target-update/id_ed25519` reads `root 600` |
 | `E.13`, `E.14` | The orchestrator gets no answer from Azure DNS | Squid resolves names for it. A resolver is a way to pass data out (T07) | TCP to `168.63.129.16:53` times out, and a `dig` query over UDP gets no reply |
 
 `E.1` read the opposite of `E.12`, that the orchestrator reaches the internet on 443. It was retired on 2026-10-17, when that stopped being true.
 
 ## Not checked
 
-- The orchestrator can reach any host on TCP 443 and 80. This access is an [accepted risk](../security/accepted-risks.md#accepted-risks); these checks do not test it.
+- The orchestrator's tunnels through Squid while a fetch window is open. The checks run with no window open (`P.15`, `P.16`). What a window allows is T40 in the [threat model](../security/threat-model.md).
 - Platform endpoints such as the instance metadata service stay reachable from every VM.

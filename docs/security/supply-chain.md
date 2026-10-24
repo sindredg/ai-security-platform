@@ -40,7 +40,7 @@ These are not pinned by checksum. The vendor's signature on its package index is
 
 | What | Pinned | Check | State |
 | --- | --- | --- | --- |
-| Ubuntu packages on every VM, Squid among them | Not pinned. Unattended upgrades install security fixes daily | apt checks the archive's signed metadata with the key in the image | Built |
+| Ubuntu packages on every platform VM, Squid among them | Not pinned. Unattended upgrades install security fixes daily | apt checks the archive's signed metadata with the key in the image | Built |
 | Ubuntu packages on the targets, Podman, PostgreSQL, and Valkey among them | Not pinned. Installed and updated only by an update run from the orchestrator. Unattended upgrades are off ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)) | The same, by `apt` on the target | Decided on 2026-10-24. Not built |
 | The mesh VPN agent on the router | Version, held. `U.2` holds it | apt checks Tailscale's signed repository. First boot fetches Tailscale's key over HTTPS, with no fingerprint pinned | Built |
 | The Azure Monitor Agent | Minor version, automatic upgrades off | Azure installs and checks it. Nothing on the project's side does | Built |

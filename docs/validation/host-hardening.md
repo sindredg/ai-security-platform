@@ -1,15 +1,15 @@
 # Host hardening
 
-The same settings on every VM, from cloud-init. They came out of the Lynis audit in [milestone 2](../worklogs/0002-platform-compute.md#operating-system-audit). The checks are the same list on each: `HO` on the orchestrator, `HW` on the worker, `HR` on the router, `HE` on the edge.
+The same settings on every VM, from cloud-init. They came out of the Lynis audit in [milestone 2](../worklogs/0002-platform-compute.md#operating-system-audit). The checks are the same list on each: `HO` on the orchestrator, `HW` on the worker, `HR` on the router, `HE` on the edge, `HN` on the NetBox VM, and `HL` on the lab VM. The targets take the same settings from their own template in the targets repository.
 
-Each check was seen to fail. `.21` failed live on all four VMs before the rollout of 2026-10-19, and on a misspelled unit name. `.17` to `.20` failed live before the rollout of 2026-10-16. The rest failed on 2026-10-18: `.2` to `.6` against Ubuntu's default SSH configuration on the edge, `.7`, `.8`, and `.10` to `.14` on a machine that is not hardened, and `.1`, `.9`, `.15`, and `.16` with stubbed commands ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-of-the-edge-checks)).
+Each check was seen to fail. `.21` failed live on all four VMs before the rollout of 2026-10-19, and on a misspelled unit name. `.17` to `.20` failed live before the rollout of 2026-10-16. The rest failed on 2026-10-18: `.2` to `.6` against Ubuntu's default SSH configuration on the edge, `.7`, `.8`, and `.10` to `.14` on a machine that is not hardened, and `.1`, `.9`, `.15`, and `.16` with stubbed commands ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-of-the-edge-checks)). `HN` and `HL` run the same code and were not made to fail on the targets. They passed on their first run, on 2026-10-24.
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
 | `.1` | No failed systemd unit | A unit that failed at boot is the first sign of a broken rebuild | `systemctl --failed` |
 | `.2` | No root login over SSH | One named account, and `sudo` from there | `sshd -T` |
 | `.3` | No password login | Keys only. No account has a password | `sshd -T` |
-| `.4` | No TCP forwarding | An SSH session is not a tunnel into either network. The one exception, for the administrator on the orchestrator, is `A.8` | `sshd -T` |
+| `.4` | No TCP forwarding | An SSH session is not a tunnel into either network. The exceptions are the administrator on the orchestrator (`A.8`) and the update account on the targets (`VN.4`, `VL.4`) | `sshd -T` |
 | `.5` | No agent forwarding | The operator's agent stays on the workstation | `sshd -T` |
 | `.6` | Three authentication tries | Default is six | `sshd -T` |
 | `.7` | SysRq is off | No kernel commands from a console | `sysctl` |

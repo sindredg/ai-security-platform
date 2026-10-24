@@ -66,11 +66,11 @@ Each of the four target subnets has its own security group with the same rules. 
 | Outbound | Deny | The internet, Azure DNS | `deny-to-internet`, `deny-to-azure-dns` |
 | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
 
-The table is read from that file on 2026-10-17, at the commit that added `allow-ssh-from-router`. `Z.25` reads each group's inbound allows. No target VM exists, so no check reads effective rules on the target side.
+The table is read from that file on 2026-10-17, at the commit that added `allow-ssh-from-router`. `Z.25` reads each group's inbound allows. `Z.27` and `Z.28` compare the effective rules on the NetBox VM's and the lab VM's interfaces with their groups, since 2026-10-24. The unintended and rehearsal subnets have no VM, so their effective rules are not read.
 
 ## Validation
 
-`C`, `E`, and `Z` in the [validation pages](../validation/containment.md).
+`C`, `E`, and `Z` in the [validation pages](../validation/containment.md). What the targets cannot reach is `VN.13` to `VN.17` and `VL.13` to `VL.17` on [targets](../validation/targets.md).
 
 ## Limits
 
