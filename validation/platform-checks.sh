@@ -125,6 +125,8 @@ logs="$here/../platform/logs"
 COPY_SHA=$(cat "$logs/aisec_audit_copy.py" "$logs/aisec-audit-copy.service" | sha256sum | cut -d " " -f 1)
 PULL_SHA=$(cat "$logs/aisec_journal_pull.py" "$logs/aisec-journal-pull.service" "$logs/aisec-journal-pull.timer" |
   sha256sum | cut -d " " -f 1)
+# The update run's command on the orchestrator, from this checkout.
+TARGET_RUN_SHA=$(sha256sum "$here/../platform/target-update/aisec-target-update-run" | cut -d " " -f 1)
 # The update key's one command on the targets, from the targets checkout.
 TARGET_UPDATE_SHA=$(sha256sum "${AISEC_TARGETS:-/nonexistent}/host/aisec-target-update" 2>/dev/null | cut -d " " -f 1)
 TARGET_UPDATE_SHA=${TARGET_UPDATE_SHA:-"AISEC_TARGETS not given or not the targets checkout"}
@@ -302,6 +304,17 @@ echo "to_targets_ssh=$(tcp '"$NETBOX_IP"' 22) $(tcp '"$LAB_IP"' 22)"
 # public half, which each target holds.
 update_key=/etc/aisec/target-update/id_ed25519
 echo "target_update_key=$(stat -c "%U %a" $update_key 2>/dev/null) $(ssh-keygen -y -f $update_key 2>/dev/null | cut -d " " -f 1,2)"
+run=/usr/local/sbin/aisec-target-update-run
+echo "target_update_run=$(stat -c "%U %a" $run 2>/dev/null) $(sha256sum $run 2>/dev/null | cut -d " " -f 1)"
+# The key each target offers, against the one the update run pins. A missing
+# pin is a difference, not a match.
+pins=""
+for address in '"$NETBOX_IP $LAB_IP"'; do
+  pinned=$(awk -v a="$address" "\$1 == a {print \$2, \$3}" /etc/aisec/target-update/known_hosts 2>/dev/null)
+  offered=$(ssh-keyscan -T 8 -t ed25519 "$address" 2>/dev/null | grep -v "^#" | cut -d " " -f 2-)
+  pins="$pins $([ -n "$pinned" ] && [ "$pinned" = "$offered" ] && echo match || echo differ)"
+done
+echo "target_update_pins=${pins# }"
 # Exit status 2 is the feed command refusing. 255 would be SSH failing, and 0
 # that the key ran a command it should not.
 sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec-feed@aisec-worker id >/dev/null 2>&1
@@ -515,6 +528,11 @@ echo "edge_proxy=$(tcp '"$EDGE_IP"' 3128) $(tcp '"$EDGE_IP"' 3129)"
 echo "platform_ssh=$(tcp '"$ORCH_IP"' 22) $(tcp '"$WORK_IP"' 22)"
 echo "other_target_ssh=$(tcp "$1" 22)"
 echo "first_boot=$(stat -c "%U" /var/lib/aisec-first-boot.done 2>/dev/null)"
+echo "apt_sources=$(grep -rhoE "^(URIs:|deb) +[^ ]+" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null | awk "{print \$2}" | sort -u | tr "\n" " " | sed "s/ $//")"
+# apt touches the stamp after each successful package list refresh. The image
+# build made one too, so only a refresh after first boot counts.
+stamp=/var/lib/apt/periodic/update-success-stamp
+echo "last_update=$([ "$stamp" -nt /var/lib/aisec-first-boot.done ] && [ $(( $(date +%s) - $(stat -c %Y "$stamp") )) -le 604800 ] && echo yes || echo no) $(apt list --upgradable 2>/dev/null | grep -c -- -security) $([ -e /run/reboot-required ] && echo yes || echo no)"
 '
 
 common_checks() { # prefix
@@ -585,6 +603,8 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check E.4 "The feed key runs nothing but the feed command" 2 "$(value feed_refuses)"
   check E.15 "The orchestrator reaches both targets on 22" "open open" "$(value to_targets_ssh)"
   check E.16 "The targets' update key is root's and closed to others" "root 600" "$(value target_update_key | cut -d " " -f 1,2)"
+  check E.17 "The update run command is root's and the one in this checkout" "root 700 $TARGET_RUN_SHA" "$(value target_update_run)"
+  check E.18 "The update run pins both targets' host keys" "match match" "$(value target_update_pins)"
   # Kept for each target's .6, which reads the key the target accepts.
   TARGET_UPDATE_KEY=$(value target_update_key | cut -d " " -f 3,4)
   check P.12 "Squid is not installed on the orchestrator" 0 "$(value squid_installed)"
@@ -873,7 +893,7 @@ fi
 
 # The NetBox and lab VMs. The same checks on each, with the prefix V and the
 # VM's letter, and the hardening checks with H and the same letter.
-target_checks() { # letter name host other-target-address
+target_checks() { # letter name host other-target-address update-check-ID
   echo
   echo "== $2 ($3)"
   # The address the target sees the session come from, read before sudo.
@@ -912,6 +932,13 @@ target_checks() { # letter name host other-target-address
     check "V$1.16" "No connection to the orchestrator or the worker on 22" "timeout timeout" "$(value platform_ssh)"
     check "V$1.17" "No connection to the other target on 22" timeout "$(value other_target_ssh)"
     check "V$1.18" "First boot ran to its end" root "$(value first_boot)"
+    # Squid's target port serves this mirror and no other host (P.24).
+    check "V$1.20" "apt's sources name only the mirror the target port serves" \
+      "http://azure.archive.ubuntu.com/ubuntu/" "$(value apt_sources)"
+    # Nothing updates a target between runs (ADR 0036), so the list a run left
+    # behind is the one read here. Seven days, so a missed run shows.
+    check "$5" "An update run in the last 7 days, no security update pending, no reboot required" \
+      "yes 0 no" "$(value last_update)"
     # Nothing from the targets reaches Azure Monitor: an accepted gap.
     check "V$1.19" "No log agent" 0 "$(value monitor_agent | cut -d " " -f 1)"
     common_checks "H$1"
@@ -919,8 +946,8 @@ target_checks() { # letter name host other-target-address
     check "V$1.1" "Reachable through the router with the operator certificate" "$ROUTER_IP" "not reached"
   fi
 }
-target_checks N NetBox "$NETBOX" "$LAB_IP"
-target_checks L Lab "$LAB" "$NETBOX_IP"
+target_checks N NetBox "$NETBOX" "$LAB_IP" U.14
+target_checks L Lab "$LAB" "$NETBOX_IP" U.15
 
 if [ "$workstation" = 1 ]; then
   echo

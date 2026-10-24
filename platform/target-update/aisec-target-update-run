@@ -1,0 +1,55 @@
+#!/bin/bash
+# Runs one update run on a target (ADR 0036). Run as root on the orchestrator.
+#
+# It opens an SSH session to the target's update account with a remote forward
+# from the target's 127.0.0.1:3129 to Squid's target port on the edge. The key
+# runs one command there, which installs the target's packages and upgrades
+# through that forward. The session closes when the command ends, and the
+# forward with it.
+#
+# The destination of the forward is set here, so the target cannot point it
+# anywhere else. No configuration file is read, so nothing adds a forward or
+# an agent. The target's host key is pinned.
+#
+# The journal gets a line when the run starts and one when it ends, naming the
+# target, with the exit status and the two lines the target printed last. They
+# are the target's claim, not evidence: the checks read the target itself.
+#
+# Usage: aisec-target-update-run netbox|lab
+set -euo pipefail
+
+dir=/etc/aisec/target-update
+squid_target_port=10.45.0.4:3129
+
+case "${1:-}" in
+  netbox) address=10.50.0.4 ;;
+  lab) address=10.50.0.36 ;;
+  *) echo "usage: aisec-target-update-run netbox|lab" >&2; exit 2 ;;
+esac
+target=$1
+
+if [ "$(id -u)" != 0 ]; then
+  echo "aisec-target-update-run: run as root" >&2
+  exit 1
+fi
+
+say() {
+  logger -t aisec-target-update -- "$*"
+  echo "$*"
+}
+
+out=$(mktemp)
+trap 'rm -f "$out"' EXIT
+
+say "start target=$target address=$address"
+set +e
+ssh -F none -n -T -i "$dir/id_ed25519" -o IdentitiesOnly=yes \
+  -o UserKnownHostsFile="$dir/known_hosts" -o GlobalKnownHostsFile=none -o StrictHostKeyChecking=yes \
+  -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=30 \
+  -o ForwardAgent=no -o ForwardX11=no -o ExitOnForwardFailure=yes \
+  -R "127.0.0.1:3129:$squid_target_port" "aisec-update@$address" | tee "$out"
+status=${PIPESTATUS[0]}
+set -e
+claims=$({ grep -E '^(security_updates_pending|reboot_required)=' "$out" || true; } | tr '\n' ' ' | sed 's/ $//')
+say "end target=$target status=$status ${claims:-no result lines}"
+exit "$status"

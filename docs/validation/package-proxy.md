@@ -69,6 +69,7 @@ An update run forwards port 3129 from a target's loopback address, so the target
 | `U.11` | containerd pulls images through the edge | A pull without it fails, and only on the next deploy | `HTTPS_PROXY` in containerd's environment is the edge |
 | `U.12` | Unattended upgrades are enabled on the edge | As `U.4` | `systemctl is-enabled` |
 | `U.13` | No security update is pending on the edge | As `U.1`. The edge is the most exposed machine | `apt list --upgradable` has nothing from the security suite |
+| `U.14`, `U.15` | An update run in the last 7 days on each target, with nothing pending and no reboot required | The targets' packages come only from an update run ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)) | See [targets](targets.md#updates) |
 
 `U.2`, `U.6`, and `U.7` read the orchestrator until it left the mesh.
 

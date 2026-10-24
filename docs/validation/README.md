@@ -32,7 +32,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | --- | --- | --- |
 | [Access](access.md) | `A`, `M`, `R` | Who can get in, and through what |
 | [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.28` | What the worker and the orchestrator cannot reach, and what they can |
-| [Targets](targets.md) | `VN`, `VL` | The NetBox and lab VMs: the operator's login, the update account, and no way out |
+| [Targets](targets.md) | `VN`, `VL`, `U.14`, `U.15` | The NetBox and lab VMs: the operator's login, the update account, the update runs, and no way out |
 | [Package proxy](package-proxy.md) | `P`, `U` | Squid on the edge, the one path out for the orchestrator and the worker, the fetch window, and whether updates arrive |
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Agent runtime](agent-runtime.md) | `G` | The Goose binary and the fixture are the pinned ones, and no finished job leaves its unit or its files |
@@ -102,6 +102,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-24 | 286 of 286 passed | From the branch `chore/move-pins` at `4b18089`, with the Goose 1.56.0 and Argo v4.1.6 pins not yet committed, 13:08 to 13:13 UTC, after both were installed ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-install)) |
 | 2026-10-24 | 295 of 295 passed | From the branch of [#183](https://github.com/sindredg/ai-security-platform/pull/183) with the changes uncommitted, 14:38 to 14:43 UTC, after the [targets' package port](../worklogs/0005-netbox-target-and-exercise-1.md#every-check) was installed. First run with `P.23` to `P.29`, `M.9`, and `Z.26` |
 | 2026-10-24 | 380 of 380 passed | From the branch with the target checks uncommitted, ending at 16:51 UTC, after the [target VMs](../worklogs/0005-netbox-target-and-exercise-1.md#the-checks-for-the-targets) were built. First run with `VN`, `VL`, `HN`, `HL`, `C.11`, `E.15`, `E.16`, `Z.27`, and `Z.28`, and with `Z.1` reading both groups |
+| 2026-10-24 | 330 of 336 passed | Without the Azure and workstation checks, from the branch with the update run uncommitted, at 17:30 UTC. First run with `E.17`, `E.18`, `VN.20`, `VL.20`, `U.14`, and `U.15`. The six failed as written before the run: nothing installed, and the targets' apt sources on hosts the target port refuses ([troubleshooting 16](../troubleshooting/16-targets-apt-sources-fall-back-without-dns.md)) |
+| 2026-10-24 | 386 of 386 passed | The same branch, ending at 18:12 UTC, after both targets were rebuilt and the [first update runs](../worklogs/0005-netbox-target-and-exercise-1.md#the-update-run) |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
@@ -123,7 +125,7 @@ The second run on 2026-10-12 adds the seven `S` checks, which brings the script 
 ## What the checks do not cover
 
 - **A rebuild of everything at once.** Each VM has been rebuilt from its template and passed every check, the worker on 2026-10-11 and the orchestrator on 2026-10-13. Both together, or from an empty subscription, has not been run.
-- **The target side, beyond its VMs.** NetBox, its data, and the update run are not built yet.
+- **The target side, beyond its VMs.** NetBox and its data are not built yet.
 - **The agent runtime during a run.** The [`G` checks](agent-runtime.md) read what is installed and what a finished job leaves. The transient unit's sandbox and the tools a run loads are not checked.
 - **The tool service's round trip and audit lines.** They are steps in the [runbook](../runbooks/tool-service.md#round-trip), because they register and revoke jobs. Its rejection cases are tested in CI. The deployment itself is checked by the [tool service checks](tool-service.md).
 - **Anything a benchmark tool finds.** kube-bench and Lynis results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). The checks here hold the fixes in place.
