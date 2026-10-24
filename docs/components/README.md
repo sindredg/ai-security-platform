@@ -35,7 +35,7 @@ Candidates, not selections, except the rows that name a decision record. Each ha
 | --- | --- | --- | --- |
 | Starting model | Qwen3.5-4B, running. Kept after a comparison with Granite 4.2 3B and Qwen3.5-2B, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3, the same in both runs ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). Still to show: a real investigation | 4 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 4 |
-| First target | NetBox | See [ADR 0004](../decisions/0004-netbox-as-first-target.md) | 4 |
+| First target | NetBox v4.7.3, from the `netbox-docker` image under Podman, with PostgreSQL and Valkey from Ubuntu. Decided in ADRs [0004](../decisions/0004-netbox-as-first-target.md) and [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) | A deployment on the target: the image checked against its pin there, and TLS on its port | 4 |
 
 ## Versions
 

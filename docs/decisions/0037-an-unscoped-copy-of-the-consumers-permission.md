@@ -1,6 +1,6 @@
 # 0037. The seeded finding is an unscoped copy of the consumer's permission, confirmed by configuration and by what the token returns
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-24
 
 ## Context

@@ -1,6 +1,6 @@
 # 0035. NetBox from its image under Podman, with PostgreSQL and Valkey from Ubuntu
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-24
 
 ## Context

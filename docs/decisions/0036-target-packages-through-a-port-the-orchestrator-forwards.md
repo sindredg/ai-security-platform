@@ -1,6 +1,6 @@
 # 0036. Target packages through a port the orchestrator forwards, to a Squid port of their own
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-24
 
 ## Context

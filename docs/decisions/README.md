@@ -38,9 +38,9 @@ One record per consequential architecture choice. A record states the context, t
 | [0032](0032-erase-the-slot-before-each-job-and-refuse-on-failure.md) | The model server's slot is erased before each job as well as after, a job is refused when the first erase fails, and a failed second erase fails its workflow. Changes step 4 of 0030 | Accepted |
 | [0033](0033-k3s-system-images-from-the-release-archive.md) | K3s's system images come from the release's archive, pinned by checksum, and Docker Hub leaves the edge's list | Accepted |
 | [0034](0034-no-model-gateway-while-there-is-one-backend.md) | No model gateway while there is one model backend | Accepted |
-| [0035](0035-netbox-from-its-image-with-the-database-from-ubuntu.md) | NetBox from its image under Podman, pinned by digest, with PostgreSQL and Valkey from Ubuntu | Proposed |
-| [0036](0036-target-packages-through-a-port-the-orchestrator-forwards.md) | The targets get packages through a port the orchestrator forwards over SSH, to a Squid port that serves only the package mirror | Proposed |
-| [0037](0037-an-unscoped-copy-of-the-consumers-permission.md) | The seeded finding is an unscoped copy of the consumer's permission, confirmed by configuration and by what the token returns. The contract is a file in the targets repository | Proposed |
+| [0035](0035-netbox-from-its-image-with-the-database-from-ubuntu.md) | NetBox from its image under Podman, pinned by digest, with PostgreSQL and Valkey from Ubuntu | Accepted |
+| [0036](0036-target-packages-through-a-port-the-orchestrator-forwards.md) | The targets get packages through a port the orchestrator forwards over SSH, to a Squid port that serves only the package mirror | Accepted |
+| [0037](0037-an-unscoped-copy-of-the-consumers-permission.md) | The seeded finding is an unscoped copy of the consumer's permission, confirmed by configuration and by what the token returns. The contract is a file in the targets repository | Accepted |
 
 ## Format
 
