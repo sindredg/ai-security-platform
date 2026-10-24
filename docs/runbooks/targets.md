@@ -2,7 +2,7 @@
 
 Status: Implemented on 2026-10-24. Built once, on the live system, 15:24 to 16:51 UTC, and rebuilt once, 17:39 to 18:12 UTC. Results are in the [milestone 4 worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-target-vms) and its [update run](../worklogs/0005-netbox-target-and-exercise-1.md#the-update-run) section. The key was made by hand on the first build, before the install script made it: step 2 has not run in this form. Steps 6 and 10 to 12 ran from a script with the same commands, step 12 with no reboot needed. Steps 5, 7, and 9 ran as separate read-only commands. Step 8 ran in its earlier form, without the `URIs` line, at 17:01 UTC. The first apply failed on an image version that `az vm image list` named and the region did not serve. Step 1 checks for that now, and has not run in this form.
 
-This builds the NetBox VM and the lab VM from the [targets repository](https://github.com/sindredg/ai-security-platform-test), installs the orchestrator's update run, and runs it once on each ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)). NetBox itself and its data come later.
+This builds the NetBox VM and the lab VM from the [targets repository](https://github.com/sindredg/ai-security-platform-test), installs the orchestrator's update run, and runs it once on each ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)). NetBox itself is installed by the [NetBox runbook](netbox.md), and its data comes later.
 
 The target network must exist: the [network foundation runbook](network-foundation.md) builds it. So must the platform side of the targets' package port: the [edge runbook](edge-vm.md#the-targets-package-port), steps 14 to 17.
 

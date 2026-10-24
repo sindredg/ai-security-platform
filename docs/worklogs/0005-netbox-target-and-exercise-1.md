@@ -5,7 +5,7 @@ Milestone: 4, NetBox target and exercise 1 investigation
 
 ## Summary
 
-Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). The NetBox VM and the lab VM are built, with the checks that read them ([below](#the-target-vms)). The update run is built, and has run once on each target ([below](#the-update-run)). NetBox itself is not. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
+Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). The NetBox VM and the lab VM are built, with the checks that read them ([below](#the-target-vms)). The update run is built, and has run once on each target ([below](#the-update-run)). NetBox runs on its VM, with no data yet ([below](#netbox-on-its-vm)). The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
 
 Before the build, five pins moved to their newest stable release: Terraform, `hashicorp/azurerm`, Ruff, Goose, and Argo Workflows. Goose and Argo run on the platform, so both were installed and every check ran after them.
 
@@ -336,3 +336,110 @@ On the live system, from the branch with the changes uncommitted, ending at 18:1
 - A run that needs a reboot. Neither did.
 - A run on a target whose host key changed without a new pin. `StrictHostKeyChecking=yes` should refuse it. Not tried.
 - A run whose forward fails, for example a second run on the same target at the same time. `ExitOnForwardFailure=yes` should end it. Not tried.
+
+## NetBox on its VM
+
+Date: 2026-10-24. [ADR 0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md), with the TLS key made on the VM ([ADR 0038](../decisions/0038-netboxs-tls-key-made-on-the-netbox-vm.md)). The procedure is the [NetBox runbook](../runbooks/netbox.md).
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| The targets repository's `netbox/image.env` | The pin: the image index by digest, its linux/amd64 manifest, and that manifest's config, whose digest is the image ID |
+| The targets repository's `netbox/netbox.container`, `netbox-worker.container` | Podman Quadlet units for NetBox and its background worker. The image by ID, never pulled, the VM's network, the image's `netbox` account, a read-only root, no capabilities, no new privileges, and the secrets as files |
+| The targets repository's `netbox/netbox.env` | The settings that are not secret, Granian's TLS among them |
+| The targets repository's `netbox/install-netbox.sh` | Root's script on the NetBox VM: loads the archive and starts nothing unless the image ID is the pin, makes four secrets and the TLS key once, the PostgreSQL role and database, Valkey's password, and installs and starts the units |
+| The targets repository's `infra/targets/main.tf` | TCP 8443 into the NetBox VM from `10.40.0.4/32` and the consumer subnet, and out of the consumer subnet to the NetBox VM |
+| The targets repository's checks workflow | A `Quadlet units` job: Quadlet's own dry run reads the units, and a copy with an unknown key has to fail it. ShellCheck reads `netbox/` |
+| `platform/target-images/fetch-netbox-image.sh` | Root's script on the orchestrator, in a fetch window: pulls the index by digest into containerd's `aisec-targets` namespace, exports linux/amd64, checks the archive against the pin, and removes the image from the namespace |
+| `infra/platform/main.tf` | `allow-netbox-to-targets`: TCP 8443 from `10.40.0.4/32` to `10.50.0.4/32` |
+| `validation/platform-checks.sh` | `N.1` to `N.11` and `C.12`. `Z.25` names the two new inbound rules |
+
+### Before the change
+
+Read on 2026-10-24, on the workstation, from GitHub and from `ghcr.io` without a token.
+
+| What | Read |
+| --- | --- |
+| Newest releases | NetBox `v4.7.3`, released on 2026-10-13, and `netbox-docker` `5.1.1`, on 2026-09-10. The pin in ADR 0035 stands |
+| The index `v4.7.3-5.1.1` | SHA-256 `1d6e0b5f...`, the digest in ADR 0035. Four entries: linux/amd64 `95426f0f...`, linux/arm64 `d15c0a89...`, and one BuildKit attestation manifest for each, an unsigned SLSA provenance statement |
+| The linux/amd64 manifest | Config `sha256:6942b6b0...`, 18 layers, 262,271,880 bytes compressed |
+| Granian 2.8.2, the image's server | Its command line reads options from `GRANIAN_` variables, `--ssl-certificate` and `--ssl-keyfile` among them, with TLS 1.3 as the default minimum. The key has to be PKCS#8 |
+| Plans | Platform: `0 to add, 1 to change, 0 to destroy`, one rule added, none removed. Targets: `0 to add, 2 to change, 0 to destroy`, three rules added, none removed |
+
+Both applies ran before 19:48 UTC: `0 added, 1 changed` and `0 added, 2 changed`. A plan of each root after them exited `0`.
+
+### The install
+
+From a script that ran the runbook's steps 3 to 12, with each step's expected result printed before it ran. The first run, 19:48:09 to 19:57 UTC:
+
+| Step | Expected | Seen |
+| --- | --- | --- |
+| The pin on the orchestrator | The checkout's SHA-256 | The same, `6e45828a...` |
+| Fetch window | Open | Open for 30 minutes at 19:48:13 |
+| Pull and check | The index digest, then the archive with 18 layers and the pinned config | `ok    pulled` with `sha256:1d6e0b5f...`, `ok    archive: 18 layers, config sha256:6942b6b0...`. The archive is 262,312,448 bytes. The `aisec-targets` namespace holds no image afterwards |
+| Close | Closed | `open tunnels ended: 4`, then closed at 19:48:49 |
+| Squid's log, from `10.40.0.4` during the window | Tunnels to `ghcr.io` and `pkg-containers.githubusercontent.com` only | `6 TCP_TUNNEL/200 CONNECT ghcr.io:443`, `3 TCP_TUNNEL/200 CONNECT pkg-containers.githubusercontent.com:443`, nothing else |
+| Copy to the NetBox VM | The same SHA-256 | `d638b782...` on both, after about three minutes through the operator's session |
+| Install | The image ID, four secrets, the key, PostgreSQL, Valkey, the units, then `login_page=200` | Everything up to the units as expected, started at 19:52:30. Both containers ran image `6942b6b0...`. Then `login_page=000` after the script's five minutes, and exit 1 |
+
+The script stopped, not NetBox. The journal showed the image's entrypoint still in the first start's migrations, at `trace_paths`. Port 8443 listened at 19:58:27, about six minutes after the start, and Granian logged `Listening at: https://:::8443`. The worker restarted 8 times in those minutes, because it needs the migrated database, and then ran. The script's wait is 30 minutes now, with a line each minute. The unit's `TimeoutStartSec=300` went too, with its comment: systemd counts the unit as started when the container starts, so the setting never covered the migrations.
+
+The second run, from 20:00:02, ran the changed install script and steps 9 to 12:
+
+| Step | Expected | Seen |
+| --- | --- | --- |
+| Install, a second time | `have` for the image, each secret, and the key. `login_page=200` | As expected. `login_page=200` about a minute after the restart, the same certificate |
+| The certificate to the orchestrator | The same fingerprint on both, `root 644` | `42:E9:DA:18:...` on both, `root 644` |
+| From the orchestrator | `200` with the pin, `000` in plain HTTP | `200`, `000`. `openssl s_client` with the pin: `TLSv1.3`, `TLS_AES_256_GCM_SHA384` |
+| The units' journal | Granian on 8443, no traceback | `Listening at: https://:::8443`, two workers, `GET /login/ HTTP/2 200`. `NRestarts=0` for both |
+| The VM's copy of the archive | Removed | Removed. The orchestrator keeps `/var/lib/aisec/target-images/netbox.tar` for a rebuild |
+
+### What the first deployment settled
+
+ADR 0035 left two parts to the first deployment.
+
+- **The check on the target.** ADR 0035 expected `podman load` to drop the registry's digest. With containerd's OCI archive it did not: the load printed `Loaded image: ghcr.io/netbox-community/netbox@sha256:1d6e0b5f...`, and `podman images` lists that digest for the image. The archive's `index.json` names the index by that digest, and holds 21 blobs: the index, the amd64 manifest, its config, and the 18 layers. The VM compares the image ID anyway, which does not depend on what names the archive carries. Not looked into: whether Podman checked the listed digest against the index's bytes.
+- **TLS from Granian.** It works with the two variables, and no reverse proxy is needed. No new record beyond ADR 0038.
+
+Read on the NetBox VM after the install: Podman's `secretsdata.json` is `root 600`. `/etc/valkey/aisec-netbox.conf` is `valkey valkey 640`. PostgreSQL holds the `netbox` role's password as `SCRAM-SHA-256`.
+
+### Every check
+
+On the live system, from the branch with the changes uncommitted. The first run ended at 20:09:57 UTC: `396 passed, 2 failed`. Written before it: 398 checks, all pass, with the values of `N.6` and `N.8` reasoned and not yet seen.
+
+- `Z.25` failed for the right reason: its expected value listed only the SSH allows, and the NetBox group now has two more. The claim changed, so the expected value names the two rules now.
+- `N.7` failed for a wrong one: it matched `secret` in a value, the path `/run/secrets/tls.key` of `GRANIAN_SSL_KEYFILE`, and no secret was in the environment. It reads the variables' names only now, as its claim says.
+
+After both fixes, ending at 20:19:58 UTC: `398 passed, 0 failed`.
+
+### Each new check fails
+
+A copy of the script with one broken input per new or changed check, run without the Azure and workstation checks on the live system, ending at 20:23:16 UTC: `336 passed, 12 failed`, the 12 below. Written before the run: these 12 fail and nothing else does.
+
+| Check | Broken input | Result |
+| --- | --- | --- |
+| `N.1` | The tool service's certificate as the pin | `000 000` |
+| `N.2` | Another file, `root 600` | `root 600` |
+| `C.12` | Squid's port on the edge, which the worker reaches | `open` |
+| `N.3` | Port 22, which the router reaches | `open` |
+| `N.4` | A unit that does not exist | `active inactive active active` |
+| `N.5` | The pin with its last character changed | The two running IDs, not the pin |
+| `N.6` | Another field in the read-only flag's place | `999:0 false false` for each |
+| `N.7` | `path` added to the pattern, which `PATH` matches | `2` |
+| `N.8` | Loopback no longer left out | `22 53 5432 6379 8443` |
+| `N.9` | The password given | `PONG` |
+| `N.10` | Another certificate on the VM | Another fingerprint |
+| `N.11` | Port 8444 | `timeout`. Written before the run: `refused`. The consumer subnet's rules allow only 8443 out, so 8444 never reaches the VM |
+
+`Z.25`'s fail side is its first run above. `N.7`'s path for a failed read, which prints an error in place of a count, was not fed a broken input.
+
+### Not verified
+
+- The `Quadlet units` job in the targets repository's pipeline has not run. Its fail side is inside the job: a unit with an unknown key has to fail the dry run. It is not a required check yet.
+- One run of the install from start to end on a new VM. The first run stopped at the wait, and the second ran on the same VM.
+- The install script's refusal of an archive that holds another image. `N.5` fails on another ID, but the script's own comparison was only seen to pass ([#188](https://github.com/sindredg/ai-security-platform/issues/188)).
+- No capabilities and no new privileges for either container: configured in the units, and no check reads them ([#186](https://github.com/sindredg/ai-security-platform/issues/186)).
+- An update run with NetBox running. PostgreSQL and Valkey restart when apt upgrades them, and NetBox's response to that was not seen ([#187](https://github.com/sindredg/ai-security-platform/issues/187)).
+- The undo, and a rebuild of the NetBox VM from the archive the orchestrator keeps.
+- The consumer's pin. There is no consumer yet.

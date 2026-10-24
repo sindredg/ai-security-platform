@@ -6,7 +6,7 @@ The [worklogs](../worklogs/README.md) are history: what was run on which day. Th
 
 ## Run the checks
 
-From a workstation on the mesh VPN, signed in to Azure as the operator. The `Z` checks need `python3`. `P.19` and `P.21` need `terraform`, on the `PATH` or named by `TERRAFORM`, to render the edge template. `VN.9` and `VL.9` need a checkout of the targets repository, named by `AISEC_TARGETS`:
+From a workstation on the mesh VPN, signed in to Azure as the operator. The `Z` checks need `python3`. `P.19` and `P.21` need `terraform`, on the `PATH` or named by `TERRAFORM`, to render the edge template. `VN.9`, `VL.9`, and `N.5` need a checkout of the targets repository, named by `AISEC_TARGETS`:
 
 ```bash
 export AISEC_SSH="ssh -o UserKnownHostsFile=REPLACE_WITH_KNOWN_HOSTS_FILE -o StrictHostKeyChecking=yes -i REPLACE_WITH_OPERATOR_KEY -o CertificateFile=REPLACE_WITH_OPERATOR_KEY.aisec-cert.pub -o IdentitiesOnly=yes"
@@ -32,7 +32,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | --- | --- | --- |
 | [Access](access.md) | `A`, `M`, `R` | Who can get in, and through what |
 | [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.28` | What the worker and the orchestrator cannot reach, and what they can |
-| [Targets](targets.md) | `VN`, `VL`, `U.14`, `U.15` | The NetBox and lab VMs: the operator's login, the update account, the update runs, and no way out |
+| [Targets](targets.md) | `VN`, `VL`, `N`, `U.14`, `U.15` | The NetBox and lab VMs: the operator's login, the update account, the update runs, and no way out. NetBox: its image, its port, and its secrets |
 | [Package proxy](package-proxy.md) | `P`, `U` | Squid on the edge, the one path out for the orchestrator and the worker, the fetch window, and whether updates arrive |
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Agent runtime](agent-runtime.md) | `G` | The Goose binary and the fixture are the pinned ones, and no finished job leaves its unit or its files |
@@ -104,6 +104,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-24 | 380 of 380 passed | From the branch with the target checks uncommitted, ending at 16:51 UTC, after the [target VMs](../worklogs/0005-netbox-target-and-exercise-1.md#the-checks-for-the-targets) were built. First run with `VN`, `VL`, `HN`, `HL`, `C.11`, `E.15`, `E.16`, `Z.27`, and `Z.28`, and with `Z.1` reading both groups |
 | 2026-10-24 | 330 of 336 passed | Without the Azure and workstation checks, from the branch with the update run uncommitted, at 17:30 UTC. First run with `E.17`, `E.18`, `VN.20`, `VL.20`, `U.14`, and `U.15`. The six failed as written before the run: nothing installed, and the targets' apt sources on hosts the target port refuses ([troubleshooting 16](../troubleshooting/16-targets-apt-sources-fall-back-without-dns.md)) |
 | 2026-10-24 | 386 of 386 passed | The same branch, ending at 18:12 UTC, after both targets were rebuilt and the [first update runs](../worklogs/0005-netbox-target-and-exercise-1.md#the-update-run) |
+| 2026-10-24 | 396 of 398 passed | From the branch with NetBox's install uncommitted, ending at 20:09:57 UTC, after [NetBox](../worklogs/0005-netbox-target-and-exercise-1.md#netbox-on-its-vm) was installed. First run with `N.1` to `N.11` and `C.12`. `Z.25` failed on the two new rules its expected value did not name, and `N.7` on a path in a value |
+| 2026-10-24 | 398 of 398 passed | The same branch with both checks fixed, ending at 20:19:58 UTC |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 

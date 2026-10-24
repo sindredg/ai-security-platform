@@ -3,6 +3,8 @@
 Status: Accepted
 Date: 2026-10-24
 
+[0038](0038-netboxs-tls-key-made-on-the-netbox-vm.md) makes the TLS key and certificate of point 5 on the NetBox VM instead of on the orchestrator.
+
 ## Context
 
 Milestone 4 deploys NetBox on the target VM in Poland Central ([ADR 0004](0004-netbox-as-first-target.md), [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation)). Its criterion: every image on the target side is pinned by digest, and signatures are verified where upstream signs.

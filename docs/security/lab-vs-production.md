@@ -64,6 +64,7 @@ The risk column describes what an attacker could do, or what could fail, because
 | --- | --- | --- | --- |
 | Job authentication uses a bearer token, issued per job by the dispatch step | Simple to issue, validate, and revoke | Anyone who reads the token can use the job's permissions until revocation or expiry (T18) | A credential restricted to the job's sandbox, such as a private key kept there for mutual TLS |
 | One self-signed server certificate copied to the worker ([ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md)) | One server, with no certificate authority key to protect | Revocation requires replacing the certificate. Rotation requires a manual copy to the worker | An internal certificate authority with automatic issuance and renewal |
+| NetBox's TLS key and its self-signed certificate are made on the NetBox VM, and each client pins the certificate ([ADR 0038](../decisions/0038-netboxs-tls-key-made-on-the-netbox-vm.md)) | The key never leaves the VM, and there is no authority to protect | A new certificate breaks every client until each has the new copy. No rotation procedure is written | An internal certificate authority with automatic issuance and renewal |
 | Registration tokens are verified using a copied public key | The service needs no cluster credential or Kubernetes API connection | A deleted pod's token remains valid until expiry. A stale key copy stops registration | Automatic signing-key discovery and rotation, or mutual TLS between workloads |
 | Jobs and call counts live in memory | The design uses one replica | A restart invalidates every job token. Replicas would have separate job records | A job store shared by replicas |
 
@@ -83,6 +84,7 @@ The risk column describes what an attacker could do, or what could fail, because
 | Lab choice | Reason in this lab | Risk | Production approach |
 | --- | --- | --- | --- |
 | Public repository with synthetic evidence | No real target data is published | Real evidence could leak through proposal text in production (A5) | A private repository, data classification, and controls on pull request content |
+| NetBox's database and cache passwords, secret key, and token pepper are in Podman's secret store on the NetBox VM, a plain file readable by root ([ADR 0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md)) | Made on the VM, and never on another machine. A rebuild makes new ones, and the data is synthetic | Root on the VM reads every secret, and a disk snapshot holds them | A secret manager that issues them to the service, with rotation |
 | Locally redundant remote state; bootstrap state kept locally with a manual remote copy | The lab has rebuild runbooks | A missed upload leaves a stale backup. Restoration has not been tested (T31) | Geo-redundant remote state with tested recovery |
 | Each VM rebuilt separately; no full-system rebuild | Each VM passed the validation checks after its rebuild | Recovery from an empty subscription has not been tested | Scheduled recovery exercises with a recovery time objective |
 
