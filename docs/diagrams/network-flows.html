@@ -70,9 +70,9 @@
     <p class="eyebrow">Architecture · Private AI security operations platform</p>
     <h1>Network flows</h1>
     <div class="diagram-container">
-      <svg viewBox="0 0 960 656" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="network-flows-title network-flows-desc">
+      <svg viewBox="0 0 960 680" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="network-flows-title network-flows-desc">
         <title id="network-flows-title">Network flows</title>
-        <desc id="network-flows-desc">Architecture diagram showing every allowed and denied network path on the platform side: the operator reaches the router VM on port 22 over the mesh VPN, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the internet only through Squid on the edge VM on port 3128, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, and the orchestrator, the worker, and the targets are denied everything else.</desc>
+        <desc id="network-flows-desc">Architecture diagram showing every allowed and denied network path on the platform side: the operator reaches the router VM on port 22 over the mesh VPN, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the internet only through Squid on the edge VM on port 3128, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, and the orchestrator, the worker, and the targets are denied the internet. Not drawn: the log agents' TCP 443 to the monitoring private endpoint.</desc>
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
           <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
@@ -228,6 +228,7 @@
         <text x="76" y="636" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Denied by a security group rule or by policy, tested with traffic</text>
         <line x1="440" y1="634" x2="468" y2="634" stroke="#739fdf" stroke-width="1.2" marker-end="url(#arrow-link)"/>
         <text x="476" y="636" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">To the internet, through the NAT gateway</text>
+        <text x="40" y="658" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Not drawn: TCP 443 from the orchestrator, the edge VM, and the router VM to the monitoring private endpoint in the platform network</text>
 
       </svg>
     </div>
