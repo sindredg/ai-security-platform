@@ -63,7 +63,7 @@ Every pin in one place. Checked against the official source on the date shown.
 | `actions/checkout` | v7.0.1, by commit | The checks workflow | Dependabot, weekly | 2026-10-24 |
 | Checkov, Trivy images | 3.3.30 and 0.76.1, by digest | The checks workflow | By hand | 2026-10-24 |
 | gitleaks | 8.30.1, the release's archive for linux x64, by SHA-256, since 2026-10-23. The release has no signature. The image ran its own `git`, linked to an affected musl ([#155](https://github.com/sindredg/ai-security-platform/issues/155)) | The checks workflow | By hand | 2026-10-24 |
-| ShellCheck, Ruff images | 0.11.0 and 0.17.1, by digest. Newest Ruff: 0.17.2, released on 2026-10-22 | The checks workflow | By hand | 2026-10-24 |
+| ShellCheck, Ruff images | 0.11.0 and 0.17.2, by digest | The checks workflow | By hand | 2026-10-24 |
 | hadolint image | 2.15.1, by digest | The checks workflow | By hand | 2026-10-24 |
 | kubeconform image | 0.8.0, by digest. Validates the manifests against the schemas for Kubernetes 1.36.5, the cluster's release | The checks workflow | By hand, and the Kubernetes version with K3s | 2026-10-24 |
 | Python image | 3.15.1 on Alpine 3.24, by digest, since 2026-10-22: its musl 1.2.6-r3 fixes CVE-2026-107891, which Alpine's security database lists and NVD did not yet describe. Runs the tool service tests and the dispatch step's, and is the base of the tool service and dispatch images | The checks workflow, `tool-service/Dockerfile`, and `platform/dispatch/Dockerfile`. The pipeline fails until the three name the same digest | Dependabot, weekly, for the tool service's Dockerfile. The workflow and the dispatch Dockerfile by hand | 2026-10-24: the tag's digest is still the pinned one |
