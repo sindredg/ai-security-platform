@@ -21,7 +21,7 @@ One outbound path for the whole system: a NAT gateway on the edge network, used 
 
 ![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the orchestrator also reaches port 3129 on the edge for the targets' packages, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else drawn is denied. The log agents' port 443 to the monitoring private endpoint is not drawn](../diagrams/network-flows.svg)
 
-The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). The table below names the rule behind each path.
+The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). The table below names the rule behind each path. NetBox's port, TCP 8443 from the orchestrator and from the consumer subnet, is in the tables and not in the diagram.
 
 | Security group | Direction | Access | What | Rule |
 | --- | --- | --- | --- | --- |
@@ -32,6 +32,7 @@ The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.
 | Orchestrator | Outbound | Allow | TCP 22 to the worker subnet and the target network | `allow-ssh-to-worker`, `allow-ssh-to-targets` |
 | Orchestrator | Outbound | Allow | TCP 3128 to the edge subnet | `allow-proxy-to-edge` |
 | Orchestrator | Outbound | Allow | TCP 3129 from the orchestrator's address to the edge subnet, the targets' packages | `allow-target-packages-to-edge` |
+| Orchestrator | Outbound | Allow | TCP 8443 from the orchestrator's address to the NetBox VM, NetBox's API ([ADR 0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md)) | `allow-netbox-to-targets` |
 | Orchestrator | Outbound | Allow | TCP 443 to the monitoring subnet, the log agent | `allow-monitoring-private-endpoint` |
 | Worker | Inbound | Deny | Anything from the target network | `deny-from-targets` |
 | Worker | Inbound | Allow | TCP 22 from the orchestrator subnet and the router subnet | `allow-ssh-from-orchestrator`, `allow-ssh-from-router` |
@@ -58,15 +59,17 @@ Administration arrives from the router subnet, translated to the router's addres
 
 ## Rules on the target side
 
-Each of the four target subnets has its own security group with the same rules. They are defined in `infra/targets/main.tf` of the [targets repository](https://github.com/sindredg/ai-security-platform-test).
+Each of the four target subnets has its own security group. All four have the same base rules, and a service's port is added to the subnets that use it. They are defined in `infra/targets/main.tf` of the [targets repository](https://github.com/sindredg/ai-security-platform-test).
 
 | Direction | Access | What | Rule |
 | --- | --- | --- | --- |
 | Inbound | Allow | TCP 22 from the orchestrator subnet and the router subnet | `allow-ssh-from-orchestrator`, `allow-ssh-from-router` |
+| Inbound, NetBox subnet only | Allow | TCP 8443 to the NetBox VM, from the orchestrator's address and the consumer subnet | `allow-netbox-from-orchestrator`, `allow-netbox-from-consumer` |
+| Outbound, consumer subnet only | Allow | TCP 8443 to the NetBox VM | `allow-netbox-to-netbox` |
 | Outbound | Deny | The internet, Azure DNS | `deny-to-internet`, `deny-to-azure-dns` |
 | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
 
-The table is read from that file on 2026-10-17, at the commit that added `allow-ssh-from-router`. `Z.25` reads each group's inbound allows. `Z.27` and `Z.28` compare the effective rules on the NetBox VM's and the lab VM's interfaces with their groups, since 2026-10-24. The unintended and rehearsal subnets have no VM, so their effective rules are not read.
+The table is read from that file on 2026-10-24, with NetBox's port. `Z.25` reads each group's inbound allows. `Z.27` and `Z.28` compare the effective rules on the NetBox VM's and the lab VM's interfaces with their groups, since 2026-10-24. The unintended and rehearsal subnets have no VM, so their effective rules are not read.
 
 ## Validation
 

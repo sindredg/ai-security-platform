@@ -41,6 +41,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0035](0035-netbox-from-its-image-with-the-database-from-ubuntu.md) | NetBox from its image under Podman, pinned by digest, with PostgreSQL and Valkey from Ubuntu | Accepted |
 | [0036](0036-target-packages-through-a-port-the-orchestrator-forwards.md) | The targets get packages through a port the orchestrator forwards over SSH, to a Squid port that serves only the package mirror | Accepted |
 | [0037](0037-an-unscoped-copy-of-the-consumers-permission.md) | The seeded finding is an unscoped copy of the consumer's permission, confirmed by configuration and by what the token returns. The contract is a file in the targets repository | Accepted |
+| [0038](0038-netboxs-tls-key-made-on-the-netbox-vm.md) | NetBox's TLS key is made on the NetBox VM and served by Granian. The orchestrator and the consumer pin the certificate | Accepted |
 
 ## Format
 
