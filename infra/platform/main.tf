@@ -8,6 +8,8 @@ locals {
   monitoring_prefix   = cidrsubnet(var.address_space, 7, 2)      # 10.40.0.64/27
   edge_prefix         = cidrsubnet(var.edge_address_space, 3, 0) # 10.45.0.0/27
   router_prefix       = cidrsubnet(var.edge_address_space, 3, 1) # 10.45.0.32/27
+  # NetBox's VM, as the target root places it: the first subnet, host 4.
+  netbox_ip = cidrhost(cidrsubnet(var.targets_address_space, 7, 0), 4) # 10.50.0.4
 
   # Operator sessions arrive from the router, which translates them to its own
   # address (ADR 0025). Every VM takes SSH from that subnet.
@@ -148,6 +150,17 @@ module "network" {
           destination_address_prefix = local.edge_prefix
           destination_port_range     = "3129"
           description                = "The targets' packages, which the orchestrator forwards to them over SSH during an update run (ADR 0036)."
+        },
+        {
+          name                       = "allow-netbox-to-targets"
+          priority                   = 1050
+          direction                  = "Outbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = "${local.orchestrator_ip}/32"
+          destination_address_prefix = "${local.netbox_ip}/32"
+          destination_port_range     = "8443"
+          description                = "NetBox's API, for the seed and the collectors (ADR 0035)."
         },
         local.allow_monitoring_out,
       ]
