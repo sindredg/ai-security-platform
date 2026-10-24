@@ -2,7 +2,7 @@
 
 The AI worker runs untrusted model output. It gets no path to the internet, to the targets, or to a name server, and two ports: the tool service on the orchestrator, and the package proxy on the edge VM. The design is [ADR 0005](../decisions/0005-ai-workers-on-a-separate-vm.md), [ADR 0009](../decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), and [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md). The threat is T17: the worker reaches a target or the internet directly.
 
-![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else drawn is denied. The log agents' port 443 to the monitoring private endpoint is not drawn](../diagrams/network-flows.svg)
+![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the orchestrator also reaches port 3129 on the edge for the targets' packages, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22, and everything else drawn is denied. The log agents' port 443 to the monitoring private endpoint is not drawn](../diagrams/network-flows.svg)
 
 The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). It shows what is enforced today. The [target architecture](../architecture.md#system-overview) shows what is planned on top of it.
 
@@ -53,9 +53,10 @@ A timeout proves a packet was dropped. It does not say which rule dropped it, an
 | `Z.24` | Both halves of the edge and target peering are connected | As `Z.15`. The router's sessions to the targets cross it |
 | `Z.25` | Only SSH from the orchestrator and the router is allowed into each target subnet | The configured inbound allows of each target group, by name, source, and port. Not the effective rules: those need a network interface, and no target VM exists |
 | `Z.19` | The edge network is in Denmark East | The network's location. The group is in Sweden Central |
-| `Z.21` | Only the proxy port and SSH from the router are allowed into the edge | The inbound allow rules among the edge's effective rules, by name and port, counted once `Z.20` got an answer: `allow-proxy-from-orchestrator` and `allow-proxy-from-worker` on 3128, `allow-ssh-from-router` on 22 |
+| `Z.21` | Only the proxy ports and SSH from the router are allowed into the edge | The inbound allow rules among the edge's effective rules, by name and port, counted once `Z.20` got an answer: `allow-proxy-from-orchestrator` and `allow-proxy-from-worker` on 3128, `allow-target-packages-from-orchestrator` on 3129, `allow-ssh-from-router` on 22 |
 | `Z.22` | Orchestrator to the internet is denied by `deny-to-internet` | IP flow verify from the orchestrator. Before 2026-10-17 it named `allow-https-to-internet` |
 | `Z.23` | Orchestrator to the proxy on the edge is allowed by `allow-proxy-to-edge` | IP flow verify from the orchestrator |
+| `Z.26` | Orchestrator to the target port on the edge is allowed by `allow-target-packages-to-edge` | IP flow verify from the orchestrator to `10.45.0.4:3129` ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)) |
 
 ### What `Z.4` and `Z.5` compare
 

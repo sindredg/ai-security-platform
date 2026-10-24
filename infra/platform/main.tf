@@ -138,6 +138,17 @@ module "network" {
           destination_port_range     = "3128"
           description                = "Squid on the edge: packages always, other downloads during a fetch window."
         },
+        {
+          name                       = "allow-target-packages-to-edge"
+          priority                   = 1040
+          direction                  = "Outbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = "${local.orchestrator_ip}/32"
+          destination_address_prefix = local.edge_prefix
+          destination_port_range     = "3129"
+          description                = "The targets' packages, which the orchestrator forwards to them over SSH during an update run (ADR 0036)."
+        },
         local.allow_monitoring_out,
       ]
     }
