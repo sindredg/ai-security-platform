@@ -15,6 +15,11 @@
 #   AISEC_ROUTER  Router address or host alias, on the mesh VPN.
 #               Default: aisec-router
 #   AISEC_EDGE  Edge VM address or host alias. Default: 10.45.0.4
+#   AISEC_NETBOX  NetBox VM address or host alias. Default: 10.50.0.4
+#   AISEC_LAB   Lab VM address or host alias. Default: 10.50.0.36
+#   AISEC_TARGETS  The targets repository's checkout on the workstation, to
+#               compare the targets' update command with. Without it, that
+#               check fails.
 #   AISEC_USER_CA  The SSH certificate authority's public key file on the
 #               workstation. The VMs have to trust this one and no other.
 #   TERRAFORM   The terraform command, to render a cloud-init template.
@@ -32,6 +37,8 @@ ORCH=${AISEC_ORCH:-10.40.0.4}
 WORK=${AISEC_WORK:-10.40.0.36}
 ROUTER=${AISEC_ROUTER:-aisec-router}
 EDGE=${AISEC_EDGE:-10.45.0.4}
+NETBOX=${AISEC_NETBOX:-10.50.0.4}
+LAB=${AISEC_LAB:-10.50.0.36}
 # The fingerprint the VMs' certificate authority file has to show. Without the
 # file there is nothing to compare with, and the check fails.
 USER_CA_FP=$(ssh-keygen -l -f "${AISEC_USER_CA:-/nonexistent}" 2>/dev/null | cut -d " " -f 2)
@@ -39,6 +46,9 @@ USER_CA_FP=${USER_CA_FP:-"AISEC_USER_CA not given or not a public key"}
 ORCH_IP=10.40.0.4
 WORK_IP=10.40.0.36
 EDGE_IP=10.45.0.4
+ROUTER_IP=10.45.0.36
+NETBOX_IP=10.50.0.4
+LAB_IP=10.50.0.36
 WORK_PREFIX=10.40.0.32/27
 # What the router advertises (ADR 0025): the platform, the targets, and the
 # edge subnet.
@@ -115,6 +125,9 @@ logs="$here/../platform/logs"
 COPY_SHA=$(cat "$logs/aisec_audit_copy.py" "$logs/aisec-audit-copy.service" | sha256sum | cut -d " " -f 1)
 PULL_SHA=$(cat "$logs/aisec_journal_pull.py" "$logs/aisec-journal-pull.service" "$logs/aisec-journal-pull.timer" |
   sha256sum | cut -d " " -f 1)
+# The update key's one command on the targets, from the targets checkout.
+TARGET_UPDATE_SHA=$(sha256sum "${AISEC_TARGETS:-/nonexistent}/host/aisec-target-update" 2>/dev/null | cut -d " " -f 1)
+TARGET_UPDATE_SHA=${TARGET_UPDATE_SHA:-"AISEC_TARGETS not given or not the targets checkout"}
 RG=rg-aisec-platform
 RG_TARGETS=rg-aisec-targets
 
@@ -284,6 +297,11 @@ echo "egress_https=$(tcp 1.1.1.1 443)"
 echo "to_worker_ssh=$(tcp '"$WORK_IP"' 22)"
 echo "to_worker_http=$(tcp '"$WORK_IP"' 80)"
 echo "to_worker_model=$(tcp '"$WORK_IP"' '"$MODEL_PORT"')"
+echo "to_targets_ssh=$(tcp '"$NETBOX_IP"' 22) $(tcp '"$LAB_IP"' 22)"
+# The key an update run logs in to the targets with (ADR 0036), and its
+# public half, which each target holds.
+update_key=/etc/aisec/target-update/id_ed25519
+echo "target_update_key=$(stat -c "%U %a" $update_key 2>/dev/null) $(ssh-keygen -y -f $update_key 2>/dev/null | cut -d " " -f 1,2)"
 # Exit status 2 is the feed command refusing. 255 would be SSH failing, and 0
 # that the key ran a command it should not.
 sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec-feed@aisec-worker id >/dev/null 2>&1
@@ -373,6 +391,7 @@ code() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 "$@"; }
 echo "internet=$(tcp 1.1.1.1 443)"
 echo "targets_netbox=$(tcp 10.50.0.4 22)"
 echo "targets_rehearsal=$(tcp 10.50.1.4 22)"
+echo "targets_consumer=$(tcp '"$LAB_IP"' 22)"
 echo "azure_dns=$(tcp 168.63.129.16 53)"
 echo "azure_dns_udp=$(udp_dns)"
 timeout 6 getent hosts example.com >/dev/null 2>&1; echo "resolve_public_name_rc=$?"
@@ -477,6 +496,27 @@ echo "unattended_upgrades=$(systemctl is-enabled unattended-upgrades 2>/dev/null
 echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
 '
 
+# The targets (ADR 0036). $1 is the other target's address.
+probe_target="$probe_common"'
+update_opt() { sshd -T -C user=aisec-update,host=check,addr='"$ORCH_IP"' 2>/dev/null | sed -n "s/^$1 //p"; }
+echo "sshd_update=$(for k in authorizedkeysfile allowtcpforwarding permitlisten permitopen permittty forcecommand; do echo "$k $(update_opt $k)"; done | tr "\n" ";" | sed "s/;$//")"
+keys=/etc/ssh/aisec-update-keys
+echo "update_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
+echo "update_key_body=$(grep -o "ssh-ed25519 [A-Za-z0-9+/=]*" $keys 2>/dev/null)"
+echo "update_account=$(id -nG aisec-update 2>/dev/null) $(passwd -S aisec-update 2>/dev/null | cut -d " " -f 2)"
+echo "update_sudo=$(sudo -n -l -U aisec-update 2>/dev/null | sed -n "/may run/,\$p" | tail -n +2 | sed "s/^ *//" | tr "\n" "|")"
+echo "update_command=$(stat -c "%U %a" /usr/local/sbin/aisec-target-update 2>/dev/null) $(sha256sum /usr/local/sbin/aisec-target-update 2>/dev/null | cut -d " " -f 1)"
+echo "apt_timers=$(systemctl is-enabled apt-daily.timer apt-daily-upgrade.timer apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+echo "apt_proxy=$(apt-config dump 2>/dev/null | grep -c "Acquire::http::Proxy \"http://127.0.0.1:3129\"")"
+echo "forward_listener=$(ss -Hltn "sport = :3129" 2>/dev/null | wc -l)"
+echo "internet=$(tcp 1.1.1.1 443)"
+echo "azure_dns=$(tcp 168.63.129.16 53) $(udp_dns)"
+echo "edge_proxy=$(tcp '"$EDGE_IP"' 3128) $(tcp '"$EDGE_IP"' 3129)"
+echo "platform_ssh=$(tcp '"$ORCH_IP"' 22) $(tcp '"$WORK_IP"' 22)"
+echo "other_target_ssh=$(tcp "$1" 22)"
+echo "first_boot=$(stat -c "%U" /var/lib/aisec-first-boot.done 2>/dev/null)"
+'
+
 common_checks() { # prefix
   check "$1.1" "No failed systemd unit" 0 "$(value failed_units)"
   check "$1.2" "SSH: no root login" no "$(value sshd_root)"
@@ -543,6 +583,10 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # the worker answers with a reset. Only a timeout shows the rules dropped it.
   check E.3 "The worker's rules drop the orchestrator on 80" timeout "$(value to_worker_http)"
   check E.4 "The feed key runs nothing but the feed command" 2 "$(value feed_refuses)"
+  check E.15 "The orchestrator reaches both targets on 22" "open open" "$(value to_targets_ssh)"
+  check E.16 "The targets' update key is root's and closed to others" "root 600" "$(value target_update_key | cut -d " " -f 1,2)"
+  # Kept for each target's .6, which reads the key the target accepts.
+  TARGET_UPDATE_KEY=$(value target_update_key | cut -d " " -f 3,4)
   check P.12 "Squid is not installed on the orchestrator" 0 "$(value squid_installed)"
   check P.13 "The edge serves the orchestrator's package mirror" 200 "$(value proxy_own_mirror)"
   check P.14 "The edge refuses the orchestrator another host" 403 "$(value proxy_worker_mirror)"
@@ -655,9 +699,11 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check A.10 "The administrator forwards nothing on the worker" "no any" "$(value sshd_admin_forwarding)"
   # C.1 and C.4 aim at ports that are known to listen, so a timeout is a drop.
   check C.1 "No connection to the internet" timeout "$(value internet)"
-  # No target machine exists, so these two time out with or without the deny
-  # rule. They prove no path today and nothing about the rule. Z.6 names it.
+  # The NetBox and lab VMs listen on 22 (E.15), so a timeout is a drop. No
+  # machine is in the rehearsal subnet, so C.3 times out with or without the
+  # deny rule. Z.6 names the rule.
   check C.2 "No connection to the NetBox subnet" timeout "$(value targets_netbox)"
+  check C.11 "No connection to the consumer subnet" timeout "$(value targets_consumer)"
   check C.3 "No connection to the rehearsal subnet" timeout "$(value targets_rehearsal)"
   check C.4 "No connection to the platform resolver" timeout "$(value azure_dns)"
   # The same query from the edge gets an answer, so a timeout here is the
@@ -825,6 +871,57 @@ else
   check A.15 "Reachable through the router with the operator certificate" yes no
 fi
 
+# The NetBox and lab VMs. The same checks on each, with the prefix V and the
+# VM's letter, and the hardening checks with H and the same letter.
+target_checks() { # letter name host other-target-address
+  echo
+  echo "== $2 ($3)"
+  # The address the target sees the session come from, read before sudo.
+  if probe=$($SSH "$3" 'echo "ssh_client=${SSH_CLIENT%% *}"; sudo bash -s '"$4" <<<"$probe_target" 2>/dev/null) &&
+    [ -n "$(value failed_units)" ]; then
+    # The router hides the workstation's mesh address behind its own.
+    check "V$1.1" "Reachable through the router with the operator certificate" "$ROUTER_IP" "$(value ssh_client)"
+    check "V$1.2" "No plain key is authorized for the administrator" 0 "$(value authorized_keys)"
+    check "V$1.3" "The administrator forwards nothing" "no any" "$(value sshd_admin_forwarding)"
+    # The orchestrator's update key (ADR 0036): one command, and one listener
+    # on loopback for the forwarded port.
+    check "V$1.4" "SSH: the update account has one command and one remote forward" \
+      "authorizedkeysfile /etc/ssh/aisec-update-keys;allowtcpforwarding remote;permitlisten 127.0.0.1:3129;permitopen none;permittty no;forcecommand sudo -n /usr/local/sbin/aisec-target-update" \
+      "$(value sshd_update)"
+    check "V$1.5" "The update key is restricted to the orchestrator and the one forward" \
+      "1 root root 644 from=\"$ORCH_IP\",restrict,port-forwarding,permitlisten=\"127.0.0.1:3129\"" "$(value update_key)"
+    check "V$1.6" "The update key is the orchestrator's" "${TARGET_UPDATE_KEY:-no update key read on the orchestrator}" "$(value update_key_body)"
+    check "V$1.7" "The update account has no other group and no password" "aisec-update L" "$(value update_account)"
+    # An empty argument list: sudo refuses the command with any argument.
+    check "V$1.8" "The update account may run the update command, without arguments, and nothing else" \
+      '(root) NOPASSWD: /usr/local/sbin/aisec-target-update ""|' "$(value update_sudo)"
+    check "V$1.9" "The update command is root's and the one in the targets checkout" "root 755 $TARGET_UPDATE_SHA" "$(value update_command)"
+    # Between update runs there is no path to a mirror, so these could only fail.
+    check "V$1.10" "apt's timers and unattended upgrades are masked" \
+      "masked masked masked masked masked" "$(value apt_timers)"
+    check "V$1.11" "apt uses the port an update run forwards" 1 "$(value apt_proxy)"
+    # A listener here between runs is a session left open, or a process in
+    # the forward's place.
+    check "V$1.12" "Nothing listens on the forwarded port between update runs" 0 "$(value forward_listener)"
+    # Every far end listens: 1.1.1.1 on 443, Azure DNS (it answers the edge),
+    # Squid on both ports (P.2), sshd on the orchestrator, the worker, and the
+    # other target. A timeout is a drop.
+    check "V$1.13" "No connection to the internet" timeout "$(value internet)"
+    check "V$1.14" "No answer from Azure DNS over TCP or UDP" "timeout timeout" "$(value azure_dns)"
+    check "V$1.15" "No connection to either proxy port on the edge" "timeout timeout" "$(value edge_proxy)"
+    check "V$1.16" "No connection to the orchestrator or the worker on 22" "timeout timeout" "$(value platform_ssh)"
+    check "V$1.17" "No connection to the other target on 22" timeout "$(value other_target_ssh)"
+    check "V$1.18" "First boot ran to its end" root "$(value first_boot)"
+    # Nothing from the targets reaches Azure Monitor: an accepted gap.
+    check "V$1.19" "No log agent" 0 "$(value monitor_agent | cut -d " " -f 1)"
+    common_checks "H$1"
+  else
+    check "V$1.1" "Reachable through the router with the operator certificate" "$ROUTER_IP" "not reached"
+  fi
+}
+target_checks N NetBox "$NETBOX" "$LAB_IP"
+target_checks L Lab "$LAB" "$NETBOX_IP"
+
 if [ "$workstation" = 1 ]; then
   echo
   echo "== Workstation, through the mesh VPN"
@@ -850,8 +947,10 @@ fi
 if [ "$azure" = 1 ]; then
   echo
   echo "== Azure, as the operator"
-  check Z.1 "No VM has a public address" 0 \
-    "$(az vm list -g $RG -d --query "length([?publicIps!=''])" -o tsv 2>/dev/null)"
+  # Both groups. An empty answer is not 0, so a failed call fails.
+  check Z.1 "No VM has a public address" "0 0" \
+    "$(az vm list -g $RG -d --query "length([?publicIps!=''])" -o tsv 2>/dev/null) $(az vm list -g $RG_TARGETS -d \
+      --query "length([?publicIps!=''])" -o tsv 2>/dev/null)"
   # The edge network's gateway is the platform's only way out (ADR 0020).
   check Z.2 "The platform group holds one public address, the NAT gateway's" 1 \
     "$(az network public-ip list -g $RG --query "length(@)" -o tsv 2>/dev/null)"
@@ -871,7 +970,8 @@ if [ "$azure" = 1 ]; then
   # Two differences are allowed. Azure's default rules are in every effective
   # list and in no configured one. The platform adds one IPv6 deny through its
   # network manager, and only that rule from that source is skipped: a second
-  # security group on the interface would still show up.
+  # security group on the interface would still show up. The target side has
+  # no network manager.
   nsg_normalise='
 import json, sys
 
@@ -928,14 +1028,18 @@ print("\n".join(sorted(lines)))
   # So an answer has to arrive and hold rules before anything is compared. No
   # answer is a FAIL that says so.
   az_err=$(mktemp)
-  for row in Z.4:orchestrator:platform Z.5:worker:platform Z.16:router:edge Z.20:edge:edge; do
-    IFS=: read -r id vm network <<<"$row"
+  # Each row: check ID, VM, its security group, and their resource group. A
+  # target VM's group is its subnet's.
+  for row in Z.4:orchestrator:nsg-aisec-platform-orchestrator:$RG Z.5:worker:nsg-aisec-platform-worker:$RG \
+    Z.16:router:nsg-aisec-edge-router:$RG Z.20:edge:nsg-aisec-edge-edge:$RG \
+    Z.27:netbox:nsg-aisec-targets-netbox:$RG_TARGETS Z.28:lab:nsg-aisec-targets-consumer:$RG_TARGETS; do
+    IFS=: read -r id vm nsg group <<<"$row"
     claim="Effective rules on the $vm interface equal the configured rules"
     : >"$az_err"
-    effective=$(az network nic list-effective-nsg -g $RG -n "nic-aisec-$vm" -o json 2>>"$az_err" |
+    effective=$(az network nic list-effective-nsg -g "$group" -n "nic-aisec-$vm" -o json 2>>"$az_err" |
       nsg_rules effective 2>>"$az_err")
     effective_rc=$?
-    configured=$(az network nsg show -g $RG -n "nsg-aisec-$network-$vm" -o json 2>>"$az_err" |
+    configured=$(az network nsg show -g "$group" -n "$nsg" -o json 2>>"$az_err" |
       nsg_rules configured 2>>"$az_err")
     configured_rc=$?
     if [ "$effective_rc" != 0 ] || [ -z "$effective" ]; then
@@ -1026,8 +1130,9 @@ EOF
     "$(az network vnet peering show -g $RG --vnet-name vnet-aisec-edge -n peer-edge-to-targets \
       --query peeringState -o tsv 2>/dev/null) $(az network vnet peering show -g $RG_TARGETS \
       --vnet-name vnet-aisec-targets -n peer-targets-to-edge --query peeringState -o tsv 2>/dev/null)"
-  # No target VM exists, so no interface has effective rules to read. This reads
-  # the inbound allows each target group is configured with instead.
+  # The configured inbound allows of each target group. The NetBox and lab
+  # groups' effective rules are Z.27 and Z.28. No VM is in the other two
+  # subnets, so there is no interface to read their effective rules from.
   want="" got=""
   for g in netbox consumer unintended rehearsal; do
     want="$want$g: allow-ssh-from-orchestrator 10.40.0.0/27 22, allow-ssh-from-router 10.45.0.32/27 22; "
