@@ -17,8 +17,11 @@ NetBox are left out. The verdicts and both full reports stay here, under the
 job's directory, for the workflow's comparison and for the operator.
 
 The documents go into the tool service's ConfigMap for NetBox, keyed
-`JOB.REFERENCE.json`, which the pod mounts as a directory. The command then
-waits until the kubelet has put them there. A job ID is collected once.
+`JOB.REFERENCE.json`, which the pod mounts as a directory. The verdicts go
+into the ConfigMap `netbox-verdicts` in `orchestration`, keyed `JOB.json`,
+where the workflow's comparison step reads its own job's key (ADR 0041). The
+command then waits until the kubelet has put the documents in the tool
+service's directory. A job ID is collected once.
 
 Standard library only.
 """
@@ -49,6 +52,9 @@ KNOWN_HOSTS = "/etc/aisec/netbox/observe/known_hosts"
 LAB = "aisec-observe@10.50.0.36"
 NAMESPACE = "tool-services"
 CONFIGMAP = "tool-service-evidence-netbox"
+# The comparison step's, which no job reads (ADR 0041).
+VERDICTS_NAMESPACE = "orchestration"
+VERDICTS_CONFIGMAP = "netbox-verdicts"
 VOLUME = "evidence-netbox"
 POD = "app.kubernetes.io/name=tool-service"
 KEEP_JOBS = 20
@@ -247,22 +253,32 @@ def write(path, document):
 
 
 def collected_at(data, job):
-    try:
-        return json.loads(data[f"{job}.ev-0001.json"])["collected"]
-    except (KeyError, ValueError, TypeError):
-        return ""
+    """When the job was collected, from the first of its documents that says."""
+    for key, value in data.items():
+        if key.split(".", 1)[0] != job:
+            continue
+        try:
+            collected = json.loads(value)["collected"]
+        except (KeyError, ValueError, TypeError):
+            continue
+        if isinstance(collected, str):
+            return collected
+    return ""
 
 
-def store(job, documents):
-    """Adds the job's keys to the ConfigMap, and keeps the newest jobs.
+def verdicts_document(job, collected, found):
+    return {"job": job, "collected": collected, "accounts": found}
+
+
+def store(namespace, name, entries):
+    """Adds the entries to a ConfigMap, and keeps the newest jobs' keys.
 
     The replace carries the resourceVersion it read, so a change made in
     between fails the replace instead of being lost."""
-    get = [*KUBECTL, "-n", NAMESPACE, "get", "configmap", CONFIGMAP, "-o", "json"]
-    configmap = json.loads(run(get, None, "reading the ConfigMap"))
+    get = [*KUBECTL, "-n", namespace, "get", "configmap", name, "-o", "json"]
+    configmap = json.loads(run(get, None, f"reading the ConfigMap {name}"))
     data = configmap.get("data") or {}
-    for reference, document in documents.items():
-        data[f"{job}.{reference}.json"] = json.dumps(document, indent=2)
+    data.update(entries)
     jobs = sorted(
         {key.split(".", 1)[0] for key in data},
         key=lambda name: collected_at(data, name),
@@ -273,7 +289,7 @@ def store(job, documents):
             del data[key]
     configmap["data"] = data
     replace = [*KUBECTL, "replace", "-f", "-"]
-    run(replace, json.dumps(configmap), "writing the ConfigMap")
+    run(replace, json.dumps(configmap), f"writing the ConfigMap {name}")
 
 
 def wait_visible(job):
@@ -338,12 +354,26 @@ def collect(job):
         *((f"{ref}.json", doc) for ref, doc in documents.items()),
     ):
         write(STATE / job / name, document)
-    store(job, documents)
+    store(
+        NAMESPACE,
+        CONFIGMAP,
+        {
+            f"{job}.{reference}.json": json.dumps(document, indent=2)
+            for reference, document in documents.items()
+        },
+    )
+    checks = verdicts_document(job, collected, found)
+    store(
+        VERDICTS_NAMESPACE,
+        VERDICTS_CONFIGMAP,
+        {f"{job}.json": json.dumps(checks, indent=2)},
+    )
     seconds = wait_visible(job)
     print(
         f"{job}: ev-0001 ev-0002 ev-0003, visible to the tool service after {seconds} s"
     )
     print(" ".join(f"{a}:{v['configured']}/{v['observed']}" for a, v in found.items()))
+    print(f"verdicts for the comparison in {VERDICTS_NAMESPACE}/{VERDICTS_CONFIGMAP}")
 
 
 def main(argv):

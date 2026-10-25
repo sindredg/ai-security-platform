@@ -1,11 +1,13 @@
 """The collect command against stand-ins for the collector, ssh, and kubectl.
 
 Each stand-in is a small script that records what it was given and answers
-from a file the test wrote. The kubectl stand-in also plays the kubelet: on a
-replace it writes the ConfigMap's keys into the pod's volume directory, as the
-kubelet does some seconds later on the orchestrator.
+from a file the test wrote. The kubectl stand-in keeps one file per ConfigMap,
+and also plays the kubelet: on a replace of the tool service's ConfigMap it
+writes the keys into the pod's volume directory, as the kubelet does some
+seconds later on the orchestrator.
 """
 
+import importlib.util
 import json
 import os
 import stat
@@ -18,6 +20,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 COMMAND = HERE.parent / "collect_evidence.py"
+COMPARE = HERE.parent.parent.parent / "platform" / "dispatch" / "compare.py"
+EVIDENCE = "tool-service-evidence-netbox"
+VERDICTS = "netbox-verdicts"
 REPORTS = json.loads((HERE / "reports.json").read_text(encoding="utf-8"))
 
 FAKE_COLLECTOR = """#!{python} -I
@@ -54,19 +59,23 @@ d = os.environ["FAKE_DIR"]
 args = sys.argv[1:]
 with open(d + "/kubectl.log", "a") as f:
     f.write(" ".join(args) + "\\n")
-stored = d + "/configmap.json"
 if "get" in args and "configmap" in args:
-    sys.stdout.write(open(stored).read())
+    name = args[args.index("configmap") + 1]
+    sys.stdout.write(open(d + "/configmap-" + name + ".json").read())
 elif "get" in args and "pod" in args:
     sys.stdout.write("uid-1")
 elif "replace" in args:
     new = json.load(sys.stdin)
+    name = new["metadata"]["name"]
+    if os.environ.get("FAKE_REPLACE_FAILS") == name:
+        sys.exit("configmaps " + name + " is forbidden")
+    stored = d + "/configmap-" + name + ".json"
     old = json.load(open(stored))
     if new["metadata"]["resourceVersion"] != old["metadata"]["resourceVersion"]:
         sys.exit("the object has been modified")
     new["metadata"]["resourceVersion"] = str(int(old["metadata"]["resourceVersion"]) + 1)
     json.dump(new, open(stored, "w"))
-    if os.environ.get("FAKE_KUBELET_SYNC", "1") == "1":
+    if name == "tool-service-evidence-netbox" and os.environ.get("FAKE_KUBELET_SYNC", "1") == "1":
         volume = os.path.join(os.environ["AISEC_KUBELET"], "pods", "uid-1", "volumes",
                               "kubernetes.io~configmap", "evidence-netbox")
         os.makedirs(volume, exist_ok=True)
@@ -107,6 +116,7 @@ class Collect(unittest.TestCase):
         self.answer("configured", REPORTS["configured"])
         self.answer("observed", REPORTS["observed"])
         self.configmap({})
+        self.configmap({}, VERDICTS, "orchestration")
         self.env = {
             "PATH": os.environ["PATH"],
             "FAKE_DIR": str(self.fake),
@@ -123,21 +133,21 @@ class Collect(unittest.TestCase):
         text = report if isinstance(report, str) else json.dumps(report)
         (self.fake / f"{half}.out").write_text(text)
 
-    def configmap(self, data):
+    def configmap(self, data, name=EVIDENCE, namespace="tool-services"):
         stored = {
             "apiVersion": "v1",
             "kind": "ConfigMap",
             "metadata": {
-                "name": "tool-service-evidence-netbox",
-                "namespace": "tool-services",
+                "name": name,
+                "namespace": namespace,
                 "resourceVersion": "7",
             },
             "data": data,
         }
-        (self.fake / "configmap.json").write_text(json.dumps(stored))
+        (self.fake / f"configmap-{name}.json").write_text(json.dumps(stored))
 
-    def stored(self):
-        return json.loads((self.fake / "configmap.json").read_text())
+    def stored(self, name=EVIDENCE):
+        return json.loads((self.fake / f"configmap-{name}.json").read_text())
 
     def kubectl_calls(self):
         log = self.fake / "kubectl.log"
@@ -437,6 +447,68 @@ class Collect(unittest.TestCase):
         self.assertIn("job-1", jobs)
         # old-0 is 2026-10-01T00 and the earliest of the twenty.
         self.assertNotIn("old-0", jobs)
+
+    def test_a_collection_writes_the_verdicts_for_the_comparison(self):
+        code, out, err = self.run_command("job-1")
+        self.assertEqual(code, 0, err)
+        data = self.stored(VERDICTS)["data"]
+        self.assertEqual(set(data), {"job-1.json"})
+        document = json.loads(data["job-1.json"])
+        self.assertRegex(
+            document.pop("collected"), r"^20[0-9]{2}-[01][0-9]-[0-3][0-9]T[0-9:]{8}Z$"
+        )
+        self.assertEqual(
+            document,
+            {
+                "job": "job-1",
+                "accounts": {
+                    "inventory-reader": {"configured": "excess", "observed": "excess"},
+                    "inventory-reader-control": {
+                        "configured": "within",
+                        "observed": "within",
+                    },
+                },
+            },
+        )
+        self.assertNotIn("verdict", json.dumps(self.stored()["data"]))
+        self.assertIn(
+            "verdicts for the comparison in orchestration/netbox-verdicts", out
+        )
+
+    def test_the_oldest_jobs_leave_the_verdicts_past_twenty(self):
+        old = {}
+        for n in range(20):
+            stamp = f"2026-10-0{n % 9 + 1}T{n:02d}:00:00Z"
+            document = {"job": f"old-{n}", "collected": stamp, "accounts": {}}
+            old[f"old-{n}.json"] = json.dumps(document)
+        self.configmap(old, VERDICTS, "orchestration")
+        code, _, err = self.run_command("job-1")
+        self.assertEqual(code, 0, err)
+        jobs = {key.split(".", 1)[0] for key in self.stored(VERDICTS)["data"]}
+        self.assertEqual(len(jobs), 20)
+        self.assertIn("job-1", jobs)
+        # old-0 is 2026-10-01T00 and the earliest of the twenty.
+        self.assertNotIn("old-0", jobs)
+
+    def test_a_verdicts_write_that_fails_fails_the_command(self):
+        code, _, err = self.run_command("job-1", FAKE_REPLACE_FAILS=VERDICTS)
+        self.assertEqual(code, 1)
+        self.assertIn("netbox-verdicts", err)
+        self.assertEqual(self.stored(VERDICTS)["data"], {})
+
+    def test_the_comparison_reads_the_verdicts_the_command_writes(self):
+        spec = importlib.util.spec_from_file_location("compare", COMPARE)
+        compare = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(compare)
+        self.assertEqual(self.run_command("job-1")[0], 0)
+        path = self.tmp / "verdicts.json"
+        path.write_text(self.stored(VERDICTS)["data"]["job-1.json"])
+        checks = compare.load_checks(path, "job-1")
+        answer = (
+            "Verdict: inventory-reader excess ev-0002 ev-0003\n"
+            "Verdict: inventory-reader-control within ev-0003\n"
+        )
+        self.assertEqual(compare.compare("job-1", checks, answer)["outcome"], "match")
 
     def test_not_a_job_id_is_refused(self):
         for job in ("Job-1", "job.1", "-job", "", "j" * 64, "job-1\n"):
