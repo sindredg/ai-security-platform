@@ -33,9 +33,12 @@ A request passes two stages. Before the Model Context Protocol (MCP) SDK parses 
 | Handler | The job is under its tool call limit. Rejected tool calls count | An error result |
 | Handler | The tool is in the job's scope | An error result |
 | Handler | The arguments match the tool's schema in the policy. Extra fields are rejected | An error result |
-| Tool | The reference resolves to a file inside the job's target directory | An error result |
+| Tool | The reference is one the job's target lists, and resolves to a file inside the target's directory. On a per-job target the file's name starts with the job's ID, so another job on the same target finds nothing ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)) | An error result |
+| Tool | The file is one JSON document, with no key twice, every field and value as the schema for its kind names them, and the call's job and reference in it. The model gets the parsed document, not the file's text ([#152](https://github.com/sindredg/ai-security-platform/issues/152)) | An error result |
 | Handler | The result is within the size limit | An error result |
 | Handler | The job has not expired or been revoked while the tool ran. A late result is discarded | An error result |
+
+The two tool rows are Written since 2026-10-25: in the code and its tests, not in the running image. Before that the tool read `<target>/<reference>.json` and returned the file as it was. Status is in the [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation).
 
 Registration uses a separate listener. Its network policy admits only pods with the dispatch label in `orchestration`, and the worker's node port leads to the tool listener only. The listener checks the caller's token signature, issuer, audience, expiry, and service account. It then validates the registration schema, target, tools, and uniqueness of the job ID and token digest.
 
@@ -82,7 +85,7 @@ CI enforces a 300-line limit on the server code and scans its pinned dependencie
 ## What this does not do
 
 - **A bearer token can be reused if stolen.** Any process that reads it can make calls with the job's permissions until it is revoked or expires. Those permissions are limited to one target and the registered tools.
-- **Two jobs on one target read the same evidence.** Evidence is stored per target. That is enough while evidence is synthetic and fixed.
+- **Two jobs on one target read the same evidence, in the running image.** It stores evidence per target. The code since 2026-10-25 stores it per job on a target the policy marks per job ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)). The synthetic target stays shared: the operator writes its evidence, and it does not change.
 - **Jobs live in memory.** A restart of the service ends every job. It fails closed.
 - **The rate limit is shared.** Requests without a valid token, from any caller, share one count per minute. Past it they get 429, and the rest of that minute leaves one audit line, not one per request. How many were refused in that minute is not recorded. A valid token is never limited. Tested on the live system on 2026-10-16.
 - **An offline check cannot see a deleted pod.** The dispatch step's token stays valid until it expires.

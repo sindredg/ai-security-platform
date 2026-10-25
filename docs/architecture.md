@@ -156,7 +156,7 @@ The agent runtime and the model server run on a second VM that is not part of th
 
 The cost is dispatch. Argo runs pods, not processes on another machine. A workflow step opens an SSH session to the worker with a key that can only run the job runner, and the runner hands the job to a socket that starts the agent's sandboxed unit. Decided in [ADR 0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md) and [ADR 0030](decisions/0030-how-a-job-reaches-the-worker.md). Both sides are built and ran together on 2026-10-21: a workflow's step dispatched a job that called a tool, and a stopped workflow ended its job ([worklog](worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)). Detail: [AI worker](components/ai-worker.md).
 
-What exists today is narrower than the design. A job investigates synthetic evidence through one tool, `get_evidence`, for one target, `synthetic`: the dispatch step registers no other. The fixture tool on the worker is left for the measurement runs the operator starts by hand, outside dispatch. See the [milestone 3 worklog](worklogs/0003-toolchain-integration.md).
+What exists today is narrower than the design. A job investigates synthetic evidence through one tool, `get_evidence`, for one target, `synthetic`: the dispatch step registers no other. The code for a second, `netbox`, with evidence per job, is written and not deployed ([ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)). The fixture tool on the worker is left for the measurement runs the operator starts by hand, outside dispatch. See the [milestone 3 worklog](worklogs/0003-toolchain-integration.md).
 
 ### Components
 
