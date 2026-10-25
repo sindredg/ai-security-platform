@@ -1,6 +1,6 @@
 # 0040. A job's evidence is collected on the hosts and stored per job in the tool service
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-25
 
 ## Context

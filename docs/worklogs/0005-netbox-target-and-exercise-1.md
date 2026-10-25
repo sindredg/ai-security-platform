@@ -530,7 +530,7 @@ The header side of `N.12` failed live before the setting, and the address side o
 
 ## Evidence per job
 
-Date: 2026-10-25. [ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md), proposed. The procedure is the [evidence collection runbook](../runbooks/evidence-collection.md).
+Date: 2026-10-25. [ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md), accepted the same day. The procedure is the [evidence collection runbook](../runbooks/evidence-collection.md).
 
 ### What changed
 
