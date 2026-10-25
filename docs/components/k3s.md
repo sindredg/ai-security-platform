@@ -37,7 +37,7 @@ The installer is not piped from the network into a shell. The script is fetched 
 | --- | --- | --- |
 | `argo` | The Argo Workflows controller, which manages `orchestration` only ([ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md)). The UI runs on the operator's machine | Scheduling, retries, one job at a time |
 | `orchestration` | Workflows from fixed templates: the dispatch step and its exit handler | Register a job, hand it to the worker, check the result, revoke the token |
-| `collection` | Collectors and deterministic checks. Not created: NetBox's collector runs on the hosts, and where a collector runs for a job is an [open decision](../architecture.md#open-decisions) | Read approved sources, correlate advisories locally |
+| `collection` | Collectors and deterministic checks. Not created: NetBox's collector runs on the hosts, for the checks and, as proposed in [ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md), for a job | Read approved sources, correlate advisories locally |
 | `tool-services` | Narrow MCP servers and the policy check | Check caller, job, target, operation, and arguments on every call |
 | `change` | PR broker and delivery runner | Publish permitted patches, apply approved changes |
 
