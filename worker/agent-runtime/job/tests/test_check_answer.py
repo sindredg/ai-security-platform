@@ -129,6 +129,13 @@ class TheVerdict(unittest.TestCase):
             sys.stdin = stdin
         self.assertEqual(code, 1)
 
+    def test_the_system_text_lets_the_task_say_how_the_answer_ends(self):
+        # A NetBox task asks for a verdict line per account (ADR 0041). The
+        # two lines stay the default for a task that names no ending.
+        system = (AGENT / "system.txt").read_text()
+        self.assertIn("If the task says how the answer ends, end it that way.", system)
+        self.assertIn("Otherwise end every answer with two lines.", system)
+
     def test_the_system_text_asks_for_the_two_lines(self):
         system = (AGENT / "system.txt").read_text()
         self.assertIn("Status:", system)
