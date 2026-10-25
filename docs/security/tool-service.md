@@ -70,7 +70,7 @@ The service writes to standard output and opens no log file. A host service, `ai
 
 The service parses untrusted input. These controls limit what a bug in it gives an attacker. They are decided in [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), written in `platform/tool-service/` and `infra/platform/main.tf`, and checked in the pipeline. They are deployed, and the [tool service checks](../validation/tool-service.md) test them on the live system.
 
-![The tool service in K3s on the orchestrator: the AI worker reaches the tool listener on 8443 only through node port 30443 on the private address, over TLS 1.3 to a pinned certificate. A short-lived pod in orchestration registers jobs on 8444. The pod reads its policy, key set, evidence, and certificate from a read-only volume and writes audit lines to its log. Its egress to the internet, and a mesh device's connection to the tool port, are blocked](../diagrams/tool-service-cluster.svg)
+![The tool service in K3s on the orchestrator: the AI worker reaches the tool listener on 8443 only through node port 30443 on the private address, over TLS 1.3 to a pinned certificate. A dispatch pod in orchestration, one per workflow, registers jobs on 8444. The pod reads its policy, key set, and certificate from one read-only volume and each target's evidence from a read-only volume of its own, and writes audit lines to its log. Its egress to the internet, and a mesh device's connection to the tool port, are blocked](../diagrams/tool-service-cluster.svg)
 
 The diagram source is [`diagrams/tool-service-cluster.html`](../diagrams/tool-service-cluster.html).
 

@@ -72,7 +72,7 @@
     <div class="diagram-container">
       <svg viewBox="0 0 960 608" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="tool-service-cluster-title tool-service-cluster-desc">
         <title id="tool-service-cluster-title">Tool service in the cluster</title>
-        <desc id="tool-service-cluster-desc">Architecture diagram of the tool service inside K3s on the orchestrator: the AI worker reaches the tool listener on port 8443 only through node port 30443 on the private address, over TLS 1.3 to a pinned certificate; a short-lived dispatch pod in the orchestration namespace registers jobs on port 8444; the pod reads its policy, key set, evidence, and certificate from a read-only volume and writes audit lines to its log; its egress to the internet and a mesh device's connection to the tool port are blocked.</desc>
+        <desc id="tool-service-cluster-desc">Architecture diagram of the tool service inside K3s on the orchestrator: the AI worker reaches the tool listener on port 8443 only through node port 30443 on the private address, over TLS 1.3 to a pinned certificate; a dispatch pod in the orchestration namespace, one per workflow, registers jobs on port 8444; the pod reads its policy, key set, and certificate from one read-only volume and each target's evidence from a read-only volume of its own, and writes audit lines to its log; its egress to the internet and a mesh device's connection to the tool port are blocked.</desc>
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
           <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
@@ -135,15 +135,15 @@
         <rect x="264" y="384" width="36" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.22)" stroke-width="0.8"/>
         <text x="282" y="393" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">SHORT</text>
         <text x="316" y="412" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Dispatch pod</text>
-        <text x="316" y="428" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">register.sh today</text>
+        <text x="316" y="428" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">one per workflow</text>
         <text x="316" y="442" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">projected token</text>
         <rect x="424" y="112" width="184" height="72" rx="6" fill="#2d3142"/>
         <rect x="424" y="112" width="184" height="72" rx="6" fill="rgba(245,245,245,0.05)" stroke="#bfc0c0" stroke-width="1"/>
         <rect x="432" y="120" width="36" height="12" rx="2" fill="transparent" stroke="rgba(245,245,245,0.22)" stroke-width="0.8"/>
         <text x="450" y="129" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">FILES</text>
         <text x="516" y="148" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Mounted read-only</text>
-        <text x="516" y="164" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">policy · cluster key set</text>
-        <text x="516" y="178" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">evidence · certificate, key</text>
+        <text x="516" y="164" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">policy · key set · cert</text>
+        <text x="516" y="178" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">evidence, one per target</text>
         <rect x="424" y="208" width="184" height="112" rx="6" fill="#2d3142"/>
         <rect x="424" y="208" width="184" height="112" rx="6" fill="rgba(240,138,89,0.08)" stroke="#f08a59" stroke-width="1"/>
         <rect x="432" y="216" width="68" height="12" rx="2" fill="transparent" stroke="rgba(240,138,89,0.50)" stroke-width="0.8"/>
@@ -177,7 +177,7 @@
         <rect x="340" y="536" width="14" height="10" rx="2" fill="rgba(245,245,245,0.05)" stroke="#bfc0c0" stroke-width="1"/>
         <text x="360" y="544" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">On the orchestrator</text>
         <rect x="468" y="536" width="14" height="10" rx="2" fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.20)" stroke-width="1" stroke-dasharray="4,3"/>
-        <text x="488" y="544" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Short-lived. Stands in for dispatch</text>
+        <text x="488" y="544" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Short-lived: one per workflow</text>
         <rect x="684" y="536" width="14" height="10" rx="2" fill="rgba(245,245,245,0.03)" stroke="rgba(245,245,245,0.30)" stroke-width="1"/>
         <text x="704" y="544" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Outside the platform network</text>
         <line x1="24" y1="562" x2="52" y2="562" stroke="#f08a59" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
