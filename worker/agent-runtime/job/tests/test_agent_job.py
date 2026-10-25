@@ -466,6 +466,27 @@ class TheResultLine(unittest.TestCase):
             line = self.line(messages, answer=text, stderr=stderr)
             self.assertNotIn(TOKEN[:16], line)
 
+    def test_an_answer_cut_to_fit_the_result_fails_the_job(self):
+        # Cut, it can lose its last lines, and the comparison would read the
+        # rest as the whole answer. Outside ASCII each character takes 6 bytes
+        # in the line, so the cut text can stay under the dispatch step's
+        # limit of 8,192 bytes.
+        answer = "Verdict: some-account excess ev-0001\n" + "\u03b1" * 6000
+        result = json.loads(self.line(answer=answer))
+        self.assertEqual(result["status"], "failed")
+        self.assertLess(len(result["answer"].encode()), 8192)
+        self.assertTrue(
+            result["stderr_tail"].endswith(
+                "the answer was longer than a result carries, and was cut"
+            )
+        )
+
+    def test_an_answer_that_fits_is_kept_whole(self):
+        answer = "x" * (agent_job.ANSWER_BYTES - 2)
+        result = json.loads(self.line(answer=answer))
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["answer"], answer)
+
     def test_without_goose_output_the_transcript_is_the_instructions_only(self):
         tmp = Path(tempfile.mkdtemp())
         (tmp / "err.txt").write_text("")

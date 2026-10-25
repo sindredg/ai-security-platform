@@ -353,7 +353,8 @@ def log_erase(job, step, erased):
 def result_line(job, system, outcome, code, started, out, err, erased, offered):
     """The token is taken out of each text before it is cut, so no part of it
     is left at a cut. A job Goose completed fails when it was offered a tool
-    outside OFFERED, with the reason at the end of the stderr tail."""
+    outside OFFERED, or when its answer had to be cut to fit the result, with
+    each reason at the end of the stderr tail."""
     token = job["token"]
     calls, errors, answer, agent_status, tokens = 0, 0, "", None, {}
     transcript, parts = {}, flatten({}, system)
@@ -375,6 +376,12 @@ def result_line(job, system, outcome, code, started, out, err, erased, offered):
     if completed and problem:
         completed = False
         stderr += "\n" + problem
+    # A cut answer can lose its last lines, the verdicts the comparison reads.
+    answer = answer.replace(token, "[token]")
+    kept = cut(answer, ANSWER_BYTES)
+    if completed and kept != answer:
+        completed = False
+        stderr += "\nthe answer was longer than a result carries, and was cut"
     result = {
         "job": job["job"],
         "status": "completed"
@@ -386,7 +393,7 @@ def result_line(job, system, outcome, code, started, out, err, erased, offered):
         "tool_calls": calls,
         "tool_errors": errors,
         "slot_erased": erased,
-        "answer": cut(answer.replace(token, "[token]"), ANSWER_BYTES),
+        "answer": kept,
         "stderr_tail": cut(stderr[::-1], STDERR_BYTES)[::-1],
         **tokens,
     }
