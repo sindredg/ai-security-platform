@@ -80,42 +80,55 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
 
    Expected: the `forward` chain with four rules, the third `ip saddr 10.42.0.0/16 ip daddr 10.40.0.36 tcp dport 22 accept`. `E.6` passes on the next check run.
 
-6. Probe the worker's SSH port from two new pods in `orchestration`: one with the dispatch label, one with the comparison step's label instead. Each tries at 0, 5, and 20 seconds.
+6. Probe the worker's SSH port and the tool service's registration port from two new pods in `orchestration`, each labelled as a workflow's pod: one with the dispatch label, one with the comparison step's. Each tries both ports at 0, 5, and 20 seconds, from the dispatch image.
 
    ```bash
-   IMAGE=$(sed -n 's/^ *image: \(ghcr.io[^ ]*\)$/\1/p' platform/tool-service/tool-service.yaml)
-   PROBE='import socket, time
+   IMAGE=$(grep -oE 'ghcr\.io/[^ ]+/dispatch@sha256:[0-9a-f]{64}' platform/argo/workflow-template.yaml | head -n 1)
+   REGISTRATION=$(REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n tool-services get service tool-service -o jsonpath='{.spec.clusterIP}'")
+   PROBE='import socket, sys, time
    start = time.monotonic()
    for at in (0, 5, 20):
        time.sleep(max(0, start + at - time.monotonic()))
-       try:
-           socket.create_connection(("10.40.0.36", 22), 4).close(); end = "open"
-       except ConnectionRefusedError: end = "refused"
-       except TimeoutError: end = "timeout"
-       except OSError as error: end = "other " + str(error)
-       print(f"{at}s {end}", end="  ")'
+       ends = []
+       for host, port in (("10.40.0.36", 22), (sys.argv[1], 8444)):
+           try:
+               socket.create_connection((host, port), 4).close(); ends.append("open")
+           except ConnectionRefusedError: ends.append("refused")
+           except TimeoutError: ends.append("timeout")
+           except OSError as error: ends.append("other " + str(error))
+       print(f"{at}s worker:{ends[0]} registration:{ends[1]}", end="  ")'
    probe() {
-     OVERRIDES=$(python3 -c 'import json, sys; print(json.dumps({"metadata": {"labels": json.loads(sys.argv[3])}, "spec": {
+     OVERRIDES=$(python3 -I -c 'import json, sys; print(json.dumps({"metadata": {"labels": json.loads(sys.argv[3])}, "spec": {
        "automountServiceAccountToken": False,
        "securityContext": {"runAsNonRoot": True, "runAsUser": 65532, "seccompProfile": {"type": "RuntimeDefault"}},
-       "containers": [{"name": "probe", "image": sys.argv[1], "command": ["python", "-c", sys.argv[2]],
+       "containers": [{"name": "probe", "image": sys.argv[1], "command": ["python", "-c", sys.argv[2], sys.argv[4]],
          "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
-                             "capabilities": {"drop": ["ALL"]}}}]}}))' "$IMAGE" "$PROBE" "$1")
-     REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl run ssh-probe -n orchestration --restart=Never \
+                             "capabilities": {"drop": ["ALL"]}}}]}}))' "$IMAGE" "$PROBE" "$1" "$REGISTRATION")
+     echo "-- $1"
+     REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl run label-probe -n orchestration --restart=Never \
        --image='$IMAGE' --overrides='$OVERRIDES' >/dev/null &&
-       sudo k3s kubectl wait -n orchestration --for=jsonpath='{.status.phase}'=Succeeded pod/ssh-probe --timeout=90s >/dev/null &&
-       sudo k3s kubectl logs -n orchestration ssh-probe; echo; sudo k3s kubectl delete pod -n orchestration ssh-probe >/dev/null"
+       sudo k3s kubectl wait -n orchestration --for=jsonpath='{.status.phase}'=Succeeded pod/label-probe --timeout=90s >/dev/null &&
+       sudo k3s kubectl logs -n orchestration label-probe; echo; sudo k3s kubectl delete pod -n orchestration label-probe >/dev/null"
    }
-   probe '{"app.kubernetes.io/name": "dispatch"}'
-   probe '{"app.kubernetes.io/name": "compare"}'
+   probe '{"app.kubernetes.io/name": "compare", "workflows.argoproj.io/workflow": "label-probe"}'
+   probe '{"app.kubernetes.io/name": "dispatch", "workflows.argoproj.io/workflow": "label-probe"}'
    ```
 
-   Expected: `open` three times for the dispatch pod. For the other pod, `refused` at 5 and 20 seconds, where its policy holds. At 0 seconds it may read `open`: kube-router writes a pod's policy after the pod starts, and the host rule cannot tell pods apart. That is the residual ADR 0030 names (T47). Record what it reads.
+   Expected: for the comparison's pod, `refused` on both ports at 5 and 20 seconds, where its policy holds. For the dispatch pod, `open` on both at 5 and 20 seconds. At 0 seconds either may read otherwise: kube-router writes a pod's policies after the pod starts, and the host rule cannot tell pods apart. That is the residual ADR 0030 names (T47). Record what each reads. On 2026-10-25 the comparison's pod read `worker:open registration:refused` at 0 seconds, and the dispatch pod the same.
 
 7. The same start-of-pod probe in `tool-services`, which has never had one ([#65](https://github.com/sindredg/ai-security-platform/issues/65)): a new pod tries `1.1.1.1:443` at 0, 5, and 20 seconds.
 
    ```bash
-   PROBE2=$(sed 's/"10.40.0.36", 22/"1.1.1.1", 443/' <<< "$PROBE")
+   PROBE2='import socket, time
+   start = time.monotonic()
+   for at in (0, 5, 20):
+       time.sleep(max(0, start + at - time.monotonic()))
+       try:
+           socket.create_connection(("1.1.1.1", 443), 4).close(); end = "open"
+       except ConnectionRefusedError: end = "refused"
+       except TimeoutError: end = "timeout"
+       except OSError as error: end = "other " + str(error)
+       print(f"{at}s {end}", end="  ")'
    probe2() {
      OVERRIDES=$(python3 -c 'import json, sys; print(json.dumps({"spec": {
        "automountServiceAccountToken": False,

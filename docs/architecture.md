@@ -307,7 +307,7 @@ Each gets a decision record before the milestone that depends on it.
 | GitHub App permissions and approval enforcement | Remediation and pull requests |
 | Acceptance thresholds for quality, recovery, and cost | Operational drills |
 
-The target's runtime, how the targets get packages, and the consumer's scope with exercise 1's seeded finding were decided on 2026-10-24 in ADRs [0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md), [0036](decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md), and [0037](decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). Where a collector runs for a job was decided on 2026-10-25 in [ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md), and built the same day. How the workflow compares a job's verdict with the checks was decided the same day in [ADR 0041](decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md).
+The target's runtime, how the targets get packages, and the consumer's scope with exercise 1's seeded finding were decided on 2026-10-24 in ADRs [0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md), [0036](decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md), and [0037](decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). Where a collector runs for a job was decided on 2026-10-25 in [ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md), and built the same day. How the workflow compares a job's verdict with the checks was decided the same day in [ADR 0041](decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md), and built the same day.
 
 ## Limitations
 

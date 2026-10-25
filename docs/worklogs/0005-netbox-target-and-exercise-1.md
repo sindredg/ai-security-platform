@@ -698,7 +698,7 @@ The first NetBox job read its three results by position, in the order the tool s
 
 | Run | The added line | Job | Calls | Outcome |
 | --- | --- | --- | --- | --- |
-| 18:56 to 19:16 UTC | `The documents can come back in a different order than you asked for them. Tell them apart by their reference field, not by their order.` | `syn-10251856-1` | 1 | `Succeeded`, the comparison `Skipped`. Both lines, right |
+| 18:56 to 19:16 UTC | ``The documents can come back in a different order than you asked for them. Tell them apart by their `reference` field, not by their order.`` | `syn-10251856-1` | 1 | `Succeeded`, the comparison `Skipped`. Both lines, right |
 | | | `syn-10251856-2` | 1 | `Succeeded`, the comparison `Skipped`. Both lines, with `Excess: none` against two types in excess |
 | | | `nb-10251856-a` | 3 in one turn, the results in the order `ev-0003`, `ev-0001`, `ev-0002` | `stop: inventory-reader-control: the model says excess, the checks say within`. `inventory-reader` matched |
 | | | `nb-10251856-b`, its key changed as in step 17 | 3 in one turn, `ev-0002`, `ev-0003`, `ev-0001` | `stop: inventory-reader: the checks disagree, configured excess, observed within`. The model said `missing` for that account |
