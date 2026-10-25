@@ -208,9 +208,9 @@ jobs:
       # that runs by its own name has no extension, so a file is a script when
       # it ends in .sh or its first line starts a shell.
       # .github/scripts holds the signature check and the renderer below.
-      - name: Lint the worker, platform, edge, validation, and pipeline scripts
+      - name: Lint the worker, platform, edge, collector, validation, and pipeline scripts
         run: |
-          mapfile -t scripts < <(find worker platform edge validation .github/scripts -type f |
+          mapfile -t scripts < <(find worker platform edge collectors validation .github/scripts -type f |
             while read -r file; do
               case "$file" in
                 *.sh) echo "$file" ;;
