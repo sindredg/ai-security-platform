@@ -435,6 +435,17 @@ echo "argo_executor_role=$(k get role argo-executor -n orchestration -o jsonpath
 echo "argo_server=$(k get deployments -A -o name | grep -c argo-server)"
 echo "argo_namespace=$(k get namespace argo -o jsonpath="{.metadata.labels.pod-security\.kubernetes\.io/enforce}") $(k get networkpolicy default-deny -n argo -o name)"
 echo "argo_template=$(k get workflowtemplate investigate -n orchestration -o jsonpath="{.spec}" | sha256sum | cut -d " " -f 1)"
+# W.12: each service account in argo, orchestration, and tool-services, asked
+# whether it may create, update, patch, or delete a config map in
+# orchestration. An error answers neither yes nor no.
+answers=$(for ns in argo orchestration tool-services; do
+  for sa in $(k get serviceaccounts -n "$ns" -o name); do
+    for verb in create update patch delete; do
+      k auth can-i "$verb" configmaps -n orchestration --as="system:serviceaccount:$ns:${sa#serviceaccount/}"
+    done
+  done
+done)
+echo "configmap_writers=$(printf "%s\n" "$answers" | grep -c "^yes$") $(printf "%s\n" "$answers" | grep -c "^no$")"
 echo "argo_executor_token=$(k get secret argo-executor.service-account-token -n orchestration -o json | python3 -I -c "
 import json, sys
 secret = json.load(sys.stdin)
@@ -751,6 +762,10 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # Without it, every workflow pod waits on the mount and no step starts.
   check W.11 "The executor's token secret is for argo-executor and holds a token" \
     "kubernetes.io/service-account-token argo-executor token" "$(value argo_executor_token)"
+  # The collect command writes each job's verdicts for the comparison step into
+  # a config map in orchestration (ADR 0041). Seven accounts, four ways to
+  # change it: no yes, and 28 answers of no.
+  check W.12 "No workload account may change config maps in orchestration" "0 28" "$(value configmap_writers)"
   # Kept for W.10 in the worker's section, which reads the worker's own key.
   DISPATCH_SECRET=$(value dispatch_secret)
   check L.1 "The audit copier is active" active "$(value audit_copy_active)"
