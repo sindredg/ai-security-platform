@@ -147,7 +147,8 @@ SEEDED_VERDICTS="inventory-reader:excess inventory-reader-control:within"
 # What the orchestrator collects a job's evidence with (ADR 0040): the
 # collector, the collect command, and the contract, in install order.
 COLLECT_SHAS="$(sha256sum "$here/../collectors/netbox/netbox_access.py" \
-  "$here/../collectors/netbox/collect_evidence.py" "$CONTRACT" 2>/dev/null | cut -d " " -f 1 | tr "\n" " " | sed "s/ $//")"
+  "$here/../collectors/netbox/collect_evidence.py" "$CONTRACT" "$here/../collectors/netbox/cases.json" \
+  2>/dev/null | cut -d " " -f 1 | tr "\n" " " | sed "s/ $//")"
 COLLECTOR_SHA=$(sha256sum "$here/../collectors/netbox/netbox_access.py" | cut -d " " -f 1)
 RG=rg-aisec-platform
 RG_TARGETS=rg-aisec-targets
@@ -358,7 +359,7 @@ echo "target_update_pins=${pins# }"
 # The collect command for NetBox, and the key it runs the observed half with
 # on the lab VM (ADR 0040). The pin for the lab VM is the one the update run uses.
 echo "netbox_collect=$(sha256sum /usr/local/lib/aisec/netbox_access.py /usr/local/sbin/collect-netbox-evidence \
-  /etc/aisec/netbox/contract.json 2>/dev/null | cut -d " " -f 1 | tr "\n" " " | sed "s/ $//")"
+  /etc/aisec/netbox/contract.json /etc/aisec/netbox/cases.json 2>/dev/null | cut -d " " -f 1 | tr "\n" " " | sed "s/ $//")"
 observe=/etc/aisec/netbox/observe
 echo "netbox_observe_key=$(stat -c "%U %a" $observe $observe/id_ed25519 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 lab_pin=$(grep "^'"$LAB_IP"' " /etc/aisec/target-update/known_hosts 2>/dev/null)
@@ -686,7 +687,7 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
     <"$CONTRACT" 2>/dev/null)
   check N.14 "The configured permissions give the seeded excess and an unaffected control" \
     "$SEEDED_VERDICTS" "${configured:-not read}"
-  check N.18 "The orchestrator's collector, collect command, and contract are the ones in the two checkouts" \
+  check N.18 "The orchestrator's collector, collect command, contract, and cases are the ones in the two checkouts" \
     "$COLLECT_SHAS" "$(value netbox_collect)"
   check N.19 "The observer key is root's and closed to others, and pins the lab VM's host key the update run pins" \
     "root 700 root 600 1 same" "$(value netbox_observe_key) $(value netbox_observe_pin)"
