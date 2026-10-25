@@ -169,7 +169,7 @@ The first target is NetBox with synthetic inventory. See [ADR 0004](decisions/00
 | Fixture | Role |
 | --- | --- |
 | NetBox VM | The protected service: NetBox and its background worker from one image pinned by digest, under Podman, with PostgreSQL and Valkey from Ubuntu on the VM's loopback ([ADR 0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md)). It takes a client's address from the connection only, on an IPv4 socket, so each token's address limit holds ([ADR 0039](decisions/0039-netbox-takes-a-clients-address-from-the-connection.md)) |
-| Authorized consumer | Reads one synthetic tenant's devices and IP addresses through the REST API, with a read-only token limited to its address. The contract is a file in the targets repository ([ADR 0037](decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)). Built on 2026-10-25 as two accounts with their tokens on the lab VM, the consumer and a control. No program uses the tokens yet. The observed check reads with them |
+| Authorized consumer | Reads one synthetic tenant's devices and IP addresses through the REST API, with a read-only token limited to its address. The contract is a file in the targets repository ([ADR 0037](decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)). Built on 2026-10-25 as two accounts with their tokens on the lab VM, the consumer and a control. Only the collector's observed half reads with them, for the checks and for a job's collection ([ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)) |
 | Unintended viewpoint | A controlled source that policy says must not reach NetBox |
 | Rehearsal copy | A disposable NetBox with its own synthetic data and credentials |
 
