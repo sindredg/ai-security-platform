@@ -356,7 +356,10 @@ def result_line(job, system, outcome, code, started, out, err, erased, offered):
     outside OFFERED, or when its answer had to be cut to fit the result, with
     each reason at the end of the stderr tail."""
     token = job["token"]
-    calls, errors, answer, agent_status, tokens = 0, 0, "", None, {}
+    # Goose writes its transcript when it ends. Without one, as after a
+    # timeout, its calls are unknown here, and the result says so with no
+    # count (#200). The tool service's audit log holds them.
+    calls, errors, answer, agent_status, tokens = None, None, "", None, {}
     transcript, parts = {}, flatten({}, system)
     try:
         transcript = json.loads(Path(out).read_text())

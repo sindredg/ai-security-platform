@@ -362,6 +362,9 @@ class AWholeJob(Base):
         result = json.loads(data)
         self.assertEqual((result["status"], result["exit_code"]), ("failed", 1))
         self.assertIn("model unreachable", result["stderr_tail"])
+        # Without Goose's transcript, its calls are unknown here (#200).
+        self.assertIsNone(result["tool_calls"])
+        self.assertIsNone(result["tool_errors"])
         self.assertEqual(Erases.seen, ["/slots/0?action=erase"] * 2)
 
     def test_the_tools_goose_offered_go_to_the_journal(self):
