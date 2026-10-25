@@ -267,6 +267,16 @@ class Collect(unittest.TestCase):
                 self.assertIn("observed", err)
                 self.assert_nothing_written("job-1")
 
+    def test_a_document_larger_than_a_result_fails_before_writing(self):
+        big = json.loads(json.dumps(REPORTS["observed"]))
+        reads = big["accounts"]["inventory-reader"]["reads"]
+        reads["/api/dcim/devices/"] = [f"a-sw-{n:04d}" for n in range(1000)]
+        self.answer("observed", big)
+        code, _, err = self.run_command("job-1")
+        self.assertEqual(code, 1, err)
+        self.assertIn("ev-0003 is larger than the tool service hands back", err)
+        self.assert_nothing_written("job-1")
+
     def test_a_failed_configured_half_writes_nothing(self):
         code, _, err = self.run_command("job-1", FAKE_CONFIGURED_EXIT="1")
         self.assertEqual(code, 1)

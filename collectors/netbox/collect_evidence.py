@@ -46,6 +46,9 @@ CONFIGMAP = "tool-service-evidence-netbox"
 VOLUME = "evidence-netbox"
 POD = "app.kubernetes.io/name=tool-service"
 KEEP_JOBS = 20
+# The tool service's limits.result_bytes. A document over it would reach no
+# job, so it fails here. A tool service test holds the two equal.
+RESULT_BYTES = 16384
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 VERDICTS = ("excess", "missing", "unknown", "within")
 
@@ -248,6 +251,13 @@ def collect(job):
         "ev-0002": facts_configured(reports["configured"], job, collected),
         "ev-0003": facts_observed(reports["observed"], job, collected),
     }
+    for reference, document in documents.items():
+        size = len(json.dumps(document, indent=2, sort_keys=True).encode())
+        if size > RESULT_BYTES:
+            raise Failed(
+                f"{reference} is larger than the tool service hands back: "
+                f"{size} bytes, the limit is {RESULT_BYTES}"
+            )
     found = verdicts(reports["configured"], reports["observed"])
     STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
     try:

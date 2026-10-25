@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from conftest import POLICY
+from test_evidence import configmap_volume
 
 from aisec_tools.jobs import Job
 from aisec_tools.tools.evidence import make_get_evidence
@@ -40,14 +41,19 @@ def documents(command, job, collected="2026-10-25T08:00:00Z"):
 
 def test_every_collected_document_reaches_the_model(tmp_path, command):
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    (tmp_path / "netbox").mkdir()
-    for reference, document in documents(command, "nb-0001").items():
-        # As the command stores it in the ConfigMap.
-        text = json.dumps(document, indent=2)
-        (tmp_path / "netbox" / f"nb-0001.{reference}.json").write_text(text)
+    # As the kubelet lays out the config map the command writes.
+    files = {
+        f"nb-0001.{ref}.json": doc for ref, doc in documents(command, "nb-0001").items()
+    }
+    configmap_volume(tmp_path / "netbox", files)
     tool = make_get_evidence(tmp_path, policy)
     job = Job("nb-0001", "netbox", frozenset(), 0.0, "digest")
     for reference, document in documents(command, "nb-0001").items():
         reason, text = tool(job, {"reference": reference})
         assert reason is None, reference
         assert json.loads(text) == document
+
+
+def test_the_commands_size_limit_is_the_tool_services(command):
+    policy = json.loads(POLICY.read_text(encoding="utf-8"))
+    assert command.RESULT_BYTES == policy["limits"]["result_bytes"]
