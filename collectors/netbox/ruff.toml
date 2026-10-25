@@ -1,0 +1,11 @@
+# The collector reads NetBox's answers, which a compromised target shapes, on
+# the trusted machine. So it gets the tool service's rules: bugbear, the
+# security rules, and import order.
+extend = "../../ruff.toml"
+
+[lint]
+extend-select = ["B", "S", "I", "UP"]
+
+[lint.per-file-ignores]
+# Tests assert, and they hold made-up tokens.
+"tests/*" = ["S101", "S105", "S106"]
