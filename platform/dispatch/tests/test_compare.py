@@ -1,0 +1,361 @@
+"""The comparison step: the model's verdict per account against the checks'.
+
+compare.compare() gets the checks' verdicts and the answer as the workflow
+hands them over. main() runs as a subprocess, as the step's container runs it,
+with the three paths pointed into a temporary directory.
+"""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(HERE))
+
+import compare
+
+CHECKS = {
+    "inventory-reader": {"configured": "excess", "observed": "excess"},
+    "inventory-reader-control": {"configured": "within", "observed": "within"},
+}
+RIGHT = (
+    "The first account reads every tenant's devices (ev-0003).\n"
+    "Verdict: inventory-reader excess ev-0002 ev-0003\n"
+    "Verdict: inventory-reader-control within ev-0003\n"
+)
+CONTROL = "Verdict: inventory-reader-control within ev-0003\n"
+
+
+def checks(account="inventory-reader", **verdicts):
+    """CHECKS with one account's verdicts replaced."""
+    return {**CHECKS, account: {**CHECKS[account], **verdicts}}
+
+
+def document(job="nb-1", accounts=None):
+    return {
+        "job": job,
+        "collected": "2026-10-25T16:00:00Z",
+        "accounts": CHECKS if accounts is None else accounts,
+    }
+
+
+class TheComparison(unittest.TestCase):
+    def test_a_match_on_every_account(self):
+        result = compare.compare("nb-1", CHECKS, RIGHT)
+        self.assertEqual(result["job"], "nb-1")
+        self.assertEqual(result["outcome"], "match")
+        self.assertEqual(result["reasons"], [])
+        self.assertEqual(
+            result["accounts"],
+            [
+                {
+                    "account": "inventory-reader",
+                    "model": "excess",
+                    "references": ["ev-0002", "ev-0003"],
+                    "configured": "excess",
+                    "observed": "excess",
+                    "outcome": "match",
+                },
+                {
+                    "account": "inventory-reader-control",
+                    "model": "within",
+                    "references": ["ev-0003"],
+                    "configured": "within",
+                    "observed": "within",
+                    "outcome": "match",
+                },
+            ],
+        )
+
+    def test_a_mismatch_stops(self):
+        answer = "Verdict: inventory-reader within ev-0003\n" + CONTROL
+        result = compare.compare("nb-1", CHECKS, answer)
+        self.assertEqual(result["outcome"], "stop")
+        self.assertEqual(
+            result["reasons"],
+            ["inventory-reader: the model says within, the checks say excess"],
+        )
+        self.assertEqual(result["accounts"][0]["outcome"], "mismatch")
+
+    def test_an_inconclusive_verdict_stops(self):
+        answer = "Verdict: inventory-reader inconclusive ev-0002\n" + CONTROL
+        result = compare.compare("nb-1", CHECKS, answer)
+        self.assertEqual(result["outcome"], "stop")
+        self.assertEqual(
+            result["reasons"],
+            [
+                (
+                    "inventory-reader: the model's verdict is inconclusive, "
+                    "the checks say excess"
+                )
+            ],
+        )
+
+    def test_an_account_without_a_line_stops(self):
+        result = compare.compare("nb-1", CHECKS, CONTROL)
+        self.assertEqual(result["outcome"], "stop")
+        self.assertEqual(
+            result["reasons"],
+            ["inventory-reader: the answer has no verdict line for it"],
+        )
+        row = result["accounts"][0]
+        self.assertEqual((row["model"], row["references"]), (None, []))
+
+    def test_checks_that_disagree_stop_whatever_the_model_says(self):
+        result = compare.compare("nb-1", checks(observed="within"), RIGHT)
+        self.assertEqual(result["outcome"], "stop")
+        self.assertEqual(
+            result["reasons"],
+            [
+                (
+                    "inventory-reader: the checks disagree, configured excess, "
+                    "observed within"
+                )
+            ],
+        )
+
+    def test_checks_that_cannot_settle_an_account_stop(self):
+        answer = "Verdict: inventory-reader inconclusive ev-0002\n" + CONTROL
+        unknown = checks(configured="unknown", observed="unknown")
+        result = compare.compare("nb-1", unknown, answer)
+        self.assertEqual(result["outcome"], "stop")
+        self.assertEqual(
+            result["reasons"], ["inventory-reader: the checks cannot settle it"]
+        )
+
+    def test_markdown_and_list_marks_are_read(self):
+        answer = (
+            "**Verdict:** `inventory-reader` excess (ev-0002, ev-0003)\n"
+            "- Verdict: inventory-reader-control: within.\n"
+        )
+        result = compare.compare("nb-1", CHECKS, answer)
+        self.assertEqual(result["outcome"], "match", result["reasons"])
+        self.assertEqual(
+            [row["references"] for row in result["accounts"]],
+            [["ev-0002", "ev-0003"], []],
+        )
+
+    def test_repeated_lines_that_agree_are_one_verdict(self):
+        answer = (
+            "Verdict: inventory-reader excess ev-0002\n"
+            "More on the second document.\n"
+            "Verdict: inventory-reader excess ev-0003\n" + CONTROL
+        )
+        result = compare.compare("nb-1", CHECKS, answer)
+        self.assertEqual(result["outcome"], "match", result["reasons"])
+        self.assertEqual(result["accounts"][0]["references"], ["ev-0002", "ev-0003"])
+
+    def test_lines_that_disagree_stop(self):
+        answer = (
+            "Verdict: inventory-reader excess ev-0002\n"
+            "Verdict: inventory-reader within ev-0003\n" + CONTROL
+        )
+        result = compare.compare("nb-1", CHECKS, answer)
+        self.assertEqual(result["outcome"], "stop")
+        self.assertEqual(
+            result["reasons"], ["inventory-reader: the answer's verdict lines disagree"]
+        )
+
+    def test_a_line_for_an_account_the_checks_do_not_name_stops(self):
+        answer = RIGHT + "Verdict: some-account within ev-0001\n"
+        result = compare.compare("nb-1", CHECKS, answer)
+        self.assertEqual(result["outcome"], "stop")
+        self.assertEqual(
+            result["reasons"], ["some-account: not an account the checks name"]
+        )
+        self.assertEqual(
+            [row["outcome"] for row in result["accounts"]], ["match", "match"]
+        )
+
+    def test_a_verdict_line_that_cannot_be_read_stops(self):
+        answer = "Verdict: inventory-reader confirmed ev-0002\n" + CONTROL
+        result = compare.compare("nb-1", CHECKS, answer)
+        self.assertEqual(result["outcome"], "stop")
+        self.assertEqual(
+            result["reasons"],
+            [
+                "inventory-reader: the answer has no verdict line for it",
+                "verdict lines that could not be read: 1",
+            ],
+        )
+
+    def test_no_accounts_is_never_a_match(self):
+        result = compare.compare("nb-1", {}, RIGHT)
+        self.assertEqual(result["outcome"], "stop")
+
+    def test_a_dash_inside_a_name_is_not_a_separator(self):
+        answer = "Verdict: inventory-reader-within ev-0002\n" + CONTROL
+        result = compare.compare("nb-1", CHECKS, answer)
+        self.assertEqual(result["accounts"][0]["outcome"], "no-verdict")
+        self.assertIn("verdict lines that could not be read: 1", result["reasons"])
+
+    def test_prose_that_mentions_a_verdict_is_not_a_line(self):
+        answer = (
+            "The verdict: inventory-reader within, at first sight.\n"
+            "Verdicts follow.\n" + RIGHT
+        )
+        result = compare.compare("nb-1", CHECKS, answer)
+        self.assertEqual(result["outcome"], "match", result["reasons"])
+
+
+class TheChecks(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.path = self.tmp / "verdicts.json"
+
+    def test_the_jobs_verdicts_are_read(self):
+        self.path.write_text(json.dumps(document()))
+        self.assertEqual(compare.load_checks(self.path, "nb-1"), CHECKS)
+
+    def test_checks_for_another_job_stop(self):
+        self.path.write_text(json.dumps(document(job="nb-2")))
+        with self.assertRaisesRegex(
+            compare.Stop, "^the checks' verdicts are for another job$"
+        ):
+            compare.load_checks(self.path, "nb-1")
+
+    def test_checks_out_of_shape_stop(self):
+        good = document()
+        many = {f"account-{n:02d}": CHECKS["inventory-reader"] for n in range(21)}
+        broken = {
+            "not JSON": "{",
+            "a list": "[]",
+            "an extra key": json.dumps({**good, "note": "within"}),
+            "no collected": json.dumps(
+                {k: v for k, v in good.items() if k != "collected"}
+            ),
+            "a collected that is not a time": json.dumps(
+                {**good, "collected": "today"}
+            ),
+            "a job that is not text": json.dumps({**good, "job": 1}),
+            "no accounts": json.dumps(document(accounts={})),
+            "21 accounts": json.dumps(document(accounts=many)),
+            "a value outside the checks'": json.dumps(
+                document(accounts=checks(configured="maybe"))
+            ),
+            "a name outside the pattern": json.dumps(
+                document(accounts={"Inventory Reader": CHECKS["inventory-reader"]})
+            ),
+            "an account with another key": json.dumps(
+                document(accounts=checks(why="a permission"))
+            ),
+            "an account without its observed verdict": json.dumps(
+                document(accounts={"inventory-reader": {"configured": "excess"}})
+            ),
+        }
+        for name, text in broken.items():
+            self.path.write_text(text)
+            with (
+                self.subTest(name),
+                self.assertRaisesRegex(
+                    compare.Stop, "^the checks' verdicts are not in their shape$"
+                ),
+            ):
+                compare.load_checks(self.path, "nb-1")
+
+
+class TheStep(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp)
+        self.verdicts = self.tmp / "verdicts.json"
+        self.verdicts.write_text(json.dumps(document()))
+        self.comparison = self.tmp / "comparison.json"
+        self.termination = self.tmp / "termination-log"
+
+    def run_compare(self, *args):
+        env = {
+            "PATH": os.environ["PATH"],
+            "AISEC_VERDICTS": str(self.verdicts),
+            "AISEC_COMPARISON": str(self.comparison),
+            "AISEC_TERMINATION": str(self.termination),
+        }
+        process = subprocess.run(
+            [sys.executable, "-I", str(HERE / "compare.py"), *args],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+            check=False,
+        )
+        return process.returncode, process.stdout, process.stderr
+
+    def test_main_writes_the_comparison_and_the_termination_message(self):
+        code, _, err = self.run_compare("nb-1", RIGHT)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(self.comparison.read_text())["outcome"], "match")
+        self.assertEqual(self.termination.read_text(), "match")
+        code, _, err = self.run_compare(
+            "nb-1", "Verdict: inventory-reader within ev-0003\n" + CONTROL
+        )
+        self.assertEqual(code, 1, err)
+        self.assertEqual(json.loads(self.comparison.read_text())["outcome"], "stop")
+        self.assertTrue(
+            self.termination.read_text().startswith("stop: inventory-reader: "),
+            self.termination.read_text(),
+        )
+
+    def test_the_log_has_a_row_per_account_and_the_outcome_last(self):
+        code, out, err = self.run_compare("nb-1", RIGHT)
+        self.assertEqual(code, 0, err)
+        rows = [line.split() for line in out.splitlines()]
+        self.assertIn(
+            [
+                "inventory-reader",
+                "excess",
+                "ev-0002,ev-0003",
+                "excess",
+                "excess",
+                "match",
+            ],
+            rows,
+        )
+        self.assertIn(
+            [
+                "inventory-reader-control",
+                "within",
+                "ev-0003",
+                "within",
+                "within",
+                "match",
+            ],
+            rows,
+        )
+        self.assertEqual(out.splitlines()[-1], "match")
+
+    def test_no_checks_for_the_job_stops(self):
+        self.verdicts.unlink()
+        code, out, err = self.run_compare("nb-1", RIGHT)
+        self.assertEqual(code, 1, err)
+        written = json.loads(self.comparison.read_text())
+        self.assertEqual(
+            (written["outcome"], written["reasons"], written["accounts"]),
+            ("stop", ["no checks' verdicts for this job"], []),
+        )
+        self.assertEqual(out.splitlines()[-1], "stop: no checks' verdicts for this job")
+
+    def test_an_escape_sequence_reaches_neither_the_log_nor_the_output(self):
+        answer = "Verdict: inventory-reader\x1b[2J excess ev-0002\n" + CONTROL
+        code, out, err = self.run_compare("nb-1", answer)
+        self.assertEqual(code, 1, err)
+        self.assertNotIn("\x1b", out)
+        self.assertNotIn("\x1b", self.comparison.read_text())
+        self.assertNotIn("\\u001b", self.comparison.read_text())
+        self.assertNotIn("\x1b", self.termination.read_text())
+
+    def test_the_usage_needs_a_job_and_an_answer(self):
+        for args in ((), ("nb-1",), ("Not_A_Job", RIGHT)):
+            with self.subTest(args):
+                code, _, _ = self.run_compare(*args)
+                self.assertEqual(code, 2)
+                self.assertFalse(self.comparison.exists())
+
+
+if __name__ == "__main__":
+    unittest.main()
