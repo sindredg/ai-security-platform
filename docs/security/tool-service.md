@@ -33,8 +33,8 @@ A request passes two stages. Before the Model Context Protocol (MCP) SDK parses 
 | Handler | The job is under its tool call limit. Rejected tool calls count | An error result |
 | Handler | The tool is in the job's scope | An error result |
 | Handler | The arguments match the tool's schema in the policy. Extra fields are rejected | An error result |
-| Tool | The reference is one the job's target lists, and resolves to a file inside the target's directory. On a per-job target the file's name starts with the job's ID, so another job on the same target finds nothing ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)) | An error result |
-| Tool | The file is one JSON document, with no key twice, every field and value as the schema for its kind names them, and the call's job and reference in it. The model gets the parsed document, not the file's text ([#152](https://github.com/sindredg/ai-security-platform/issues/152)) | An error result |
+| Tool | The reference is one the job's target lists, and resolves to a file inside the target's directory. On a per-job target the file's name is the job's ID, a dot, and the reference, so another job on the same target finds nothing ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)) | An error result |
+| Tool | The file is no larger than a result may be, and one JSON document, with no key twice, every field and value as the schema for its kind names them, and the call's reference in it, and on a per-job target the call's job. The model gets the parsed document, not the file's text ([#152](https://github.com/sindredg/ai-security-platform/issues/152)) | An error result |
 | Handler | The result is within the size limit | An error result |
 | Handler | The job has not expired or been revoked while the tool ran. A late result is discarded | An error result |
 

@@ -79,7 +79,7 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 | --- | --- | --- |
 | Cloud identity for cluster workloads | T36 | A collector that reads from Azure. None does in exercise 1 ([0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)) |
 | Operator sessions to targets in the audit log | T04 | Milestone 4 |
-| Evidence written for one job is readable by the next job on the same target. The tool service stores evidence per target | T16, T19 | Milestone 4, before a collector's output becomes a job's evidence. Written on 2026-10-25: the tool service reads a key that starts with the job's ID ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)), not deployed. NetBox's collector, built on 2026-10-25, feeds only the checks so far |
+| Evidence written for one job is readable by the next job on the same target. The tool service stores evidence per target | T16, T19 | Milestone 4, before a collector's output becomes a job's evidence. Written on 2026-10-25: the tool service reads the key named for the job's ID and the reference ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)), not deployed. NetBox's collector, built on 2026-10-25, feeds only the checks so far |
 | How long a job's transcript is kept. It holds the evidence the agent read, and stays on the orchestrator with its workflow for 24 hours, readable by the operator's Argo account ([0030](../decisions/0030-how-a-job-reaches-the-worker.md)) | T45 | Milestone 4, with the first real target |
 | What the broker allows into a pull request | A5 | Milestone 5 |
 | Repository app permissions | T12 | Milestone 5 |
