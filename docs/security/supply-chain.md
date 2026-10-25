@@ -2,7 +2,7 @@
 
 Which artifacts the platform runs, what pins each one, where the pin is checked before the artifact runs, and which signatures are checked. The versions are in the [version table](../components/README.md#versions). The threats are T06 in the [threat model](threat-model.md#b2-egress-and-downloads) and A4 in the [AI-specific threats](ai-threats.md).
 
-Read from the code and the release pages on 2026-10-23. The NetBox row was read from the code on 2026-10-24. Each state uses the threat model's [words](threat-model.md#scope-and-method).
+Read from the code and the release pages on 2026-10-23. The NetBox row was read from the code on 2026-10-24, and the tool service's packages on 2026-10-25, after Dependabot's first update. Each state uses the threat model's [words](threat-model.md#scope-and-method).
 
 ## The rule
 
@@ -32,7 +32,7 @@ A pin proves that a file is the one first chosen, not that the first choice was 
 | The converter's Python packages | SHA-256 per file, in `artifacts.tsv` | The same | Not checked | | Built |
 | The model's files | SHA-256 per file and the publisher's revision, in `worker/model-server/models/Qwen3.5-4B.tsv` | The same | None published | `S.7` compares the built model file with the build's own checksum | Verified for the built file: `S.7` passed in the [last run](../validation/README.md#last-run). Its fail side was seen on the workstation ([checks](../validation/model-server.md)) |
 | Goose | SHA-256 of the archive, the release's digest, and of the binary inside it, in `worker/agent-runtime/` | `fetch.sh` on the orchestrator, and `install-agent.sh` on the worker, which refuses a binary that does not match | SLSA provenance, checked as for llama.cpp | `G.1` | Verified. The provenance on 2026-10-23: built by `release.yml` at `v1.55.0`, with the same fail sides. Again on 2026-10-24 for `v1.56.0`, before the pin moved ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#goose)). `G.1` failed on another binary, read on the worker ([checks](../validation/agent-runtime.md#broken-inputs)) |
-| The tool service's Python packages | SHA-256 per file, in `tool-service/requirements.txt` | pip, with `--require-hashes`, when the pipeline builds the image | Not checked | Dependabot proposes updates, unproven with hashed files ([#46](https://github.com/sindredg/ai-security-platform/issues/46)) | Built |
+| The tool service's Python packages | SHA-256 per file, in `tool-service/requirements.txt` | pip, with `--require-hashes`, when the pipeline builds the image | Not checked | Dependabot proposes updates. Its first, [#190](https://github.com/sindredg/ai-security-platform/pull/190) on 2026-10-25, moved the pin in `requirements.in` and `requirements.txt` with the hashes PyPI lists, and its tests installed with `--require-hashes` and passed ([#46](https://github.com/sindredg/ai-security-platform/issues/46)). Its commit fails the signature check, so starlette moved by hand instead, to the newer 1.10.0 ([#193](https://github.com/sindredg/ai-security-platform/pull/193)) | Built |
 
 ## From a vendor's signed channel
 
