@@ -52,6 +52,7 @@ FAKE_GOOSE = textwrap.dedent(
         "edge": "x" * 8192,
         "braces": "Confirmed. " + "{{" * 2 + "workflow.name" + "}}" * 2,
         "escape": "Confirmed. \x1b[2J",
+        "surrogate": "Confirmed. \\ud800",
     }}.get(mode, "Confirmed.")
     print(json.dumps({{"messages": calls + [
         {{"role": "assistant", "content": [{{"type": "text", "text": text}}]}},
@@ -352,8 +353,18 @@ class Chain(unittest.TestCase):
             "dispatch", "job-1", "synthetic", "6", "60", "task"
         )
         self.assertEqual(code, 1)
-        self.assertIn("a character Argo cannot pass on", err)
+        self.assertIn("a character the step does not hand on", err)
         self.assertFalse((self.tmp / "answer.txt").exists())
+
+    def test_an_answer_with_a_lone_surrogate_fails_the_step_cleanly(self):
+        # Checked before the size, whose encoding would raise instead.
+        self.mode = "surrogate"
+        code, _, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "task"
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("a character the step does not hand on", err)
+        self.assertNotIn("Traceback", err)
 
     def test_a_slot_not_erased_after_the_job_fails_the_step(self):
         Stub.erase_statuses = [200, 501]
@@ -536,15 +547,18 @@ class TheResult(unittest.TestCase):
 class TheQuoting(unittest.TestCase):
     """What Argo's strconv.Quote writes as an escape that JSON does not have."""
 
-    def test_controls_del_surrogates_and_unprinted_astral_characters(self):
+    def test_controls_del_surrogates_and_every_astral_character(self):
+        # Above U+FFFF, Go 1.26's tables (Unicode 15.0) and Python's differ,
+        # so the step refuses them all. U+1FAE9 is new in Unicode 15.1.
         for c in ("\x00", "\x07", "\x0b", "\x1b", "\x1f", "\x7f", "\ud800",
-                  "\U000e0001", "\U000f0000", "\U0010fffd"):  # fmt: skip
+                  "\U000e0001", "\U000f0000", "\U0010fffd", "\U0001f6a8",
+                  "\U0001fae9", "\U00020000", "\U0001cc00"):  # fmt: skip
             with self.subTest(hex(ord(c))):
                 self.assertTrue(dispatch.unquotable(c))
 
     def test_what_json_can_hold_passes(self):
         for c in ("\b", "\t", "\n", "\f", "\r", " ", "a", "\u00e9", "\u200b",
-                  "\u2705", "\U0001f6a8", "\U00020000"):  # fmt: skip
+                  "\u2705", "\uffff"):  # fmt: skip
             with self.subTest(hex(ord(c))):
                 self.assertFalse(dispatch.unquotable(c))
 

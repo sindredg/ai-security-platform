@@ -13,7 +13,9 @@ the result's size and fields, writes it to the step's output file, prints the
 agent's transcript and answer to the step's log, and exits 0 only for a
 completed job that called a tool, after which the model server's slot was
 erased, and whose answer the comparison step can take: at most 8 KiB, with no
-template syntax for Argo. That answer goes to an output file of its own. A
+template syntax and no character Argo could not pass on. That answer goes to
+an output file of its own. A job that did not complete may give no call
+counts, since the worker cannot know them without the agent's transcript. A
 stop of the step closes the session's input, which the worker takes as a
 cancel.
 
@@ -36,7 +38,6 @@ import ssl
 import subprocess
 import sys
 import time
-import unicodedata
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -187,20 +188,20 @@ def check_result(line, job):
 
 
 def unquotable(c):
-    """Whether Argo cannot pass the character on in a parameter. Argo quotes a
-    value with Go's strconv.Quote and then requires valid JSON
+    """Whether the step refuses the character in an answer it hands on. Argo
+    quotes a parameter with Go's strconv.Quote and then requires valid JSON
     (util/template/simple_template.go and replace.go, read in v4.1.6). Go
     writes a control character other than \\b, \\t, \\n, \\f, and \\r, and
     DEL, as \\a, \\v, or \\xHH, and a character above U+FFFF that it does not
     print as \\U and eight digits, none of which JSON has. The step group
-    would end on Argo's error instead of the comparison's. A lone surrogate
-    cannot be written to a file at all."""
+    would end on Argo's error instead of the comparison's. Which characters
+    above U+FFFF Go prints depends on its Unicode tables, 15.0 in the Go that
+    builds Argo v4.1.6, and Python's are newer, so every one is refused. An
+    answer is plain text. A lone surrogate cannot be written to a file."""
     code = ord(c)
     if code < 0x20:
         return c not in "\b\t\n\f\r"
-    if code == 0x7F or 0xD800 <= code <= 0xDFFF:
-        return True
-    return code > 0xFFFF and unicodedata.category(c).startswith("C")
+    return code == 0x7F or 0xD800 <= code <= 0xDFFF or code > 0xFFFF
 
 
 def printable(text):
@@ -308,6 +309,9 @@ def dispatch(job, target, max_turns, seconds, task):
         raise Failed("the agent called no tool")
     # Argo renders the parameter: it reads {{ as its own template syntax, and
     # {{= as an expression its controller evaluates.
+    # First, since a lone surrogate would stop the encoding below.
+    if any(unquotable(c) for c in result["answer"]):
+        raise Failed("the answer has a character the step does not hand on")
     size = len(result["answer"].encode())
     if size > ANSWER_BYTES:
         raise Failed(
@@ -316,8 +320,6 @@ def dispatch(job, target, max_turns, seconds, task):
         )
     if "{{" in result["answer"]:
         raise Failed("the answer has template syntax, which Argo would read")
-    if any(unquotable(c) for c in result["answer"]):
-        raise Failed("the answer has a character Argo cannot pass on")
     ANSWER.write_text(result["answer"])
 
 
