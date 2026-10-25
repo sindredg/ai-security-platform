@@ -539,6 +539,16 @@ jobs:
           docker run --rm --entrypoint /usr/bin/ssh "${IMAGE}:${GITHUB_SHA}" \
             -G aisec-job@10.40.0.36 | grep -x 'user aisec-job'
 
+      # The comparison step's command runs this file, and a missing copy would
+      # show only when a workflow runs. Without a job and an answer it prints
+      # its usage and exits 2.
+      - name: Check that the comparison runs in the image
+        run: |
+          code=0
+          docker run --rm --entrypoint python "${IMAGE}:${GITHUB_SHA}" \
+            /opt/dispatch/compare.py || code=$?
+          [ "${code}" = 2 ]
+
       # Blocks on any finding with a fix. OpenSSH's client is Alpine's and
       # moves with the index, the rest with the base image's pin.
       - name: Scan the image

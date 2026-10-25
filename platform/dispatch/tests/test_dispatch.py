@@ -47,8 +47,13 @@ FAKE_GOOSE = textwrap.dedent(
         {{"role": "user", "content": [{{"type": "toolResponse",
           "toolResult": {{"status": "success", "value": {{}}}}}}]}},
     ]
+    text = {{
+        "long": "x" * 8193,
+        "edge": "x" * 8192,
+        "braces": "Confirmed. " + "{{" * 2 + "workflow.name" + "}}" * 2,
+    }}.get(mode, "Confirmed.")
     print(json.dumps({{"messages": calls + [
-        {{"role": "assistant", "content": [{{"type": "text", "text": "Confirmed."}}]}},
+        {{"role": "assistant", "content": [{{"type": "text", "text": text}}]}},
     ], "metadata": {{"status": "completed"}}}}))
     """
 )
@@ -181,6 +186,7 @@ class Chain(unittest.TestCase):
             "AISEC_KNOWN_HOSTS": str(self.tmp / "known_hosts"),
             "AISEC_WORK": str(self.tmp / "work"),
             "AISEC_RESULT": str(self.tmp / "result.json"),
+            "AISEC_ANSWER": str(self.tmp / "answer.txt"),
             "AISEC_SSH": str(fake_ssh),
         }
 
@@ -304,6 +310,40 @@ class Chain(unittest.TestCase):
         self.assertEqual(
             json.loads((self.tmp / "result.json").read_text())["exit_code"], 1
         )
+
+    def test_the_answer_reaches_its_own_output_file(self):
+        code, _, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "task"
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual((self.tmp / "answer.txt").read_text(), "Confirmed.")
+
+    def test_an_answer_longer_than_the_comparison_reads_fails_the_step(self):
+        self.mode = "long"
+        code, _, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "task"
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("reads at most 8192", err)
+        self.assertFalse((self.tmp / "answer.txt").exists())
+        self.assertTrue((self.tmp / "result.json").exists())
+
+    def test_an_answer_of_8192_bytes_passes(self):
+        self.mode = "edge"
+        code, _, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "task"
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual(len((self.tmp / "answer.txt").read_bytes()), 8192)
+
+    def test_an_answer_with_template_syntax_fails_the_step(self):
+        self.mode = "braces"
+        code, _, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "task"
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("template syntax", err)
+        self.assertFalse((self.tmp / "answer.txt").exists())
 
     def test_a_slot_not_erased_after_the_job_fails_the_step(self):
         Stub.erase_statuses = [200, 501]
