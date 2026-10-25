@@ -5,7 +5,7 @@ Milestone: 4, NetBox target and exercise 1 investigation
 
 ## Summary
 
-Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). The NetBox VM and the lab VM are built, with the checks that read them ([below](#the-target-vms)). The update run is built, and has run once on each target ([below](#the-update-run)). NetBox runs on its VM, with no data yet ([below](#netbox-on-its-vm)). The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
+Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0039](../decisions/0039-netbox-takes-a-clients-address-from-the-connection.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). The NetBox VM and the lab VM are built, with the checks that read them ([below](#the-target-vms)). The update run is built, and has run once on each target ([below](#the-update-run)). NetBox runs on its VM ([below](#netbox-on-its-vm)). It holds exercise 1's seed, and the two deterministic checks agree on the seeded excess and the unaffected control ([below](#the-seed-and-the-two-checks)). No investigation has run yet. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
 
 Before the build, five pins moved to their newest stable release: Terraform, `hashicorp/azurerm`, Ruff, Goose, and Argo Workflows. Goose and Argo run on the platform, so both were installed and every check ran after them.
 
@@ -443,3 +443,87 @@ A copy of the script with one broken input per new or changed check, run without
 - An update run with NetBox running. PostgreSQL and Valkey restart when apt upgrades them, and NetBox's response to that was not seen ([#187](https://github.com/sindredg/ai-security-platform/issues/187)).
 - The undo, and a rebuild of the NetBox VM from the archive the orchestrator keeps.
 - The consumer's pin. There is no consumer yet.
+
+## The seed and the two checks
+
+Date: 2026-10-25. [ADR 0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md), with NetBox taking a client's address from the connection only ([ADR 0039](../decisions/0039-netbox-takes-a-clients-address-from-the-connection.md)). The procedure is the [NetBox runbook](../runbooks/netbox.md#the-seed), steps 13 to 20.
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| The targets repository's `netbox/client-address.py` | NetBox's `HTTP_CLIENT_IP_HEADERS` names the connection's address only. Both units mount it into netbox-docker's configuration directory |
+| The targets repository's `netbox/granian.py` | NetBox's application without Granian's proxy-header middleware, mounted over netbox-docker's module in the web unit |
+| The targets repository's `netbox/netbox.env` | `GRANIAN_EXTRA_ARGS=--host=0.0.0.0`: Granian on an IPv4 socket ([troubleshooting 17](../troubleshooting/17-netbox-sees-ipv4-clients-as-mapped-ipv6.md)) |
+| The targets repository's `netbox/install-netbox.sh` | Installs the two files beside `netbox.env` |
+| The targets repository's `netbox/make-netbox-token.sh` | Root's script on the NetBox VM, through Django's shell in the running container. `seed`: the `aisec-seed` superuser and a write token limited to `10.40.0.4/32` for one hour. `probe`: the `aisec-address-probe` account, with no permission, and a read-only token limited to `192.0.2.1/32`. Neither account has a password. The token goes to standard output only |
+| The targets repository's `netbox/seed.py`, `seed.json` | Root's script on the orchestrator, with the seeding token: makes each object the seed lists that NetBox lacks, stops on one that differs, and makes a new token for each of the three accounts into a root-only directory. Three tenants, a site each, seven devices, seven addresses, the three accounts, and four permissions, the unscoped copy among them |
+| The targets repository's `netbox/contract.json` | The consumer contract: the two accounts, the consumer viewpoint, the two scoped grants, the records each read returns, and four denials |
+| The targets repository's `ruff.toml`, checks workflow | A `Ruff` job: lint and formatting with the platform's pinned Ruff and its rules for code that reads a target's answers, and a parse of each JSON file. ShellCheck reads the token script too |
+| `collectors/netbox/netbox_access.py` and its tests | The two methods, `configured` and `observed`, with 23 unit tests against a made-up NetBox |
+| `.github/workflows/checks.yml` | Ruff reads `collectors/`. A `Collector tests` job runs the tests on the runner's Python, as the copiers' tests do |
+| `validation/platform-checks.sh` | `N.12` to `N.17` |
+
+### Before the run
+
+Locally, on the workstation:
+
+- **The collector's tests.** 23 pass on Python 3.12.3. Six copies of the collector, each with one change, were run against them: an unconstrained grant counted as scoped (4 failures), an extra record not counted (1), a `2xx` denial counted as unknown (1), group permissions not read (1), disabled permissions counted (1), and redirects followed. The last one passed all 22 tests that existed then, so a test of the opener was added: a local server that answers with a redirect, and a proxy in the environment on a port where nothing listens. With redirects followed it fails, and with the proxy settings read it errors.
+- **ShellCheck 0.11.0** at `-S warning` on the two NetBox scripts and the run's script: no finding. **Ruff 0.17.2** on `netbox/` and `collectors/`: no finding, formatted.
+
+Written before the run, as each step's expected result: the probe's token accepted with either header before the setting, which is `N.12`'s fail side, and refused three times after it with `10.40.0.4` named. The seed makes 32 objects and 3 tokens, and a second run makes nothing. Both methods give `inventory-reader:excess` and `inventory-reader-control:within`, and every denial `403`. Every check passes, and a copy with broken inputs fails exactly `N.12` to `N.17`.
+
+### The run
+
+On the live system, from a script that ran the runbook's steps with each step's expected result printed before it. Four starts, each stopped at its first error:
+
+| Start, UTC | Stopped at | Cause | Change |
+| --- | --- | --- | --- |
+| 06:30:48 | The probe's token | `make-netbox-token.sh` was not executable in the checkout | Mode 755 |
+| 06:42:09 | The seed's first request | `403`, `Source IP ::ffff:10.40.0.4 is not permitted`: Granian on a dual-stack socket ([troubleshooting 17](../troubleshooting/17-netbox-sees-ipv4-clients-as-mapped-ipv6.md)) | `GRANIAN_EXTRA_ARGS=--host=0.0.0.0`. The next starts skip the probe's token and its fail side, both done |
+| 06:49:27 | The seed's first account, after 25 objects | `400`, `Password must have at least one uppercase letter.` NetBox's default rules: 12 characters, a digit, an uppercase and a lowercase letter. A hex password has no uppercase letter | A fixed `Aa1` after the 64 random hex characters. Locally, 10,000 of 10,000 new passwords pass a copy of the rule, and 0 of 10,000 of the old form |
+| 06:52:56 | Ran to its end at 07:07:00 | | |
+
+What each step showed:
+
+| Step | Expected | Seen |
+| --- | --- | --- |
+| The probe before the setting, 06:42:41 | `200` with each header, `403` without | `none=403: x-forwarded-for=200: x-real-ip=200:`. Both headers believed. The empty address after `403:` was the mapped form, found next |
+| The install, a second time | `have` for the image, the secrets, and the key. `login_page=200` | As expected. `netbox` mounts `granian.py`, `client-address.py`, the certificate, and the media directory. `netbox-worker` mounts `client-address.py` and the media directory. After the install at 06:49, `ss` lists `0.0.0.0:8443` only, and Granian logs `Listening at: https://0.0.0.0:8443`. Both containers log `loaded config '/etc/netbox/config/client-address.py'` |
+| The probe after the setting | `403:10.40.0.4` three times | 06:43:44, on the dual-stack socket: `403:` three times. 06:50:53 and after: `403:10.40.0.4` three times |
+| The seed, twice | 32 made, then 32 `have`. 3 tokens each run | After the stopped start's 25: 7 made and 25 `have`, then 32 `have`. 3 tokens each run. Nothing differed from the seed |
+| The tokens to their hosts | `root 600` each, the seeding token and the run directory removed | Both removed. The token files' modes were not printed, because the script's `stat` glob ran as the login account, which cannot read the root-only directory. `N.13` and `N.15` read them as root and passed |
+| The certificate to the lab VM | The orchestrator's fingerprint | `42:E9:DA:18:...` on both |
+| `configured`, in full | `inventory-reader` excess for the unconstrained copy, the control within | `excess` on `view on dcim.device without a constraint (inventory-reader: inventory)` and the same on `ipam.ipaddress`. The control `within`, with its one scoped permission |
+| `observed`, in full | `inventory-reader` excess for the other tenants' records, the control within, every denial `403` | `excess` on `b-fw-01`, `b-sw-01`, `c-fw-01`, `c-sw-01`, and `172.16.2.1/24`, `.2.2`, `.3.1`, `.3.2`. The control read `a-fw-01`, `a-sw-01`, `a-sw-02` and the three `172.16.1.x` addresses, and `within`. Four denials `403` for each account |
+
+The two methods agree: one affected and one unaffected account, each by both.
+
+### Every check
+
+From `main` at `c41f2cb` with the changes uncommitted, on the live system, 06:55:06 to 07:03 UTC: `404 passed, 0 failed`. `N.12` to `N.17` among them.
+
+### The checks fail on broken inputs
+
+A copy of the script, run without the Azure and workstation checks on the live system, 07:03:27 to 07:06:57 UTC: `348 passed, 6 failed`, the 6 below. Written before the run: these 6 fail and nothing else does.
+
+| Check | Broken input | Result |
+| --- | --- | --- |
+| `N.12` | A probe token path that does not exist | `403: 403: 403:`. With no token, NetBox refuses the header's form and names no address |
+| `N.13` | A collector token path that does not exist | `root 700 root 600` |
+| `N.14` | A contract for `tenant-b` | `inventory-reader:excess inventory-reader-control:unknown`. The control's constraint is not the contract's |
+| `N.15` | A consumer token path that does not exist | `root 700 root 600` |
+| `N.16` | A certificate path that does not exist | An empty fingerprint |
+| `N.17` | The same contract for `tenant-b` | `inventory-reader:excess inventory-reader-control:excess`. The control's `a-` records are not in that contract |
+
+The header side of `N.12` failed live before the setting, and the address side on the dual-stack socket, both above.
+
+### Not verified
+
+- **The two header changes apart.** The setting and the module went in together, so whether either alone closes the header path was not seen ([ADR 0039](../decisions/0039-netbox-takes-a-clients-address-from-the-connection.md)).
+- **A consumer.** The lab VM holds the two tokens and the certificate, and `N.17` reads with them as root. No program on the lab VM uses them otherwise.
+- **The contract names records, not IDs.** ADR 0037 has the contract list record IDs. NetBox assigns the IDs when it makes the records, so they change with every seed. The seed is the expected state, and it has names and addresses, so the contract has them too.
+- **The seeding token's expiry.** It is made to expire an hour after it is made. Its file was removed from the orchestrator, and no request with it after the hour was tried.
+- **`seed.py` has no tests in the repository.** Its runs above are the evidence, the stopped one included: it stopped on the first refusal and made nothing after it.
+- **A clean stop.** At each restart, AppArmor denies the image's init the stop signal, and the containers end without NetBox getting it ([#191](https://github.com/sindredg/ai-security-platform/issues/191)).
+- The undo of the seed, and a second seed after a rebuild.

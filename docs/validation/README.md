@@ -106,6 +106,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-24 | 386 of 386 passed | The same branch, ending at 18:12 UTC, after both targets were rebuilt and the [first update runs](../worklogs/0005-netbox-target-and-exercise-1.md#the-update-run) |
 | 2026-10-24 | 396 of 398 passed | From the branch with NetBox's install uncommitted, ending at 20:09:57 UTC, after [NetBox](../worklogs/0005-netbox-target-and-exercise-1.md#netbox-on-its-vm) was installed. First run with `N.1` to `N.11` and `C.12`. `Z.25` failed on the two new rules its expected value did not name, and `N.7` on a path in a value |
 | 2026-10-24 | 398 of 398 passed | The same branch with both checks fixed, ending at 20:19:58 UTC |
+| 2026-10-25 | 404 of 404 passed | From `main` at `c41f2cb` with the seed's checks uncommitted, 06:55 to 07:03 UTC, after [the seed](../worklogs/0005-netbox-target-and-exercise-1.md#the-seed-and-the-two-checks). First run with `N.12` to `N.17` |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
