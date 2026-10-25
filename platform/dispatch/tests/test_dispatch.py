@@ -499,6 +499,30 @@ class TheResult(unittest.TestCase):
             with self.subTest(name), self.assertRaises(dispatch.Failed):
                 dispatch.check_result(line, "job-1")
 
+    def test_a_job_that_did_not_complete_may_give_no_counts(self):
+        # Goose writes its transcript when it ends, so a stopped job's calls
+        # are unknown on the worker (#200). The audit log holds them.
+        for status in ("timeout", "failed"):
+            line = {
+                **self.GOOD,
+                "status": status,
+                "tool_calls": None,
+                "tool_errors": None,
+            }
+            with self.subTest(status):
+                self.assertIsNone(
+                    dispatch.check_result(json.dumps(line), "job-1")["tool_calls"]
+                )
+
+    def test_a_completed_job_gives_its_counts(self):
+        for field in ("tool_calls", "tool_errors"):
+            line = json.dumps({**self.GOOD, field: None})
+            with (
+                self.subTest(field),
+                self.assertRaisesRegex(dispatch.Failed, "no call counts"),
+            ):
+                dispatch.check_result(line, "job-1")
+
     def test_slot_erased_is_true_or_false_and_nothing_else(self):
         for value in ("true", 1, 0, None):
             line = json.dumps({**self.GOOD, "slot_erased": value})

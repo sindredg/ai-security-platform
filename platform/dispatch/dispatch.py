@@ -80,8 +80,10 @@ RESULT_FIELDS = {
     "exit_code": (int, type(None)),
     "seconds": (int, float),
     "agent_status": (str, type(None)),
-    "tool_calls": int,
-    "tool_errors": int,
+    # None when the job did not complete: Goose writes its transcript when it
+    # ends, so a stopped job's calls are unknown on the worker (#200).
+    "tool_calls": (int, type(None)),
+    "tool_errors": (int, type(None)),
     "slot_erased": bool,
     "answer": str,
     "stderr_tail": str,
@@ -176,6 +178,11 @@ def check_result(line, job):
         raise Failed("the result names another job")
     if result["status"] not in ("completed", "failed", "timeout"):
         raise Failed("the result's status is not one the worker gives")
+    if result["status"] == "completed" and None in (
+        result["tool_calls"],
+        result["tool_errors"],
+    ):
+        raise Failed("a completed job's result has no call counts")
     return result
 
 
