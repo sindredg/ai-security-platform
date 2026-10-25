@@ -42,7 +42,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0036](0036-target-packages-through-a-port-the-orchestrator-forwards.md) | The targets get packages through a port the orchestrator forwards over SSH, to a Squid port that serves only the package mirror | Accepted |
 | [0037](0037-an-unscoped-copy-of-the-consumers-permission.md) | The seeded finding is an unscoped copy of the consumer's permission, confirmed by configuration and by what the token returns. The contract is a file in the targets repository | Accepted |
 | [0038](0038-netboxs-tls-key-made-on-the-netbox-vm.md) | NetBox's TLS key is made on the NetBox VM and served by Granian. The orchestrator and the consumer pin the certificate | Accepted |
-| [0039](0039-netbox-takes-a-clients-address-from-the-connection.md) | NetBox takes a client's address from the connection and never from a header, on an IPv4 socket, so that a token's address limit holds | Proposed |
+| [0039](0039-netbox-takes-a-clients-address-from-the-connection.md) | NetBox takes a client's address from the connection and never from a header, on an IPv4 socket, so that a token's address limit holds | Accepted |
 | [0040](0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md) | A job's evidence is collected on the hosts, on request, and stored per job in the tool service, which hands the model only the fields its schema names | Accepted |
 
 ## Format

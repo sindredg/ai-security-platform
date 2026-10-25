@@ -1,6 +1,6 @@
 # 0039. NetBox takes a client's address from the connection, on an IPv4 socket
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-25
 
 ## Context
