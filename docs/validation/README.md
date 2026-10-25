@@ -107,6 +107,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-24 | 396 of 398 passed | From the branch with NetBox's install uncommitted, ending at 20:09:57 UTC, after [NetBox](../worklogs/0005-netbox-target-and-exercise-1.md#netbox-on-its-vm) was installed. First run with `N.1` to `N.11` and `C.12`. `Z.25` failed on the two new rules its expected value did not name, and `N.7` on a path in a value |
 | 2026-10-24 | 398 of 398 passed | The same branch with both checks fixed, ending at 20:19:58 UTC |
 | 2026-10-25 | 404 of 404 passed | From `main` at `c41f2cb` with the seed's checks uncommitted, 06:55 to 07:03 UTC, after [the seed](../worklogs/0005-netbox-target-and-exercise-1.md#the-seed-and-the-two-checks). First run with `N.12` to `N.17` |
+| 2026-10-25 | 411 of 411 passed | From the branch `feat/netbox-evidence-collection` at `6f74fe5`, 12:24 to 12:33 UTC, after the collect command, the observer account, and the images from #194 were installed and the [first jobs on NetBox's evidence](../worklogs/0005-netbox-target-and-exercise-1.md#every-check-after-the-collection) ran. First run with `N.18` to `N.23` and `T.14` |
+| 2026-10-25 | 411 of 411 passed | From the same branch at `47477ed`, 14:30 to 14:39 UTC, after the [fixes from its review](../worklogs/0005-netbox-target-and-exercise-1.md#fixes-from-the-review) were installed on both hosts |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 

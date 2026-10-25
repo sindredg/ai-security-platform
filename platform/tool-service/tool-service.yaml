@@ -5,8 +5,11 @@
 # what the registry holds under a tag.
 #
 # Its files arrive as one read-only volume under /aisec: the policy, the
-# synthetic evidence, the cluster's public signing keys, and the certificate
-# with its key. deploy.sh makes the config maps and the secret.
+# cluster's public signing keys, and the certificate with its key. The
+# evidence is under /evidence, one read-only volume per target: the synthetic
+# evidence, and NetBox's, which the collect command on the orchestrator adds
+# a job's keys to (ADR 0040). A mounted config map takes new keys without a
+# restart. deploy.sh makes the config maps and the secret.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -38,8 +41,11 @@ spec:
           type: RuntimeDefault
       containers:
         - name: tool-service
-          image: ghcr.io/sindredg/ai-security-platform/tool-service@sha256:94e29510525bb07dd4784691da7a5ee273d2b914ab255482f246e517069d00ee
+          image: ghcr.io/sindredg/ai-security-platform/tool-service@sha256:7e0a2066cbf8a03521401b678a70ce3f68b09e99aff0cff9f4630d1c1bbeda6f
           imagePullPolicy: IfNotPresent
+          env:
+            - name: AISEC_EVIDENCE
+              value: /evidence
           ports:
             - name: tools
               containerPort: 8443
@@ -73,6 +79,12 @@ spec:
             - name: aisec
               mountPath: /aisec
               readOnly: true
+            - name: evidence-synthetic
+              mountPath: /evidence/synthetic
+              readOnly: true
+            - name: evidence-netbox
+              mountPath: /evidence/netbox
+              readOnly: true
       volumes:
         - name: aisec
           projected:
@@ -88,11 +100,6 @@ spec:
                   items:
                     - key: sa-jwks.json
                       path: sa-jwks.json
-              - configMap:
-                  name: tool-service-evidence
-                  items:
-                    - key: ev-0001.json
-                      path: evidence/synthetic/ev-0001.json
               - secret:
                   name: tool-service-tls
                   items:
@@ -100,6 +107,14 @@ spec:
                       path: tls/tls.crt
                     - key: tls.key
                       path: tls/tls.key
+        - name: evidence-synthetic
+          configMap:
+            name: tool-service-evidence
+            defaultMode: 0440
+        - name: evidence-netbox
+          configMap:
+            name: tool-service-evidence-netbox
+            defaultMode: 0440
 ---
 # The worker's way in: the tool port on the orchestrator's private address
 # only, which K3s's node port setting holds to. The node port keeps the

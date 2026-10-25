@@ -2,7 +2,7 @@
 
 The tool service runs in K3s on the orchestrator and is the one place the worker can send a tool call. These checks test the deployment: the pod, its namespaces, its network paths, and its certificate. The service's own rejection cases are unit tests in the pipeline. The design is [ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) and [ADR 0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md). The controls are on the [tool service page](../security/tool-service.md#deployment-controls).
 
-Status: **tested** on the live system on 2026-10-15. Every check below passed in the run from `main` at `131ba01`. Each one was also seen to fail, on a broken input or before its control existed, except that `T.1`, `T.3` to `T.5`, and `T.10` were seen to fail only on absence. The runs and the inputs are in the [worklog](../worklogs/0003-toolchain-integration.md#the-fail-side-of-each-new-check). The checks are in `validation/platform-checks.sh`.
+Status: **tested** on the live system on 2026-10-15. Every check below passed in the run from `main` at `131ba01`. Each one was also seen to fail, on a broken input or before its control existed, except that `T.1`, `T.3` to `T.5`, and `T.10` were seen to fail only on absence, and `T.14`, added on 2026-10-25, has not been seen to fail ([#195](https://github.com/sindredg/ai-security-platform/issues/195)). The runs and the inputs are in the [worklog](../worklogs/0003-toolchain-integration.md#the-fail-side-of-each-new-check). The checks are in `validation/platform-checks.sh`.
 
 ## On the orchestrator
 
@@ -16,6 +16,7 @@ Status: **tested** on the live system on 2026-10-15. Every check below passed in
 | `T.6` | Retired with the router. The orchestrator has no mesh address. `M.5` covers the tool port from the mesh | | |
 | `T.7` | The certificate has more than 14 days left | An expired certificate stops every job | `openssl x509 -checkend` on the certificate the pod mounts |
 | `T.8` | The pod cannot reach the internet | The orchestrator's outbound access is not the pod's | A TCP connection from inside the pod to `1.1.1.1:443` is `refused`. K3s enforces network policies with kube-router, which rejects instead of dropping. Without the policy the connection is `open`, because the orchestrator reaches 443 (`E.1`). Any other end is a failure |
+| `T.14` | The pod mounts each target's evidence read-only, NetBox's from the collect command's config map | A job reads only what a reviewed file or the collect command put there. A writable mount, or NetBox's evidence from another source, would let something else choose it ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)) | The running pod's mounts other than `/aisec`: `evidence-synthetic` at `/evidence/synthetic` and `evidence-netbox` at `/evidence/netbox`, each read-only. Its only plain config map volumes are `tool-service-evidence` and `tool-service-evidence-netbox`, in that order: the policy, the key set, and the certificate are in the projected `/aisec` volume. The first variable is `AISEC_EVIDENCE=/evidence`. Passed on 2026-10-25 after the deploy. Not seen to fail ([#195](https://github.com/sindredg/ai-security-platform/issues/195)) |
 
 ## From the worker
 

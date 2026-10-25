@@ -3,6 +3,13 @@
 #
 #   argo submit -n orchestration --from workflowtemplate/investigate -p task="..."
 #
+# A NetBox job is collected on the orchestrator first, and submitted under the
+# same name, which is the job's ID (ADR 0040):
+#
+#   sudo collect-netbox-evidence nb-0001
+#   argo submit -n orchestration --from workflowtemplate/investigate \
+#     --name nb-0001 -p target=netbox -p task="..."
+#
 # The dispatch step makes the job's token, registers it, hands the job to the
 # worker over SSH, and checks the result. The exit handler revokes the token
 # on success, failure, and stop. One job at a time: the mutex waits for the
@@ -21,6 +28,11 @@ spec:
   arguments:
     parameters:
       - name: task
+      # The tool service's target. A NetBox job's evidence is collected for
+      # it first, under the workflow's name (ADR 0040).
+      - name: target
+        value: synthetic
+        enum: [synthetic, netbox]
       - name: max-turns
         value: "6"
       - name: seconds
@@ -72,13 +84,14 @@ spec:
           emptyDir:
             sizeLimit: 1Mi
       container:
-        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:3d59905d38979624e5bda7a29f5572620c4c68cb6c091cc213a38d9e4486a298
+        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:07f2a2905171c239332ca76ea9b85df2b50b9a054e76554fd0f2a2755fd47ce2
         # The executor needs the command: it cannot read the image's entry
         # point from a registry it has no way to reach.
         command: [python, /opt/dispatch/dispatch.py]
         args:
           - dispatch
           - "{{workflow.name}}"
+          - "{{workflow.parameters.target}}"
           - "{{workflow.parameters.max-turns}}"
           - "{{workflow.parameters.seconds}}"
           - "{{workflow.parameters.task}}"
@@ -117,7 +130,7 @@ spec:
               default: "{}"
     - name: revoke
       container:
-        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:3d59905d38979624e5bda7a29f5572620c4c68cb6c091cc213a38d9e4486a298
+        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:07f2a2905171c239332ca76ea9b85df2b50b9a054e76554fd0f2a2755fd47ce2
         command: [python, /opt/dispatch/dispatch.py]
         args: [revoke, "{{workflow.name}}"]
         resources:

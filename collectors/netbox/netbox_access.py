@@ -20,7 +20,8 @@ on come with it.
 The contract arrives on standard input, so the script can be sent to a host as
 an argument and read nothing but the token from that host's disk. NetBox's
 answers are the target's, and a compromised target shapes them: this script
-follows no link and no redirect from them, and builds every URL itself.
+follows no link and no redirect from them, builds every URL itself, and holds
+no answer and no list longer than the limits below.
 
 Usage: netbox_access.py configured|observed [--summary] < contract.json
 """
@@ -38,6 +39,10 @@ CERT = "/etc/aisec/netbox/tls.crt"
 TOKEN_DIR = "/etc/aisec/netbox/tokens"  # noqa: S105 - a directory's path
 COLLECTOR = "aisec-collector"
 PAGE = 1000
+# NetBox is target side, so neither the size of an answer nor the length of
+# a list is its to choose. Both are far beyond the lab's inventory.
+ANSWER_BYTES = 8 << 20
+RECORDS = 10000
 VERDICTS = ("excess", "missing", "unknown")
 
 
@@ -74,9 +79,11 @@ class NetBox:
         )
         try:
             with self.opener.open(request, timeout=30) as answer:
-                status, text = answer.status, answer.read()
+                status, text = answer.status, answer.read(ANSWER_BYTES + 1)
         except urllib.error.HTTPError as error:
-            status, text = error.code, error.read()
+            status, text = error.code, error.read(ANSWER_BYTES + 1)
+        if len(text) > ANSWER_BYTES:
+            return 0, f"an answer larger than {ANSWER_BYTES} bytes"
         try:
             return status, json.loads(text) if text else None
         except ValueError:
@@ -101,6 +108,8 @@ class NetBox:
             if not all(isinstance(r, dict) for r in page):
                 return 0, "a result that is not an object"
             results.extend(page)
+            if len(results) > RECORDS:
+                return 0, f"more than {RECORDS} records"
             offset += len(page)
             if not page or offset >= count:
                 return 200, results
