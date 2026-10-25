@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -197,6 +198,116 @@ class TheComparison(unittest.TestCase):
         result = compare.compare("nb-1", CHECKS, answer)
         self.assertEqual(result["accounts"][0]["outcome"], "no-verdict")
         self.assertIn("verdict lines that could not be read: 1", result["reasons"])
+
+    def test_a_line_under_any_markdown_mark_is_read(self):
+        for mark in ("1. ", "2) ", "### ", "> ", "> - ", "__"):
+            with self.subTest(mark):
+                answer = (
+                    f"{mark}Verdict: inventory-reader excess ev-0002\n"
+                    f"{mark}Verdict: inventory-reader-control within ev-0003\n"
+                )
+                result = compare.compare("nb-1", CHECKS, answer)
+                self.assertEqual(result["outcome"], "match", result["reasons"])
+
+    def test_a_contradiction_under_another_mark_stops(self):
+        # Unread, a line in another form would leave the right lines alone.
+        for mark in ("1. ", "### ", "> ", "__"):
+            with self.subTest(mark):
+                answer = f"{mark}Verdict: inventory-reader within ev-0001\n" + RIGHT
+                result = compare.compare("nb-1", CHECKS, answer)
+                self.assertEqual(result["outcome"], "stop")
+                self.assertIn(
+                    "inventory-reader: the answer's verdict lines disagree",
+                    result["reasons"],
+                )
+
+    def test_more_forms_of_a_line_are_read(self):
+        for form in (
+            "__Verdict: inventory-reader excess ev-0002 ev-0003__",
+            "_Verdict: inventory-reader excess ev-0002_",
+            "| Verdict: inventory-reader excess ev-0002 |",
+            "- [x] Verdict: inventory-reader excess ev-0002",
+            "1000. Verdict: inventory-reader excess ev-0002",
+            "\u2705 Verdict: inventory-reader excess ev-0002",
+            "\u00a0Verdict\uff1a inventory-reader excess ev-0002",
+            "Ver\u200bdict: inventory-reader excess ev-0002",
+            "VERDICT: inventory-reader excess EV-0002",
+        ):
+            with self.subTest(form):
+                result = compare.compare("nb-1", CHECKS, form + "\n" + CONTROL)
+                self.assertEqual(result["outcome"], "match", result["reasons"])
+                self.assertEqual(result["accounts"][0]["references"][0], "ev-0002")
+
+    def test_a_contradiction_in_those_forms_stops(self):
+        for form in (
+            "- [ ] Verdict: inventory-reader within ev-0001",
+            "| Verdict: inventory-reader within ev-0001 |",
+            "1000. Verdict: inventory-reader within ev-0001",
+            "Verdict\uff1a inventory-reader within ev-0001",
+            "Ver\u200bdict: inventory-reader within ev-0001",
+        ):
+            with self.subTest(form):
+                result = compare.compare("nb-1", CHECKS, form + "\n" + RIGHT)
+                self.assertEqual(result["outcome"], "stop")
+                self.assertIn(
+                    "inventory-reader: the answer's verdict lines disagree",
+                    result["reasons"],
+                )
+
+    def test_a_line_that_starts_with_the_word_in_another_form_cannot_be_read(self):
+        for form in (
+            "Verdict for inventory-reader: within",
+            "Verdict inventory-reader within ev-0001",
+        ):
+            with self.subTest(form):
+                result = compare.compare("nb-1", CHECKS, form + "\n" + RIGHT)
+                self.assertEqual(result["outcome"], "stop")
+                self.assertIn(
+                    "verdict lines that could not be read: 1", result["reasons"]
+                )
+
+    def test_a_hedged_value_cannot_be_read(self):
+        for value in (
+            "excess/within",
+            "excess-ish",
+            "excess - no wait, within",
+            "excess or within",
+            "excess, maybe within",
+            "excess but see ev-0003",
+        ):
+            with self.subTest(value):
+                answer = f"Verdict: inventory-reader {value} ev-0002\n" + CONTROL
+                result = compare.compare("nb-1", CHECKS, answer)
+                self.assertEqual(result["outcome"], "stop")
+                self.assertIn(
+                    "verdict lines that could not be read: 1", result["reasons"]
+                )
+
+    def test_references_may_come_in_brackets_or_a_list(self):
+        for refs in (
+            "(ev-0002, ev-0003)",
+            "[ev-0002; ev-0003].",
+            "ev-0002 and ev-0003",
+        ):
+            with self.subTest(refs):
+                answer = f"Verdict: inventory-reader excess {refs}\n" + CONTROL
+                result = compare.compare("nb-1", CHECKS, answer)
+                self.assertEqual(result["outcome"], "match", result["reasons"])
+                self.assertEqual(
+                    result["accounts"][0]["references"], ["ev-0002", "ev-0003"]
+                )
+
+    def test_a_long_run_of_marks_or_spaces_is_read_quickly(self):
+        # An answer is at most 8 KiB. The reading has to stay linear in it.
+        for line in (
+            "#" * 8000 + " Verdict: x",
+            "Verdict: inventory-reader excess" + " " * 8000 + "x",
+            "Verdict: inventory-reader excess" + ", " * 4000 + "x",
+        ):
+            with self.subTest(line[:20]):
+                started = time.monotonic()
+                compare.verdict_lines(line)
+                self.assertLess(time.monotonic() - started, 1)
 
     def test_prose_that_mentions_a_verdict_is_not_a_line(self):
         answer = (
