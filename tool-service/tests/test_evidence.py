@@ -248,13 +248,18 @@ def test_a_file_nested_too_deep_is_refused(root, store, monkeypatch):
     assert store(job("netbox", "job-1"), {"reference": "ev-0002"}) == REFUSED
 
 
-def test_a_file_the_service_cannot_read_reads_nothing(root, store):
-    path = write(root, "netbox", "job-1.ev-0002.json", configured("job-1"))
-    path.chmod(0)
-    try:
-        assert store(job("netbox", "job-1"), {"reference": "ev-0002"}) == NOTHING
-    finally:
-        path.chmod(0o600)
+@pytest.mark.parametrize("error", [PermissionError, FileNotFoundError])
+def test_a_file_the_service_cannot_read_reads_nothing(root, store, monkeypatch, error):
+    # The read fails: a mode the service's user cannot read, or a key the
+    # kubelet replaced between the check and the read. The pipeline runs the
+    # tests as root, which reads any mode, so the read itself raises here.
+    write(root, "netbox", "job-1.ev-0002.json", configured("job-1"))
+
+    def unreadable(self, *args, **kwargs):
+        raise error(str(self))
+
+    monkeypatch.setattr(evidence.Path, "read_text", unreadable)
+    assert store(job("netbox", "job-1"), {"reference": "ev-0002"}) == NOTHING
 
 
 def test_a_file_over_the_result_limit_is_not_parsed(root, store, policy):
