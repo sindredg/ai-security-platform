@@ -1,8 +1,8 @@
 # NetBox on its VM: operator procedure
 
-Status: Implemented on 2026-10-24. Run once, on the live system, 19:48 to 20:01 UTC, from a script with the same commands ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#netbox-on-its-vm)). The first run stopped at step 8: the install script waited five minutes for the first start, and NetBox took about six. The wait is 30 minutes now. Step 8 then ran a second time, which kept every secret and the key, and steps 9 to 12 ran after it. Step 13 ran on its own.
+Status: Implemented on 2026-10-24. Run once, on the live system, 19:48 to 20:01 UTC, from a script with the same commands ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#netbox-on-its-vm)). The first run stopped at step 8: the install script waited five minutes for the first start, and NetBox took about six. The wait is 30 minutes now. Step 8 then ran a second time, which kept every secret and the key, and steps 9 to 12 ran after it. The checks ran on their own. The seed, steps 13 to 19, ran once on 2026-10-25, 06:30 to 07:07 UTC, from a script with the same commands, after steps 7 and 8 again for the setting of [ADR 0039](../decisions/0039-netbox-takes-a-clients-address-from-the-connection.md). It stopped three times before it ran to its end: the token script not executable, Granian on a dual-stack socket ([troubleshooting 17](../troubleshooting/17-netbox-sees-ipv4-clients-as-mapped-ipv6.md)), and NetBox's password rules ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-run)). Two commands differ from the script's. It ran the token script through `bash`, because the file was not executable in that checkout. Its `stat` in step 17 expanded the glob as the login account, which cannot read the directory, so the modes were read with the commands below after the run.
 
-This installs NetBox and its background worker on the NetBox VM from the image pinned in the [targets repository](https://github.com/sindredg/ai-security-platform-test)'s `netbox/image.env`, with PostgreSQL and Valkey on the VM ([ADR 0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md)). The VM makes its own secrets and its TLS key, and the orchestrator pins the certificate ([ADR 0038](../decisions/0038-netboxs-tls-key-made-on-the-netbox-vm.md)). It seeds no data and makes no account.
+This installs NetBox and its background worker on the NetBox VM from the image pinned in the [targets repository](https://github.com/sindredg/ai-security-platform-test)'s `netbox/image.env`, with PostgreSQL and Valkey on the VM ([ADR 0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md)). The VM makes its own secrets and its TLS key, and the orchestrator pins the certificate ([ADR 0038](../decisions/0038-netboxs-tls-key-made-on-the-netbox-vm.md)). NetBox takes a client's address from the connection only ([ADR 0039](../decisions/0039-netbox-takes-a-clients-address-from-the-connection.md)). Steps 13 to 19 seed exercise 1's inventory, accounts, and tokens, and put each token on its host ([ADR 0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)).
 
 The NetBox VM must exist and have had one update run, which installs Podman, PostgreSQL, and Valkey: the [target VMs runbook](targets.md), steps 1 to 12.
 
@@ -100,7 +100,7 @@ The NetBox VM must exist and have had one update run, which installs Podman, Pos
    REPLACE_WITH_SSH aisec-netbox 'sudo ~/netbox-install/netbox/install-netbox.sh ~/netbox.tar'
    ```
 
-   Expected, on the first run: `ok    image` with `NETBOX_IMAGE_ID`, four `made  secret` lines, `made  TLS key and certificate`, PostgreSQL, Valkey, `units started`, then `login_page=200`. The first start applies NetBox's migrations, about six minutes, with a `waiting` line each minute. Then both running images equal the ID, and the certificate's subject `CN=netbox.aisec.internal`, its end date, the names `DNS:netbox.aisec.internal` and `IP Address:10.50.0.4`, and its fingerprint. A second run prints `have` for the image, each secret, and the key, and the login page answers within a minute.
+   Expected, on the first run: `ok    image` with `NETBOX_IMAGE_ID`, four `made  secret` lines, `made  TLS key and certificate`, PostgreSQL, Valkey, `units started`, then `login_page=200`. The units mount `client-address.py`, and the web unit `granian.py`, from `/etc/aisec/netbox`. The first start applies NetBox's migrations, about six minutes, with a `waiting` line each minute. Then both running images equal the ID, and the certificate's subject `CN=netbox.aisec.internal`, its end date, the names `DNS:netbox.aisec.internal` and `IP Address:10.50.0.4`, and its fingerprint. A second run prints `have` for the image, each secret, and the key, and the login page answers within a minute.
 
 9. Copy the certificate to the orchestrator, which pins it.
 
@@ -129,7 +129,7 @@ The NetBox VM must exist and have had one update run, which installs Podman, Pos
     REPLACE_WITH_SSH aisec-netbox 'sudo journalctl --no-pager -o cat -u netbox -u netbox-worker | tail -n 40; systemctl show -p NRestarts netbox netbox-worker'
     ```
 
-    Expected: `Listening at: https://:::8443`, two Granian workers started, `GET /login/ ... 200`, and no traceback. The worker restarts while the first start migrates the database, and not after.
+    Expected: `Listening at: https://0.0.0.0:8443`, `loaded config '/etc/netbox/config/client-address.py'` from both units, two Granian workers started, `GET /login/ ... 200`, and no traceback. The worker restarts while the first start migrates the database, and not after.
 
 12. Remove the archive's copy from the NetBox VM. The orchestrator keeps its copy for a rebuild.
 
@@ -139,17 +139,107 @@ The NetBox VM must exist and have had one update run, which installs Podman, Pos
 
     Expected: no output.
 
+## The seed
+
+13. Make the probe account's token on the NetBox VM, into a root-only file on the orchestrator. The token is read-only and limited to `192.0.2.1`, which no host has.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo install -d -m 700 /etc/aisec/netbox/tokens'
+    REPLACE_WITH_SSH aisec-netbox 'sudo ~/netbox-install/netbox/make-netbox-token.sh probe' |
+      REPLACE_WITH_SSH aisec-orchestrator "sudo sh -c 'umask 077; cat > /etc/aisec/netbox/tokens/aisec-address-probe'"
+    REPLACE_WITH_SSH aisec-orchestrator "sudo stat -c '%U %a %s %n' /etc/aisec/netbox/tokens /etc/aisec/netbox/tokens/aisec-address-probe"
+    ```
+
+    Expected: Django's `FutureWarning` for `LOGIN_REQUIRED`, from netbox-docker's configuration, then `root 700` for the directory and `root 600 58` for the file. No command prints the token.
+
+14. Send the probe's token from the orchestrator, with no header and with each header that names `192.0.2.1`.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo bash -s' <<'EOF'
+    address() {
+      out=$(curl -s --noproxy "*" --max-time 8 --cacert /etc/aisec/netbox/tls.crt -w " %{http_code}" "$@" \
+        -H @<(printf "Authorization: Bearer %s\n" "$(cat /etc/aisec/netbox/tokens/aisec-address-probe)") \
+        https://10.50.0.4:8443/api/status/)
+      echo "${out##* }:$(printf "%s" "$out" | sed -n "s/.*Source IP \([0-9.]*\) is not permitted.*/\1/p")"
+    }
+    echo "none=$(address) x-forwarded-for=$(address -H "X-Forwarded-For: 192.0.2.1") x-real-ip=$(address -H "X-Real-IP: 192.0.2.1")"
+    EOF
+    ```
+
+    Expected: `none=403:10.40.0.4 x-forwarded-for=403:10.40.0.4 x-real-ip=403:10.40.0.4`. A `200` means NetBox believed a header. `403:` with no address means NetBox saw the address in another form ([troubleshooting 17](../troubleshooting/17-netbox-sees-ipv4-clients-as-mapped-ipv6.md)). Either way, stop: no token's address limit holds.
+
+15. Make the seeding token, for the `aisec-seed` superuser, into a root-only file on the orchestrator.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-netbox 'sudo ~/netbox-install/netbox/make-netbox-token.sh seed' |
+      REPLACE_WITH_SSH aisec-orchestrator "sudo sh -c 'umask 077; cat > /etc/aisec/netbox/seed-token'"
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo stat -c "%U %a %s %n" /etc/aisec/netbox/seed-token'
+    ```
+
+    Expected: `root 600 58`. The token may write, from `10.40.0.4` only, for one hour. Each run of the script deletes the account's earlier tokens.
+
+16. Copy the seed to the orchestrator, and seed twice into a directory in memory.
+
+    ```bash
+    tar -C REPLACE_WITH_TARGETS_CHECKOUT/netbox -cf - seed.py seed.json | REPLACE_WITH_SSH aisec-orchestrator \
+      'rm -rf ~/feed/netbox-seed && mkdir -p ~/feed/netbox-seed && tar -C ~/feed/netbox-seed -xf -'
+    run=$(REPLACE_WITH_SSH aisec-orchestrator 'sudo mktemp -d -p /run aisec-netbox-tokens.XXXXXX')
+    echo "$run"
+    REPLACE_WITH_SSH aisec-orchestrator "sudo python3 -I ~/feed/netbox-seed/seed.py ~/feed/netbox-seed/seed.json $run"
+    REPLACE_WITH_SSH aisec-orchestrator "sudo python3 -I ~/feed/netbox-seed/seed.py ~/feed/netbox-seed/seed.json $run"
+    ```
+
+    Expected: `/run/aisec-netbox-tokens.` and six characters. The first run prints 32 `made` lines for the objects, then `made  token for` each of `inventory-reader`, `inventory-reader-control`, and `aisec-collector`. The second prints 32 `have` lines and makes three new tokens, which replace the first run's. A line that names a difference stops the run: NetBox holds an object the seed did not make.
+
+17. Put each token on its host, and the certificate on the lab VM. Then remove the run directory and the seeding token.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-orchestrator "sudo install -m 600 $run/aisec-collector /etc/aisec/netbox/tokens/aisec-collector"
+    REPLACE_WITH_SSH aisec-lab 'sudo install -d -m 755 /etc/aisec/netbox && sudo install -d -m 700 /etc/aisec/netbox/tokens'
+    for account in inventory-reader inventory-reader-control; do
+      REPLACE_WITH_SSH aisec-orchestrator "sudo cat $run/$account" |
+        REPLACE_WITH_SSH aisec-lab "sudo sh -c 'umask 077; cat > /etc/aisec/netbox/tokens/$account'"
+    done
+    REPLACE_WITH_SSH aisec-orchestrator 'cat /etc/aisec/netbox/tls.crt' |
+      REPLACE_WITH_SSH aisec-lab 'sudo sh -c "umask 022; cat > /etc/aisec/netbox/tls.crt"'
+    REPLACE_WITH_SSH aisec-orchestrator "sudo rm -r $run /etc/aisec/netbox/seed-token"
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo sh -c "stat -c \"%U %a %n\" /etc/aisec/netbox/tokens /etc/aisec/netbox/tokens/*"'
+    REPLACE_WITH_SSH aisec-lab 'sudo sh -c "stat -c \"%U %a %n\" /etc/aisec/netbox/tokens /etc/aisec/netbox/tokens/* /etc/aisec/netbox/tls.crt"
+      openssl x509 -in /etc/aisec/netbox/tls.crt -noout -fingerprint -sha256'
+    ```
+
+    Expected: on the orchestrator, `root 700` for the directory and `root 600` for `aisec-address-probe` and `aisec-collector`. On the lab VM, `root 700`, `root 600` for both tokens, `root 644` for the certificate, and the fingerprint of step 9.
+
+18. Run both of the collector's methods in full, from this checkout, with the contract on standard input.
+
+    ```bash
+    code=$(cat collectors/netbox/netbox_access.py)
+    REPLACE_WITH_SSH aisec-orchestrator "sudo python3 -I -c $(printf %q "$code") configured" < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json
+    REPLACE_WITH_SSH aisec-lab "sudo python3 -I -c $(printf %q "$code") observed" < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json
+    ```
+
+    Expected: `configured` gives `inventory-reader` `excess`, for `view` on `dcim.device` and on `ipam.ipaddress` without a constraint, and `inventory-reader-control` `within`. `observed` gives `inventory-reader` `excess`, for the `b-` and `c-` devices and the `172.16.2.x` and `172.16.3.x` addresses, and `inventory-reader-control` `within`, with its three devices and three addresses. Every denial is `403` for both.
+
+19. Remove NetBox's directory from the NetBox VM, and the seed from the orchestrator.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-netbox 'rm -rf ~/netbox-install'
+    REPLACE_WITH_SSH aisec-orchestrator 'rm -rf ~/feed/netbox-seed'
+    ```
+
+    Expected: no output.
+
 ## Checks
 
-13. Run every check, with the targets checkout named.
+20. Run every check, with the targets checkout named.
 
     ```bash
     export AISEC_TARGETS=REPLACE_WITH_TARGETS_CHECKOUT
     validation/platform-checks.sh
     ```
 
-    Expected: every check passes, `N.1` to `N.11`, `C.12`, and `Z.25` among them ([targets](../validation/targets.md#netbox)). Then plan both roots again with `-detailed-exitcode`. Expected: exit `0` twice.
+    Expected: every check passes, `N.1` to `N.17`, `C.12`, and `Z.25` among them ([targets](../validation/targets.md#netbox)). Then plan both roots again with `-detailed-exitcode`. Expected: exit `0` twice.
 
 ## Undo
 
-Not run. Rebuilding the NetBox VM from the [target VMs runbook](targets.md#rebuild) removes everything this installed. In place: stop `netbox` and `netbox-worker`, remove `/etc/containers/systemd/netbox*.container`, the five `netbox_*` Podman secrets, the image, `/etc/aisec/netbox`, `/etc/valkey/aisec-netbox.conf` and its `include` line, and the `netbox` role and database. Then remove the pin on the orchestrator, `/etc/aisec/netbox/tls.crt`.
+Not run. Rebuilding the NetBox VM from the [target VMs runbook](targets.md#rebuild) removes everything this installed. In place: stop `netbox` and `netbox-worker`, remove `/etc/containers/systemd/netbox*.container`, the five `netbox_*` Podman secrets, the image, `/etc/aisec/netbox`, `/etc/valkey/aisec-netbox.conf` and its `include` line, and the `netbox` role and database. Then remove the pin on the orchestrator, `/etc/aisec/netbox/tls.crt`, and the token directory `/etc/aisec/netbox/tokens`. On the lab VM, remove `/etc/aisec/netbox`. A rebuild removes NetBox's accounts and their tokens with its database. In place, without a rebuild: delete the seeded objects, the five accounts, and their tokens in NetBox.

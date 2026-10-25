@@ -296,16 +296,17 @@ jobs:
 
       # ruff.toml sets the line length for every Python file. The worker's
       # files get the default rule set of the pinned release. The tool service
-      # adds rules in its own ruff.toml, because it reads hostile input.
+      # and the collectors add rules in their own ruff.toml, because they read
+      # hostile input.
       - name: Lint the Python files
         run: >
           docker run --rm --volume "${PWD}:/io:ro" --workdir /io "${RUFF_IMAGE}"
-          check --no-cache worker platform tool-service
+          check --no-cache worker platform tool-service collectors
 
       - name: Check the formatting
         run: >
           docker run --rm --volume "${PWD}:/io:ro" --workdir /io "${RUFF_IMAGE}"
-          format --no-cache --check worker platform tool-service
+          format --no-cache --check worker platform tool-service collectors
 
   manifests:
     name: Kubernetes manifests
@@ -391,6 +392,25 @@ jobs:
           echo "Host Python: ${version}" | tee -a "${GITHUB_STEP_SUMMARY}"
           [ "${version%.*}" = "${HOST_PYTHON}" ]
           cd platform/logs
+          PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
+
+  collector-tests:
+    name: Collector tests
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # NetBox's collector runs with Ubuntu's python3 on the orchestrator and
+      # the lab VM, so the tests run with the runner's, as the copiers' do.
+      - name: Run the tests on the host's Python
+        run: |
+          version=$(/usr/bin/python3 -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])')
+          echo "Host Python: ${version}" | tee -a "${GITHUB_STEP_SUMMARY}"
+          [ "${version%.*}" = "${HOST_PYTHON}" ]
+          cd collectors/netbox
           PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
 
   dispatch-tests:

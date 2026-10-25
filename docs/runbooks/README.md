@@ -18,4 +18,4 @@ One operator procedure per milestone, or per slice of a milestone that is built 
 | [Workflows and dispatch](workflows.md) | 3 | Implemented on 2026-10-21. Run once, on the live platform. A new dispatch image on 2026-10-22 |
 | [Monitoring](monitoring.md) | 3a | Implemented on 2026-10-17 to 2026-10-19. Run once, on the live platform, alert rules, flow logs, drills, and the daily cap included. Undo and rebuild not run |
 | [Target VMs](targets.md) | 4 | Implemented on 2026-10-24. Built once and rebuilt once, on the live system, with one update run on each target |
-| [NetBox on its VM](netbox.md) | 4 | Implemented on 2026-10-24. Run once, on the live system, from a script. The install ran twice, the second time after a wait that was too short |
+| [NetBox on its VM](netbox.md) | 4 | Implemented on 2026-10-24. Run once, on the live system, from a script. The install ran twice, the second time after a wait that was too short. The seed, implemented on 2026-10-25, ran once from a script, which stopped three times before it ran to its end |
