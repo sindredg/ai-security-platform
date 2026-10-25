@@ -62,6 +62,10 @@ apply_from() { "$@" --dry-run=client -o yaml | k apply -f -; }
 apply_from k create configmap tool-service-policy -n tool-services --from-file=policy.json="$policy"
 apply_from k create configmap tool-service-evidence -n tool-services \
   --from-file=ev-0001.json="$here/evidence/synthetic/ev-0001.json"
+# The collect command adds a job's keys to this one (ADR 0040). It is made
+# empty once and never applied over, which would drop every job's evidence.
+k get configmap tool-service-evidence-netbox -n tool-services >/dev/null 2>&1 ||
+  k create configmap tool-service-evidence-netbox -n tool-services
 k get --raw /openid/v1/jwks >"$tls/sa-jwks.json"
 apply_from k create configmap tool-service-jwks -n tool-services --from-file=sa-jwks.json="$tls/sa-jwks.json"
 apply_from k create secret tls tool-service-tls -n tool-services --cert="$tls/tls.crt" --key="$tls/tls.key"
