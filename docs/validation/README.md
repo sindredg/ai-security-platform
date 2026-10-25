@@ -43,6 +43,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 | [Monitoring](monitoring.md) | `O` | The log agents, their hosts entries, the workspace and its scope, heartbeats, and the identities |
 | [Host hardening](host-hardening.md) | `HO`, `HW`, `HR`, `HE`, `HN`, `HL` | SSH daemon, kernel settings, file modes, on every VM |
 | [Azure policy](azure-policy.md) | `Z.1` to `Z.3`, `Z.10` to `Z.12` | Public addresses and the policy that refuses them |
+| [Investigation](investigation.md) | None: scored per job | Exercise 1's investigation on held-out cases, the rules that score it, and the run without the agent beside it |
 
 ## Last run
 
