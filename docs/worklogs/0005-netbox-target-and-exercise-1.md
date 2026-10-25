@@ -730,3 +730,46 @@ On the live system, 20:07:25 to 20:14:54 UTC, from the branch at `5cc0ed9`, with
 - **The runbook's undo for `netbox-verdicts`.** Not run.
 - **`argo terminate` on a job with the comparison** ([#174](https://github.com/sindredg/ai-security-platform/issues/174)).
 - **How often the model's verdict matches.** These were development jobs, with the task changing between runs. The investigation is scored on held-out cases, which do not exist yet.
+
+## Held-out cases and the scored investigation
+
+Date: 2026-10-25. [ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md), accepted the same day. The cases and the rules that score them are on [the investigation's page](../validation/investigation.md).
+
+### What changed
+
+An independent review of the comparison's branch, before this part, read the code, the raw output of the runs above, and the live system. Its findings are fixed below, or opened as [#203](https://github.com/sindredg/ai-security-platform/issues/203). A second review read the image's pull request, [#202](https://github.com/sindredg/ai-security-platform/pull/202), before it merged.
+
+| File | Change |
+| --- | --- |
+| `platform/dispatch/compare.py` (#202) | A line whose first word is `Verdict` is a verdict line, after compatibility forms are folded and format characters, emphasis, and anything before the first letter are taken out. It is read only in the exact form: the account, one value, and references. Before, a contradicting line under a heading, a quote, a task mark, or a table bar was not seen, and `excess/within` was read as `excess`. Any verdict line in another form now stops the workflow |
+| `platform/dispatch/dispatch.py` (#202) | Fails a job whose answer holds a control character, DEL, a lone surrogate, or any character above U+FFFF, which Argo's quoting would turn into invalid JSON. Takes no call counts from a job that did not complete ([#200](https://github.com/sindredg/ai-security-platform/issues/200)) |
+| `platform/argo/workflow-template.yaml` | The three templates on #202's image |
+| `worker/agent-runtime/job/agent_job.py` | Reads the tool list from each request Goose logged, and fails a completed job offered any tool but the recipe's and Goose's own `load_skill` ([#139](https://github.com/sindredg/ai-security-platform/issues/139)). Fails a completed job whose answer had to be cut to fit the result. Gives no call counts without a transcript (#200) |
+| `collectors/netbox/cases.json`, `collect_evidence.py`, `install-collector.sh` | Six held-out cases, each a variant of the consumer contract with the verdicts the checks are expected to give. `collect-netbox-evidence JOB CASE` collects against a case's contract. The installer puts the file beside the contract |
+| `validation/platform-checks.sh` | `N.18` also holds the installed case file to the checkout |
+| `collectors/netbox/task.txt` | Asks for the verdict lines as plain text, after a development job ended with bold lines that held no `Verdict:` |
+
+### Before the rollout
+
+Locally, on the workstation: the dispatch tests, `Ran 61 tests ... OK` on Python 3.15.1. The collector's, `Ran 51 tests ... OK`, and the job program's, `Ran 63 tests ... OK`, both on Python 3.12.3 with `-I -S`. The tool service's, `218 passed`, six of them one per case's contract through the evidence schema. Each new test failed on the code before its change, except two guards in the comparison's tests: references in brackets or a list, and the time to read hostile 8 KiB lines, a few milliseconds. Ruff 0.17.2 and ShellCheck 0.11.0: no finding. `argo lint --offline` 4.1.6: no finding.
+
+Each case's expected verdicts were worked out with the collector's own functions against a stand-in for the seed, which gives the seed's contract the verdicts the live checks give. A case file with one expectation changed failed that comparison.
+
+The five development answers above with `Verdict:` lines were read again with #202's comparison: every model value, reference, and reason came out as the live comparison had read them.
+
+In the pipeline, on `main` after #202 merged as `731de86`, the image job ran `compare.py` in the built image, which printed its usage, and pushed `dispatch@sha256:39967b73...`. The registry answers that digest anonymously.
+
+### The rollout
+
+On the live system, 21:48:28 to 22:10:45 UTC, from the branch at `dde15f2`, from a script with the runbooks' commands, each step's expected result printed before it.
+
+| Step | Seen |
+| --- | --- |
+| The collect command and the case file, [evidence collection](../runbooks/evidence-collection.md) step 1 | The command and `/etc/aisec/netbox/cases.json` with the checkout's SHA-256, the case file `root 644` |
+| The new image and Argo's objects, steps 7, 8, and 10 | `ok` for `dispatch@sha256:39967b73...`, the window closed. The template `configured`, and `dispatch`, `compare`, and `revoke` on the new digest |
+| The job program, [agent runtime](../runbooks/agent-runtime.md) step 8 | The checkout's SHA-256 |
+| The keys changed by hand for step 17 on the afternoon's runs | `nb-10251751-b.json` and `nb-10251856-b.json` removed with step 17's new last command. A later workflow under either name would have read verdicts nobody collected |
+| A synthetic job | `Succeeded`, the comparison `Skipped`, one call. The worker's journal: `{"job": "syn-10252148", "offered": ["load_skill", "tools__get_evidence"]}` |
+| Each case collected once, with no job on it | All six gave the case file's verdicts, the configured verdict and the observed one for each account. Visible to the tool service after 27 to 81 s |
+| `N.18` with one line added to the installed case file, every check without the Azure and workstation checks, 21:58 UTC | `361 passed, 1 failed`. The one was `N.18`, its fourth digest different. The file was put back, with the checkout's SHA-256 |
+| Every check, 22:01:53 to 22:10:45 UTC | `412 passed, 0 failed`. `G.8`, `N.18`, `W.9`, and `W.12` among them |
