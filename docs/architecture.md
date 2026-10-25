@@ -191,7 +191,7 @@ The easy way to pass a security check is to break the service. So a fix that loc
 
 ## Workflow
 
-![Investigation to delivery: trusted orchestrator steps, one untrusted AI worker step, and one operator approval](diagrams/workflow.svg)
+![Investigation to delivery: trusted orchestrator steps, one untrusted AI worker step, a comparison of its verdict with the deterministic checks that stops for the operator on anything but a match, and one operator approval. A failed job stops before the comparison](diagrams/workflow.svg)
 
 1. Collection runs on a schedule or on request and produces validated evidence snapshots.
 2. Deterministic checks establish configured access, observed reachability, and candidate findings.
