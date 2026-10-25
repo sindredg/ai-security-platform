@@ -68,6 +68,14 @@ MODEL_URL = os.environ.get("AISEC_MODEL_URL", "http://127.0.0.1:8080")
 # result still arrives. After a longer batch the outcome line says false,
 # whatever the server does with the erase later.
 ERASE_SECONDS = 90
+# Goose logs each request it sends the model, its tool list included, under
+# $GOOSE_PATH_ROOT/state/logs, and keeps the last ten. The recipe names one
+# extension. Goose adds its own load_skill to every request, and no setting
+# takes it away (#139). Read in Goose 1.56.0's source:
+# crates/goose/src/providers/utils.rs for the log, and
+# crates/goose/src/agents/state_machine_builder.rs for load_skill. A job
+# offered any other tool fails.
+OFFERED = frozenset({"tools__get_evidence", "load_skill"})
 
 
 class Refused(Exception):
@@ -208,6 +216,35 @@ def run_goose(command, env, deadline, fd_in, out, err):
         stop(process)
 
 
+def offered_tools(work):
+    """The names of the tools Goose offered the model, over every request it
+    logged. None when it logged none, or a log cannot be read. An empty log
+    is a request still in Goose's buffer when Goose was stopped."""
+    names, read = set(), False
+    for path in (work / "goose" / "state" / "logs").glob("llm_request.*.jsonl"):
+        try:
+            with path.open() as f:
+                line = f.readline()
+            if not line:
+                continue
+            tools = json.loads(line)["input"].get("tools") or []
+            names.update(str(tool["function"]["name"]) for tool in tools)
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            return None
+        read = True
+    return names if read else None
+
+
+def tools_problem(offered):
+    """Why the tools Goose offered fail the job, or None."""
+    if offered is None:
+        return "no request to the model could be read, so the offered tools are unknown"
+    extra = sorted(offered - OFFERED)
+    if extra:
+        return "the model was offered tools outside the recipe: " + ", ".join(extra)
+    return None
+
+
 def summarize(transcript):
     """Counts and the last answer from Goose's JSON output."""
     calls, errors, answer = 0, 0, ""
@@ -313,9 +350,10 @@ def log_erase(job, step, erased):
     )
 
 
-def result_line(job, system, outcome, code, started, out, err, erased):
+def result_line(job, system, outcome, code, started, out, err, erased, offered):
     """The token is taken out of each text before it is cut, so no part of it
-    is left at a cut."""
+    is left at a cut. A job Goose completed fails when it was offered a tool
+    outside OFFERED, with the reason at the end of the stderr tail."""
     token = job["token"]
     calls, errors, answer, agent_status, tokens = 0, 0, "", None, {}
     transcript, parts = {}, flatten({}, system)
@@ -333,6 +371,10 @@ def result_line(job, system, outcome, code, started, out, err, erased):
         pass
     stderr = Path(err).read_text(errors="replace").replace(token, "[token]")
     completed = outcome == "ended" and code == 0 and agent_status == "completed"
+    problem = tools_problem(offered)
+    if completed and problem:
+        completed = False
+        stderr += "\n" + problem
     result = {
         "job": job["job"],
         "status": "completed"
@@ -386,12 +428,22 @@ def main():
         command, goose_env(work), started + job["seconds"], 0, out, err
     )
     recipe.unlink()
+    offered = offered_tools(work)
+    print(
+        json.dumps(
+            {"job": job["job"], "offered": None if offered is None else sorted(offered)}
+        ),
+        file=sys.stderr,
+    )
     erased = erase_slot()
     log_erase(job, {"outcome": outcome}, erased)
     if outcome == "cancelled":
         return 0
     write_all(
-        1, result_line(job, system, outcome, code, started, out, err, erased).encode()
+        1,
+        result_line(
+            job, system, outcome, code, started, out, err, erased, offered
+        ).encode(),
     )
     return 0
 
