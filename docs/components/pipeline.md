@@ -4,7 +4,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 
 | | |
 | --- | --- |
-| State | Built. Verified on GitHub on 2026-10-17: the required signature check blocked a pull request with a commit GitHub signed ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github)). Settings read on 2026-10-18 ([repository settings](#repository-settings)) |
+| State | Built. Verified on GitHub on 2026-10-17: the required signature check blocked a pull request with a commit GitHub signed ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github)). Settings read on 2026-10-25 ([repository settings](#repository-settings)) |
 | Defined in | `.github/workflows/checks.yml`, `.github/workflows/signatures.yml`, `.github/allowed_signers`, `.github/dependabot.yml`, and repository settings |
 | Decision | [0010](../decisions/0010-threat-model-and-security-checks-per-milestone.md), [0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
 
@@ -30,7 +30,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Converter dependency scan | Trivy over the converter's Python pins. Reports, never blocks |
 | Commit signatures | `git verify-commit` on every commit in the pull request, against `.github/allowed_signers`: the public half of the operator's signing key, nothing else. A commit signed by GitHub, by another key, or not at all fails. See [below](#the-signature-check) |
 
-All but the converter dependency scan and the collector tests are required by the ruleset on `main`. The collector tests become required after the pull request that adds them merges ([runbook](../runbooks/repository-settings.md#add-a-required-check)). The converter dependency scan runs on every pull request and does not block a merge ([advisories](../security/accepted-risks.md#advisories-in-the-converters-packages)). The two image jobs are the only jobs with write permission. Each can write its package to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, except Terraform and gitleaks, which run from release archives checked against a pinned SHA-256. No third-party action runs.
+All but the converter dependency scan are required by the ruleset on `main`. The converter dependency scan runs on every pull request and does not block a merge ([advisories](../security/accepted-risks.md#advisories-in-the-converters-packages)). The two image jobs are the only jobs with write permission. Each can write its package to this repository's registry, in a step that runs on `main` only. The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, except Terraform and gitleaks, which run from release archives checked against a pinned SHA-256. No third-party action runs.
 
 ## The signature check
 
@@ -57,13 +57,17 @@ Read again on 2026-10-20 at 15:00 UTC, after "Dispatch tests" and "Dispatch imag
 
 Read again on 2026-10-23 at 19:26 UTC, after "Tool service dependency scan" was made required ([#167](https://github.com/sindredg/ai-security-platform/issues/167)): fifteen checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. The read-back equals the ruleset that was written. Tested the same day: a pull request with a known-vulnerable development pin was blocked by that check alone, and was clean again once the pin was removed ([worklog](../worklogs/0003-toolchain-integration.md#fix-a-required-tool-service-scan-and-the-host-code-on-the-hosts-python)).
 
+Read again on 2026-10-25 at 07:46 UTC, after "Collector tests" was made required: sixteen checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. Configured, not tested: no pull request has been seen blocked by it.
+
 The [repository settings runbook](../runbooks/repository-settings.md) sets these up and repeats the fail side.
 
 ## The targets repository
 
 The [targets repository](https://github.com/sindredg/ai-security-platform-test) holds the target root ([0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) and has a pipeline of its own, at the same pins: Terraform format and validate, Checkov, Trivy, the secret scan, ShellCheck on the signature script and on the scripts the target VMs run as root, Quadlet's own dry run on NetBox's units, Ruff and a JSON parse on NetBox's Python and JSON files, and "Commit signatures", a copy of this repository's check with the same allowed signer. The two scanners fetch the shared module first, because the rules are arguments to it, and a step fails each job when the module is missing.
 
-Its settings were set through the API with the runbook on 2026-10-17 and read back at 08:05 UTC: squash merges only, secret scanning with push protection, `protect-main` with the six checks above required, each from GitHub Actions, and a second ruleset that requires signed commits on every branch. Neither ruleset can be bypassed. The fail side was repeated there ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-in-poland-central)).
+Its settings were set through the API with the runbook on 2026-10-17 and read back at 08:05 UTC: squash merges only, secret scanning with push protection, `protect-main` with six checks required, each from GitHub Actions (all of the above except Quadlet's dry run and Ruff, which came later with NetBox), and a second ruleset that requires signed commits on every branch. Neither ruleset can be bypassed. The fail side was repeated there ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-in-poland-central)).
+
+Read again on 2026-10-25 at 07:42 UTC, after "Quadlet units" and "Ruff" were made required: eight checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. Configured, not tested: no pull request has been seen blocked by either of the two.
 
 ## Limits
 
