@@ -256,6 +256,15 @@ class Observed(Case):
             ["0", "1000", "2000"],
         )
 
+    def test_a_list_far_longer_than_any_in_the_lab_is_not_a_read(self):
+        self.world.devices["control"] = [
+            {"id": n, "name": f"a-{n}"} for n in range(20000)
+        ]
+        result = collector.observed(CONTRACT)["control"]
+        self.assertEqual(result["verdict"], "missing")
+        self.assertNotIn("/api/dcim/devices/", result["reads"])
+        self.assertIn("/api/dcim/devices/: 0 ", result["reasons"][0]["why"])
+
     def test_a_malformed_answer_is_not_a_read(self):
         for answer in (
             {"count": "2", "results": [{"name": "a-1"}]},
@@ -283,6 +292,17 @@ class Transport(unittest.TestCase):
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self):
                 seen.append((self.path, self.headers.get("Authorization")))
+                if self.path in ("/big", "/big-refusal"):
+                    # A JSON string far larger than any answer the lab reads.
+                    body = b'"' + b"a" * (16 << 20) + b'"'
+                    self.send_response(200 if self.path == "/big" else 403)
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    try:
+                        self.wfile.write(body)
+                    except (BrokenPipeError, ConnectionResetError):
+                        pass
+                    return
                 moved = self.path != "/away"
                 body = b'{"detail": "moved"}' if moved else b"{}"
                 self.send_response(302 if moved else 200)
@@ -321,6 +341,15 @@ class Transport(unittest.TestCase):
         status, answer = collector.NetBox("t").call("GET", "/api/status/")
         self.assertEqual((status, answer), (302, {"detail": "moved"}))
         self.assertEqual(self.seen, [("/api/status/", "Bearer t")])
+
+    def test_an_answer_far_larger_than_any_in_the_lab_is_not_held(self):
+        # NetBox is target side. Its answer does not choose how much the
+        # collector holds, as root on the orchestrator.
+        for path in ("/big", "/big-refusal"):
+            with self.subTest(path):
+                status, answer = collector.NetBox("t").call("GET", path)
+                self.assertEqual(status, 0)
+                self.assertLess(len(answer), 200)
 
 
 class Main(unittest.TestCase):
