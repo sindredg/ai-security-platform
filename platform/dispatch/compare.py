@@ -53,14 +53,21 @@ COLLECTED = re.compile(
 )
 MAX_ACCOUNTS = 20
 # A verdict line starts with its label, after markdown emphasis and code marks
-# are taken out, as check_answer.py reads the fixture's lines. Then the
-# account, a separator, the value, and the references anywhere after it. A
-# dash separates only between spaces, because names have dashes.
-LABEL = re.compile(r"^\s*(?:[-+]\s+)?verdict\s*:(.*)$", re.IGNORECASE)
+# are taken out, as check_answer.py reads the fixture's lines, and after any
+# heading, quote, or list mark before it. Every such line is read, so a line
+# in another form cannot contradict the others unseen. Then the account, a
+# separator, one value, and nothing after it but references. A dash separates
+# only between spaces, because names have dashes. A value with anything else
+# after it, such as excess/within, is a line that cannot be read. The runs are
+# possessive, so a long line is read in linear time.
+MARKS = " \t#>+-_"
+ORDERED = re.compile(r"[0-9]{1,3}[.)]")
 REST = re.compile(
-    r"\s*([a-z0-9][a-z0-9._-]{0,63})"
-    r"(?:\s*[:,=]\s*|\s+[–—-]+\s+|\s+)"
-    r"([a-z]+)\b\.?(.*)",
+    r"\s*+([a-z0-9][a-z0-9._-]{0,63})"
+    r"(?:\s*+[:,=]\s*+|\s++[–—-]++\s++|\s++)"
+    r"([a-z]++)"
+    r"((?:[\s,;.()\[\]]++(?:and\s++)?ev-[0-9]{4}\b)*+)"
+    r"[\s,;.()\[\]_]*+",
     re.IGNORECASE,
 )
 REFERENCE = re.compile(r"\bev-[0-9]{4}\b")
@@ -112,15 +119,27 @@ def load_checks(path, job):
     return document["accounts"]
 
 
+def after_label(line):
+    """What follows a verdict line's label, or None for any other line."""
+    text = line.replace("*", "").replace("`", "").lstrip(MARKS)
+    number = ORDERED.match(text)
+    if number:
+        text = text[number.end() :].lstrip(MARKS)
+    head, colon, rest = text.partition(":")
+    if not colon or head.rstrip(" \t_").lower() != "verdict":
+        return None
+    return rest.lstrip("_")
+
+
 def verdict_lines(answer):
     """Each account's verdict lines as (value, references), and the number of
     verdict lines that could not be read."""
     lines, unread = {}, 0
     for line in answer.splitlines():
-        label = LABEL.match(line.replace("*", "").replace("`", ""))
-        if not label:
+        text = after_label(line)
+        if text is None:
             continue
-        rest = REST.fullmatch(label[1])
+        rest = REST.fullmatch(text)
         value = rest[2].lower() if rest else None
         if value not in VALUES:
             unread += 1
