@@ -12,8 +12,10 @@ job line, keeps the session's input open, and reads one result line. It checks
 the result's size and fields, writes it to the step's output file, prints the
 agent's transcript and answer to the step's log, and exits 0 only for a
 completed job that called a tool, after which the model server's slot was
-erased. A stop of the step closes the session's input, which the worker takes
-as a cancel.
+erased, and whose answer the comparison step can take: at most 8 KiB, with no
+template syntax for Argo. That answer goes to an output file of its own. A
+stop of the step closes the session's input, which the worker takes as a
+cancel.
 
 revoke ends the job at the tool service. The workflow's exit handler runs it
 on success, failure, and stop.
@@ -48,6 +50,7 @@ KEY = os.environ.get("AISEC_DISPATCH_KEY", "/etc/dispatch/id_ed25519")
 KNOWN_HOSTS = os.environ.get("AISEC_KNOWN_HOSTS", "/etc/dispatch/known_hosts")
 WORK = Path(os.environ.get("AISEC_WORK", "/run/dispatch"))
 RESULT = Path(os.environ.get("AISEC_RESULT", "/tmp/result.json"))  # noqa: S108 - the pod's own emptyDir
+ANSWER = Path(os.environ.get("AISEC_ANSWER", "/tmp/answer.txt"))  # noqa: S108 - the pod's own emptyDir
 SSH = os.environ.get("AISEC_SSH", "/usr/bin/ssh")
 WORKER = "aisec-job@10.40.0.36"
 
@@ -60,6 +63,11 @@ JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 TURNS = range(1, 21)
 SECONDS = range(60, 1201)
 RESULT_BYTES = 65536
+# The comparison step gets the answer as a workflow parameter (ADR 0041). Argo
+# moves a pod's arguments, or its template, over 128 KiB into a config map,
+# which its controller may not create here, and escapes <, >, and & six times
+# over. The answer is in both, so it stays far below.
+ANSWER_BYTES = 8192
 # The token lives this much longer than the job, and the step waits this much
 # longer for the result. The workflow's deadline sits between the two.
 TOKEN_MARGIN = 300
@@ -273,6 +281,17 @@ def dispatch(job, target, max_turns, seconds, task):
         raise Failed(f"the job ended {result['status']}")
     if result["tool_calls"] < 1:
         raise Failed("the agent called no tool")
+    # Argo renders the parameter: it reads {{ as its own template syntax, and
+    # {{= as an expression its controller evaluates.
+    size = len(result["answer"].encode())
+    if size > ANSWER_BYTES:
+        raise Failed(
+            f"the answer is {size} bytes, and the comparison reads at most "
+            f"{ANSWER_BYTES}"
+        )
+    if "{{" in result["answer"]:
+        raise Failed("the answer has template syntax, which Argo would read")
+    ANSWER.write_text(result["answer"])
 
 
 def main(argv):

@@ -156,7 +156,7 @@ The agent runtime and the model server run on a second VM that is not part of th
 
 The cost is dispatch. Argo runs pods, not processes on another machine. A workflow step opens an SSH session to the worker with a key that can only run the job runner, and the runner hands the job to a socket that starts the agent's sandboxed unit. Decided in [ADR 0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md) and [ADR 0030](decisions/0030-how-a-job-reaches-the-worker.md). Both sides are built and ran together on 2026-10-21: a workflow's step dispatched a job that called a tool, and a stopped workflow ended its job ([worklog](worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)). Detail: [AI worker](components/ai-worker.md).
 
-What exists today is narrower than the design. A job investigates evidence through one tool, `get_evidence`, for one of two targets. `synthetic` holds a fixed file. On `netbox`, the operator runs a command on the orchestrator that collects one job's evidence, then submits the workflow under the same name, and the tool service hands that job only its own, in the fields its schema names ([ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md), [worklog](worklogs/0005-netbox-target-and-exercise-1.md#evidence-per-job)). The workflow does not yet compare the model's verdict with the checks'. The fixture tool on the worker is left for the measurement runs the operator starts by hand, outside dispatch. See the [milestone 3 worklog](worklogs/0003-toolchain-integration.md).
+What exists today is narrower than the design. A job investigates evidence through one tool, `get_evidence`, for one of two targets. `synthetic` holds a fixed file. On `netbox`, the operator runs a command on the orchestrator that collects one job's evidence, then submits the workflow under the same name, and the tool service hands that job only its own, in the fields its schema names ([ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md), [worklog](worklogs/0005-netbox-target-and-exercise-1.md#evidence-per-job)). How the workflow compares the model's verdict with the checks' is decided in [ADR 0041](decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md), and not built yet. The fixture tool on the worker is left for the measurement runs the operator starts by hand, outside dispatch. See the [milestone 3 worklog](worklogs/0003-toolchain-integration.md).
 
 ### Components
 
@@ -206,7 +206,7 @@ The easy way to pass a security check is to break the service. So a fix that loc
 
 Models explain and propose. Tools establish facts. A confident model does not authorize a change, and neither does a green test.
 
-A proposal goes ahead only when the model's verdict agrees with the deterministic checks. A disagreement, an inconclusive verdict, or a failed job stops the workflow for the operator to look at. A wrong verdict then costs the operator a look instead of a wrong pull request, and no verdict closes a finding the checks found.
+A proposal goes ahead only when the model's verdict agrees with the deterministic checks. A disagreement, an inconclusive verdict, or a failed job stops the workflow for the operator to look at. A wrong verdict then costs the operator a look instead of a wrong pull request, and no verdict closes a finding the checks found. How the workflow compares, and what a stop is, is decided in [ADR 0041](decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md).
 
 ## Trust boundaries
 
@@ -307,7 +307,7 @@ Each gets a decision record before the milestone that depends on it.
 | GitHub App permissions and approval enforcement | Remediation and pull requests |
 | Acceptance thresholds for quality, recovery, and cost | Operational drills |
 
-The target's runtime, how the targets get packages, and the consumer's scope with exercise 1's seeded finding were decided on 2026-10-24 in ADRs [0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md), [0036](decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md), and [0037](decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). Where a collector runs for a job was decided on 2026-10-25 in [ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md), and built the same day.
+The target's runtime, how the targets get packages, and the consumer's scope with exercise 1's seeded finding were decided on 2026-10-24 in ADRs [0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md), [0036](decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md), and [0037](decisions/0037-an-unscoped-copy-of-the-consumers-permission.md). Where a collector runs for a job was decided on 2026-10-25 in [ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md), and built the same day. How the workflow compares a job's verdict with the checks was decided the same day in [ADR 0041](decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md).
 
 ## Limitations
 

@@ -1,10 +1,11 @@
-# The dispatch image (ADR 0030). Built by the pipeline from this directory,
-# scanned, and pushed to the repository's registry from main only. The
-# workflow pulls it by digest.
+# The dispatch image (ADR 0030), which also runs the comparison step (ADR
+# 0041). Built by the pipeline from this directory, scanned, and pushed to the
+# repository's registry from main only. The workflow pulls it by digest.
 #
 # The tool service's base image, pinned by the same digest: Python 3.15.1 on
 # Alpine 3.24. It adds OpenSSH's client, which the tool service image must not
-# carry, and the dispatch script, which uses the standard library only.
+# carry, and the dispatch and comparison scripts, which use the standard
+# library only.
 FROM python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3
 
 # OpenSSH's client from Alpine's signed index, unpinned on purpose: the index
@@ -21,7 +22,7 @@ RUN apk add --no-cache openssh-client-default \
     && echo "dispatch:x:65532:65532:dispatch:/run/dispatch:/sbin/nologin" >> /etc/passwd \
     && echo "dispatch:x:65532:" >> /etc/group
 
-COPY dispatch.py /opt/dispatch/dispatch.py
+COPY dispatch.py compare.py /opt/dispatch/
 
 # The pod runs with a read-only root file system, so nothing may expect to
 # write: no byte code, no buffered output.
@@ -31,5 +32,5 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 USER 65532:65532
 LABEL org.opencontainers.image.source="https://github.com/sindredg/ai-security-platform" \
-      org.opencontainers.image.description="The dispatch step: registers a job, hands it to the worker over SSH, and checks the result"
+      org.opencontainers.image.description="The dispatch and comparison steps: registers a job, hands it to the worker over SSH, checks the result, and compares the model's verdict with the checks'"
 ENTRYPOINT ["python", "/opt/dispatch/dispatch.py"]
