@@ -221,6 +221,51 @@ class TheComparison(unittest.TestCase):
                     result["reasons"],
                 )
 
+    def test_more_forms_of_a_line_are_read(self):
+        for form in (
+            "__Verdict: inventory-reader excess ev-0002 ev-0003__",
+            "_Verdict: inventory-reader excess ev-0002_",
+            "| Verdict: inventory-reader excess ev-0002 |",
+            "- [x] Verdict: inventory-reader excess ev-0002",
+            "1000. Verdict: inventory-reader excess ev-0002",
+            "\u2705 Verdict: inventory-reader excess ev-0002",
+            "\u00a0Verdict\uff1a inventory-reader excess ev-0002",
+            "Ver\u200bdict: inventory-reader excess ev-0002",
+            "VERDICT: inventory-reader excess EV-0002",
+        ):
+            with self.subTest(form):
+                result = compare.compare("nb-1", CHECKS, form + "\n" + CONTROL)
+                self.assertEqual(result["outcome"], "match", result["reasons"])
+                self.assertEqual(result["accounts"][0]["references"][0], "ev-0002")
+
+    def test_a_contradiction_in_those_forms_stops(self):
+        for form in (
+            "- [ ] Verdict: inventory-reader within ev-0001",
+            "| Verdict: inventory-reader within ev-0001 |",
+            "1000. Verdict: inventory-reader within ev-0001",
+            "Verdict\uff1a inventory-reader within ev-0001",
+            "Ver\u200bdict: inventory-reader within ev-0001",
+        ):
+            with self.subTest(form):
+                result = compare.compare("nb-1", CHECKS, form + "\n" + RIGHT)
+                self.assertEqual(result["outcome"], "stop")
+                self.assertIn(
+                    "inventory-reader: the answer's verdict lines disagree",
+                    result["reasons"],
+                )
+
+    def test_a_line_that_starts_with_the_word_in_another_form_cannot_be_read(self):
+        for form in (
+            "Verdict for inventory-reader: within",
+            "Verdict inventory-reader within ev-0001",
+        ):
+            with self.subTest(form):
+                result = compare.compare("nb-1", CHECKS, form + "\n" + RIGHT)
+                self.assertEqual(result["outcome"], "stop")
+                self.assertIn(
+                    "verdict lines that could not be read: 1", result["reasons"]
+                )
+
     def test_a_hedged_value_cannot_be_read(self):
         for value in (
             "excess/within",

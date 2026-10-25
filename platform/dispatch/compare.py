@@ -34,6 +34,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 # Fixed for the pod. The tests point them into a temporary directory.
@@ -52,25 +53,32 @@ COLLECTED = re.compile(
     r"20[0-9]{2}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]Z"
 )
 MAX_ACCOUNTS = 20
-# A verdict line starts with its label, after markdown emphasis and code marks
-# are taken out, as check_answer.py reads the fixture's lines, and after any
-# heading, quote, or list mark before it. Every such line is read, so a line
-# in another form cannot contradict the others unseen. Then the account, a
-# separator, one value, and nothing after it but references. A dash separates
-# only between spaces, because names have dashes. A value with anything else
-# after it, such as excess/within, is a line that cannot be read. The runs are
-# possessive, so a long line is read in linear time.
-MARKS = " \t#>+-_"
-ORDERED = re.compile(r"[0-9]{1,3}[.)]")
+# A line whose first word is the label is a verdict line. The word is found
+# after Unicode compatibility forms are folded (a full-width colon, a
+# no-break space), format characters such as a zero-width space are taken
+# out, and so are emphasis and code marks, as check_answer.py reads the
+# fixture's lines, and anything before the first letter: headings, quotes,
+# list and task marks, ordered-list numbers, table bars, symbols. So a line in
+# another form cannot contradict the others unseen. A label spelled with
+# letters of another script is not seen. A verdict line is the label, a
+# colon, the account, a separator, one value, and nothing after it but
+# references. A dash separates only between spaces, because names have
+# dashes. Any other verdict line, such as excess/within after the account or
+# a label with more words, is a line that cannot be read. Each line is matched
+# once, anchored, and the runs are possessive, so none backtracks.
+FIRST = re.compile(r"[^\W_]")
+ORDERED = re.compile(r"[0-9]{1,9}[.)]|[xX]\]")
+WORD = re.compile(r"[^\W\d_]+")
+REF = r"(?<![0-9a-z])ev-[0-9]{4}(?![0-9a-z])"
 REST = re.compile(
     r"\s*+([a-z0-9][a-z0-9._-]{0,63})"
     r"(?:\s*+[:,=]\s*+|\s++[–—-]++\s++|\s++)"
     r"([a-z]++)"
-    r"((?:[\s,;.()\[\]]++(?:and\s++)?ev-[0-9]{4}\b)*+)"
-    r"[\s,;.()\[\]_]*+",
+    rf"((?:[\s,;.()\[\]|]++(?:and\s++)?{REF})*+)"
+    r"[\s,;.()\[\]_|]*+",
     re.IGNORECASE,
 )
-REFERENCE = re.compile(r"\bev-[0-9]{4}\b")
+REFERENCE = re.compile(REF, re.IGNORECASE)
 # Argo shows the termination message as the step's message. The kubelet keeps
 # up to 4 KiB of it.
 MESSAGE_BYTES = 1024
@@ -120,14 +128,24 @@ def load_checks(path, job):
 
 
 def after_label(line):
-    """What follows a verdict line's label, or None for any other line."""
-    text = line.replace("*", "").replace("`", "").lstrip(MARKS)
-    number = ORDERED.match(text)
-    if number:
-        text = text[number.end() :].lstrip(MARKS)
-    head, colon, rest = text.partition(":")
-    if not colon or head.rstrip(" \t_").lower() != "verdict":
+    """What follows a verdict line's label, "" for a verdict line in another
+    form, or None for any other line."""
+    text = unicodedata.normalize("NFKC", line)
+    text = "".join(c for c in text if unicodedata.category(c) != "Cf")
+    text = text.replace("*", "").replace("`", "")
+    while True:
+        first = FIRST.search(text)
+        text = text[first.start() :] if first else ""
+        mark = ORDERED.match(text)
+        if not mark:
+            break
+        text = text[mark.end() :]
+    word = WORD.match(text)
+    if not word or word[0].casefold() != "verdict":
         return None
+    head, colon, rest = text.partition(":")
+    if not colon or head.rstrip(" \t_").casefold() != "verdict":
+        return ""
     return rest.lstrip("_")
 
 
@@ -144,7 +162,8 @@ def verdict_lines(answer):
         if value not in VALUES:
             unread += 1
             continue
-        references = list(dict.fromkeys(REFERENCE.findall(rest[3])))
+        found = (reference.lower() for reference in REFERENCE.findall(rest[3]))
+        references = list(dict.fromkeys(found))
         lines.setdefault(rest[1].lower(), []).append((value, references))
     return lines, unread
 
