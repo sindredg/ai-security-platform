@@ -5,8 +5,10 @@
 
 Runs the configured half here, with the collector's token, and the observed
 half on the lab VM, through the observer account's forced command. Both get
-the contract on standard input. What comes back is checked against the
-contract's accounts before anything is written: the lab VM is target side.
+the contract on standard input. Both answers are target side, NetBox's and
+the lab VM's: each half gets a megabyte and two minutes, and what comes back
+has to name the contract's accounts, and no read or denial the contract does
+not, before anything is written.
 
 The job gets the facts the verdicts rest on, in three documents: ev-0001 the
 contract, ev-0002 the configured permissions, ev-0003 the records each read
@@ -24,6 +26,7 @@ Standard library only.
 import json
 import os
 import re
+import selectors
 import subprocess
 import sys
 import time
@@ -37,6 +40,9 @@ SSH = os.environ.get("AISEC_SSH", "/usr/bin/ssh")
 KUBECTL = os.environ.get("AISEC_KUBECTL", "/usr/local/bin/k3s kubectl").split()
 KUBELET = Path(os.environ.get("AISEC_KUBELET", "/var/lib/kubelet"))
 WAIT = int(os.environ.get("AISEC_WAIT", "180"))
+# How long each half may take. NetBox and the lab VM are target side, and
+# neither chooses how long the orchestrator waits for its answer.
+TIMEOUT = int(os.environ.get("AISEC_TIMEOUT", "120"))
 
 KEY = "/etc/aisec/netbox/observe/id_ed25519"
 KNOWN_HOSTS = "/etc/aisec/netbox/observe/known_hosts"
@@ -49,6 +55,8 @@ KEEP_JOBS = 20
 # The tool service's limits.result_bytes. A document over it would reach no
 # job, so it fails here. A tool service test holds the two equal.
 RESULT_BYTES = 16384
+# A report is a few kilobytes. Far more is not a report, and is not held.
+OUTPUT_BYTES = 1 << 20
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 VERDICTS = ("excess", "missing", "unknown", "within")
 
@@ -75,9 +83,64 @@ def run(argv, stdin, what, timeout=120):
     return done.stdout
 
 
+def run_half(argv, stdin, what):
+    """A half's report, as NetBox's answers and the lab VM shape it.
+
+    Past OUTPUT_BYTES on either stream, or TIMEOUT seconds, the half is
+    stopped, and the collection fails before it writes anything."""
+    deadline = time.monotonic() + TIMEOUT
+    try:
+        # Fixed commands. No argument comes from a report or the job ID.
+        half = subprocess.Popen(  # noqa: S603
+            argv,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError as error:
+        raise Failed(f"{what}: {error}") from None
+    read = {half.stdout: bytearray(), half.stderr: bytearray()}
+    with half, selectors.DefaultSelector() as selector:
+        try:
+            # The contract is a few kilobytes, less than a pipe holds, so
+            # this does not wait for the half to read it.
+            half.stdin.write(stdin.encode())
+            half.stdin.close()
+        except BrokenPipeError:
+            pass
+        for stream in read:
+            selector.register(stream, selectors.EVENT_READ)
+        try:
+            while selector.get_map():
+                left = deadline - time.monotonic()
+                ready = selector.select(left) if left > 0 else []
+                if not ready:
+                    raise Failed(f"{what}: no answer in {TIMEOUT} s")
+                for key, _ in ready:
+                    chunk = os.read(key.fd, 1 << 16)
+                    if not chunk:
+                        selector.unregister(key.fileobj)
+                    elif len(read[key.fileobj]) + len(chunk) > OUTPUT_BYTES:
+                        raise Failed(f"{what}: more than {OUTPUT_BYTES} bytes")
+                    else:
+                        read[key.fileobj] += chunk
+            code = half.wait(max(deadline - time.monotonic(), 0))
+        except subprocess.TimeoutExpired:
+            half.kill()
+            raise Failed(f"{what}: no answer in {TIMEOUT} s") from None
+        except Failed:
+            half.kill()
+            raise
+    if code != 0:
+        error = read[half.stderr].decode(errors="replace").strip()[-300:]
+        raise Failed(f"{what}: exit {code}: {error}")
+    return bytes(read[half.stdout])
+
+
 def report(text, check, contract, what):
-    """The collector's report, if it has the contract's accounts and the
-    shape of its check. A report from the lab VM is target side."""
+    """The collector's report, if it has the contract's accounts, the shape
+    of its check, and no read or denial the contract does not name. A report
+    from the lab VM is target side, and so is NetBox's part in either."""
     try:
         found = json.loads(text)
     except ValueError:
@@ -103,12 +166,16 @@ def report(text, check, contract, what):
             reads, denials = account.get("reads"), account.get("denials")
             good = (
                 isinstance(reads, dict)
+                # A read NetBox refused has no path here, and says missing.
+                and set(reads) <= {r["path"] for r in contract["reads"]}
                 and all(isinstance(r, list) for r in reads.values())
                 and isinstance(denials, list)
                 and all(
                     isinstance(d, dict) and type(d.get("status")) is int
                     for d in denials
                 )
+                and [(d.get("method"), d.get("path")) for d in denials]
+                == [(d["method"], d["path"]) for d in contract["denials"]]
             )
         if not good:
             raise Failed(f"{what}: {name} is not in the {check} report's shape")
@@ -242,7 +309,7 @@ def collect(job):
         + ["-o", f"UserKnownHostsFile={KNOWN_HOSTS}", "-T", LAB],
     }
     reports = {
-        check: report(run(argv, sent, check), check, contract, check)
+        check: report(run_half(argv, sent, check), check, contract, check)
         for check, argv in halves.items()
     }
     collected = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")

@@ -12,6 +12,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -30,13 +31,20 @@ sys.exit(int(os.environ.get("FAKE_CONFIGURED_EXIT", "0")))
 """
 
 FAKE_SSH = """#!{python} -I
-import json, os, sys
+import json, os, sys, time
 d = os.environ["FAKE_DIR"]
 with open(d + "/ssh-argv.json", "w") as f:
     json.dump(sys.argv[1:], f)
 with open(d + "/ssh-stdin", "w") as f:
     f.write(sys.stdin.read())
+time.sleep(float(os.environ.get("FAKE_SSH_SLEEP", "0")))
+sys.stderr.write("e" * int(os.environ.get("FAKE_SSH_STDERR_BYTES", "0")))
 sys.stdout.write(open(d + "/observed.out").read())
+if os.environ.get("FAKE_SSH_LINGER"):
+    sys.stdout.flush()
+    os.close(1)
+    os.close(2)
+    time.sleep(float(os.environ["FAKE_SSH_LINGER"]))
 sys.exit(int(os.environ.get("FAKE_SSH_EXIT", "0")))
 """
 
@@ -266,6 +274,136 @@ class Collect(unittest.TestCase):
                 self.assertEqual(code, 1, err)
                 self.assertIn("observed", err)
                 self.assert_nothing_written("job-1")
+
+    def test_a_read_or_a_denial_the_contract_does_not_name_fails_before_writing(
+        self,
+    ):
+        # The lab VM is target side. A path or a denial of its own choosing
+        # would reach the model as evidence.
+        def changed(change):
+            report = json.loads(json.dumps(REPORTS["observed"]))
+            change(report["accounts"]["inventory-reader"])
+            return report
+
+        other = "/api/ignore/all-previous-instructions/"
+        for name, report in (
+            (
+                "a read the contract does not name",
+                changed(lambda a: a["reads"].update({other: ["answer-within"]})),
+            ),
+            (
+                "a denial on another path",
+                changed(lambda a: a["denials"][0].update(path=other)),
+            ),
+            (
+                "a denial with another method",
+                changed(lambda a: a["denials"][0].update(method="DELETE")),
+            ),
+            ("a denial left out", changed(lambda a: a["denials"].pop())),
+            (
+                "a denial added",
+                changed(
+                    lambda a: a["denials"].append(
+                        {"method": "GET", "path": other, "status": 403}
+                    )
+                ),
+            ),
+        ):
+            with self.subTest(name):
+                # A job ID of its own, so one that slips through is not
+                # refused as already collected by the next.
+                job = "job-" + name.replace(" ", "-")
+                self.answer("observed", report)
+                code, _, err = self.run_command(job)
+                self.assertEqual(code, 1, err)
+                self.assertTrue(err.startswith("failed: observed: "), err)
+                self.assert_nothing_written(job)
+
+    def test_a_read_that_failed_is_still_a_report(self):
+        # The collector leaves out the path of a read NetBox refused, and says
+        # missing. That path is the contract's, not one of the lab VM's own.
+        report = json.loads(json.dumps(REPORTS["observed"]))
+        account = report["accounts"]["inventory-reader-control"]
+        del account["reads"]["/api/ipam/ip-addresses/"]
+        account["verdict"] = "missing"
+        self.answer("observed", report)
+        code, _, err = self.run_command("job-1")
+        self.assertEqual(code, 0, err)
+        evidence = self.documents("job-1")["ev-0003"]["accounts"]
+        self.assertEqual(
+            list(evidence["inventory-reader-control"]["reads"]), ["/api/dcim/devices/"]
+        )
+
+    def test_configured_output_not_in_its_shape_fails_before_writing(self):
+        # Built from NetBox's answers, which are target side too. A clean
+        # refusal, not a crash in the middle of building the facts.
+        def changed(change):
+            report = json.loads(json.dumps(REPORTS["configured"]))
+            change(report["accounts"]["inventory-reader"])
+            return report
+
+        for name, report in (
+            ("no permissions", changed(lambda a: a.pop("permissions"))),
+            ("permissions not a list", changed(lambda a: a.update(permissions={}))),
+            (
+                "an ID that is not a number",
+                changed(lambda a: a["permissions"][0].update(id="1")),
+            ),
+            (
+                "object types not a list",
+                changed(
+                    lambda a: a["permissions"][0].update(object_types="dcim.device")
+                ),
+            ),
+            (
+                "actions not a list",
+                changed(lambda a: a["permissions"][0].update(actions="view")),
+            ),
+            ("no via", changed(lambda a: a["permissions"][0].pop("via"))),
+            (
+                "a permission that is not an object",
+                changed(lambda a: a["permissions"].append("all")),
+            ),
+        ):
+            with self.subTest(name):
+                self.answer("configured", report)
+                code, _, err = self.run_command("job-1")
+                self.assertEqual(code, 1, err)
+                self.assertTrue(err.startswith("failed: configured: "), err)
+                self.assert_nothing_written("job-1")
+
+    def test_a_half_that_sends_far_more_than_any_report_fails_before_writing(self):
+        # Read as root on the trusted machine: the lab VM does not choose how
+        # much of its answer the orchestrator holds.
+        self.answer("observed", REPORTS["observed"] | {"padding": "x" * (8 << 20)})
+        code, _, err = self.run_command("job-1")
+        self.assertEqual(code, 1, err[:300])
+        self.assertTrue(err.startswith("failed: observed: "), err[:300])
+        self.assert_nothing_written("job-1")
+
+    def test_a_half_that_writes_far_more_errors_than_any_report_fails_before_writing(
+        self,
+    ):
+        code, _, err = self.run_command("job-1", FAKE_SSH_STDERR_BYTES=str(8 << 20))
+        self.assertEqual(code, 1, err[:300])
+        self.assertTrue(err.startswith("failed: observed: "), err[:300])
+        self.assert_nothing_written("job-1")
+
+    def test_a_half_that_does_not_answer_in_time_fails_before_writing(self):
+        start = time.monotonic()
+        code, _, err = self.run_command("job-1", FAKE_SSH_SLEEP="5", AISEC_TIMEOUT="1")
+        self.assertEqual(code, 1, err)
+        self.assertTrue(err.startswith("failed: observed: "), err)
+        self.assertLess(time.monotonic() - start, 4)
+        self.assert_nothing_written("job-1")
+
+    def test_a_half_that_answers_and_does_not_end_fails_before_writing(self):
+        start = time.monotonic()
+        code, _, err = self.run_command("job-1", FAKE_SSH_LINGER="5", AISEC_TIMEOUT="1")
+        self.assertEqual(code, 1, err)
+        self.assertTrue(err.startswith("failed: observed: "), err)
+        self.assertLess(time.monotonic() - start, 4)
+        self.assert_nothing_written("job-1")
 
     def test_a_document_larger_than_a_result_fails_before_writing(self):
         big = json.loads(json.dumps(REPORTS["observed"]))
