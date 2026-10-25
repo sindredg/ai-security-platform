@@ -21,7 +21,22 @@
     "synthetic": {
       "tools": [
         "get_evidence"
-      ]
+      ],
+      "store": "shared",
+      "evidence": {
+        "ev-0001": "synthetic-access"
+      }
+    },
+    "netbox": {
+      "tools": [
+        "get_evidence"
+      ],
+      "store": "per-job",
+      "evidence": {
+        "ev-0001": "netbox-contract",
+        "ev-0002": "netbox-configured",
+        "ev-0003": "netbox-observed"
+      }
     }
   },
   "tools": {
@@ -124,6 +139,460 @@
       "token_sha256": {
         "type": "string",
         "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+      }
+    }
+  },
+  "evidence_schemas": {
+    "synthetic-access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "collected",
+        "token",
+        "contract_object_types",
+        "granted_object_types",
+        "write_access"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string",
+          "pattern": "^ev-[0-9]{4}(?![\\s\\S])"
+        },
+        "collected": {
+          "type": "string",
+          "pattern": "^20[0-9]{2}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]Z(?![\\s\\S])"
+        },
+        "token": {
+          "type": "string",
+          "pattern": "^[a-z0-9-]{1,64}(?![\\s\\S])"
+        },
+        "contract_object_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]{1,32}\\.[a-z]{1,32}(?![\\s\\S])"
+          },
+          "maxItems": 50
+        },
+        "granted_object_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]{1,32}\\.[a-z]{1,32}(?![\\s\\S])"
+          },
+          "maxItems": 50
+        },
+        "write_access": {
+          "type": "boolean"
+        }
+      }
+    },
+    "netbox-contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "job",
+        "collected",
+        "accounts",
+        "viewpoint",
+        "grants",
+        "reads",
+        "denials"
+      ],
+      "properties": {
+        "reference": {
+          "const": "ev-0001"
+        },
+        "job": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}(?![\\s\\S])"
+        },
+        "collected": {
+          "type": "string",
+          "pattern": "^20[0-9]{2}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]Z(?![\\s\\S])"
+        },
+        "accounts": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}(?![\\s\\S])"
+          },
+          "maxItems": 20
+        },
+        "viewpoint": {
+          "type": "string",
+          "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![\\s\\S])"
+        },
+        "grants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "object_type",
+              "action",
+              "constraints"
+            ],
+            "properties": {
+              "object_type": {
+                "type": "string",
+                "pattern": "^[a-z]{1,32}\\.[a-z]{1,32}(?![\\s\\S])"
+              },
+              "action": {
+                "enum": [
+                  "view",
+                  "add",
+                  "change",
+                  "delete"
+                ]
+              },
+              "constraints": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "patternProperties": {
+                      "^[a-z][a-z_]{0,63}(?![\\s\\S])": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}(?![\\s\\S])"
+                          },
+                          {
+                            "type": "integer"
+                          }
+                        ]
+                      }
+                    },
+                    "maxProperties": 10
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "patternProperties": {
+                        "^[a-z][a-z_]{0,63}(?![\\s\\S])": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[a-z0-9][a-z0-9_-]{0,63}(?![\\s\\S])"
+                            },
+                            {
+                              "type": "integer"
+                            }
+                          ]
+                        }
+                      },
+                      "maxProperties": 10
+                    },
+                    "maxItems": 10
+                  }
+                ]
+              }
+            }
+          },
+          "maxItems": 50
+        },
+        "reads": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "key",
+              "fields",
+              "records"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "pattern": "^/api/[a-z]{1,32}/[a-z-]{1,32}/(?![\\s\\S])"
+              },
+              "key": {
+                "type": "string",
+                "pattern": "^[a-z_]{1,32}(?![\\s\\S])"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z_]{1,32}(?![\\s\\S])"
+                },
+                "maxItems": 50
+              },
+              "records": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9./-]{0,63}(?![\\s\\S])"
+                },
+                "maxItems": 1000
+              }
+            }
+          },
+          "maxItems": 50
+        },
+        "denials": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "method",
+              "path",
+              "status"
+            ],
+            "properties": {
+              "method": {
+                "enum": [
+                  "GET",
+                  "POST",
+                  "PUT",
+                  "PATCH",
+                  "DELETE"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "pattern": "^/api/[a-z]{1,32}/[a-z-]{1,32}/(?![\\s\\S])"
+              },
+              "status": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 599
+              }
+            }
+          },
+          "maxItems": 50
+        }
+      }
+    },
+    "netbox-configured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "job",
+        "collected",
+        "accounts"
+      ],
+      "properties": {
+        "reference": {
+          "const": "ev-0002"
+        },
+        "job": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}(?![\\s\\S])"
+        },
+        "collected": {
+          "type": "string",
+          "pattern": "^20[0-9]{2}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]Z(?![\\s\\S])"
+        },
+        "accounts": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z0-9][a-z0-9._-]{0,63}(?![\\s\\S])": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "permissions"
+              ],
+              "properties": {
+                "permissions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "id",
+                      "object_types",
+                      "actions",
+                      "constraints",
+                      "via"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "object_types": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z]{1,32}\\.[a-z]{1,32}(?![\\s\\S])"
+                        },
+                        "maxItems": 50
+                      },
+                      "actions": {
+                        "type": "array",
+                        "items": {
+                          "enum": [
+                            "view",
+                            "add",
+                            "change",
+                            "delete"
+                          ]
+                        },
+                        "maxItems": 4
+                      },
+                      "constraints": {
+                        "anyOf": [
+                          {
+                            "type": "null"
+                          },
+                          {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "patternProperties": {
+                              "^[a-z][a-z_]{0,63}(?![\\s\\S])": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9][a-z0-9_-]{0,63}(?![\\s\\S])"
+                                  },
+                                  {
+                                    "type": "integer"
+                                  }
+                                ]
+                              }
+                            },
+                            "maxProperties": 10
+                          },
+                          {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "patternProperties": {
+                                "^[a-z][a-z_]{0,63}(?![\\s\\S])": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}(?![\\s\\S])"
+                                    },
+                                    {
+                                      "type": "integer"
+                                    }
+                                  ]
+                                }
+                              },
+                              "maxProperties": 10
+                            },
+                            "maxItems": 10
+                          }
+                        ]
+                      },
+                      "via": {
+                        "enum": [
+                          "user",
+                          "group"
+                        ]
+                      }
+                    }
+                  },
+                  "maxItems": 100
+                }
+              }
+            }
+          },
+          "maxProperties": 20
+        }
+      }
+    },
+    "netbox-observed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "job",
+        "collected",
+        "accounts"
+      ],
+      "properties": {
+        "reference": {
+          "const": "ev-0003"
+        },
+        "job": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}(?![\\s\\S])"
+        },
+        "collected": {
+          "type": "string",
+          "pattern": "^20[0-9]{2}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]Z(?![\\s\\S])"
+        },
+        "accounts": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z0-9][a-z0-9._-]{0,63}(?![\\s\\S])": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "reads",
+                "denials"
+              ],
+              "properties": {
+                "reads": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "patternProperties": {
+                    "^/api/[a-z]{1,32}/[a-z-]{1,32}/(?![\\s\\S])": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9./-]{0,63}(?![\\s\\S])"
+                      },
+                      "maxItems": 1000
+                    }
+                  },
+                  "maxProperties": 50
+                },
+                "denials": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "method",
+                      "path",
+                      "status"
+                    ],
+                    "properties": {
+                      "method": {
+                        "enum": [
+                          "GET",
+                          "POST",
+                          "PUT",
+                          "PATCH",
+                          "DELETE"
+                        ]
+                      },
+                      "path": {
+                        "type": "string",
+                        "pattern": "^/api/[a-z]{1,32}/[a-z-]{1,32}/(?![\\s\\S])"
+                      },
+                      "status": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 599
+                      }
+                    }
+                  },
+                  "maxItems": 50
+                }
+              }
+            }
+          },
+          "maxProperties": 20
+        }
       }
     }
   }

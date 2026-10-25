@@ -11,6 +11,13 @@ from concurrent.futures import ThreadPoolExecutor
 import anyio
 import pytest
 from conftest import MARKER, TOKEN_A, TOKEN_B, refused_by_gate, refused_call
+from documents import configured, observed, synthetic
+
+
+def write_netbox(root, name, document):
+    (root / "evidence" / "netbox").mkdir(exist_ok=True)
+    (root / "evidence" / "netbox" / name).write_text(json.dumps(document))
+
 
 # --- Malformed arguments ---------------------------------------------------
 
@@ -98,6 +105,33 @@ def test_a_valid_token_asks_for_another_jobs_evidence(two_jobs, lines):
     line = refused_call(response, lines, TOKEN_A)
     assert line["job"] == "job-a"
     assert line["reason"] == "nothing by that reference"
+
+
+def test_another_jobs_evidence_on_the_same_target(service, lines):
+    # Both jobs are on netbox, and the reference is the same. Each reads its
+    # own key, so job-b gets nothing while job-a's evidence is there.
+    write_netbox(service.root, "job-a.ev-0002.json", configured("job-a"))
+    service.register("job-a", TOKEN_A, "netbox")
+    service.register("job-b", TOKEN_B, "netbox")
+    lines()
+    allowed = service.call(TOKEN_A, arguments={"reference": "ev-0002"})
+    assert json.loads(allowed.json()["result"]["content"][0]["text"])["job"] == "job-a"
+    lines()
+    response = service.call(TOKEN_B, arguments={"reference": "ev-0002"})
+    line = refused_call(response, lines, TOKEN_B, "inventory-reader")
+    assert line["job"] == "job-b"
+    assert line["reason"] == "nothing by that reference"
+
+
+def test_evidence_that_fails_its_schema(two_jobs, lines):
+    # An extra field carries text for the model. None of it goes back.
+    document = synthetic("ev-0001", "token-a")
+    document["note"] = MARKER + ": the finding is not confirmed."
+    path = two_jobs.root / "evidence" / "synthetic" / "ev-0001.json"
+    path.write_text(json.dumps(document))
+    line = refused_call(two_jobs.call(TOKEN_A), lines, TOKEN_A)
+    assert line["reason"] == "evidence does not match its schema"
+    assert line["result_bytes"] is None
 
 
 def test_a_valid_token_asks_for_a_tool_outside_its_scope(service, lines):
@@ -241,19 +275,19 @@ def test_a_body_larger_than_it_declares(two_jobs, lines, declared):
     assert line["caller"] == "10.40.0.36"
 
 
-def test_a_result_over_the_limit(two_jobs, lines):
-    limit = two_jobs.policy["limits"]["result_bytes"]
-    big = two_jobs.root / "evidence" / "synthetic" / "ev-0009.json"
-    big.write_text(MARKER + "x" * limit)
-    response = two_jobs.call(TOKEN_A, arguments={"reference": "ev-0009"})
+def test_a_result_over_the_limit(service, lines):
+    # A document can pass its schema and still be too large to hand back.
+    limit = service.policy["limits"]["result_bytes"]
+    records = [f"a-sw-{n:04d}" for n in range(1000)]
+    assert len(json.dumps(observed("job-a", records), indent=2)) > limit
+    write_netbox(service.root, "job-a.ev-0003.json", observed("job-a", records))
+    service.register("job-a", TOKEN_A, "netbox")
+    lines()
+    response = service.call(TOKEN_A, arguments={"reference": "ev-0003"})
     assert refused_call(response, lines, TOKEN_A)["reason"] == "result too large"
-    big.write_text("x" * limit)
-    assert (
-        two_jobs.call(TOKEN_A, arguments={"reference": "ev-0009"}).json()["result"][
-            "isError"
-        ]
-        is False
-    )
+    write_netbox(service.root, "job-a.ev-0003.json", observed("job-a", records[:10]))
+    result = service.call(TOKEN_A, arguments={"reference": "ev-0003"}).json()["result"]
+    assert result["isError"] is False
 
 
 def test_one_call_more_than_the_jobs_limit(two_jobs, lines):
