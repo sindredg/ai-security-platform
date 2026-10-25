@@ -83,6 +83,23 @@ def test_every_target_names_a_store_and_kinds_the_policy_has():
     assert used == set(POLICY["evidence_schemas"])
 
 
+def test_every_kind_requires_what_the_tool_compares():
+    for target in POLICY["targets"].values():
+        for kind in target["evidence"].values():
+            required = POLICY["evidence_schemas"][kind]["required"]
+            assert "reference" in required, kind
+            if target["store"] == "per-job":
+                assert "job" in required, kind
+
+
+def test_the_synthetic_evidence_the_orchestrator_serves_passes_its_schema():
+    shipped = FILE.parent.parent / "platform" / "tool-service" / "evidence"
+    for reference, kind in POLICY["targets"]["synthetic"]["evidence"].items():
+        document = json.loads((shipped / "synthetic" / f"{reference}.json").read_text())
+        jsonschema.validate(document, POLICY["evidence_schemas"][kind])
+        assert document["reference"] == reference
+
+
 def test_a_netbox_kind_accepts_its_own_reference_only():
     evidence = POLICY["targets"]["netbox"]["evidence"]
     for reference, kind in evidence.items():

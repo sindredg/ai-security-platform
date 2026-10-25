@@ -290,6 +290,38 @@ def test_a_result_over_the_limit(service, lines):
     assert result["isError"] is False
 
 
+def sized_observed(job, size):
+    """An observed document whose text, as the tool returns it, is size bytes."""
+
+    def text(records):
+        return json.dumps(observed(job, records), indent=2, sort_keys=True)
+
+    records = []
+    while len(text(records)) <= size - 40:
+        records.append(f"a-sw-{len(records):04d}")
+    records.pop()
+    pad = size - len(text([*records, "a"]))
+    assert 0 <= pad < 64
+    records.append("a" + "b" * pad)
+    assert len(text(records)) == size
+    return observed(job, records)
+
+
+def test_a_result_of_exactly_the_limit_and_one_byte_more(service, lines):
+    limit = service.policy["limits"]["result_bytes"]
+    service.register("job-a", TOKEN_A, "netbox")
+    # The file is written without indents, so its size stays under the limit
+    # and the result's size is what decides.
+    write_netbox(service.root, "job-a.ev-0003.json", sized_observed("job-a", limit))
+    lines()
+    response = service.call(TOKEN_A, arguments={"reference": "ev-0003"})
+    assert response.json()["result"]["isError"] is False
+    assert lines()[0]["result_bytes"] == limit
+    write_netbox(service.root, "job-a.ev-0003.json", sized_observed("job-a", limit + 1))
+    response = service.call(TOKEN_A, arguments={"reference": "ev-0003"})
+    assert refused_call(response, lines, TOKEN_A)["reason"] == "result too large"
+
+
 def test_one_call_more_than_the_jobs_limit(two_jobs, lines):
     limit = two_jobs.policy["limits"]["calls_per_job"]
     for _ in range(limit - 1):
