@@ -135,6 +135,15 @@ TARGET_UPDATE_SHA=${TARGET_UPDATE_SHA:-"AISEC_TARGETS not given or not the targe
 NETBOX_IMAGE_ID=$(sed -n "s/^NETBOX_IMAGE_ID=sha256://p" "${AISEC_TARGETS:-/nonexistent}/netbox/image.env" 2>/dev/null)
 NETBOX_IMAGE_ID=${NETBOX_IMAGE_ID:-"AISEC_TARGETS not given or not the targets checkout"}
 NETBOX_PORT=8443
+# NetBox's consumer contract (ADR 0037), from the targets checkout, and the
+# collector that reads both sides of it, from this checkout. The collector goes
+# to a VM as an argument and the contract on its standard input, so neither is
+# installed there.
+CONTRACT=${AISEC_TARGETS:-/nonexistent}/netbox/contract.json
+COLLECTOR_CODE=$(cat "$here/../collectors/netbox/netbox_access.py")
+# What the seed in the targets checkout gives: the consumer's unscoped copy of
+# its permission is excess, and the control account stays within the contract.
+SEEDED_VERDICTS="inventory-reader:excess inventory-reader-control:within"
 RG=rg-aisec-platform
 RG_TARGETS=rg-aisec-targets
 
@@ -311,6 +320,21 @@ cert=/etc/aisec/netbox/tls.crt
 echo "netbox_cert=$(stat -c "%U %a" $cert 2>/dev/null) $(openssl x509 -in $cert -noout -fingerprint -sha256 2>/dev/null | cut -d = -f 2)"
 echo "netbox_api=$(code --noproxy "*" --cacert $cert --resolve netbox.aisec.internal:'"$NETBOX_PORT:$NETBOX_IP"' \
   https://netbox.aisec.internal:'"$NETBOX_PORT"'/login/) $(code --noproxy "*" http://'"$NETBOX_IP:$NETBOX_PORT"'/login/)"
+# NetBox takes the address of a client from the connection only (ADR 0039).
+# The token of the probe account is limited to 192.0.2.1, which no host has,
+# so NetBox refuses it here and names the address it saw. A header that names
+# 192.0.2.1 has to change neither. The token goes to curl in a file, not in an
+# argument. This text is inside single quotes, so it has no apostrophe.
+tokens=/etc/aisec/netbox/tokens
+address() {
+  local out
+  out=$(curl -s --noproxy "*" --max-time 8 --cacert $cert -w " %{http_code}" "$@" \
+    -H @<(printf "Authorization: Bearer %s\n" "$(cat $tokens/aisec-address-probe 2>/dev/null)") \
+    https://'"$NETBOX_IP:$NETBOX_PORT"'/api/status/)
+  echo "${out##* }:$(printf "%s" "$out" | sed -n "s/.*Source IP \([0-9.]*\) is not permitted.*/\1/p")"
+}
+echo "netbox_address=$(address) $(address -H "X-Forwarded-For: 192.0.2.1") $(address -H "X-Real-IP: 192.0.2.1")"
+echo "netbox_tokens=$(stat -c "%U %a" $tokens $tokens/aisec-collector $tokens/aisec-address-probe 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 # The key an update run logs in to the targets with (ADR 0036), and its
 # public half, which each target holds.
 update_key=/etc/aisec/target-update/id_ed25519
@@ -625,6 +649,18 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check N.2 "The pinned NetBox certificate is root's and not writable by others" "root 644" "$(value netbox_cert | cut -d " " -f 1,2)"
   # Kept for N.10, which reads the certificate file on the NetBox VM.
   NETBOX_CERT_FP=$(value netbox_cert | cut -d " " -f 3)
+  # 403 and the orchestrator's own address, three times. A header that NetBox
+  # believed would get 200, or the header's address.
+  check N.12 "NetBox takes a token's client address from the connection, not from a header" \
+    "403:$ORCH_IP 403:$ORCH_IP 403:$ORCH_IP" "$(value netbox_address)"
+  check N.13 "The orchestrator's NetBox tokens are root's and closed to others" \
+    "root 700 root 600 root 600" "$(value netbox_tokens)"
+  # The collector reads each account's permissions with its own token, which
+  # is limited to this address (ADR 0037).
+  configured=$($SSH "$ORCH" "sudo python3 -I -c $(printf %q "$COLLECTOR_CODE") configured --summary" \
+    <"$CONTRACT" 2>/dev/null)
+  check N.14 "The configured permissions give the seeded excess and an unaffected control" \
+    "$SEEDED_VERDICTS" "${configured:-not read}"
   # Kept for each target's .6, which reads the key the target accepts.
   TARGET_UPDATE_KEY=$(value target_update_key | cut -d " " -f 3,4)
   check P.12 "Squid is not installed on the orchestrator" 0 "$(value squid_installed)"
@@ -1010,6 +1046,22 @@ fi
 lab_port=$($SSH "$LAB" "$tcp_fn"'
 tcp '"$NETBOX_IP $NETBOX_PORT" 2>/dev/null)
 check N.11 "The consumer subnet reaches NetBox's port" open "${lab_port:-not reached}"
+# The consumer's and the control account's tokens, and the certificate they
+# trust, on the consumer viewpoint (ADR 0037).
+probe=$($SSH "$LAB" 'sudo bash -s' 2>/dev/null <<<'
+t=/etc/aisec/netbox/tokens
+echo "tokens=$(stat -c "%U %a" $t $t/inventory-reader $t/inventory-reader-control 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+echo "cert=$(openssl x509 -in /etc/aisec/netbox/tls.crt -noout -fingerprint -sha256 2>/dev/null | cut -d = -f 2)"
+')
+check N.15 "The lab VM's NetBox tokens are root's and closed to others" "root 700 root 600 root 600" "$(value tokens)"
+check N.16 "The lab VM's copy of NetBox's certificate is the one the orchestrator pins" \
+  "${NETBOX_CERT_FP:-no certificate read on the orchestrator}" "$(value cert)"
+# Each account's own reads, from the viewpoint its token is limited to. The
+# same verdicts as N.14: the two methods agree.
+observed=$($SSH "$LAB" "sudo python3 -I -c $(printf %q "$COLLECTOR_CODE") observed --summary" \
+  <"$CONTRACT" 2>/dev/null)
+check N.17 "The records each token returns give the seeded excess and an unaffected control" \
+  "$SEEDED_VERDICTS" "${observed:-not read}"
 
 if [ "$workstation" = 1 ]; then
   echo
