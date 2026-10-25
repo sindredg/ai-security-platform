@@ -1,6 +1,6 @@
 # Evidence collection for a NetBox job: operator procedure
 
-Status: Implemented on 2026-10-25. Run once, on the live system, 12:08 to 12:33 UTC, from two scripts with the same commands ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#evidence-per-job)). Steps 1 to 6 ran from the first script, and steps 7 to 15 from the second, with three more jobs before step 15 that show what the tool service refuses. The undo and the steps after a rebuild were not run.
+Status: Implemented on 2026-10-25. Run once, on the live system, 12:08 to 12:33 UTC, from two scripts with the same commands ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#evidence-per-job)). Steps 1 to 6 ran from the first script, and steps 7 to 15 from the second, with three more jobs before step 15 that show what the tool service refuses. Steps 1 to 6 and 11 ran again at 14:29 to 14:31 UTC, after fixes from a review, and the checks after them ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#fixes-from-the-review)). The undo and the steps after a rebuild were not run.
 
 This installs NetBox's collect command on the orchestrator and an observer account on the lab VM, deploys the tool service that stores evidence per job and the workflow template that names a job's target, then collects one job's evidence and runs the job on it ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)). No cloud resource changes, and no network rule.
 
@@ -169,7 +169,7 @@ Before this:
     REPLACE_WITH_SSH aisec-orchestrator 'sudo ls -l /var/lib/aisec/evidence/netbox/REPLACE_WITH_JOB && sudo cat /var/lib/aisec/evidence/netbox/REPLACE_WITH_JOB/verdicts.json'
     ```
 
-    Expected: `REPLACE_WITH_JOB: ev-0001 ev-0002 ev-0003, visible to the tool service after N s`, with `N` up to 180, then `inventory-reader:excess/excess inventory-reader-control:within/within`, the configured verdict before the slash and the observed one after. Then six files, each `root 600`: `configured.json`, `ev-0001.json` to `ev-0003.json`, `observed.json`, and `verdicts.json`, and the verdicts in full. The command stops before it writes anything when either half's report does not name the contract's accounts, or when a document is larger than a tool result may be. The config map keeps the newest 20 jobs' keys, and the orchestrator keeps every job's directory.
+    Expected: `REPLACE_WITH_JOB: ev-0001 ev-0002 ev-0003, visible to the tool service after N s`, with `N` up to 180, then `inventory-reader:excess/excess inventory-reader-control:within/within`, the configured verdict before the slash and the observed one after. Then six files, each `root 600`: `configured.json`, `ev-0001.json` to `ev-0003.json`, `observed.json`, and `verdicts.json`, and the verdicts in full. The command stops before it writes anything when either half's report does not name the contract's accounts or names a read or a denial the contract does not, when a half sends more than a megabyte or takes more than two minutes, or when a document is larger than a tool result may be. The config map keeps the newest 20 jobs' keys, and the orchestrator keeps every job's directory.
 
 12. Submit the job under the same name, with NetBox as its target, and wait for it.
 

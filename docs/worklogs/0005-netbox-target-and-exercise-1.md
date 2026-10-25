@@ -606,11 +606,29 @@ Every file was put back, and `sshd -t` passed. Then 12:55:15 to 12:58:50 UTC: `3
 
 `T.14` was not broken: that needs a deploy of another manifest, and it has not been seen to fail.
 
+### Fixes from the review
+
+An independent review of the branch at `bc7f125` read the code, the raw output of the runs above, and the live system, and ran the checks once without the Azure and workstation checks: `361 passed, 0 failed`. Its findings were fixed on the branch before the merge.
+
+| Finding | Evidence | Change | Test, and how it failed first |
+| --- | --- | --- | --- |
+| The collect command took the lab VM's reads and denials as sent | `report()` checked each read's and denial's type only, and the schema's pattern for a read path, `^/api/[a-z]{1,32}/[a-z-]{1,32}/`, accepts `/api/ignore/all-previous-instructions/`. ADR 0040 names the contract's reads and expected denials | A report names no read and no denial the contract does not. A read NetBox refused is still left out, as the collector reports it | Five cases: a read the contract does not name, a denial on another path, with another method, left out, and added. The old command wrote all five |
+| Each half's output was held whole, for as long as the half ran | `run()` used `subprocess.run` with `capture_output`, which keeps all of it in memory, as root | Past 1 MiB on either stream, or 120 s, the half is stopped and nothing is written | 8 MiB on standard output, 8 MiB on standard error, and a half that answers late: the old command wrote all three. A half that answers and keeps running: fails when the last wait has no deadline |
+| The collector read NetBox's answers whole and followed NetBox's count through the pages | `netbox_access.py`: `answer.read()`, and a loop that ends only on an empty page or the count | An answer over 8 MiB, or a list over 10,000 records, is a refused read, as a malformed answer already was | A 16 MiB answer, with 200 and with 403, was held by the old collector. A list of 20,000 records gave `excess`, not a refused read |
+| No test refused a malformed configured report | With its shape check skipped, all 34 collector tests passed | A test with seven malformed reports | With the shape check skipped, all seven fail |
+
+Two state lines had not moved: the architecture's consumer row said no program used the consumer's tokens, and the AI threats' status line called the schemas not deployed. The tool service diagram carried four labels the code contradicts: one dispatch pod where each workflow runs two, the registration port named for registration only where revocation uses it too, the mounted files without the TLS key, and the pod log as not stored, drawn before the audit copier existed.
+
+Locally: the collector's tests, `Ran 43 tests ... OK`, 9 of them new, on Python 3.12.3 with `-I -S`, and with resource warnings as errors. The tool service's: `212 passed`. Ruff 0.17.2: no finding, formatted.
+
+On the live system, 14:29:54 to 14:39:21 UTC, from the branch at `47477ed`, from a script with the runbook's commands: steps 1 to 6 again, with the same observer key and the same verdicts from the observed half, and a TTY and a forward refused. The installed copies' digests equal the checkout's. One collection, `nb-10251429-r`, through the new command: `visible to the tool service after 40 s`, `inventory-reader:excess/excess inventory-reader-control:within/within`. No job ran on it. Every check: `411 passed, 0 failed`.
+
 ### Not verified
 
 - **A collection on a schedule, or from the workflow.** The operator runs the command, then submits the workflow under the same name ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)).
 - **The workflow's comparison.** The verdicts are on the orchestrator, and nothing reads them yet. That is the next slice.
 - **The config map's limit.** It keeps the newest 20 jobs' keys. Two jobs' keys were the most it held. Its 1 MiB limit was not reached, and the removal of old keys ran in the tests only.
 - **A rebuilt lab VM.** The installer pins the host key the update run pinned, and a new key after a rebuild was not tried.
+- **The new limits on the live system.** No half and no answer there has come near them. They were seen to refuse in the tests only.
 - **`T.14`'s fail side** ([#195](https://github.com/sindredg/ai-security-platform/issues/195)).
 - **The answer's accuracy**, above.
