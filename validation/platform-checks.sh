@@ -144,6 +144,11 @@ COLLECTOR_CODE=$(cat "$here/../collectors/netbox/netbox_access.py")
 # What the seed in the targets checkout gives: the consumer's unscoped copy of
 # its permission is excess, and the control account stays within the contract.
 SEEDED_VERDICTS="inventory-reader:excess inventory-reader-control:within"
+# What the orchestrator collects a job's evidence with (ADR 0040): the
+# collector, the collect command, and the contract, in install order.
+COLLECT_SHAS="$(sha256sum "$here/../collectors/netbox/netbox_access.py" \
+  "$here/../collectors/netbox/collect_evidence.py" "$CONTRACT" 2>/dev/null | cut -d " " -f 1 | tr "\n" " " | sed "s/ $//")"
+COLLECTOR_SHA=$(sha256sum "$here/../collectors/netbox/netbox_access.py" | cut -d " " -f 1)
 RG=rg-aisec-platform
 RG_TARGETS=rg-aisec-targets
 
@@ -350,6 +355,14 @@ for address in '"$NETBOX_IP $LAB_IP"'; do
   pins="$pins $([ -n "$pinned" ] && [ "$pinned" = "$offered" ] && echo match || echo differ)"
 done
 echo "target_update_pins=${pins# }"
+# The collect command for NetBox, and the key it runs the observed half with
+# on the lab VM (ADR 0040). The pin for the lab VM is the one the update run uses.
+echo "netbox_collect=$(sha256sum /usr/local/lib/aisec/netbox_access.py /usr/local/sbin/collect-netbox-evidence \
+  /etc/aisec/netbox/contract.json 2>/dev/null | cut -d " " -f 1 | tr "\n" " " | sed "s/ $//")"
+observe=/etc/aisec/netbox/observe
+echo "netbox_observe_key=$(stat -c "%U %a" $observe $observe/id_ed25519 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+lab_pin=$(grep "^'"$LAB_IP"' " /etc/aisec/target-update/known_hosts 2>/dev/null)
+echo "netbox_observe_pin=$(wc -l <$observe/known_hosts 2>/dev/null) $([ -n "$lab_pin" ] && [ "$(cat $observe/known_hosts 2>/dev/null)" = "$lab_pin" ] && echo same || echo differ)"
 # Exit status 2 is the feed command refusing. 255 would be SSH failing, and 0
 # that the key ran a command it should not.
 sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec-feed@aisec-worker id >/dev/null 2>&1
@@ -359,6 +372,7 @@ k() { k3s kubectl "$@" 2>/dev/null; }
 echo "tool_ready=$(k get deployment tool-service -n tool-services -o jsonpath="{.status.readyReplicas}")"
 echo "tool_image=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{.items[0].status.containerStatuses[0].imageID}" | sed "s/.*@//")"
 echo "tool_pod_security=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{.items[0].spec.automountServiceAccountToken} {.items[0].spec.securityContext.runAsNonRoot} {.items[0].spec.containers[0].securityContext.readOnlyRootFilesystem} {.items[0].spec.containers[0].securityContext.allowPrivilegeEscalation} {.items[0].spec.containers[0].securityContext.capabilities.drop[0]}")"
+echo "tool_evidence=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{range .items[0].spec.containers[0].volumeMounts[?(@.mountPath!=\"/aisec\")]}{.name}:{.mountPath}:{.readOnly} {end}{range .items[0].spec.volumes[?(@.configMap)]}{.configMap.name} {end}{.items[0].spec.containers[0].env[0].name}={.items[0].spec.containers[0].env[0].value}")"
 echo "pod_security_admission=$(k get namespace tool-services orchestration -o jsonpath="{range .items[*]}{.metadata.labels.pod-security\.kubernetes\.io/enforce} {end}" | sed "s/ $//")"
 echo "default_deny=$({ k get networkpolicy default-deny -n tool-services -o name; k get networkpolicy default-deny -n orchestration -o name; } | tr "\n" " " | sed "s/ $//")"
 echo "tool_cert_14_days=$(openssl x509 -in /etc/aisec/tool-service/tls.crt -noout -checkend 1209600 >/dev/null 2>&1 && echo yes || echo no)"
@@ -661,6 +675,10 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
     <"$CONTRACT" 2>/dev/null)
   check N.14 "The configured permissions give the seeded excess and an unaffected control" \
     "$SEEDED_VERDICTS" "${configured:-not read}"
+  check N.18 "The orchestrator's collector, collect command, and contract are the ones in the two checkouts" \
+    "$COLLECT_SHAS" "$(value netbox_collect)"
+  check N.19 "The observer key is root's and closed to others, and pins the lab VM's host key the update run pins" \
+    "root 700 root 600 1 same" "$(value netbox_observe_key) $(value netbox_observe_pin)"
   # Kept for each target's .6, which reads the key the target accepts.
   TARGET_UPDATE_KEY=$(value target_update_key | cut -d " " -f 3,4)
   check P.12 "Squid is not installed on the orchestrator" 0 "$(value squid_installed)"
@@ -703,6 +721,11 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check T.2 "The tool service runs the image its manifest names" "${TOOL_IMAGE_DIGEST:-no digest in the manifest}" "$(value tool_image)"
   check T.3 "The tool service pod has no token, no root, and nothing writable" "false true true false ALL" "$(value tool_pod_security)"
   check T.4 "Both namespaces enforce the restricted pod security level" "restricted restricted" "$(value pod_security_admission)"
+  # One read-only volume per target's evidence, outside /aisec, and the
+  # variable that points the service at them (ADR 0040).
+  check T.14 "The tool service mounts each target's evidence read-only, NetBox's from the collect command's config map" \
+    "evidence-synthetic:/evidence/synthetic:true evidence-netbox:/evidence/netbox:true tool-service-evidence tool-service-evidence-netbox AISEC_EVIDENCE=/evidence" \
+    "$(value tool_evidence)"
   check T.5 "Both namespaces deny by default" "networkpolicy.networking.k8s.io/default-deny networkpolicy.networking.k8s.io/default-deny" "$(value default_deny)"
   check T.7 "The tool service certificate has more than 14 days left" yes "$(value tool_cert_14_days)"
   # From inside the pod. K3s enforces network policies with kube-router, which
@@ -1052,6 +1075,13 @@ probe=$($SSH "$LAB" 'sudo bash -s' 2>/dev/null <<<'
 t=/etc/aisec/netbox/tokens
 echo "tokens=$(stat -c "%U %a" $t $t/inventory-reader $t/inventory-reader-control 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 echo "cert=$(openssl x509 -in /etc/aisec/netbox/tls.crt -noout -fingerprint -sha256 2>/dev/null | cut -d = -f 2)"
+# The observer account (ADR 0040), as sshd applies it to the orchestrator.
+echo "observer=$(sshd -T -C user=aisec-observe,host=orchestrator,addr='"$ORCH_IP"' 2>/dev/null |
+  grep -E "^(authorizedkeysfile|allowtcpforwarding|permittty|forcecommand) " | sort | tr "\n" ";")"
+keys=/etc/ssh/aisec-observe-keys
+echo "observer_keys=$(stat -c "%U %a" $keys 2>/dev/null) $(wc -l <$keys 2>/dev/null) $(cut -d " " -f 1 $keys 2>/dev/null)"
+echo "observer_sudo=$(grep -v -e "^#" -e "^$" /etc/sudoers.d/91-aisec-observe 2>/dev/null | tr "\n" ";")"
+echo "observer_collector=$(sha256sum /usr/local/lib/aisec/netbox_access.py 2>/dev/null | cut -d " " -f 1)"
 ')
 check N.15 "The lab VM's NetBox tokens are root's and closed to others" "root 700 root 600 root 600" "$(value tokens)"
 check N.16 "The lab VM's copy of NetBox's certificate is the one the orchestrator pins" \
@@ -1062,6 +1092,26 @@ observed=$($SSH "$LAB" "sudo python3 -I -c $(printf %q "$COLLECTOR_CODE") observ
   <"$CONTRACT" 2>/dev/null)
 check N.17 "The records each token returns give the seeded excess and an unaffected control" \
   "$SEEDED_VERDICTS" "${observed:-not read}"
+check N.20 "The lab VM's observer account takes its key from root's file, with no forwarding, no TTY, and one command" \
+  "allowtcpforwarding no;authorizedkeysfile /etc/ssh/aisec-observe-keys;forcecommand sudo -n /usr/local/sbin/aisec-observe-netbox;permittty no;" \
+  "$(value observer)"
+check N.21 "The observer's key file holds one key, limited to the orchestrator, and sudo allows it one command" \
+  "root 644 1 from=\"$ORCH_IP\",restrict aisec-observe ALL=(root) NOPASSWD: /usr/local/sbin/aisec-observe-netbox \"\";" \
+  "$(value observer_keys) $(value observer_sudo)"
+check N.22 "The lab VM's copy of the collector is the one in this checkout" "$COLLECTOR_SHA" "$(value observer_collector)"
+# The collect command's own path to the observed half. The command it asks
+# for, id, is not what runs: the forced command is, with the contract on its
+# standard input, and its verdicts are N.17's.
+observer_run=$($SSH "$ORCH" "sudo ssh -F none -i /etc/aisec/netbox/observe/id_ed25519 -o IdentitiesOnly=yes \
+  -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/aisec/netbox/observe/known_hosts \
+  -T aisec-observe@$LAB_IP id" <"$CONTRACT" 2>/dev/null | python3 -I -c 'import json, sys
+try:
+    accounts = json.load(sys.stdin)["accounts"]
+    print(" ".join(a + ":" + v["verdict"] for a, v in accounts.items()))
+except (ValueError, KeyError, TypeError):
+    print("not a report")')
+check N.23 "From the orchestrator, the observer account runs the observed half and nothing else" \
+  "$SEEDED_VERDICTS" "$observer_run"
 
 if [ "$workstation" = 1 ]; then
   echo
