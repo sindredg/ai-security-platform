@@ -286,7 +286,7 @@ Idle use of the orchestrator and the worker is on their [component pages](compon
 infra/bootstrap/    Operator-run root: resource groups, state accounts, deployment identities
 infra/modules/      Shared Terraform modules
 infra/platform/     Platform Terraform root
-platform/           What the orchestrator runs: K3s manifests, the log copiers, the monitoring hosts script, the dispatch step's image, Argo with the workflow template, the targets' update run, and the fetch of NetBox's image
+platform/           What the orchestrator runs: K3s manifests, the log copiers, the monitoring hosts script, the image of the dispatch and comparison steps, Argo with the workflow template, the targets' update run, and the fetch of NetBox's image
 edge/               The fetch window command and its host list, installed on the edge VM
 worker/             What the orchestrator copies to the AI worker: pins, build scripts, service units
 tool-service/       The MCP server that checks every tool call, its tests, and its pinned packages
