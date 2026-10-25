@@ -4,26 +4,30 @@
 #   argo submit -n orchestration --from workflowtemplate/investigate -p task="..."
 #
 # A NetBox job is collected on the orchestrator first, and submitted under the
-# same name, which is the job's ID (ADR 0040):
+# same name, which is the job's ID (ADR 0040), with the NetBox task:
 #
 #   sudo collect-netbox-evidence nb-0001
 #   argo submit -n orchestration --from workflowtemplate/investigate \
-#     --name nb-0001 -p target=netbox -p task="..."
+#     --name nb-0001 -p target=netbox -p task="$(cat collectors/netbox/task.txt)"
 #
 # The dispatch step makes the job's token, registers it, hands the job to the
-# worker over SSH, and checks the result. The exit handler revokes the token
-# on success, failure, and stop. One job at a time: the mutex waits for the
-# one before. Neither step is retried.
+# worker over SSH, and checks the result. For a NetBox job, the comparison
+# step then reads the answer's verdict line for each account, and the checks'
+# verdicts for this job alone. Anything but a match fails the step, which
+# stops the workflow for the operator (ADR 0041). The exit handler revokes the
+# token on success, failure, and stop. One job at a time: the mutex waits for
+# the one before. No step is retried.
 #
-# Deadlines, shortest first: the step's, 180 seconds past the job's own limit,
-# then the token's, 300 past it, then the worker unit's 1800.
+# Deadlines, shortest first: the dispatch step's, 180 seconds past the job's
+# own limit, then the token's, 300 past it, then the worker unit's 1800. The
+# comparison step gets 120 seconds of its own.
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
   name: investigate
   namespace: orchestration
 spec:
-  entrypoint: dispatch
+  entrypoint: investigate
   onExit: revoke
   arguments:
     parameters:
@@ -46,9 +50,6 @@ spec:
       - name: worker
   ttlStrategy:
     secondsAfterCompletion: 86400
-  podMetadata:
-    labels:
-      app.kubernetes.io/name: dispatch
   securityContext:
     runAsNonRoot: true
     fsGroup: 65532
@@ -67,7 +68,23 @@ spec:
       configMap:
         name: tool-service-cert
   templates:
+    - name: investigate
+      steps:
+        - - name: dispatch
+            template: dispatch
+        - - name: compare
+            template: compare
+            when: "'{{workflow.parameters.target}}' == 'netbox'"
+            arguments:
+              parameters:
+                - name: answer
+                  value: "{{steps.dispatch.outputs.parameters.answer}}"
     - name: dispatch
+      # The label the network policies give a way to the worker's SSH port
+      # and the tool service's registration port.
+      metadata:
+        labels:
+          app.kubernetes.io/name: dispatch
       activeDeadlineSeconds: "{{=asInt(workflow.parameters.seconds) + 180}}"
       # On this template only, so the revoke pod's spec does not name the key.
       volumes:
@@ -128,7 +145,70 @@ spec:
             valueFrom:
               path: /tmp/result.json
               default: "{}"
+          # The comparison's input: written only for an answer of at most
+          # 8 KiB with no template syntax, which Argo would render.
+          - name: answer
+            valueFrom:
+              path: /tmp/answer.txt
+              default: ""
+    # No credential and a label no policy names: it reaches the API server
+    # for its executor, and nothing else.
+    - name: compare
+      metadata:
+        labels:
+          app.kubernetes.io/name: compare
+      activeDeadlineSeconds: 120
+      inputs:
+        parameters:
+          - name: answer
+      volumes:
+        # This job's verdicts and no other job's. Optional, so that a job
+        # with none still reaches the step, which stops on it.
+        - name: verdicts
+          configMap:
+            name: netbox-verdicts
+            optional: true
+            items:
+              - key: "{{workflow.name}}.json"
+                path: verdicts.json
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Mi
+      container:
+        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:07f2a2905171c239332ca76ea9b85df2b50b9a054e76554fd0f2a2755fd47ce2
+        command: [python, /opt/dispatch/compare.py]
+        args:
+          - "{{workflow.name}}"
+          - "{{inputs.parameters.answer}}"
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 128Mi
+        securityContext:
+          runAsUser: 65532
+          runAsGroup: 65532
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+        volumeMounts:
+          - name: verdicts
+            mountPath: /etc/aisec/verdicts
+            readOnly: true
+          - name: tmp
+            mountPath: /tmp
+      outputs:
+        parameters:
+          - name: comparison
+            valueFrom:
+              path: /tmp/comparison.json
+              default: "{}"
     - name: revoke
+      metadata:
+        labels:
+          app.kubernetes.io/name: dispatch
       container:
         image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:07f2a2905171c239332ca76ea9b85df2b50b9a054e76554fd0f2a2755fd47ce2
         command: [python, /opt/dispatch/dispatch.py]

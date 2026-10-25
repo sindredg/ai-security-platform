@@ -2,8 +2,9 @@
 # Runs on the orchestrator, as root, after fetch.sh. Applies Argo's custom
 # resource definitions from the checked release file, the controller, the
 # accounts and Roles in orchestration, the network policies, and the workflow
-# template (ADR 0029). Run it again after a change to any of them. The
-# dispatch key is a separate step: make-dispatch-key.sh.
+# template (ADR 0029), and makes the comparison step's config map once (ADR
+# 0041). Run it again after a change to any of them. The dispatch key is a
+# separate step: make-dispatch-key.sh.
 #
 # Usage: install.sh STAGE_DIR
 set -euo pipefail
@@ -36,6 +37,11 @@ echo "== the controller, the accounts, the policies, and the template"
 kubectl apply -f "$here/network-policies.yaml"
 kubectl apply -f "$here/argo.yaml"
 kubectl apply -f "$here/rbac.yaml"
+# The collect command adds each NetBox job's verdicts to this one, and the
+# comparison step mounts its job's key. It is made empty once and never
+# applied over, which would drop every job's verdicts.
+kubectl -n orchestration get configmap netbox-verdicts >/dev/null 2>&1 ||
+  kubectl -n orchestration create configmap netbox-verdicts
 kubectl apply -f "$here/workflow-template.yaml"
 kubectl -n argo rollout status deployment/workflow-controller --timeout=180s
 kubectl -n argo get pods -l app=workflow-controller \
