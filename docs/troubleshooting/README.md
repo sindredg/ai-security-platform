@@ -20,3 +20,4 @@ Failures that taught something about the system or a procedure. Each entry recor
 | [14](14-workflow-pods-wait-for-the-executors-token.md) | 3 | With the pod's token off, Argo mounts the executor's token from a secret that Kubernetes no longer makes. Checks on the controller say nothing about the pods it builds |
 | [15](15-argo-server-exits-without-its-config-map.md) | 3 | Argo's server exits if it cannot read a config map in its namespace, even in local mode. The operator's token has to reach one |
 | [16](16-targets-apt-sources-fall-back-without-dns.md) | 4 | Without a mirror in its configuration, cloud-init on Azure keeps the Azure mirror only if its name resolves. On a VM with no DNS it falls back to hosts the target port refuses |
+| [17](17-netbox-sees-ipv4-clients-as-mapped-ipv6.md) | 4 | On Granian's dual-stack socket, NetBox sees an IPv4 client as `::ffff:a.b.c.d`, which no IPv4 network in a token's allowed addresses contains |
