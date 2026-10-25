@@ -113,6 +113,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-25 | 412 of 412 passed | From the branch `feat/verdict-comparison` at `73f0f9d`, 18:24 to 18:32 UTC, after the comparison step, its image, and the system text were installed and the [first jobs with the comparison](../worklogs/0005-netbox-target-and-exercise-1.md#the-rollout-and-the-first-jobs) ran. First run with `W.12` |
 | 2026-10-25 | 361 of 362 passed | Without the Azure and workstation checks, from the same branch at `5cc0ed9`, 20:07 to 20:11 UTC, while `argo-operator` was given `patch` on config maps in `orchestration`. `W.12` failed, as written before the run ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#w12-fails-on-a-broken-input)) |
 | 2026-10-25 | 362 of 362 passed | The same, 20:11 to 20:15 UTC, after the grant was removed |
+| 2026-10-25 | 361 of 362 passed | Without the Azure and workstation checks, from the branch at `dde15f2`, at 21:58 UTC, with one line added to the installed case file. `N.18` failed, as written before the run ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-rollout)) |
+| 2026-10-25 | 412 of 412 passed | The same branch, 22:01 to 22:10 UTC, after the case file was put back, with #202's image and the job program's checks installed. `N.18` reads the case file |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
