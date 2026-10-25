@@ -24,6 +24,7 @@ COMPARE = HERE.parent.parent.parent / "platform" / "dispatch" / "compare.py"
 EVIDENCE = "tool-service-evidence-netbox"
 VERDICTS = "netbox-verdicts"
 REPORTS = json.loads((HERE / "reports.json").read_text(encoding="utf-8"))
+CASES = HERE.parent / "cases.json"
 
 FAKE_COLLECTOR = """#!{python} -I
 import os, sys
@@ -521,7 +522,62 @@ class Collect(unittest.TestCase):
 
     def test_the_usage_without_one_job(self):
         self.assertEqual(self.run_command()[0], 2)
-        self.assertEqual(self.run_command("a", "b")[0], 2)
+        self.assertEqual(self.run_command("a", "b", "c")[0], 2)
+
+    def cases(self):
+        """A case file with one case: the test contract, one record fewer."""
+        contract = json.loads(json.dumps(REPORTS["contract"]))
+        contract["reads"][0]["records"] = contract["reads"][0]["records"][:1]
+        path = self.tmp / "cases.json"
+        path.write_text(json.dumps({"cases": {"one-device": {"contract": contract}}}))
+        return path, contract
+
+    def test_a_case_is_collected_against_its_own_contract(self):
+        path, contract = self.cases()
+        code, out, err = self.run_command("job-1", "one-device", AISEC_CASES=str(path))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out.splitlines()[0], "job-1: case one-device")
+        sent = (self.fake / "collector-stdin", self.fake / "ssh-stdin")
+        for half in sent:
+            self.assertEqual(json.loads(half.read_text()), contract, half.name)
+        ev = self.documents("job-1")["ev-0001"]
+        self.assertEqual(ev["reads"][0]["records"], contract["reads"][0]["records"])
+
+    def test_a_case_not_in_the_file_is_refused_before_anything_runs(self):
+        path, _ = self.cases()
+        code, _, err = self.run_command("job-1", "two-devices", AISEC_CASES=str(path))
+        self.assertEqual(code, 1)
+        self.assertIn("no case two-devices", err)
+        self.assert_nothing_written("job-1")
+        self.assertFalse((self.fake / "collector-argv").exists())
+
+    def test_not_a_case_name_is_refused(self):
+        path, _ = self.cases()
+        for case in ("../one-device", "One-device", "", "c" * 33, "one-device\n"):
+            with self.subTest(case):
+                code, _, err = self.run_command("job-1", case, AISEC_CASES=str(path))
+                self.assertEqual(code, 1, err)
+                self.assertIn("not a case name", err)
+        self.assertFalse((self.fake / "collector-argv").exists())
+
+    def test_each_shipped_case_names_its_accounts_expected_verdicts(self):
+        # ADR 0042: the case file holds each case's contract and the verdicts
+        # the checks are expected to give, written before the scored runs.
+        cases = json.loads(CASES.read_text(encoding="utf-8"))["cases"]
+        self.assertGreaterEqual(len(cases), 6)
+        values = {"excess", "missing", "unknown", "within"}
+        for name, case in cases.items():
+            with self.subTest(name):
+                self.assertEqual(set(case), {"contract", "expected"})
+                contract = case["contract"]
+                self.assertEqual(
+                    set(contract),
+                    {"accounts", "viewpoint", "grants", "reads", "denials"},
+                )
+                self.assertEqual(set(case["expected"]), set(contract["accounts"]))
+                for verdicts in case["expected"].values():
+                    self.assertEqual(set(verdicts), {"configured", "observed"})
+                    self.assertLessEqual(set(verdicts.values()), values)
 
     def test_evidence_the_pod_does_not_see_in_time_fails_and_says_where_it_is(self):
         code, _, err = self.run_command("job-1", FAKE_KUBELET_SYNC="0", AISEC_WAIT="1")

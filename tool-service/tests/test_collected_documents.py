@@ -19,6 +19,7 @@ from aisec_tools.tools.evidence import make_get_evidence
 
 COLLECTORS = Path(__file__).parent.parent.parent / "collectors" / "netbox"
 REPORTS = json.loads((COLLECTORS / "tests" / "reports.json").read_text())
+CASES = json.loads((COLLECTORS / "cases.json").read_text())["cases"]
 
 
 @pytest.fixture(scope="module")
@@ -52,6 +53,20 @@ def test_every_collected_document_reaches_the_model(tmp_path, command):
         reason, text = tool(job, {"reference": reference})
         assert reason is None, reference
         assert json.loads(text) == document
+
+
+@pytest.mark.parametrize("name", sorted(CASES))
+def test_each_held_out_cases_contract_reaches_the_model(tmp_path, command, name):
+    # ADR 0042: a case's contract becomes the job's ev-0001.
+    policy = json.loads(POLICY.read_text(encoding="utf-8"))
+    contract = CASES[name]["contract"]
+    document = command.facts_contract(contract, "nb-0001", "2026-10-25T08:00:00Z")
+    configmap_volume(tmp_path / "netbox", {"nb-0001.ev-0001.json": document})
+    tool = make_get_evidence(tmp_path, policy)
+    job = Job("nb-0001", "netbox", frozenset(), 0.0, "digest")
+    reason, text = tool(job, {"reference": "ev-0001"})
+    assert reason is None, name
+    assert json.loads(text) == document
 
 
 def test_the_commands_size_limit_is_the_tool_services(command):

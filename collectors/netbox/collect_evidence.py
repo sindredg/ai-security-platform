@@ -1,14 +1,15 @@
 #!/usr/bin/python3 -I
 """Collects one job's NetBox evidence on the orchestrator (ADR 0040).
 
-    collect-netbox-evidence JOB
+    collect-netbox-evidence JOB [CASE]
 
 Runs the configured half here, with the collector's token, and the observed
 half on the lab VM, through the observer account's forced command. Both get
 the contract on standard input. Both answers are target side, NetBox's and
 the lab VM's: each half gets a megabyte and two minutes, and what comes back
 has to name the contract's accounts, and no read or denial the contract does
-not, before anything is written.
+not, before anything is written. The contract is the installed one, or with
+CASE that held-out case's, from the installed case file (ADR 0042).
 
 The job gets the facts the verdicts rest on, in three documents: ev-0001 the
 contract, ev-0002 the configured permissions, ev-0003 the records each read
@@ -38,6 +39,7 @@ from pathlib import Path
 
 STATE = Path(os.environ.get("AISEC_STATE", "/var/lib/aisec/evidence/netbox"))
 CONTRACT = Path(os.environ.get("AISEC_CONTRACT", "/etc/aisec/netbox/contract.json"))
+CASES = Path(os.environ.get("AISEC_CASES", "/etc/aisec/netbox/cases.json"))
 COLLECTOR = os.environ.get("AISEC_COLLECTOR", "/usr/local/lib/aisec/netbox_access.py")
 SSH = os.environ.get("AISEC_SSH", "/usr/bin/ssh")
 KUBECTL = os.environ.get("AISEC_KUBECTL", "/usr/local/bin/k3s kubectl").split()
@@ -64,6 +66,7 @@ RESULT_BYTES = 16384
 # A report is a few kilobytes. Far more is not a report, and is not held.
 OUTPUT_BYTES = 1 << 20
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
+CASE = re.compile(r"[a-z0-9][a-z0-9-]{0,31}")
 VERDICTS = ("excess", "missing", "unknown", "within")
 
 
@@ -311,12 +314,26 @@ def wait_visible(job):
     return round(time.monotonic() - start)
 
 
-def collect(job):
+def contract_for(case):
+    """The installed contract, or the held-out case's from the case file."""
+    if case is None:
+        return json.loads(CONTRACT.read_text(encoding="utf-8"))
+    if not CASE.fullmatch(case):
+        raise Failed("not a case name")
+    cases = json.loads(CASES.read_text(encoding="utf-8"))["cases"]
+    if case not in cases:
+        raise Failed(f"no case {case}")
+    return cases[case]["contract"]
+
+
+def collect(job, case=None):
     if not JOB_ID.fullmatch(job):
         raise Failed("not a job ID")
     if (STATE / job).exists():
         raise Failed(f"{job} already collected")
-    contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    contract = contract_for(case)
+    if case is not None:
+        print(f"{job}: case {case}", flush=True)
     sent = json.dumps(contract)
     halves = {
         "configured": [sys.executable, "-I", COLLECTOR, "configured"],
@@ -377,11 +394,11 @@ def collect(job):
 
 
 def main(argv):
-    if len(argv) != 2:
+    if len(argv) not in (2, 3):
         print(__doc__.split("\n\n")[1], file=sys.stderr)
         return 2
     try:
-        collect(argv[1])
+        collect(argv[1], argv[2] if len(argv) == 3 else None)
     except Failed as error:
         print(f"failed: {error}", file=sys.stderr)
         return 1
