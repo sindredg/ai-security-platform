@@ -2,7 +2,7 @@
 
 Argo Workflows' controller in its own namespace, managing `orchestration` only, and the template that dispatches a job to the worker ([ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)). The procedure is the [workflows runbook](../runbooks/workflows.md).
 
-Status: **tested** on the live system on 2026-10-21. `W.1` to `W.10` failed on absence before the install, on 2026-10-20, and passed at 04:24 UTC after it. `W.11` failed on absence before its secret existed and passed at 15:26 UTC, and its parser gives another value for a secret with no token, another type, or another account ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)).
+Status: **tested** on the live system on 2026-10-21. `W.1` to `W.10` failed on absence before the install, on 2026-10-20, and passed at 04:24 UTC after it. `W.11` failed on absence before its secret existed and passed at 15:26 UTC, and its parser gives another value for a secret with no token, another type, or another account ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)). `W.12` passed in its first check run, on 2026-10-25 from 18:24 to 18:32 UTC. It failed with `1 27` while `argo-operator` was given `patch` on config maps in `orchestration`, and passed again after ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#w12-fails-on-a-broken-input)).
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
