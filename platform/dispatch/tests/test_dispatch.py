@@ -210,7 +210,7 @@ class Chain(unittest.TestCase):
 
     def test_a_job_registers_runs_and_returns_a_checked_result(self):
         code, out, err = self.run_dispatch(
-            "dispatch", "job-1", "6", "60", "Is F-0001 confirmed?"
+            "dispatch", "job-1", "synthetic", "6", "60", "Is F-0001 confirmed?"
         )
         self.assertEqual(code, 0, err)
         body = self.registered_digest()
@@ -236,7 +236,9 @@ class Chain(unittest.TestCase):
         self.assertIn("Confirmed.", out)
 
     def test_the_transcript_reaches_the_output_and_the_log(self):
-        code, out, err = self.run_dispatch("dispatch", "job-1", "6", "60", "task")
+        code, out, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "task"
+        )
         self.assertEqual(code, 0, err)
         transcript = json.loads((self.tmp / "result.json").read_text())["transcript"]
         self.assertEqual(
@@ -256,7 +258,7 @@ class Chain(unittest.TestCase):
 
     def test_the_token_is_nowhere_but_the_worker(self):
         _, out, err = self.run_dispatch(
-            "dispatch", "job-1", "6", "60", "Is F-0001 confirmed?"
+            "dispatch", "job-1", "synthetic", "6", "60", "Is F-0001 confirmed?"
         )
         token = self.worker_token()
         argv = (self.tmp / "ssh-argv.json").read_text()
@@ -265,7 +267,7 @@ class Chain(unittest.TestCase):
         self.assertNotIn(token, json.dumps([c[3].decode() for c in Stub.calls]))
 
     def test_ssh_checks_the_host_key_and_uses_a_private_copy_of_the_key(self):
-        self.run_dispatch("dispatch", "job-1", "6", "60", "task")
+        self.run_dispatch("dispatch", "job-1", "synthetic", "6", "60", "task")
         argv = json.loads((self.tmp / "ssh-argv.json").read_text())
         self.assertIn("StrictHostKeyChecking=yes", argv)
         self.assertIn(f"UserKnownHostsFile={self.tmp / 'known_hosts'}", argv)
@@ -277,20 +279,26 @@ class Chain(unittest.TestCase):
 
     def test_a_refused_registration_opens_no_session(self):
         Stub.register_status = 409
-        code, _, err = self.run_dispatch("dispatch", "job-1", "6", "60", "task")
+        code, _, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "task"
+        )
         self.assertEqual(code, 1)
         self.assertIn("registration refused", err)
         self.assertFalse((self.tmp / "ssh-argv.json").exists())
 
     def test_a_job_without_a_tool_call_fails_the_step(self):
         self.mode = "nocall"
-        code, _, err = self.run_dispatch("dispatch", "job-1", "6", "60", "task")
+        code, _, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "task"
+        )
         self.assertEqual(code, 1)
         self.assertIn("called no tool", err)
 
     def test_a_failed_job_fails_the_step_and_keeps_its_result(self):
         self.mode = "fail"
-        code, _, err = self.run_dispatch("dispatch", "job-1", "6", "60", "task")
+        code, _, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "task"
+        )
         self.assertEqual(code, 1)
         self.assertIn("ended failed", err)
         self.assertEqual(
@@ -299,7 +307,9 @@ class Chain(unittest.TestCase):
 
     def test_a_slot_not_erased_after_the_job_fails_the_step(self):
         Stub.erase_statuses = [200, 501]
-        code, _, err = self.run_dispatch("dispatch", "job-1", "6", "60", "task")
+        code, _, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "task"
+        )
         self.assertEqual(code, 1)
         self.assertIn("slot was not erased", err)
         result = json.loads((self.tmp / "result.json").read_text())
@@ -309,7 +319,9 @@ class Chain(unittest.TestCase):
 
     def test_a_slot_not_erased_before_the_job_refuses_it(self):
         Stub.erase_statuses = [501]
-        code, _, err = self.run_dispatch("dispatch", "job-1", "6", "60", "task")
+        code, _, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "task"
+        )
         self.assertEqual(code, 1)
         self.assertIn("refused the job", err)
         self.assertIn("slot could not be erased", err)
@@ -318,7 +330,7 @@ class Chain(unittest.TestCase):
 
     def test_a_stop_is_a_cancel_on_the_worker(self):
         self.mode = "sleep"
-        process = self.start("dispatch", "job-1", "6", "60", "task")
+        process = self.start("dispatch", "job-1", "synthetic", "6", "60", "task")
         for _ in range(200):
             if (self.tmp / "recipe-seen.json").exists():
                 break
@@ -346,16 +358,35 @@ class Chain(unittest.TestCase):
 
     def test_bad_arguments_register_nothing(self):
         for args in (
-            ("dispatch", "Job-1", "6", "60", "task"),
-            ("dispatch", "job-1", "0", "60", "task"),
-            ("dispatch", "job-1", "6", "59", "task"),
-            ("dispatch", "job-1", "6", "1201", "task"),
-            ("dispatch", "job-1", "six", "60", "task"),
+            ("dispatch", "Job-1", "synthetic", "6", "60", "task"),
+            ("dispatch", "job-1", "synthetic", "0", "60", "task"),
+            ("dispatch", "job-1", "synthetic", "6", "59", "task"),
+            ("dispatch", "job-1", "synthetic", "6", "1201", "task"),
+            ("dispatch", "job-1", "synthetic", "six", "60", "task"),
+            ("dispatch", "job-1", "other", "6", "60", "task"),
+            ("dispatch", "job-1", "", "6", "60", "task"),
+            ("dispatch", "job-1", "Netbox", "6", "60", "task"),
         ):
             with self.subTest(args):
                 code, _, _ = self.run_dispatch(*args)
                 self.assertEqual(code, 1)
         self.assertEqual(Stub.calls, [])
+
+    def test_an_unknown_target_is_refused_before_registration(self):
+        code, _, err = self.run_dispatch("dispatch", "job-1", "other", "6", "60", "t")
+        self.assertEqual(code, 1)
+        self.assertIn("failed: not a target", err)
+        self.assertEqual(Stub.calls, [])
+
+    def test_the_old_form_without_a_target_registers_nothing(self):
+        code, _, _ = self.run_dispatch("dispatch", "job-1", "6", "60", "task")
+        self.assertEqual(code, 2)
+        self.assertEqual(Stub.calls, [])
+
+    def test_the_target_is_registered(self):
+        code, _, err = self.run_dispatch("dispatch", "job-1", "netbox", "6", "60", "t")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.registered_digest()["target"], "netbox")
 
 
 PART = {"role": "assistant", "type": "text", "text": "Confirmed."}

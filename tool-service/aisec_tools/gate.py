@@ -134,11 +134,11 @@ class Calls:
             jsonschema.validate(arguments, self.policy["tools"][name]["input_schema"])
         except jsonschema.ValidationError:
             return "arguments do not match the schema", None
-        result = await anyio.to_thread.run_sync(self.tools[name], job, arguments)
-        if result is None:
-            return "nothing by that reference", None
-        if len(result.encode()) > self.policy["limits"]["result_bytes"]:
+        reason, text = await anyio.to_thread.run_sync(self.tools[name], job, arguments)
+        if reason:
+            return reason, None
+        if len(text.encode()) > self.policy["limits"]["result_bytes"]:
             return "result too large", None
         # The job can end while the tool runs. A late result is dropped.
         reason = self.jobs.ended(job)
-        return (reason, None) if reason else (None, result)
+        return (reason, None) if reason else (None, text)

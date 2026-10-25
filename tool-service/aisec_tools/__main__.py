@@ -1,7 +1,8 @@
 """Starts the two listeners.
 
 Everything the service reads is under one directory, /aisec in the container.
-AISEC_ROOT moves it, for a run outside one.
+AISEC_ROOT moves it, for a run outside one. AISEC_EVIDENCE moves the evidence
+on its own: the pod mounts it from /evidence.
 
     policy.json     policies/tool-service.json: the rules, limits, and listeners
     evidence/       one directory of evidence per target, read-only
@@ -31,7 +32,7 @@ def build(root):
     """Returns (policy, tool app, registration app)."""
     policy = json.loads((root / "policy.json").read_text(encoding="utf-8"))
     jobs = Jobs(policy)
-    calls = Calls(jobs, make_tools(root))
+    calls = Calls(jobs, make_tools(root, policy))
     handlers = {"on_list_tools": calls.list_tools, "on_call_tool": calls.call_tool}
     # Stateless, with plain JSON replies: no session to steal and no stream to
     # hold open. The SDK's own size limit and Host check stay on, behind the gate.

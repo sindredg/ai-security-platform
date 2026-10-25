@@ -12,13 +12,15 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
+from documents import synthetic
 from starlette.testclient import TestClient
 
 import aisec_tools.__main__ as entry
 
 POLICY = Path(__file__).parent.parent.parent / "policies" / "tool-service.json"
-MARKER = "EVIDENCE-MARKER-A-5521"
-MARKER_B = "EVIDENCE-MARKER-B-9034"
+# In the token field, which holds lower case, digits, and hyphens only.
+MARKER = "evidence-marker-a-5521"
+MARKER_B = "evidence-marker-b-9034"
 
 
 def public_pem(key):
@@ -64,7 +66,11 @@ def ec_signer():
 @pytest.fixture
 def root(tmp_path, signer):
     policy = json.loads(POLICY.read_text(encoding="utf-8"))
-    policy["targets"]["synthetic-b"] = {"tools": ["get_evidence", "other_tool"]}
+    policy["targets"]["synthetic-b"] = {
+        "tools": ["get_evidence", "other_tool"],
+        "store": "shared",
+        "evidence": {"ev-0002": "synthetic-access"},
+    }
     policy["tools"]["other_tool"] = dict(policy["tools"]["get_evidence"])
     (tmp_path / "policy.json").write_text(json.dumps(policy), encoding="utf-8")
     for target, reference, marker in (
@@ -73,7 +79,7 @@ def root(tmp_path, signer):
     ):
         (tmp_path / "evidence" / target).mkdir(parents=True)
         path = tmp_path / "evidence" / target / (reference + ".json")
-        path.write_text(json.dumps({"reference": reference, "marker": marker}))
+        path.write_text(json.dumps(synthetic(reference, marker)))
     (tmp_path / "sa-jwks.json").write_text(jwks(signer), encoding="utf-8")
     return tmp_path
 
@@ -88,8 +94,8 @@ class Service:
         self.door.set()
         real_tools = entry.make_tools
 
-        def held_tools(path):
-            tool = real_tools(path)["get_evidence"]
+        def held_tools(path, policy):
+            tool = real_tools(path, policy)["get_evidence"]
 
             def held(job, arguments):
                 self.inside.release()

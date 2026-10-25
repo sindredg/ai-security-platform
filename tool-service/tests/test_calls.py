@@ -11,7 +11,7 @@ def test_an_authorized_call_returns_the_evidence(two_jobs, lines):
     assert response.status_code == 200
     result = response.json()["result"]
     assert result["isError"] is False
-    assert json.loads(result["content"][0]["text"])["marker"] == MARKER
+    assert json.loads(result["content"][0]["text"])["token"] == MARKER
 
     (line,) = lines()
     arguments = json.dumps({"reference": "ev-0001"}, separators=(",", ":"))

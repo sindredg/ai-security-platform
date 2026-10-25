@@ -3,11 +3,11 @@
 Runs in a workflow pod in `orchestration`, as the dispatch account, from the
 dispatch image. Two modes:
 
-    dispatch.py dispatch JOB MAX_TURNS SECONDS TASK
+    dispatch.py dispatch JOB TARGET MAX_TURNS SECONDS TASK
     dispatch.py revoke JOB
 
-dispatch makes a job token, registers the job with the tool service by the
-token's digest, opens an SSH session to the worker's job account, writes one
+dispatch makes a job token, registers the job for its target with the tool
+service by the token's digest, opens an SSH session to the worker's job account, writes one
 job line, keeps the session's input open, and reads one result line. It checks
 the result's size and fields, writes it to the step's output file, prints the
 agent's transcript and answer to the step's log, and exits 0 only for a
@@ -51,7 +51,8 @@ RESULT = Path(os.environ.get("AISEC_RESULT", "/tmp/result.json"))  # noqa: S108 
 SSH = os.environ.get("AISEC_SSH", "/usr/bin/ssh")
 WORKER = "aisec-job@10.40.0.36"
 
-TARGET = "synthetic"
+# The targets the tool service's policy lists. It refuses any other too.
+TARGETS = ("synthetic", "netbox")
 TOOLS = ["get_evidence"]
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 # The ranges the job program on the worker accepts. Checked here first, so a
@@ -107,11 +108,11 @@ def tool_service(method, url, body=None):
         return error.code, error.read().decode()
 
 
-def register(job, seconds, token):
+def register(job, target, seconds, token):
     digest = hashlib.sha256(token.encode()).hexdigest()
     body = {
         "job": job,
-        "target": TARGET,
+        "target": target,
         "tools": TOOLS,
         "seconds": seconds + TOKEN_MARGIN,
         "token_sha256": digest,
@@ -227,9 +228,9 @@ class Session:
             self.process.wait()
 
 
-def dispatch(job, max_turns, seconds, task):
+def dispatch(job, target, max_turns, seconds, task):
     token = secrets.token_hex(32)
-    register(job, seconds, token)
+    register(job, target, seconds, token)
     line = json.dumps(
         {
             "job": job,
@@ -276,15 +277,17 @@ def dispatch(job, max_turns, seconds, task):
 
 def main(argv):
     try:
-        if len(argv) == 6 and argv[1] == "dispatch":
-            _, _, job, max_turns, seconds, task = argv
+        if len(argv) == 7 and argv[1] == "dispatch":
+            _, _, job, target, max_turns, seconds, task = argv
             if not JOB_ID.fullmatch(job):
                 raise Failed("not a job ID")
+            if target not in TARGETS:
+                raise Failed("not a target")
             if not (max_turns.isdigit() and int(max_turns) in TURNS):
                 raise Failed("max turns out of range")
             if not (seconds.isdigit() and int(seconds) in SECONDS):
                 raise Failed("seconds out of range")
-            dispatch(job, int(max_turns), int(seconds), task)
+            dispatch(job, target, int(max_turns), int(seconds), task)
         elif len(argv) == 3 and argv[1] == "revoke":
             status, text = tool_service("DELETE", REGISTER_URL + "/" + argv[2])
             print(status, text)
