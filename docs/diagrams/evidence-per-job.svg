@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 960 480" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="evidence-per-job-title evidence-per-job-desc" id="evidence-per-job-root">
+        <title id="evidence-per-job-title">Where a job's NetBox evidence goes</title>
+        <desc id="evidence-per-job-desc">Data flow diagram showing the collect command on the orchestrator reading NetBox's configured permissions with its own token and each account's reads through the lab VM's observer account, keeping the verdicts and both reports in the job's directory, and writing only facts into a config map that the tool service mounts, which hands the AI worker only that job's documents in the fields their schemas name.</desc>
+        <defs>
+      <style>#evidence-per-job-root { --color-paper:   #2d3142;   
+      --color-ink:     #f5f5f5;   
+      --color-muted:   #bfc0c0;
+      --color-accent:  #f08a59;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace; }
+      #evidence-per-job-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #evidence-per-job-root .diagram-container { width: 100%; overflow-x: auto; }
+      #evidence-per-job-root .diagram-container { overflow-x: visible; }</style>
+          <marker id="evidence-per-job-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
+          <marker id="evidence-per-job-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
+          <marker id="evidence-per-job-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#739fdf"/></marker>
+
+          <!-- OPTIONAL: dot-pattern background. Uncomment and add <rect fill="url(#evidence-per-job-dots)"/> after the paper rect to enable. -->
+          <!--
+          <pattern id="evidence-per-job-dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="#f5f5f5" fill-opacity="0.08"/>
+          </pattern>
+          -->
+        </defs>
+
+        <rect width="100%" height="100%" fill="#2d3142"/>
+
+        <!-- Zones -->
+        <rect x="40" y="96" width="160" height="296" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="76" y="100" width="88" height="12" rx="2" fill="#2d3142"/>
+        <text x="120" y="109" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">TARGET NETWORK</text>
+        <rect x="240" y="96" width="520" height="296" rx="8" fill="#f5f5f5" fill-opacity="0.02" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <rect x="426" y="100" width="148" height="12" rx="2" fill="#2d3142"/>
+        <text x="500" y="109" fill="#949eb2" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">ORCHESTRATOR · 10.40.0.4</text>
+        <!-- Arrows: where the evidence goes -->
+        <line x1="184" y1="168" x2="264" y2="168" fill="none" stroke="#739fdf" stroke-width="1.2" marker-end="url(#evidence-per-job-arrow-link)"/>
+        <line x1="120" y1="208" x2="120" y2="288" fill="none" stroke="#739fdf" stroke-width="1.2" marker-end="url(#evidence-per-job-arrow-link)"/>
+        <path d="M184,328 H280 Q288,328 288,320 V208" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#evidence-per-job-arrow)"/>
+        <line x1="384" y1="208" x2="384" y2="288" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#evidence-per-job-arrow)"/>
+        <line x1="424" y1="168" x2="464" y2="168" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#evidence-per-job-arrow)"/>
+        <line x1="576" y1="168" x2="616" y2="168" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#evidence-per-job-arrow)"/>
+        <line x1="736" y1="168" x2="816" y2="168" fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#evidence-per-job-arrow-accent)"/>
+        <!-- Labels -->
+        <rect x="192" y="148" width="64" height="12" rx="2" fill="#2d3142"/>
+        <text x="224" y="157" fill="#739fdf" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CONFIGURED</text>
+        <rect x="128" y="242" width="64" height="12" rx="2" fill="#2d3142"/>
+        <text x="160" y="251" fill="#739fdf" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">OWN TOKENS</text>
+        <rect x="204" y="308" width="56" height="12" rx="2" fill="#2d3142"/>
+        <text x="232" y="317" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">OBSERVED</text>
+        <rect x="742" y="148" width="68" height="12" rx="2" fill="#2d3142"/>
+        <text x="776" y="157" fill="#f08a59" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">FIELDS ONLY</text>
+        <!-- Nodes -->
+        <rect x="56" y="128" width="128" height="80" rx="6" fill="#2d3142"/>
+        <rect x="56" y="128" width="128" height="80" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="120" y="166" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">NetBox</text>
+        <text x="120" y="182" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">NetBox VM</text>
+        <text x="120" y="196" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">HTTPS 8443</text>
+        <rect x="56" y="288" width="128" height="80" rx="6" fill="#2d3142"/>
+        <rect x="56" y="288" width="128" height="80" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="120" y="326" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Observer</text>
+        <text x="120" y="342" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">lab VM · SSH</text>
+        <text x="120" y="356" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">forced command</text>
+        <rect x="264" y="128" width="160" height="80" rx="6" fill="#2d3142"/>
+        <rect x="264" y="128" width="160" height="80" rx="6" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
+        <text x="344" y="166" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Collect command</text>
+        <text x="344" y="182" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">collect-netbox-evidence</text>
+        <text x="344" y="196" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">as root, once per job</text>
+        <rect x="304" y="288" width="160" height="80" rx="6" fill="#2d3142"/>
+        <rect x="304" y="288" width="160" height="80" rx="6" fill="#f5f5f5" fill-opacity="0.05" stroke="#bfc0c0" stroke-width="1"/>
+        <text x="384" y="326" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Job directory</text>
+        <text x="384" y="342" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">verdicts · both reports</text>
+        <text x="384" y="356" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">the job never reads it</text>
+        <rect x="464" y="128" width="112" height="80" rx="6" fill="#2d3142"/>
+        <rect x="464" y="128" width="112" height="80" rx="6" fill="#f5f5f5" fill-opacity="0.05" stroke="#bfc0c0" stroke-width="1"/>
+        <text x="520" y="166" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Config map</text>
+        <text x="520" y="182" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">JOB.ev-000N</text>
+        <text x="520" y="196" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">facts only</text>
+        <rect x="616" y="128" width="120" height="80" rx="6" fill="#2d3142"/>
+        <rect x="616" y="128" width="120" height="80" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="676" y="166" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Tool service</text>
+        <text x="676" y="182" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">the job's own keys</text>
+        <text x="676" y="196" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">schema fields only</text>
+        <rect x="816" y="128" width="104" height="80" rx="6" fill="#2d3142"/>
+        <rect x="816" y="128" width="104" height="80" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="868" y="166" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">AI worker</text>
+        <text x="868" y="182" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.40.0.36</text>
+        <text x="868" y="196" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">untrusted</text>
+        <line x1="40" y1="424" x2="920" y2="424" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <text x="40" y="440" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="40" y="456" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.08" stroke="#f08a59" stroke-width="1"/>
+        <text x="60" y="464" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Collects, as root</text>
+        <rect x="160" y="456" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.05" stroke="#bfc0c0" stroke-width="1"/>
+        <text x="180" y="464" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stored on the orchestrator</text>
+        <rect x="312" y="456" width="14" height="10" rx="2" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="332" y="464" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Platform</text>
+        <rect x="392" y="456" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="412" y="464" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Target side</text>
+        <line x1="496" y1="462" x2="524" y2="462" stroke="#739fdf" stroke-width="1.2" marker-end="url(#evidence-per-job-arrow-link)"/>
+        <text x="532" y="464" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">NetBox's answers</text>
+        <line x1="640" y1="462" x2="668" y2="462" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#evidence-per-job-arrow)"/>
+        <text x="676" y="464" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Evidence moves</text>
+        <line x1="772" y1="462" x2="800" y2="462" stroke="#f08a59" stroke-width="1.4" marker-end="url(#evidence-per-job-arrow-accent)"/>
+        <text x="808" y="464" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Reaches the model</text>
+
+      </svg>

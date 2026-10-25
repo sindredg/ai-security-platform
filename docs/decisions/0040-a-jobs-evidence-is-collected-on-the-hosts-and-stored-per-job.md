@@ -45,4 +45,4 @@ The hosts collect, and the tool service stores the snapshot per job.
 - **The model does not get the verdicts,** so its verdict is its own and the comparison means something. How the workflow reads the orchestrator's verdicts is decided with the comparison step.
 - **A ConfigMap holds at most 1 MiB.** The command removes the oldest jobs' keys from it. The orchestrator keeps every snapshot.
 - **The transcript keeps what the job read** for 24 hours ([0030](0030-how-a-job-reaches-the-worker.md)). NetBox's inventory is synthetic, so that rule still holds.
-- **Not seen:** a new key in a ConfigMap reaching a running pod's mounted directory, and how long that takes. `argo submit --from` with `--name` under the template restriction. Standard input through a forced command that runs sudo.
+- **Not seen when this was written, seen working on 2026-10-25:** a new key in a ConfigMap reaching a running pod's mounted directory, `argo submit --from` with `--name` under the template restriction, and standard input through a forced command that runs sudo ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-collection-and-the-jobs)).

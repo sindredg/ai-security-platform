@@ -1,6 +1,6 @@
 # Tool service and job identity
 
-Status: **tested** in CI on 2026-10-14 with `python -m pytest -q`: 160 tests passed, on the image the service is built from. Deployed on the orchestrator and **tested** on the live system on 2026-10-15: the [deployment checks](../validation/tool-service.md) and one round trip from the worker ([worklog](../worklogs/0003-toolchain-integration.md#the-deployment-on-the-orchestrator)). Since 2026-10-21 the dispatch step registers and revokes a job for each workflow, and the worker's calls with its token are allowed and logged ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows), [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)). See the [roadmap](../roadmap.md#3-toolchain-integration) for milestone status.
+Status: **tested** in CI on 2026-10-14 with `python -m pytest -q`: 160 tests passed, on the image the service is built from. Deployed on the orchestrator and **tested** on the live system on 2026-10-15: the [deployment checks](../validation/tool-service.md) and one round trip from the worker ([worklog](../worklogs/0003-toolchain-integration.md#the-deployment-on-the-orchestrator)). Since 2026-10-21 the dispatch step registers and revokes a job for each workflow, and the worker's calls with its token are allowed and logged ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows), [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)). Since 2026-10-25 it stores NetBox's evidence per job, and jobs on the live system have read it ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#evidence-per-job)). See the [roadmap](../roadmap.md#3-toolchain-integration) for milestone status.
 
 The tool service authorizes tool calls from the AI worker, on the orchestrator. This page explains how it identifies a job, rejects unauthorized requests, and records decisions. The decisions are in ADRs [0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), and [0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md). The code is in `tool-service/`, and its policy is in `policies/tool-service.json`.
 
@@ -38,7 +38,11 @@ A request passes two stages. Before the Model Context Protocol (MCP) SDK parses 
 | Handler | The result is within the size limit | An error result |
 | Handler | The job has not expired or been revoked while the tool ran. A late result is discarded | An error result |
 
-The two tool rows are Written since 2026-10-25: in the code and its tests, not in the running image. Before that the tool read `<target>/<reference>.json` and returned the file as it was. Status is in the [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation).
+The two tool rows are Verified on the live system on 2026-10-25. A job under a name with no collection got `nothing by that reference` on each call. A document with an injected field got `evidence does not match its schema`, and its text reached no model ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-collection-and-the-jobs)). Before that the tool read `<target>/<reference>.json` and returned the file as it was. Status is in the [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation).
+
+![Where a job's NetBox evidence goes: the collect command on the orchestrator, as root, reads the configured permissions from NetBox with its own token, and each account's reads through the observer account on the lab VM, which uses each account's own token. It keeps the verdicts and both reports in the job's directory, which the job never reads, and writes only facts into a config map. The tool service mounts it and hands the AI worker only the job's own documents, in the fields their schemas name](../diagrams/evidence-per-job.svg)
+
+The diagram source is [`diagrams/evidence-per-job.html`](../diagrams/evidence-per-job.html).
 
 Registration uses a separate listener. Its network policy admits only pods with the dispatch label in `orchestration`, and the worker's node port leads to the tool listener only. The listener checks the caller's token signature, issuer, audience, expiry, and service account. It then validates the registration schema, target, tools, and uniqueness of the job ID and token digest.
 
@@ -62,7 +66,7 @@ One JSON object per decision, on standard output. Standard output carries nothin
 | `reason` | Why, for a refusal |
 | `result_bytes` | The size of an allowed tool result. The result itself is not logged |
 
-The pod runs the image its manifest names (`T.2`). Since 2026-10-22 that is the build from commit `96f91ba`, on the [fixed base image](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base). Its code is the same as the image with the rate limit, deployed on 2026-10-16.
+The pod runs the image its manifest names (`T.2`). Since 2026-10-25 that is the build from commit `91bace4`, with evidence per job ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-collection-and-the-jobs)). From 2026-10-22 it was the build from `96f91ba`, on the [fixed base image](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base).
 
 The service writes to standard output and opens no log file. A host service, `aisec-audit-copy`, appends them to a file that no pod mounts. It runs on the orchestrator since 2026-10-16. Storage and who can change it are on the [audit log](audit-log.md) page.
 
@@ -78,14 +82,14 @@ The diagram source is [`diagrams/tool-service-cluster.html`](../diagrams/tool-se
 - Both namespaces deny all traffic by default. The tool port admits the worker subnet, the registration port admits the dispatch pods, and the tool service pod has no egress. A host rule also drops forwarded traffic from any pod to anything but pods ([ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md)).
 - The worker reaches the tool port through node port 30443, which keeps the caller's address for the network policy and the audit line. K3s answers node ports on the orchestrator's private address only.
 - A pair of network security group rules allows the worker subnet to reach TCP 30443 on the orchestrator.
-- The image is pulled by digest from the repository's package registry. The package is public, so the cluster needs no pull secret and the orchestrator holds no registry token. The image holds the code in this repository and no secret. The certificate, its key, the policy, and the cluster's key set are mounted when the pod starts.
+- The image is pulled by digest from the repository's package registry. The package is public, so the cluster needs no pull secret and the orchestrator holds no registry token. The image holds the code in this repository and no secret. The certificate, its key, the policy, and the cluster's key set are mounted when the pod starts. Each target's evidence is a read-only volume of its own: the synthetic target's from the file `deploy.sh` puts in its config map, NetBox's from the config map the collect command writes, whose new keys reach the running pod without a restart (`T.14`).
 
 CI enforces a 300-line limit on the server code and scans its pinned dependencies. A size-limit violation or a dependency vulnerability fails the check. The [worklog](../worklogs/0003-toolchain-integration.md#size) records the line count.
 
 ## What this does not do
 
 - **A bearer token can be reused if stolen.** Any process that reads it can make calls with the job's permissions until it is revoked or expires. Those permissions are limited to one target and the registered tools.
-- **Two jobs on one target read the same evidence, in the running image.** It stores evidence per target. The code since 2026-10-25 stores it per job on a target the policy marks per job ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)). The synthetic target stays shared: the operator writes its evidence, and it does not change.
+- **Jobs on the synthetic target read the same evidence.** The operator writes it, and it does not change. NetBox's is stored per job since 2026-10-25 ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)).
 - **Jobs live in memory.** A restart of the service ends every job. It fails closed.
 - **The rate limit is shared.** Requests without a valid token, from any caller, share one count per minute. Past it they get 429, and the rest of that minute leaves one audit line, not one per request. How many were refused in that minute is not recorded. A valid token is never limited. Tested on the live system on 2026-10-16.
 - **An offline check cannot see a deleted pod.** The dispatch step's token stays valid until it expires.
@@ -101,5 +105,6 @@ CI enforces a 300-line limit on the server code and scans its pinned dependencie
 | Goose can call the service | TLS calls before and after token revocation | Local workstation with a stub model; commands and results in the worklog |
 | Deployment on the orchestrator | The [tool service checks](../validation/tool-service.md) pass, and each was seen to fail first | Live system, 2026-10-15 |
 | The live service refuses a tool outside the job, a revoked or expired job token, and a registration with a wrong audience, another account, or an expired token | The round trip and the expiry runs | Live system, 2026-10-15; [runbook](../runbooks/tool-service.md#round-trip) and [worklog](../worklogs/0003-toolchain-integration.md#the-round-trip) |
+| The live service refuses a job another job's evidence, and a document with a field outside its schema | Two jobs on NetBox's target: one with no collection under its name, one with an injected field | Live system, 2026-10-25; [runbook](../runbooks/evidence-collection.md) and [worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-collection-and-the-jobs) |
 
 Commands and output are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#slice-the-tool-service).

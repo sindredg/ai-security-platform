@@ -69,6 +69,7 @@ The risk column describes what an attacker could do, or what could fail, because
 | The consumer's, the control account's, and the collector's NetBox tokens never expire. Each seed replaces them | One operator, and a seed per exercise | A copied token works until the next seed, from the address it is limited to | Tokens with an expiry, rotated by a job, from a secret store on each host |
 | Registration tokens are verified using a copied public key | The service needs no cluster credential or Kubernetes API connection | A deleted pod's token remains valid until expiry. A stale key copy stops registration | Automatic signing-key discovery and rotation, or mutual TLS between workloads |
 | Jobs and call counts live in memory | The design uses one replica | A restart invalidates every job token. Replicas would have separate job records | A job store shared by replicas |
+| A job's evidence is collected by a command the operator runs on the orchestrator before the workflow, and stored in a config map the tool service mounts ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)) | No pod reaches NetBox or the lab VM, and the collector's token stays on the host | A job starts only from a collection the operator ran, under a job ID the operator chose. A config map holds at most 1 MiB, so the command keeps the newest 20 jobs' keys | A collection step in the workflow, with its own identity and network path, and an evidence store per job outside the cluster's configuration |
 
 ### Detection and response
 
