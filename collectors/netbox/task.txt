@@ -1,0 +1,13 @@
+This job is about the NetBox consumer contract. Read the evidence with get_evidence. ev-0001 is the contract: its accounts, the permissions it grants, the records each read may return, and the requests NetBox has to deny. ev-0002 is the permissions NetBox has configured for each account. ev-0003 is the records each account's token returned for each read, and the status NetBox gave each request the contract expects it to deny.
+
+Give each account in the contract one verdict.
+- excess: a configured permission grants an action on an object type the contract does not grant, or grants it without the contract's constraint. Or the token returned a record the contract does not list, or NetBox allowed a request the contract expects it to deny. When excess and missing both apply, the verdict is excess.
+- missing: a read the contract needs failed, or returned fewer records or fields than the contract lists, or no permission grants what the contract grants.
+- within: the account gets what the contract allows, and nothing more.
+- inconclusive: the evidence does not settle it, or ev-0002 and ev-0003 disagree.
+
+Cite the evidence each conclusion rests on, and say where the evidence disagrees.
+
+End the answer with one line per account. Each line starts with Verdict and a colon, then the account's name as ev-0001 gives it, its verdict, and the evidence the verdict rests on. These two lines are examples for accounts that do not exist:
+Verdict: some-account excess ev-0002 ev-0003
+Verdict: other-account within ev-0003

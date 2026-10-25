@@ -5,6 +5,7 @@ hands them over. main() runs as a subprocess, as the step's container runs it,
 with the three paths pointed into a temporary directory.
 """
 
+import importlib.util
 import json
 import os
 import shutil
@@ -15,6 +16,9 @@ import unittest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
+REPO = HERE.parent.parent
+TASK = REPO / "collectors" / "netbox" / "task.txt"
+JOB_PROGRAM = REPO / "worker" / "agent-runtime" / "job" / "agent_job.py"
 sys.path.insert(0, str(HERE))
 
 import compare
@@ -355,6 +359,40 @@ class TheStep(unittest.TestCase):
                 code, _, _ = self.run_compare(*args)
                 self.assertEqual(code, 2)
                 self.assertFalse(self.comparison.exists())
+
+
+class TheNetboxTask(unittest.TestCase):
+    """The task the operator sends with a NetBox job, collectors/netbox/task.txt."""
+
+    def test_the_netbox_task_asks_for_the_lines_the_comparison_reads(self):
+        text = TASK.read_text(encoding="utf-8")
+        self.assertIn("Verdict:", text)
+        for value in compare.VALUES:
+            self.assertIn(value, text)
+        # Its examples are lines the comparison reads, for accounts no
+        # contract has, so an answer that copies one stops.
+        lines, unread = compare.verdict_lines(text)
+        self.assertEqual(unread, 0)
+        self.assertEqual(set(lines), {"some-account", "other-account"})
+        for found in lines.values():
+            self.assertIn(found[0][0], compare.VALUES)
+
+    def test_the_netbox_task_passes_the_workers_refusals(self):
+        spec = importlib.util.spec_from_file_location("agent_job", JOB_PROGRAM)
+        agent_job = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(agent_job)
+        text = TASK.read_text(encoding="utf-8")
+        line = {
+            "job": "nb-1",
+            "token": "0" * 64,
+            "task": text,
+            "max_turns": 8,
+            "seconds": 900,
+        }
+        self.assertEqual(agent_job.parse_job(json.dumps(line))["task"], text)
+        # The operator passes it as one shell argument, and it holds no path.
+        self.assertNotIn('"', text)
+        self.assertNotIn("/", text)
 
 
 if __name__ == "__main__":
