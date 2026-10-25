@@ -84,7 +84,7 @@ spec:
           emptyDir:
             sizeLimit: 1Mi
       container:
-        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:3d59905d38979624e5bda7a29f5572620c4c68cb6c091cc213a38d9e4486a298
+        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:07f2a2905171c239332ca76ea9b85df2b50b9a054e76554fd0f2a2755fd47ce2
         # The executor needs the command: it cannot read the image's entry
         # point from a registry it has no way to reach.
         command: [python, /opt/dispatch/dispatch.py]
@@ -130,7 +130,7 @@ spec:
               default: "{}"
     - name: revoke
       container:
-        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:3d59905d38979624e5bda7a29f5572620c4c68cb6c091cc213a38d9e4486a298
+        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:07f2a2905171c239332ca76ea9b85df2b50b9a054e76554fd0f2a2755fd47ce2
         command: [python, /opt/dispatch/dispatch.py]
         args: [revoke, "{{workflow.name}}"]
         resources:

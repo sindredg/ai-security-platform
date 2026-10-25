@@ -41,7 +41,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: tool-service
-          image: ghcr.io/sindredg/ai-security-platform/tool-service@sha256:94e29510525bb07dd4784691da7a5ee273d2b914ab255482f246e517069d00ee
+          image: ghcr.io/sindredg/ai-security-platform/tool-service@sha256:7e0a2066cbf8a03521401b678a70ce3f68b09e99aff0cff9f4630d1c1bbeda6f
           imagePullPolicy: IfNotPresent
           env:
             - name: AISEC_EVIDENCE
