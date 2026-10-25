@@ -37,7 +37,7 @@ The orchestrator's update key logs in to `aisec-update`. The limits are set twic
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
-| `U.14`, `U.15` | An update run in the last 7 days on the NetBox VM and on the lab VM, no security update pending, no reboot required | Nothing updates a target between runs. A missed run, a run that failed, or a kernel update not yet booted shows here, as `U.1` does on the platform VMs | apt's `update-success-stamp`, touched after each successful package list refresh, is newer than first boot's marker and at most 7 days old. The image build touched it too, so only a refresh on the VM counts. `apt list --upgradable` has nothing from the security suite, and `/run/reboot-required` does not exist. Before the first run on 2026-10-24 both read `no 0 no` |
+| `U.14`, `U.15` | An update run in the last 7 days on the NetBox VM and on the lab VM, no security update pending, no reboot required | Nothing updates a target between runs. A missed run, a run that failed, or a kernel update not yet booted shows here, as `U.1` does on the platform VMs | apt's `update-success-stamp`, touched after each successful package list refresh, is newer than first boot's marker and at most 7 days old. The image build touched it too, so only a refresh on the VM counts. `apt list --upgradable` has nothing from the security suite and exits 0 ([#173](https://github.com/sindredg/ai-security-platform/issues/173)), and `/run/reboot-required` does not exist. Expected `yes 0 0 no`. Before the first run on 2026-10-24 both read `no 0 no`, before the exit status was added |
 
 The list `apt list` reads is the one the last run left, so the count says what was pending then, not today. The 7 days bound that.
 

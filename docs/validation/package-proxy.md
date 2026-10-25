@@ -56,19 +56,19 @@ An update run forwards port 3129 from a target's loopback address, so the target
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
-| `U.1` | No security update is pending on the orchestrator | Unattended upgrades are doing their job | `apt list --upgradable` has nothing from the security suite |
+| `U.1` | No security update is pending on the orchestrator | Unattended upgrades are doing their job | `apt list --upgradable` has nothing from the security suite. The count comes with the command's exit status, which has to be 0, so a query that fails no longer reads as none found ([#173](https://github.com/sindredg/ai-security-platform/issues/173)) |
 | `U.2` | The mesh VPN agent is held at its pinned version | Its version moves on purpose, not with a nightly upgrade | `apt-mark showhold` on the router |
 | `U.3` | `apt` on the worker uses the edge | Otherwise it hangs for minutes and fails | `apt-config dump` names `http://10.45.0.4:3128` |
 | `U.4` | Unattended upgrades are enabled on the worker | Nobody has to remember | `systemctl is-enabled` |
-| `U.5` | No security update is pending on the worker | The whole path works, daily | `apt list --upgradable` has nothing from the security suite |
+| `U.5` | No security update is pending on the worker | The whole path works, daily | `apt list --upgradable` has nothing from the security suite. The count comes with the command's exit status, which has to be 0, so a query that fails no longer reads as none found ([#173](https://github.com/sindredg/ai-security-platform/issues/173)) |
 | `U.6` | The mesh VPN agent does not install updates itself | The hold in `U.2` stops `apt`, not the agent's own updater. An update it applied would be code from the vendor running as root | `tailscale debug prefs` on the router, `AutoUpdate.Apply` |
 | `U.7` | The mesh VPN agent is the current stable release | The hold in `U.2` and the updater off in `U.6` mean only the pin moves the agent. A pin left behind misses fixes, and nothing else would show it | The installed package version on the router equals `Version` from `pkgs.tailscale.com/stable/?mode=json`, read from the workstation. No answer from the site is a failure |
 | `U.8` | Unattended upgrades are enabled on the router | As `U.4` | `systemctl is-enabled` |
-| `U.9` | No security update is pending on the router | As `U.1`. The router reaches the Ubuntu mirrors through the edge network's NAT gateway | `apt list --upgradable` has nothing from the security suite |
+| `U.9` | No security update is pending on the router | As `U.1`. The router reaches the Ubuntu mirrors through the edge network's NAT gateway | `apt list --upgradable` has nothing from the security suite. The count comes with the command's exit status, which has to be 0, so a query that fails no longer reads as none found ([#173](https://github.com/sindredg/ai-security-platform/issues/173)) |
 | `U.10` | `apt` on the orchestrator uses the edge | It has no other way to its mirror | `apt-config dump` names `http://10.45.0.4:3128` |
 | `U.11` | containerd pulls images through the edge | A pull without it fails, and only on the next deploy | `HTTPS_PROXY` in containerd's environment is the edge |
 | `U.12` | Unattended upgrades are enabled on the edge | As `U.4` | `systemctl is-enabled` |
-| `U.13` | No security update is pending on the edge | As `U.1`. The edge is the most exposed machine | `apt list --upgradable` has nothing from the security suite |
+| `U.13` | No security update is pending on the edge | As `U.1`. The edge is the most exposed machine | `apt list --upgradable` has nothing from the security suite. The count comes with the command's exit status, which has to be 0, so a query that fails no longer reads as none found ([#173](https://github.com/sindredg/ai-security-platform/issues/173)) |
 | `U.14`, `U.15` | An update run in the last 7 days on each target, with nothing pending and no reboot required | The targets' packages come only from an update run ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)) | See [targets](targets.md#updates) |
 
 `U.2`, `U.6`, and `U.7` read the orchestrator until it left the mesh.

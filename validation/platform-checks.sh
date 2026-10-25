@@ -222,6 +222,16 @@ udp_dns() {
   timeout 10 dig +tries=1 +time=4 @168.63.129.16 example.com A >/dev/null 2>&1
   case $? in 0) echo answer ;; 9) echo timeout ;; *) echo error ;; esac
 }
+# count GREP_ARGS -- COMMAND: the lines of COMMAND'"'"'s output that grep counts,
+# then COMMAND'"'"'s exit status. A command that fails prints nothing, which grep
+# alone would count as no line, the passing value (#173).
+count() {
+  local args=() out rc
+  while [ "$#" -gt 0 ] && [ "$1" != -- ]; do args+=("$1"); shift; done
+  shift
+  out=$("$@" 2>/dev/null); rc=$?
+  if [ -n "$out" ]; then echo "$(grep "${args[@]}" <<< "$out") $rc"; else echo "0 $rc"; fi
+}
 echo "failed_units=$(systemctl --failed --no-legend | wc -l)"
 echo "sshd_root=$(sshd_opt permitrootlogin)"
 echo "sshd_password=$(sshd_opt passwordauthentication)"
@@ -261,10 +271,10 @@ echo "monitor_hosts=$(awk "/^# BEGIN aisec-monitoring/ { on = 1; next } /^# END 
 probe_orchestrator="$probe_common"'
 echo "unit_k3s=$(systemctl is-active k3s)"
 echo "node_ready=$(k3s kubectl get nodes --no-headers 2>/dev/null | grep -c " Ready ")"
-echo "pods_not_running=$(k3s kubectl get pods -A -l "!workflows.argoproj.io/workflow" --no-headers 2>/dev/null | grep -v -c " Running ")"
+echo "pods_not_running=$(count -v -c " Running " -- k3s kubectl get pods -A -l "!workflows.argoproj.io/workflow" --no-headers)"
 echo "secrets_encryption=$(k3s secrets-encrypt status 2>/dev/null | sed -n "s/^Encryption Status: //p")"
 echo "cert_modes_not_600=$(stat -c %a /var/lib/rancher/k3s/server/tls/*.crt | grep -v -c "^600$")"
-echo "default_sa_automount=$(k3s kubectl get sa -A --field-selector metadata.name=default -o jsonpath="{range .items[*]}{.automountServiceAccountToken}{\"\n\"}{end}" 2>/dev/null | grep -v -c "^false$")"
+echo "default_sa_automount=$(count -v -c "^false$" -- k3s kubectl get sa -A --field-selector metadata.name=default -o jsonpath="{range .items[*]}{.automountServiceAccountToken}{\"\n\"}{end}")"
 echo "apiserver_anonymous=$(journalctl -u k3s --no-pager 2>/dev/null | grep "Running kube-apiserver" | tail -n 1 | grep -o -- "--anonymous-auth=[a-z]*")"
 echo "kubelet_auth=$(k3s kubectl get --raw "/api/v1/nodes/$(hostname)/proxy/configz" 2>/dev/null | python3 -I -c "
 import json, sys
@@ -368,7 +378,7 @@ echo "netbox_observe_pin=$(wc -l <$observe/known_hosts 2>/dev/null) $([ -n "$lab
 # that the key ran a command it should not.
 sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec-feed@aisec-worker id >/dev/null 2>&1
 echo "feed_refuses=$?"
-echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
+echo "security_updates_pending=$(count -c -e -security -- apt list --upgradable)"
 k() { k3s kubectl "$@" 2>/dev/null; }
 echo "tool_ready=$(k get deployment tool-service -n tool-services -o jsonpath="{.status.readyReplicas}")"
 echo "tool_image=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{.items[0].status.containerStatuses[0].imageID}" | sed "s/.*@//")"
@@ -384,7 +394,7 @@ echo "audit_copy_code=$(cat /usr/local/lib/aisec/aisec_audit_copy.py /etc/system
 echo "audit_file=$(stat -c "%U %G %a" $audit 2>/dev/null) $(lsattr $audit 2>/dev/null | cut -d " " -f 1 | tr -cd a)"
 ok_time=$(stat -c %Y /var/lib/aisec-audit-copy/ok 2>/dev/null || echo 0)
 echo "audit_copy_recent=$([ $(( $(date +%s) - ok_time )) -le 10 ] && echo yes || echo no)"
-echo "audit_mounts=$(k get pods -A -o jsonpath="{range .items[*].spec.volumes[*]}{.hostPath.path}{\"\n\"}{end}" | grep -c -x -E "/|/var/?|/var/log/?|/var/log/aisec(/.*)?")"
+echo "audit_mounts=$(count -c -x -E "/|/var/?|/var/log/?|/var/log/aisec(/.*)?" -- k3s kubectl get pods -A -o jsonpath="{range .items[*].spec.volumes[*]}{.hostPath.path}{\"\n\"}{end}")"
 echo "audit_holes=$(python3 -I -c "
 import json, sys
 seen = {}
@@ -433,7 +443,7 @@ echo "argo_args=$(k get deployment workflow-controller -n argo -o jsonpath="{.sp
 echo "argo_restriction=$(k get configmap workflow-controller-configmap -n argo -o jsonpath="{.data.workflowRestrictions}" | tr -d "\n")"
 echo "argo_roles=$({ k get role argo-role -n argo -o jsonpath="{.rules}"; echo; k get role argo-role -n orchestration -o jsonpath="{.rules}"; echo; } | sort -u | grep -c .)"
 echo "argo_executor_role=$(k get role argo-executor -n orchestration -o jsonpath="{.rules}")"
-echo "argo_server=$(k get deployments -A -o name | grep -c argo-server)"
+echo "argo_server=$(count -c -e argo-server -- k3s kubectl get deployments -A -o name)"
 echo "argo_namespace=$(k get namespace argo -o jsonpath="{.metadata.labels.pod-security\.kubernetes\.io/enforce}") $(k get networkpolicy default-deny -n argo -o name)"
 echo "argo_template=$(k get workflowtemplate investigate -n orchestration -o jsonpath="{.spec}" | sha256sum | cut -d " " -f 1)"
 # W.12: each service account in argo, orchestration, and tool-services, asked
@@ -483,7 +493,7 @@ echo "proxy_other_port=$(code -x '"$PROXY"' http://archive.ubuntu.com:8080/)"
 echo "proxy_connect=$(curl -s -o /dev/null -w "%{http_connect}" --max-time 8 -x '"$PROXY"' https://example.com/ 2>/dev/null)"
 echo "apt_proxy=$(apt-config dump 2>/dev/null | grep -c "Acquire::http::Proxy \"'"$PROXY"'\"")"
 echo "unattended_upgrades=$(systemctl is-enabled unattended-upgrades 2>/dev/null)"
-echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
+echo "security_updates_pending=$(count -c -e -security -- apt list --upgradable)"
 echo "ip_forward=$(sysctl -n net.ipv4.ip_forward)"
 echo "model_unit_active=$(systemctl is-active '"$MODEL_UNIT"' 2>/dev/null)"
 echo "model_unit_enabled=$(systemctl is-enabled '"$MODEL_UNIT"' 2>/dev/null)"
@@ -541,7 +551,7 @@ echo "log_upload_off=$(tr "\0" " " < /proc/$(pidof tailscaled)/cmdline 2>/dev/nu
 echo "serve_config=$(tailscale serve status --json 2>/dev/null | tr -d " \n")"
 echo "mesh_udp=$(tailscale netcheck 2>/dev/null | sed -n "s/^[^A-Za-z]*UDP: //p" | head -n 1)"
 echo "unattended_upgrades=$(systemctl is-enabled unattended-upgrades 2>/dev/null)"
-echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
+echo "security_updates_pending=$(count -c -e -security -- apt list --upgradable)"
 '
 
 probe_edge="$probe_common"'
@@ -569,7 +579,7 @@ changed=$(find /etc/squid/squid.conf /etc/squid/aisec-fetch-hosts /run/aisec/fet
 echo "squid_loaded_after_change=$(awk -v l="$loaded" -v c="$changed" "BEGIN { print (l != \"\" && c != \"\" && l + 0 > c + 0) ? \"yes\" : \"no\" }")"
 echo "mesh_agent=$(dpkg-query -W -f="\${Status}" tailscale 2>/dev/null | grep -c " ok installed$")"
 echo "unattended_upgrades=$(systemctl is-enabled unattended-upgrades 2>/dev/null)"
-echo "security_updates_pending=$(apt list --upgradable 2>/dev/null | grep -c -- -security)"
+echo "security_updates_pending=$(count -c -e -security -- apt list --upgradable)"
 '
 
 # The targets (ADR 0036). $1 is the other target's address.
@@ -595,7 +605,7 @@ echo "apt_sources=$(grep -rhoE "^(URIs:|deb) +[^ ]+" /etc/apt/sources.list /etc/
 # apt touches the stamp after each successful package list refresh. The image
 # build made one too, so only a refresh after first boot counts.
 stamp=/var/lib/apt/periodic/update-success-stamp
-echo "last_update=$([ "$stamp" -nt /var/lib/aisec-first-boot.done ] && [ $(( $(date +%s) - $(stat -c %Y "$stamp") )) -le 604800 ] && echo yes || echo no) $(apt list --upgradable 2>/dev/null | grep -c -- -security) $([ -e /run/reboot-required ] && echo yes || echo no)"
+echo "last_update=$([ "$stamp" -nt /var/lib/aisec-first-boot.done ] && [ $(( $(date +%s) - $(stat -c %Y "$stamp") )) -le 604800 ] && echo yes || echo no) $(count -c -e -security -- apt list --upgradable) $([ -e /run/reboot-required ] && echo yes || echo no)"
 '
 
 common_checks() { # prefix
@@ -636,10 +646,10 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check K.1 "k3s is active" active "$(value unit_k3s)"
   check K.2 "The node is Ready" 1 "$(value node_ready)"
   # A workflow's pods end Completed or Error. The workflow's status says which.
-  check K.3 "Every pod outside workflows is Running" 0 "$(value pods_not_running)"
+  check K.3 "Every pod outside workflows is Running" "0 0" "$(value pods_not_running)"
   check K.4 "Secrets encryption is enabled" Enabled "$(value secrets_encryption)"
   check K.5 "Every certificate file is 600" 0 "$(value cert_modes_not_600)"
-  check K.6 "No default service account mounts a token" 0 "$(value default_sa_automount)"
+  check K.6 "No default service account mounts a token" "0 0" "$(value default_sa_automount)"
   check K.7 "The API server refuses anonymous requests" "--anonymous-auth=false" "$(value apiserver_anonymous)"
   # The kubelet's running configuration, as it reports it, so a later file in
   # its configuration folder or a flag cannot override it unseen.
@@ -714,7 +724,7 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # address, a packet the rules let in gets a reset, and only a timeout shows
   # the rules dropped it.
   check S.1 "The worker's rules drop the orchestrator on the model server port" timeout "$(value to_worker_model)"
-  check U.1 "No security update is pending on the orchestrator" 0 "$(value security_updates_pending)"
+  check U.1 "No security update is pending on the orchestrator" "0 0" "$(value security_updates_pending)"
   # The chain as nft lists it, with the counter's values taken out. It holds
   # a pod from its first packet, before kube-router writes the pod's policy.
   # The one address outside the pods is the worker's SSH port (ADR 0030).
@@ -756,7 +766,7 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check W.5 "The controller's Role in orchestration is a copy of its own" 1 "$(value argo_roles)"
   check W.6 "The executor may only record task results" \
     '[{"apiGroups":["argoproj.io"],"resources":["workflowtaskresults"],"verbs":["create","patch"]}]' "$(value argo_executor_role)"
-  check W.7 "No Argo server runs in the cluster" 0 "$(value argo_server)"
+  check W.7 "No Argo server runs in the cluster" "0 0" "$(value argo_server)"
   check W.8 "The argo namespace is restricted and denies by default" \
     "restricted networkpolicy.networking.k8s.io/default-deny" "$(value argo_namespace)"
   check W.9 "The workflow template is the one in this checkout" "$TEMPLATE_SHA" "$(value argo_template)"
@@ -778,7 +788,7 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # a pass that finds no log file of the tool service does not (ADR 0019).
   check L.4 "The audit copier succeeded in the last 10 seconds" yes "$(value audit_copy_recent)"
   # A hostPath of the folder or anything above it would expose the file.
-  check L.5 "No pod mounts the audit folder" 0 "$(value audit_mounts)"
+  check L.5 "No pod mounts the audit folder" "0 0" "$(value audit_mounts)"
   # Missing numbers within each start, plus lines that are not JSON. Lines
   # without a start, from the image before ADR 0019, are not counted.
   check L.6 "No audit line is missing" 0 "$(value audit_holes)"
@@ -901,7 +911,7 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
     "id_ed25519 known_hosts $WORK_IP $(value host_key)" "${DISPATCH_SECRET:-no dispatch secret read}"
   check U.3 "apt on the worker uses the edge" 1 "$(value apt_proxy)"
   check U.4 "Unattended upgrades are enabled on the worker" enabled "$(value unattended_upgrades)"
-  check U.5 "No security update is pending on the worker" 0 "$(value security_updates_pending)"
+  check U.5 "No security update is pending on the worker" "0 0" "$(value security_updates_pending)"
   # The worker ships nothing (ADR 0021). Its journal leaves with the orchestrator.
   check O.4 "No log agent on the worker" 0 "$(value monitor_agent | cut -d " " -f 1)"
   common_checks HW
@@ -947,7 +957,7 @@ if probe=$($SSH "$ROUTER" 'sudo bash -s' <<<"$probe_router" 2>/dev/null) && [ -n
   check U.7 "The mesh VPN agent is the current stable release" \
     "${stable:-no answer from pkgs.tailscale.com}" "$(value tailscale_installed)"
   check U.8 "Unattended upgrades are enabled on the router" enabled "$(value unattended_upgrades)"
-  check U.9 "No security update is pending on the router" 0 "$(value security_updates_pending)"
+  check U.9 "No security update is pending on the router" "0 0" "$(value security_updates_pending)"
   check O.3 "The log agent is installed and active on the router" "1 active" "$(value monitor_agent)"
   hosts_router=$(value monitor_hosts)
   common_checks HR
@@ -984,7 +994,7 @@ if probe=$($SSH "$EDGE" 'sudo bash -s' <<<"$probe_edge" 2>/dev/null) && [ -n "$p
   # without the reload the window command does.
   check P.22 "Squid loaded its configuration after the files last changed" yes "$(value squid_loaded_after_change)"
   check U.12 "Unattended upgrades are enabled on the edge" enabled "$(value unattended_upgrades)"
-  check U.13 "No security update is pending on the edge" 0 "$(value security_updates_pending)"
+  check U.13 "No security update is pending on the edge" "0 0" "$(value security_updates_pending)"
   check O.2 "The log agent is installed and active on the edge" "1 active" "$(value monitor_agent)"
   hosts_edge=$(value monitor_hosts)
   common_checks HE
@@ -1039,7 +1049,7 @@ target_checks() { # letter name host other-target-address update-check-ID
     # Nothing updates a target between runs (ADR 0036), so the list a run left
     # behind is the one read here. Seven days, so a missed run shows.
     check "$5" "An update run in the last 7 days, no security update pending, no reboot required" \
-      "yes 0 no" "$(value last_update)"
+      "yes 0 0 no" "$(value last_update)"
     # Nothing from the targets reaches Azure Monitor: an accepted gap.
     check "V$1.19" "No log agent" 0 "$(value monitor_agent | cut -d " " -f 1)"
     common_checks "H$1"
