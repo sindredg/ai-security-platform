@@ -10,6 +10,6 @@ Give each account in the contract one verdict.
 
 Cite the evidence each conclusion rests on, and say where the evidence disagrees.
 
-End the answer with one line per account. Each line starts with Verdict and a colon, then the account's name as ev-0001 gives it, its verdict, and the evidence the verdict rests on. These two lines are examples for accounts that do not exist:
+End the answer with one line per account, as plain text with no bold, list marks, or other formatting. Each line starts with Verdict and a colon, then the account's name as ev-0001 gives it, its verdict, and the evidence the verdict rests on. These two lines are examples for accounts that do not exist:
 Verdict: some-account excess ev-0002 ev-0003
 Verdict: other-account within ev-0003
