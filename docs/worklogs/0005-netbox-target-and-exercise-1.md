@@ -5,7 +5,7 @@ Milestone: 4, NetBox target and exercise 1 investigation
 
 ## Summary
 
-Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). The NetBox VM and the lab VM are built, with the checks that read them ([below](#the-target-vms)). The update run is built, and has run once on each target ([below](#the-update-run)). NetBox runs on its VM ([below](#netbox-on-its-vm)). It holds exercise 1's seed, and the two deterministic checks agree on the seeded excess and the unaffected control ([below](#the-seed-and-the-two-checks)). A command on the orchestrator collects one job's evidence, and the tool service hands each job only its own, in the fields its schema names ([below](#evidence-per-job)). Jobs have run on that evidence. The investigation is not scored yet. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
+Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). The NetBox VM and the lab VM are built, with the checks that read them ([below](#the-target-vms)). The update run is built, and has run once on each target ([below](#the-update-run)). NetBox runs on its VM ([below](#netbox-on-its-vm)). It holds exercise 1's seed, and the two deterministic checks agree on the seeded excess and the unaffected control ([below](#the-seed-and-the-two-checks)). A command on the orchestrator collects one job's evidence, and the tool service hands each job only its own, in the fields its schema names ([below](#evidence-per-job)). Jobs have run on that evidence. The workflow compares a NetBox job's verdict for each account with the checks', and stops on anything but a match. A match and five kinds of stop were seen on the live system ([below](#the-comparison)). The investigation is not scored yet. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
 
 Before the build, five pins moved to their newest stable release: Terraform, `hashicorp/azurerm`, Ruff, Goose, and Argo Workflows. Goose and Argo run on the platform, so both were installed and every check ran after them.
 
@@ -632,3 +632,101 @@ On the live system, 14:29:54 to 14:39:21 UTC, from the branch at `47477ed`, from
 - **The new limits on the live system.** No half and no answer there has come near them. They were seen to refuse in the tests only.
 - **`T.14`'s fail side** ([#195](https://github.com/sindredg/ai-security-platform/issues/195)).
 - **The answer's accuracy**, above.
+
+## The comparison
+
+Date: 2026-10-25. [ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md), accepted the same day. The procedure is the [evidence collection runbook](../runbooks/evidence-collection.md), steps 7 to 17.
+
+### What changed
+
+The comparison's code and the NetBox task merged first, in [#198](https://github.com/sindredg/ai-security-platform/pull/198), and ran nowhere until the template named their image. The collect command, the template, the system text, and the check came after it.
+
+| File | Change |
+| --- | --- |
+| `platform/dispatch/compare.py` and its tests (#198) | `compare.py JOB ANSWER` reads one `Verdict:` line per account from the answer, and the job's verdicts from the one file the workflow mounts. A match is every account the checks name, with both checks agreeing, neither `unknown`, and the model's value the same. Anything else is a stop. It prints one row per account and the outcome, keeps the rows as the step's output, writes the outcome as the termination message, and exits 1 on a stop. Of the answer it prints only what matched a pattern: account names, values, references, and counts |
+| `platform/dispatch/dispatch.py` and its tests (#198) | Hands the answer on to the comparison. Fails the job when the answer is longer than 8 KiB or holds `{{`, which Argo would render |
+| `platform/dispatch/Dockerfile`, `.github/workflows/checks.yml` (#198) | The image carries `compare.py`, and the image job runs it once in the built image |
+| `collectors/netbox/task.txt` (#198) | The NetBox task: what each document holds, each verdict defined the way the collector's checks decide it, and one `Verdict: ACCOUNT VALUE REFERENCES` line per account at the end. Since `5cc0ed9` it also asks for one document at a time ([below](#the-task-on-development-jobs)) |
+| `collectors/netbox/collect_evidence.py` and its tests | Also writes the job's verdicts into the config map `netbox-verdicts` in `orchestration`, under the key `JOB.json`: the job, the time of the collection, and each account's configured and observed verdict. Keeps the newest 20 jobs there too. A failed write fails the command. One test runs the comparison on what the command wrote |
+| `platform/argo/workflow-template.yaml` | The entrypoint is a list of steps: dispatch, then the comparison when the target is `netbox`. The comparison's pod mounts only its job's key from `netbox-verdicts`, marked optional, holds no credential, and carries the label `compare`, which no network policy names. 120 seconds. The three templates on #198's image |
+| `platform/argo/install.sh` | Makes `netbox-verdicts` empty once, and never applies over it |
+| `worker/agent-runtime/system.txt` | One sentence: `If the task says how the answer ends, end it that way.` The two lines stay the default |
+| `validation/platform-checks.sh` | `W.12` |
+
+### Before the run
+
+Locally, on the workstation:
+
+- **The tests.** The dispatch step's, with the comparison's: 47 pass on Python 3.15.1. The collector's: 47 pass on Python 3.12.3 with `-I -S` and resource warnings as errors, 4 of them new. The job program's: 52 pass, 1 new. The tool service's: 212 pass, with every package installed by hash.
+- **Each new test failed first.** A copy of `compare.py` whose per-account rule ignored a disagreement between the checks failed `test_checks_that_disagree_stop_whatever_the_model_says`. A copy of the collect command that wrote the verdicts into the tool service's config map failed 5 tests, among them `test_a_collection_writes_the_verdicts_for_the_comparison` and the older test that no verdict reaches that config map. The system text's test failed before the sentence was there.
+- **Linters.** `argo lint --offline` with Argo 4.1.6: no finding. kubeconform 0.8.0: 33 valid, 1 skipped. ShellCheck 0.11.0 at `-S warning` on `install.sh` and the check script, hadolint 2.15.1 on the dispatch Dockerfile, and Ruff 0.17.2: no finding.
+- **The network policies, read.** The label `compare` matches `workflow-to-api` and `default-deny` only, so the comparison's pod reaches the API server and nothing else.
+
+In the pipeline, on `main` after #198, the image job ran `compare.py` in the built image, which printed its usage, and pushed `dispatch@sha256:7e79957e...`.
+
+Written before the run, as each step's expected result: the comparison's pod refused on the worker's SSH port and the tool service's registration port, a synthetic job skips the comparison, a job whose checks disagree stops whatever the model answers, and a job with no collection stops for lack of verdicts. The first NetBox job's outcome is the model's, recorded either way. ADR 0041 lists four mechanisms not seen when it was written. The run shows each.
+
+### The rollout and the first jobs
+
+On the live system, 17:51:59 to 18:32:05 UTC, from the branch at `73f0f9d`, from a script with the runbook's commands, each step's expected result printed before it. Every job had 900 seconds and 8 turns.
+
+| Step | Expected | Seen |
+| --- | --- | --- |
+| The collect command, runbook step 1 | The observer key's public half as before, and the installed command's SHA-256 equal to the checkout's | The same key. `13a066ea...` for both |
+| The dispatch image and Argo's objects, steps 7, 8, and 10 | An `ok` line for `dispatch@sha256:7e79957e...` and for Argo's two images, then `closed`. `configmap/netbox-verdicts created`, the template `configured`, `successfully rolled out`. The entrypoint `investigate`, then `dispatch`, `compare`, and `revoke` on the new digest, and no key in `netbox-verdicts` | All of it. The install also printed `configmap/argo-ui configured`, as it does on every install |
+| The worker's system text, [agent runtime](../runbooks/agent-runtime.md) step 8 and `install-fixture.sh` | The job programs' copy and the fixture's with the checkout's SHA-256 | `68a86a23...` for all three |
+| Two probe pods, [workflows](../runbooks/workflows.md) step 6, with the comparison's label and with dispatch's | The comparison's refused on both ports at 5 and 20 s, dispatch's open on both | The comparison's: `refused` on both at 5 and 20 s. At 0 s the worker's port was `open`, before kube-router wrote the pod's policy, the residual ADR 0030 names (T47). Dispatch's: `open` on both at 5 and 20 s. At 0 s the registration port refused it |
+| A synthetic job, workflows step 10 | `Succeeded`, the comparison `Skipped`, one allowed call, an answer that ends with the two lines | `Succeeded`, and `when ''synthetic' == 'netbox'' evaluated false`. One call, 312 bytes. The answer had the right content and no `Status:` or `Excess:` line ([below](#the-system-text)) |
+| Collect `nb-10251751-a`, step 11 | Three documents, the four verdicts, and the job's key in `netbox-verdicts` | `visible to the tool service after 41 s`, `inventory-reader:excess/excess inventory-reader-control:within/within`. The key `nb-10251751-a.json`, with the job, `2026-10-25T17:55:40Z`, and the same four verdicts |
+| The job on it, steps 12 and 13 | Dispatch `Succeeded` with three or more allowed calls. Then a match or a stop. The comparison's pod mounts one item, this job's key, and no secret | Dispatch `Succeeded`: 3 calls, 373 s. The workflow `Failed`, with the comparison's message `main: Error (exit code 1): stop: inventory-reader: the model says missing, the checks say excess`. The control matched. The pod mounted `netbox-verdicts` with one item, `nb-10251751-a.json`, its own `/tmp`, and Argo's directory. Why the model said `missing` is [troubleshooting 18](../troubleshooting/18-tool-results-come-back-in-another-order.md) |
+| `nb-10251751-b`: collected, its key changed so that the checks disagree on `inventory-reader`, step 17 | `Failed` at the comparison, with `the checks disagree, configured excess, observed within`, whatever the model answers | Not reached. The job hit its 900-second limit after 9 calls in 4 turns, and its result said `timeout`. The slot erase after it failed ([#199](https://github.com/sindredg/ai-security-platform/issues/199)), and the result counted 0 calls ([#200](https://github.com/sindredg/ai-security-platform/issues/200)). The dispatch step failed with the message `main: Error (exit code 1)` only. Its log has the reason: `failed: the model server's slot was not erased after the job`. The next job's erase before it started succeeded, read in the worker's journal |
+| `nb-10251751-c`: no collection | Each call refused `nothing by that reference`, then `Failed` at the comparison with `no checks' verdicts for this job` | Three calls refused (audit 44 to 46), and the answer said the evidence was not accessible. `stop: no checks' verdicts for this job`. The key was missing, and the optional volume let the pod start |
+| Every check, step 15 | `W.12` passes with `0 28`, and the last line says `0 failed` | 18:23:58 to 18:32:05 UTC: `412 passed, 0 failed`. `N.18`, `W.9`, `W.12`, `G.2`, and `G.8` among them |
+
+The four mechanisms ADR 0041 had not seen:
+
+| Mechanism | Seen |
+| --- | --- |
+| A template volume whose key names the workflow | The pod's volume listed `nb-10251751-a.json` for the workflow `nb-10251751-a` |
+| A missing key in a volume marked optional | The pod started, and the comparison stopped on the missing file |
+| The reason as Argo's step message | `main: Error (exit code 1): stop: ...`. Argo adds the prefix |
+| The condition on the target | `Skipped` for a synthetic job, run for each NetBox job |
+
+### The task on development jobs
+
+The first NetBox job read its three results by position, in the order the tool service answered them ([troubleshooting 18](../troubleshooting/18-tool-results-come-back-in-another-order.md)). Two more runs tried a line in the task against that. They are development runs: the task changed between them, and they are not scored. Each job had 1200 seconds and 8 turns. On the live system, from a script with the runbook's commands, from the branch at `73f0f9d` with `task.txt` changed and not committed. Its SHA-256 was printed at the start.
+
+| Run | The added line | Job | Calls | Outcome |
+| --- | --- | --- | --- | --- |
+| 18:56 to 19:16 UTC | `The documents can come back in a different order than you asked for them. Tell them apart by their reference field, not by their order.` | `syn-10251856-1` | 1 | `Succeeded`, the comparison `Skipped`. Both lines, right |
+| | | `syn-10251856-2` | 1 | `Succeeded`, the comparison `Skipped`. Both lines, with `Excess: none` against two types in excess |
+| | | `nb-10251856-a` | 3 in one turn, the results in the order `ev-0003`, `ev-0001`, `ev-0002` | `stop: inventory-reader-control: the model says excess, the checks say within`. `inventory-reader` matched |
+| | | `nb-10251856-b`, its key changed as in step 17 | 3 in one turn, `ev-0002`, `ev-0003`, `ev-0001` | `stop: inventory-reader: the checks disagree, configured excess, observed within`. The model said `missing` for that account |
+| 19:22 to 19:40 UTC | `Ask for one document at a time, and read it before you ask for the next.` | `nb-10251922-a1` | 5, one per turn | Stop: no verdict line for either account, and `verdict lines that could not be read: 2`. The answer gave the right verdicts as `- Verdict: excess` under a heading, and ended with `**inventory-reader excess ev-0003**` |
+| | | `nb-10251922-a2` | 3, one per turn | Match. The workflow `Succeeded`, with `Verdict: inventory-reader excess ev-0002 ev-0003` and `Verdict: inventory-reader-control within ev-0003` |
+
+The second line was committed as `5cc0ed9`. In these two runs, every job's slot was erased before and after it. Every kind of stop seen on the live system came from these runs and the rollout: a mismatch, checks that disagree, no verdicts for the job, lines that could not be read, and a failed job. A match was seen once.
+
+### The system text
+
+Of the three synthetic jobs after the new sentence, one ended without the two lines and one with `Excess: none`, which the evidence contradicts. Three jobs cannot say whether the sentence changed the answers: before it, the agent runtime runbook's step 5 had 3 of 3 runs right on 2026-10-23 and 2 of 3 on 2026-10-24. Nothing in dispatch reads the two lines. The comparison reads only NetBox's `Verdict:` lines.
+
+### W.12 fails on a broken input
+
+On the live system, 20:07:25 to 20:14:54 UTC, from the branch at `5cc0ed9`, without the Azure and workstation checks. Written before the run: with a Role that gives `argo-operator` `patch` on config maps in `orchestration`, only `W.12` fails, with `1 27`.
+
+| Step | Seen |
+| --- | --- |
+| The Role and its binding `w12-failside` | `created` twice. `kubectl auth can-i patch configmaps` as `argo-operator`: `yes` |
+| Every check, 20:07:32 to 20:11:13 UTC | `361 passed, 1 failed`. The one was `W.12`: expected `0 28`, actual `1 27` |
+| The Role and its binding removed | `deleted` twice. The same question: `no` |
+| Every check, 20:11:16 to 20:14:54 UTC | `362 passed, 0 failed` |
+
+### Not verified
+
+- **The other stops, on the live system.** An inconclusive verdict, two lines that disagree for one account, a line for an account the checks do not name, and checks that cannot settle an account each stop in the tests only.
+- **Dispatch's limits on the answer.** No live answer was longer than 2,751 bytes or held `{{`. A refusal was seen in the tests only.
+- **The verdicts' config map at its limit.** It held 6 keys at most. The removal past 20 jobs ran in the tests only.
+- **The runbook's undo for `netbox-verdicts`.** Not run.
+- **`argo terminate` on a job with the comparison** ([#174](https://github.com/sindredg/ai-security-platform/issues/174)).
+- **How often the model's verdict matches.** These were development jobs, with the task changing between runs. The investigation is scored on held-out cases, which do not exist yet.
