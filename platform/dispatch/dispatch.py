@@ -36,6 +36,7 @@ import ssl
 import subprocess
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -178,6 +179,23 @@ def check_result(line, job):
     return result
 
 
+def unquotable(c):
+    """Whether Argo cannot pass the character on in a parameter. Argo quotes a
+    value with Go's strconv.Quote and then requires valid JSON
+    (util/template/simple_template.go and replace.go, read in v4.1.6). Go
+    writes a control character other than \\b, \\t, \\n, \\f, and \\r, and
+    DEL, as \\a, \\v, or \\xHH, and a character above U+FFFF that it does not
+    print as \\U and eight digits, none of which JSON has. The step group
+    would end on Argo's error instead of the comparison's. A lone surrogate
+    cannot be written to a file at all."""
+    code = ord(c)
+    if code < 0x20:
+        return c not in "\b\t\n\f\r"
+    if code == 0x7F or 0xD800 <= code <= 0xDFFF:
+        return True
+    return code > 0xFFFF and unicodedata.category(c).startswith("C")
+
+
 def printable(text):
     """The worker's text for a terminal. Control and format characters become
     U+FFFD, so text the model shaped cannot send escape sequences to the
@@ -291,6 +309,8 @@ def dispatch(job, target, max_turns, seconds, task):
         )
     if "{{" in result["answer"]:
         raise Failed("the answer has template syntax, which Argo would read")
+    if any(unquotable(c) for c in result["answer"]):
+        raise Failed("the answer has a character Argo cannot pass on")
     ANSWER.write_text(result["answer"])
 
 
