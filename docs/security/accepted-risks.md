@@ -22,7 +22,9 @@ The missing alert for a denied flow from the orchestrator or the worker left thi
 
 ## Advisories in the converter's packages
 
-The pipeline's converter dependency scan lists eight advisories against `worker/model-server/converter-requirements.txt`. Read on 2026-10-12 with Trivy 0.75.0, and again on 2026-10-19 with Trivy 0.76.0 in the pipeline run on `main` at `64b2e71`: the same eight. On 2026-10-21 the run on `main` at `5c6065d` listed a ninth, certifi's GHSA-6q48-6c7w-9gw2. certifi moved to 2026.10.19, and the run with Trivy 0.76.1 lists the same eight again ([worklog](../worklogs/0003-toolchain-integration.md#certifi-in-the-converter)). The run on `main` at `054d373`, on 2026-10-26, lists seven more, in `filelock` 4.1.1 and `setuptools` 81.0.0, which this reading does not cover ([#211](https://github.com/sindredg/ai-security-platform/issues/211)). The versions are llama.cpp's own pins for its converter, so the fix for most of them is a version the converter was not written against.
+The pipeline's converter dependency scan lists seven advisories against `worker/model-server/converter-requirements.txt`, the rows below. On 2026-10-26 `filelock` and `setuptools` moved to their newest releases, which cleared eight more, CVE-2026-59890 among them ([#211](https://github.com/sindredg/ai-security-platform/issues/211), [worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-start-pass)).
+
+The versions are llama.cpp's own pins for its converter, so the fix for most of them is a version the converter was not written against. Earlier readings are in the [worklogs](../worklogs/0003-toolchain-integration.md#certifi-in-the-converter).
 
 They are accepted because the code each one needs is never called. The converter's source at the pinned commit was searched for every call below:
 
@@ -31,7 +33,7 @@ grep -rnE 'from_pretrained|save_pretrained|AutoModel|Trainer|torch\.load|torch\.
   convert_hf_to_gguf.py conversion gguf-py/gguf
 ```
 
-The only calls into `transformers` are `AutoTokenizer.from_pretrained` and one `AutoConfig.from_pretrained` with `trust_remote_code=False`. Every `torch.load` passes `weights_only=True`. The search ran first at commit `d8123504`, build `b11429`, and again on 2026-10-19 at `620d2225`, build `b11669`, with the same result.
+The only calls into `transformers` are `AutoTokenizer.from_pretrained` and one `AutoConfig.from_pretrained` with `trust_remote_code=False`. Every `torch.load` passes `weights_only=True`. The search ran first at commit `d8123504`, build `b11429`, and last on 2026-10-26 at `620d2225`, build `b11669`, with the same result.
 
 | Advisory | Package | Severity | Needs | Here |
 | --- | --- | --- | --- | --- |
@@ -41,7 +43,6 @@ The only calls into `transformers` are `AutoTokenizer.from_pretrained` and one `
 | CVE-2026-9856 | `transformers` | High | `save_pretrained` on a tokenizer or processor | Never called. The tokenizer is only read |
 | CVE-2026-1839 | `transformers` | Medium | The `Trainer` class, with PyTorch below 2.6 | No `Trainer`. PyTorch is 2.11.0 |
 | CVE-2026-0994 | `protobuf` 4.25.9 | High | `json_format.ParseDict` on nested input | Never called. The effect would be a failed build |
-| CVE-2026-59890 | `setuptools` 81.0.0 | Medium | Building a source distribution on macOS | Nothing is built. Wheels only, on Linux |
 | CVE-2025-3000 | `torch` 2.11.0 | Low | `torch.jit.script` | Never called |
 
 Some converter classes for other model families load a tokenizer with `trust_remote_code=True`. The files staged from each publisher hold no Python file, so there is nothing for that to run. Granite's repository has one, `granite_thinking_parser.py`, which its list in `models/` leaves out.
@@ -81,8 +82,6 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 | --- | --- | --- |
 | Cloud identity for cluster workloads | T36 | A collector that reads from Azure. None does in exercise 1 ([0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)) |
 | Operator sessions to targets in the audit log | T04 | Milestone 6, with the audit daemon. Moved from milestone 4 on 2026-10-26: the targets have no log agent, and their own logs stay on them |
-| What the broker allows into a pull request | A5 | Milestone 5 |
-| Repository app permissions | T12 | Milestone 5 |
 | Sign-in strength on the operator's accounts cannot be shown by a gate | T15, T30 | Not planned |
 
 Two items left this table on 2026-10-16. A rate limit for requests without a valid token is now a [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring) criterion. The mesh agent's log upload is turned off on the router by [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md), since 2026-10-17 (`R.5`). One more left on 2026-10-24: how the targets get packages, decided by [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md). And one on 2026-10-26: how long a job's transcript is kept, now an accepted risk above.
