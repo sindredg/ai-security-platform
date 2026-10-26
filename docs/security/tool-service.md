@@ -96,11 +96,33 @@ CI enforces a 300-line limit on the server code and scans its pinned dependencie
 - **Schema validation checks structure, not meaning.** A read-only tool can still expose more data than a job needs.
 - **Tool results remain untrusted text.** The service checks their size and source. It does not detect misleading content or injected instructions.
 
+## Hostile-input tests
+
+The tool service is the one piece of custom code that reads what a compromised worker sends ([ADR 0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)). These cases are unit tests in `tool-service/tests/`, run in the pipeline, and not drills. Every case ends the same way: the call is refused, nothing of the result goes back, and one audit line records the decision and the reason.
+
+| Group | Case |
+| --- | --- |
+| Malformed arguments | A body that is not JSON, or not valid UTF-8 |
+| | A missing field, a wrong type, and a field the schema does not name |
+| | An evidence reference with `..`, an absolute path, or a null byte |
+| | A tool name that no policy lists |
+| Cross-job access | A valid token for one job asks for another job's evidence |
+| | A valid token asks for a tool or a target outside its job's scope |
+| | The arguments name a different job than the token. The token decides |
+| Tokens | No token, a malformed token, and a token nobody issued |
+| | An expired token, and a token revoked when its job ended |
+| | A refusal never puts the token in the response or the log |
+| Oversized requests | A body over the size limit, refused before it is parsed |
+| | A result over the size limit, and one call more than the job's call limit |
+| Concurrent cancellation | A job is cancelled while its call is in flight. The result is dropped, not delivered late |
+| | Two calls race the revocation. None succeeds after it |
+| | The same job is cancelled twice, or registered twice. Neither is an error that leaves a live token |
+
 ## Validation evidence
 
 | Claim | Evidence | Source |
 | --- | --- | --- |
-| Rejection cases above | Tests in `tool-service/tests/`, grouped by the roadmap's [hostile-input table](../roadmap.md#hostile-input-tests-for-the-tool-service) | CI on every pull request; commands and results in the worklog |
+| Rejection cases above | Tests in `tool-service/tests/`, grouped as in the [hostile-input tests](#hostile-input-tests) | CI on every pull request; commands and results in the worklog |
 | Tests detect removed controls | Mutation testing detected 28 of 29 deliberate changes. One redundant check was not detected because another check rejected the request first | Local workstation; one recorded run |
 | Goose can call the service | TLS calls before and after token revocation | Local workstation with a stub model; commands and results in the worklog |
 | Deployment on the orchestrator | The [tool service checks](../validation/tool-service.md) pass, and each was seen to fail first | Live system, 2026-10-15 |
