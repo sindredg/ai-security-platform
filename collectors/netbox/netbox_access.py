@@ -34,9 +34,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-URL = "https://10.50.0.4:8443"
-CERT = "/etc/aisec/netbox/tls.crt"
-TOKEN_DIR = "/etc/aisec/netbox/tokens"  # noqa: S105 - a directory's path
+# The live NetBox's, unless the environment names the rehearsal copy's on the
+# lab VM (platform ADR 0044).
+URL = os.environ.get("AISEC_NETBOX_URL", "https://10.50.0.4:8443")
+CERT = os.environ.get("AISEC_NETBOX_CERT", "/etc/aisec/netbox/tls.crt")
+TOKEN_DIR = os.environ.get("AISEC_NETBOX_TOKENS", "/etc/aisec/netbox/tokens")
 COLLECTOR = "aisec-collector"
 PAGE = 1000
 # NetBox is target side, so neither the size of an answer nor the length of

@@ -1,7 +1,8 @@
 #!/bin/bash
 # Installs the observer account on the lab VM (ADR 0040): the orchestrator's
 # one way to run the observed half of NetBox's collector from the consumer
-# viewpoint. Run as root, from a folder that holds netbox_access.py.
+# viewpoint. Run as root, from a folder that holds netbox_access.py,
+# aisec-observe, and aisec-observe-netbox.
 #
 #   install-lab-observer.sh "ssh-ed25519 AAAA... aisec-netbox-observe"
 #
@@ -22,7 +23,9 @@ if ! [[ $key =~ ^ssh-ed25519\ [A-Za-z0-9+/]+={0,2}(\ [A-Za-z0-9@._-]+)?$ ]]; the
   echo "not an ed25519 public key: $key" >&2
   exit 1
 fi
-[ -f "$here/netbox_access.py" ] || { echo "missing: $here/netbox_access.py" >&2; exit 1; }
+for file in netbox_access.py aisec-observe aisec-observe-netbox; do
+  [ -f "$here/$file" ] || { echo "missing: $here/$file" >&2; exit 1; }
+done
 
 if ! id aisec-observe >/dev/null 2>&1; then
   useradd --create-home --shell /bin/bash --comment "NetBox's observed half for the orchestrator" aisec-observe
@@ -33,13 +36,11 @@ install -d -m 0755 -o root -g root /usr/local/lib/aisec
 install -m 0644 -o root -g root "$here/netbox_access.py" /usr/local/lib/aisec/netbox_access.py
 
 # The contract arrives on standard input, from the orchestrator. The tokens
-# the collector reads are root's, so the one command runs as root.
-cat >/usr/local/sbin/aisec-observe-netbox <<'EOF'
-#!/bin/sh
-exec /usr/bin/python3 -I /usr/local/lib/aisec/netbox_access.py observed
-EOF
-chown root:root /usr/local/sbin/aisec-observe-netbox
-chmod 0755 /usr/local/sbin/aisec-observe-netbox
+# the collector reads are root's, so the half runs as root. The forced command
+# runs as the account and passes on one word, rehearsal, for the rehearsal
+# copy's half (ADR 0044).
+install -m 0755 -o root -g root "$here/aisec-observe" /usr/local/sbin/aisec-observe
+install -m 0755 -o root -g root "$here/aisec-observe-netbox" /usr/local/sbin/aisec-observe-netbox
 
 # The same limits again on the key line, so a change to one file alone does
 # not open the account.
@@ -49,21 +50,21 @@ chmod 0644 /etc/ssh/aisec-observe-keys
 
 # sudo skips a name with a dot in it, so the file is checked there first.
 new=/etc/sudoers.d/.91-aisec-observe.new
-printf '%s\n' 'aisec-observe ALL=(root) NOPASSWD: /usr/local/sbin/aisec-observe-netbox ""' >"$new"
+printf '%s\n' 'aisec-observe ALL=(root) NOPASSWD: /usr/local/sbin/aisec-observe-netbox "", /usr/local/sbin/aisec-observe-netbox rehearsal' >"$new"
 chown root:root "$new"
 chmod 0440 "$new"
 visudo -c -q -f "$new"
 mv -f "$new" /etc/sudoers.d/91-aisec-observe
 
 cat >/etc/ssh/sshd_config.d/20-aisec-observe.conf <<'EOF'
-# The orchestrator's observer key (ADR 0040). Its one command is the
-# observed half of NetBox's collector. The key file is root's, so the account
-# cannot add a key.
+# The orchestrator's observer key (ADR 0040). Its one command runs the
+# observed half of NetBox's collector, of the live NetBox or of the rehearsal
+# copy (ADR 0044). The key file is root's, so the account cannot add a key.
 Match User aisec-observe
   AuthorizedKeysFile /etc/ssh/aisec-observe-keys
   AllowTcpForwarding no
   PermitTTY no
-  ForceCommand sudo -n /usr/local/sbin/aisec-observe-netbox
+  ForceCommand /usr/local/sbin/aisec-observe
 EOF
 chown root:root /etc/ssh/sshd_config.d/20-aisec-observe.conf
 chmod 0600 /etc/ssh/sshd_config.d/20-aisec-observe.conf

@@ -1,0 +1,18 @@
+#!/bin/sh
+# The collector's observed half, as root, which reads the consumer's and the
+# control account's tokens (ADR 0040). With the word rehearsal, the same half
+# reads the rehearsal copy with the copy's own tokens (ADR 0044). The contract
+# arrives on standard input.
+case "$#:${1:-}" in
+  0:)
+    exec /usr/bin/python3 -I /usr/local/lib/aisec/netbox_access.py observed
+    ;;
+  1:rehearsal)
+    exec /usr/bin/env AISEC_NETBOX_URL=https://10.50.1.4:8443 \
+      AISEC_NETBOX_CERT=/etc/aisec/netbox-rehearsal/tls.crt \
+      AISEC_NETBOX_TOKENS=/etc/aisec/netbox-rehearsal/tokens \
+      /usr/bin/python3 -I /usr/local/lib/aisec/netbox_access.py observed
+    ;;
+esac
+echo "aisec-observe-netbox: no such half" >&2
+exit 2

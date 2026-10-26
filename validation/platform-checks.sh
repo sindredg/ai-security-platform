@@ -149,7 +149,10 @@ SEEDED_VERDICTS="inventory-reader:excess inventory-reader-control:within"
 COLLECT_SHAS="$(sha256sum "$here/../collectors/netbox/netbox_access.py" \
   "$here/../collectors/netbox/collect_evidence.py" "$CONTRACT" "$here/../collectors/netbox/cases.json" \
   2>/dev/null | cut -d " " -f 1 | tr "\n" " " | sed "s/ $//")"
-COLLECTOR_SHA=$(sha256sum "$here/../collectors/netbox/netbox_access.py" | cut -d " " -f 1)
+# The lab VM's copy of the collector and the observer's two commands, in
+# that order (ADR 0040, ADR 0044).
+OBSERVER_SHA=$(cd "$here/../collectors/netbox" && cat netbox_access.py aisec-observe aisec-observe-netbox |
+  sha256sum | cut -d " " -f 1)
 RG=rg-aisec-platform
 RG_TARGETS=rg-aisec-targets
 
@@ -1117,7 +1120,7 @@ echo "observer=$(sshd -T -C user=aisec-observe,host=orchestrator,addr='"$ORCH_IP
 keys=/etc/ssh/aisec-observe-keys
 echo "observer_keys=$(stat -c "%U %a" $keys 2>/dev/null) $(wc -l <$keys 2>/dev/null) $(cut -d " " -f 1 $keys 2>/dev/null)"
 echo "observer_sudo=$(grep -v -e "^#" -e "^$" /etc/sudoers.d/91-aisec-observe 2>/dev/null | tr "\n" ";")"
-echo "observer_collector=$(sha256sum /usr/local/lib/aisec/netbox_access.py 2>/dev/null | cut -d " " -f 1)"
+echo "observer_collector=$(cat /usr/local/lib/aisec/netbox_access.py /usr/local/sbin/aisec-observe /usr/local/sbin/aisec-observe-netbox 2>/dev/null | sha256sum | cut -d " " -f 1)"
 ')
 check N.15 "The lab VM's NetBox tokens are root's and closed to others" "root 700 root 600 root 600" "$(value tokens)"
 check N.16 "The lab VM's copy of NetBox's certificate is the one the orchestrator pins" \
@@ -1129,12 +1132,13 @@ observed=$($SSH "$LAB" "sudo python3 -I -c $(printf %q "$COLLECTOR_CODE") observ
 check N.17 "The records each token returns give the seeded excess and an unaffected control" \
   "$SEEDED_VERDICTS" "${observed:-not read}"
 check N.20 "The lab VM's observer account takes its key from root's file, with no forwarding, no TTY, and one command" \
-  "allowtcpforwarding no;authorizedkeysfile /etc/ssh/aisec-observe-keys;forcecommand sudo -n /usr/local/sbin/aisec-observe-netbox;permittty no;" \
+  "allowtcpforwarding no;authorizedkeysfile /etc/ssh/aisec-observe-keys;forcecommand /usr/local/sbin/aisec-observe;permittty no;" \
   "$(value observer)"
-check N.21 "The observer's key file holds one key, limited to the orchestrator, and sudo allows it one command" \
-  "root 644 1 from=\"$ORCH_IP\",restrict aisec-observe ALL=(root) NOPASSWD: /usr/local/sbin/aisec-observe-netbox \"\";" \
+check N.21 "The observer's key file holds one key, limited to the orchestrator, and sudo allows it one command, for NetBox or the copy" \
+  "root 644 1 from=\"$ORCH_IP\",restrict aisec-observe ALL=(root) NOPASSWD: /usr/local/sbin/aisec-observe-netbox \"\", /usr/local/sbin/aisec-observe-netbox rehearsal;" \
   "$(value observer_keys) $(value observer_sudo)"
-check N.22 "The lab VM's copy of the collector is the one in this checkout" "$COLLECTOR_SHA" "$(value observer_collector)"
+check N.22 "The lab VM's copy of the collector, and the observer's commands, are the ones in this checkout" \
+  "$OBSERVER_SHA" "$(value observer_collector)"
 # The collect command's own path to the observed half. The command it asks
 # for, id, is not what runs: the forced command is, with the contract on its
 # standard input, and its verdicts are N.17's.

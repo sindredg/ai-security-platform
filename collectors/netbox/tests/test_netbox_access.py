@@ -9,6 +9,7 @@ import http.server
 import json
 import os
 import ssl
+import subprocess
 import sys
 import threading
 import unittest
@@ -374,3 +375,45 @@ class Main(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Environment(unittest.TestCase):
+    """The rehearsal copy is read with the same collector (ADR 0044)."""
+
+    def read(self, **env):
+        here = str(Path(__file__).resolve().parent.parent)
+        code = (
+            f"import sys; sys.path.insert(0, {here!r}); import netbox_access as n; "
+            "print(n.URL, n.CERT, n.TOKEN_DIR)"
+        )
+        process = subprocess.run(  # noqa: S603 - this interpreter, a fixed script
+            [sys.executable, "-I", "-S", "-c", code],
+            env={"PATH": os.environ["PATH"], **env},
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return process.stdout.split()
+
+    def test_the_url_cert_and_tokens_come_from_the_environment(self):
+        self.assertEqual(
+            self.read(),
+            [
+                "https://10.50.0.4:8443",
+                "/etc/aisec/netbox/tls.crt",
+                "/etc/aisec/netbox/tokens",
+            ],
+        )
+        copy = [
+            "https://10.50.1.4:8443",
+            "/etc/aisec/netbox-rehearsal/tls.crt",
+            "/etc/aisec/netbox-rehearsal/tokens",
+        ]
+        self.assertEqual(
+            self.read(
+                AISEC_NETBOX_URL=copy[0],
+                AISEC_NETBOX_CERT=copy[1],
+                AISEC_NETBOX_TOKENS=copy[2],
+            ),
+            copy,
+        )
