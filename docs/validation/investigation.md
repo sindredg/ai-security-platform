@@ -21,7 +21,7 @@ The expected verdicts were worked out with the collector's own functions against
 
 ## How a scored job runs
 
-1. `collect-netbox-evidence JOB CASE` on the orchestrator. Its last line is both checks' verdicts for each account. Its elapsed time is the baseline's.
+1. `collect-netbox-evidence JOB CASE` on the orchestrator. One line of its output gives both checks' verdicts for each account. Its elapsed time is the baseline's.
 2. The workflow, under the same name, with the NetBox task from the same commit, 1200 seconds, and 8 turns. The model server's thinking setting is the one chosen from the development runs for [#36](https://github.com/sindredg/ai-security-platform/issues/36), and the worklog says which.
 3. The comparison's outcome and rows, the result, and the job's audit lines are kept.
 
@@ -49,3 +49,5 @@ The baseline, per case: the checks' verdicts, right by construction, the collect
 - **One configuration.** Every case reads the same permissions and records. The cases test reading a contract against evidence, not finding a different misconfiguration.
 - **One author wrote the cases and tuned the task.** The task was tuned on the seed's contract only, and no change to its wording targets a case. The separation is by data.
 - **The rule for the disagreement is read, not computed.**
+- **Found in the runs: no case has documents that disagree in the task's sense.** The task calls `ev-0002` and `ev-0003` disagreeing a reason for `inconclusive`. In `two-of-three` those two agree, and the checks disagree because the contract grants a device its record list leaves out ([#205](https://github.com/sindredg/ai-security-platform/issues/205)).
+- **Found in the runs: two cases are close to the tuning contract.** `control-only` and `consumer-only` change only the accounts the contract names, as [ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md) says. They hold 4 of the 18 scored verdicts.

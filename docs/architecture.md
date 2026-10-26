@@ -223,7 +223,7 @@ What follows from that:
 - Every tool call is authorized on the server: caller, job scope, target, operation, arguments. Hiding a tool from the model is not access control.
 - Target evidence is compared with what the repository, the cloud API, and the network say. When they disagree, the disagreement is recorded. The model does not get to pick a winner.
 - Approval binds to a commit and a target. Change the proposal and the approval is void.
-- Private payloads stay in protected storage. Workflow parameters and logs carry references.
+- Private payloads stay in protected storage. Workflow parameters and logs carry references. Not yet for a job's result: the checked result, its transcript with the evidence the agent read included, and the answer the comparison reads are workflow parameters, kept for 24 hours ([ADR 0030](decisions/0030-how-a-job-reaches-the-worker.md), [ADR 0041](decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md), [accepted risks](security/accepted-risks.md)).
 - The repository is public. Pull requests carry synthetic data and sanitized summaries. State, raw plans, and secrets never enter them.
 
 ## Security practices
@@ -312,7 +312,7 @@ The target's runtime, how the targets get packages, and the consumer's scope wit
 ## Limitations
 
 - One K3s node and single VMs. A VM failure stops that part of the system.
-- A small model on CPU proves the integration works. It says little about investigation quality or speed. In exercise 1's scored investigation, a job that completed took 5 to 15 minutes from the collection to the workflow's end, and the collection alone, which gives the checks' verdicts, 21 to 84 seconds ([worklog](worklogs/0005-netbox-target-and-exercise-1.md#against-the-baseline)).
+- A small model on CPU proves the integration works. It says little about investigation quality or speed. In exercise 1's scored investigation, a job that completed took 5 to 15 minutes from the collection to the workflow's end, and the collection alone, which gives the checks' verdicts, 21 to 84 seconds, most of it a wait for the tool service ([worklog](worklogs/0005-netbox-target-and-exercise-1.md#against-the-baseline)).
 - One operator. There is no multi-user access model, and nobody else reviews a change. Automated checks are the only second reader.
 - A separate VM limits what a compromised worker can reach. It does nothing against a compromised host or provider.
 - Both roots use the same network module. A change to it reaches both sides, so the separation is in state, identity, and network rules, not in the code.

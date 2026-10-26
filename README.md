@@ -27,9 +27,9 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 
 | | |
 | --- | --- |
-| Milestone | 4, NetBox target and exercise 1 investigation, started on 2026-10-24 ([roadmap](docs/roadmap.md#status)) |
-| Works since 2026-10-21 | A workflow hands a task to the agent on the worker. The agent calls the tool service with a token only that job holds, and the checked result comes back |
-| Not yet | NetBox is seeded with exercise 1's finding, and two deterministic checks confirm it and an unaffected case. Since 2026-10-25 a job reads that evidence, collected for it alone, and the workflow stops unless the model's verdict matches the checks'. Scored on held-out cases on 2026-10-26: 13 of 18 verdicts were the checks', and each wrong or missing one stopped the workflow ([worklog](docs/worklogs/0005-netbox-target-and-exercise-1.md#the-score)) |
+| Milestone | 4, NetBox target and exercise 1 investigation, done on 2026-10-26. Next: 5, remediation, pull requests, and delivery ([roadmap](docs/roadmap.md#status)) |
+| Works since 2026-10-26 | A workflow hands a NetBox job to the agent on the worker, which reads evidence collected for that job alone through the tool service. The workflow stops unless the model's verdict for each account matches two deterministic checks. On held-out cases, 13 of 18 verdicts were the checks', and each wrong or missing one stopped the workflow ([worklog](docs/worklogs/0005-netbox-target-and-exercise-1.md#the-score)) |
+| Not yet | A fix: rehearsed on a copy of the target, proposed as a pull request, and delivered after approval |
 
 ## Why it looks like this
 
