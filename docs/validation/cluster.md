@@ -20,6 +20,7 @@ K3s on the orchestrator, one server. Its workloads are checked on their own page
 
 - `K.6` is a patch on existing namespaces. A namespace created later starts without it, and the check then fails. That is the point of the check.
 - `K.3` can fail for a minute after a restart while a pod is still starting.
+- `K.3` and `K.6` failed on 2026-10-26 with `0 1` each, in a copy of the script that asked kubectl for a verb that does not exist. Before the change for #173, both passed on it ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-counting-checks-fail-on-a-broken-command)).
 - `K.9` covers the namespaces that exist when it runs. The default level is what holds a namespace created later.
 - `K.11` was seen to fail on 2026-10-23, with its probe run on the orchestrator against a changed list: a digest changed by one character named CoreDNS, a missing line named `pause`, and an empty list named all four.
 - `K.11` compares the cluster with the list. The list is compared with the archive only when it is written, from the archive's `index.json`. A list that does not match the archive fails `K.11` after the next import, not before.

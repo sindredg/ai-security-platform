@@ -41,6 +41,8 @@ The orchestrator's update key logs in to `aisec-update`. The limits are set twic
 
 The list `apt list` reads is the one the last run left, so the count says what was pending then, not today. The 7 days bound that.
 
+`U.14` and `U.15` failed on 2026-10-26 with `yes 0 100 no`, in a copy of the script that asked apt for a command that does not exist. Before the change for #173, both passed on it ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-counting-checks-fail-on-a-broken-command)).
+
 ## No way out
 
 Each far end listens: `1.1.1.1` on 443, Azure DNS (it answers the edge), Squid on both ports (`P.2`), sshd on the orchestrator, the worker, and the other target. So a timeout is a drop, and `refused` would mean the packet got through. [Containment](containment.md#what-a-failed-connection-proves) says why.

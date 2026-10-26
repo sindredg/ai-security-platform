@@ -77,5 +77,6 @@ An update run forwards port 3129 from a target's loopback address, so the target
 
 - `P.22` reads Squid's journal. Root on the edge can change the journal and the change times, as it can change anything these checks read. A journal that has lost Squid's start lines fails the check.
 - `P.15` and `P.16` cannot show that a window opens, or that a close ends its tunnels. `P.27` cannot show that a window leaves the target port closed. Opening one changes state, and the checks only read. The [edge runbook](../runbooks/edge-vm.md#open-a-fetch-window) has that step.
+- `U.1`, `U.5`, `U.9`, and `U.13` failed on 2026-10-26 with `0 100` each, in a copy of the script that asked apt for a command that does not exist. Before the change for #173, all four passed on it ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-counting-checks-fail-on-a-broken-command)).
 - `U.1` and `U.5` read the package lists on the machine. If the daily refresh has stopped, the lists are stale and the check still passes. Nothing alerts on a refresh that stopped.
 - `U.2` is also a gap: a held package gets no security fixes until someone moves the pin. `U.7` catches that for the mesh agent. Nothing catches it for the pinned K3s release.

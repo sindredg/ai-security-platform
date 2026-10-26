@@ -867,3 +867,29 @@ The baseline is the same collection without the agent ([ADR 0042](../decisions/0
 The fourth turn of `two-of-three` 2 wrote 3,323 tokens in 630 seconds. Its fifth turn, after a fourth call, was still in its prompt when the 1200 seconds ran out. The model server's journal has `cancel task` at 01:05:32 and the slot released at 01:07:32 with `n_tokens = 4096`. The job program had stopped waiting for the erase at 01:07:02, and the worker's journal says `"outcome": "timeout", "slot_erased": false`. That is [#199](https://github.com/sindredg/ai-security-platform/issues/199), seen a second time on the live system. No job followed, and each job's erase before it starts empties the slot ([ADR 0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md)).
 
 The job's result had no call counts, `"tool_calls": null`, and the audit log held four calls. Before the change for [#200](https://github.com/sindredg/ai-security-platform/issues/200), a timed-out job's result said 0. The dispatch step failed the job with `main: Error (exit code 1)`.
+
+### Every check
+
+From the branch at `ce835b5`, on the live system, 05:51:00 to 05:59:12 UTC: `411 passed, 1 failed`. The one was `G.10`, `The last job erased the model server's slot`, expected `true` and actually `false`. It reads the outcome of the worker's last job, which was the job that timed out ([above](#the-timed-out-job)).
+
+A synthetic job then ran, `syn-10260607`, 06:08 to 06:11 UTC: `Succeeded`, the comparison `Skipped`, three calls, and in the worker's journal the erase before it and after it `true`, with the same two tools offered. Every check again, 06:11:56 to 06:20:01 UTC: `412 passed, 0 failed`, `G.10` among them.
+
+### The counting checks fail on a broken command
+
+[#173](https://github.com/sindredg/ai-security-platform/issues/173): ten checks counted the lines a command printed after discarding its errors. A command that failed printed nothing, which counts as 0, the passing value. Each now expects the command's exit status after the count: `K.3`, `K.6`, `L.5`, `W.7`, `U.1`, `U.5`, `U.9`, `U.13`, `U.14`, and `U.15`.
+
+Two copies of the check script ask for a kubectl verb and an apt command that do not exist, on the nine lines those ten checks read. Nothing on the hosts changed. Written before the run: the branch's copy fails exactly the ten, with `0 1` from kubectl and `0 100` from apt, both exit codes reasoned and not seen before, and the copy from before the change passes them. Both ran on the live system without the Azure and workstation checks.
+
+| Copy | Seen |
+| --- | --- |
+| The branch's, 05:59:12 to 06:02:48 UTC | `351 passed, 11 failed`: the ten, `K.3`, `K.6`, `L.5`, and `W.7` with `0 1`, `U.1`, `U.5`, `U.9`, and `U.13` with `0 100`, and `U.14` and `U.15` with `yes 0 100 no`. The eleventh was `G.10`, as above |
+| From before the change, `7058bd9^`, 06:02:48 to 06:06:24 UTC | `361 passed, 1 failed`. The ten passed on commands that had failed, the fault #173 names. The one was `G.10` |
+
+### Not verified
+
+- **A rate.** Twelve jobs show whether the investigation works at all, not how often its verdict is right ([ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md)).
+- **An inconclusive verdict, an answer over 8 KiB, a cut answer, and a job offered another tool, on the live system.** Each stops the workflow or fails the job in the tests. No live job gave one.
+- **Thinking on the held-out cases.** It stayed off on the strength of two development jobs each way, on the seed's contract ([above](#thinking-and-the-tasks-last-change)).
+- **The twelfth job's times.** They are the workflow's timestamps. The script measured none ([above](#the-scored-runs)).
+- **The slot erase after a timeout** ([#199](https://github.com/sindredg/ai-security-platform/issues/199)). Not fixed, and moved to milestone 6, with its cleanup verification.
+- **A case outside one configuration.** Every case reads the same permissions and records ([limits](../validation/investigation.md#limits)).
