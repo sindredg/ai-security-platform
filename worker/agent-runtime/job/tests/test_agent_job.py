@@ -35,7 +35,9 @@ JOB = {
 
 # Prints a transcript with one tool call, as Goose's --output-format json
 # does. FAKE_MODE changes what it does. It records its arguments and the
-# recipe it was given, so the tests can read them.
+# recipe it was given, so the tests can read them. It logs the request it
+# would send the model where Goose 1.56.0 does, with the tools it offers: the
+# recipe's one, and Goose's own load_skill (#139).
 FAKE_GOOSE = textwrap.dedent(
     """\
     #!{python}
@@ -50,6 +52,20 @@ FAKE_GOOSE = textwrap.dedent(
     if mode == "fail":
         print("model unreachable", file=sys.stderr)
         sys.exit(1)
+    tools = ["tools__get_evidence", "load_skill"]
+    if mode == "extra-tool":
+        tools.append("developer__shell")
+    if mode == "no-tools":
+        tools = []
+    if mode != "no-log":
+        logs = os.path.join(os.environ["GOOSE_PATH_ROOT"], "state", "logs")
+        os.makedirs(logs)
+        with open(os.path.join(logs, "llm_request.0.jsonl"), "w") as f:
+            print(json.dumps({{"model_config": {{"model_name": "local"}}, "input": {{
+                "messages": [{{"role": "user", "content": "task"}}],
+                "tools": [{{"type": "function", "function": {{"name": n}}}} for n in tools],
+            }}}}), file=f)
+            print(json.dumps({{"data": {{}}, "usage": None}}), file=f)
     print("warning: token {token} in a log line", file=sys.stderr)
     print(json.dumps({{"messages": [
         {{"role": "user", "content": [{{"type": "text", "text": "task"}}]}},
@@ -346,7 +362,44 @@ class AWholeJob(Base):
         result = json.loads(data)
         self.assertEqual((result["status"], result["exit_code"]), ("failed", 1))
         self.assertIn("model unreachable", result["stderr_tail"])
+        # Without Goose's transcript, its calls are unknown here (#200).
+        self.assertIsNone(result["tool_calls"])
+        self.assertIsNone(result["tool_errors"])
         self.assertEqual(Erases.seen, ["/slots/0?action=erase"] * 2)
+
+    def test_the_tools_goose_offered_go_to_the_journal(self):
+        self.run_job(json.dumps(JOB).encode() + b"\n")
+        self.assertIn(
+            b'{"job": "job-1", "offered": ["load_skill", "tools__get_evidence"]}',
+            self.stderr,
+        )
+
+    def test_a_request_with_no_tools_is_logged_as_an_empty_list(self):
+        _, data = self.run_job(json.dumps(JOB).encode() + b"\n", mode="no-tools")
+        self.assertIn(b'{"job": "job-1", "offered": []}', self.stderr)
+        self.assertEqual(json.loads(data)["status"], "completed")
+
+    def test_a_tool_outside_the_recipe_fails_the_job(self):
+        # A Goose release that adds a tool of its own, such as one that runs
+        # shell commands, would reach the model unnoticed (#139, A8).
+        _, data = self.run_job(json.dumps(JOB).encode() + b"\n", mode="extra-tool")
+        result = json.loads(data)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["answer"], "Confirmed.")
+        self.assertTrue(
+            result["stderr_tail"].endswith(
+                "the model was offered tools outside the recipe: developer__shell"
+            )
+        )
+
+    def test_a_job_whose_requests_were_not_logged_fails(self):
+        # Without the log, the offered tools are unknown. The check fails
+        # closed, so a Goose that logs elsewhere is seen at its first job.
+        _, data = self.run_job(json.dumps(JOB).encode() + b"\n", mode="no-log")
+        result = json.loads(data)
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("offered tools are unknown", result["stderr_tail"])
+        self.assertIn(b'{"job": "job-1", "offered": null}', self.stderr)
 
     def test_a_bad_job_line_is_refused_and_starts_nothing(self):
         code, data = self.run_job(b'{"job": "x"}\n')
@@ -391,8 +444,9 @@ class TheResultLine(unittest.TestCase):
         )
         err.write_text(stderr)
         return agent_job.result_line(
-            JOB, "system text", "ended", 0, time.monotonic(), out, err, True
-        )
+            JOB, "system text", "ended", 0, time.monotonic(), out, err, True,
+            agent_job.OFFERED,
+        )  # fmt: skip
 
     def test_a_long_transcript_is_cut_to_the_limit_and_says_so(self):
         # Characters outside ASCII take 6 or 12 bytes each in the line.
@@ -415,17 +469,94 @@ class TheResultLine(unittest.TestCase):
             line = self.line(messages, answer=text, stderr=stderr)
             self.assertNotIn(TOKEN[:16], line)
 
+    def test_an_answer_cut_to_fit_the_result_fails_the_job(self):
+        # Cut, it can lose its last lines, and the comparison would read the
+        # rest as the whole answer. Outside ASCII each character takes 6 bytes
+        # in the line, so the cut text can stay under the dispatch step's
+        # limit of 8,192 bytes.
+        answer = "Verdict: some-account excess ev-0001\n" + "\u03b1" * 6000
+        result = json.loads(self.line(answer=answer))
+        self.assertEqual(result["status"], "failed")
+        self.assertLess(len(result["answer"].encode()), 8192)
+        self.assertTrue(
+            result["stderr_tail"].endswith(
+                "the answer was longer than a result carries, and was cut"
+            )
+        )
+
+    def test_an_answer_that_fits_is_kept_whole(self):
+        answer = "x" * (agent_job.ANSWER_BYTES - 2)
+        result = json.loads(self.line(answer=answer))
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["answer"], answer)
+
     def test_without_goose_output_the_transcript_is_the_instructions_only(self):
         tmp = Path(tempfile.mkdtemp())
         (tmp / "err.txt").write_text("")
         line = agent_job.result_line(
             JOB, "system text", "timeout", None, time.monotonic(),
-            tmp / "out.json", tmp / "err.txt", True,
+            tmp / "out.json", tmp / "err.txt", True, None,
         )  # fmt: skip
         self.assertEqual(
             json.loads(line)["transcript"],
             [{"role": "system", "type": "instructions", "text": "system text"}],
         )
+
+
+class TheOfferedTools(unittest.TestCase):
+    """offered_tools on request logs written by the test."""
+
+    def logs(self, *lines):
+        work = Path(tempfile.mkdtemp())
+        logs = work / "goose" / "state" / "logs"
+        logs.mkdir(parents=True)
+        for index, line in enumerate(lines):
+            (logs / f"llm_request.{index}.jsonl").write_text(line)
+        return work
+
+    def request(self, *names):
+        tools = [{"type": "function", "function": {"name": n}} for n in names]
+        return json.dumps({"model_config": {}, "input": {"tools": tools}}) + "\n"
+
+    def test_the_names_over_every_request(self):
+        work = self.logs(
+            self.request("tools__get_evidence"),
+            self.request("load_skill", "tools__get_evidence"),
+        )
+        self.assertEqual(
+            agent_job.offered_tools(work), {"tools__get_evidence", "load_skill"}
+        )
+
+    def test_a_request_with_no_tools_offers_none(self):
+        work = self.logs(json.dumps({"model_config": {}, "input": {"messages": []}}))
+        self.assertEqual(agent_job.offered_tools(work), set())
+
+    def test_an_empty_log_is_a_request_still_in_its_buffer(self):
+        # Goose writes a request's log through a buffer, so a run stopped
+        # mid-request can leave the file empty.
+        work = self.logs(self.request("tools__get_evidence"), "")
+        self.assertEqual(agent_job.offered_tools(work), {"tools__get_evidence"})
+
+    def test_no_log_or_a_log_that_cannot_be_read_gives_none(self):
+        for name, lines in {
+            "no log": (),
+            "only an empty log": ("",),
+            "not JSON": ("{",),
+            "no input": ('{"model_config": {}}',),
+            "a tool without a name": ('{"input": {"tools": [{"type": "function"}]}}',),
+            "tools not a list": ('{"input": {"tools": 3}}',),
+        }.items():
+            with self.subTest(name):
+                self.assertIsNone(agent_job.offered_tools(self.logs(*lines)))
+
+    def test_only_the_recipes_tool_and_load_skill_pass(self):
+        self.assertIsNone(agent_job.tools_problem(agent_job.OFFERED))
+        self.assertIsNone(agent_job.tools_problem({"tools__get_evidence"}))
+        self.assertEqual(
+            agent_job.tools_problem({"load_skill", "summon", "developer__shell"}),
+            "the model was offered tools outside the recipe: developer__shell, summon",
+        )
+        self.assertRegex(agent_job.tools_problem(None), "unknown")
 
 
 class TheDeadline(Base):

@@ -1,13 +1,24 @@
 # 0005. NetBox target and exercise 1 investigation
 
-Date: 2026-10-24 to
+Date: 2026-10-24 to 2026-10-26
 Milestone: 4, NetBox target and exercise 1 investigation
 
 ## Summary
 
-Started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). The NetBox VM and the lab VM are built, with the checks that read them ([below](#the-target-vms)). The update run is built, and has run once on each target ([below](#the-update-run)). NetBox runs on its VM ([below](#netbox-on-its-vm)). It holds exercise 1's seed, and the two deterministic checks agree on the seeded excess and the unaffected control ([below](#the-seed-and-the-two-checks)). A command on the orchestrator collects one job's evidence, and the tool service hands each job only its own, in the fields its schema names ([below](#evidence-per-job)). Jobs have run on that evidence. The investigation is not scored yet. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
+The milestone is done on 2026-10-26, after an independent review of these claims against the code and the running system ([the review](#the-review-for-the-close)). It started on 2026-10-24. The decisions are ADRs [0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md). On the platform side, Squid's port for the targets' packages and its two rules are built ([below](#the-targets-package-port)). The NetBox VM and the lab VM are built, with the checks that read them ([below](#the-target-vms)). The update run is built, and has run once on each target ([below](#the-update-run)). NetBox runs on its VM ([below](#netbox-on-its-vm)). It holds exercise 1's seed, and the two deterministic checks agree on the seeded excess and the unaffected control ([below](#the-seed-and-the-two-checks)). A command on the orchestrator collects one job's evidence, and the tool service hands each job only its own, in the fields its schema names ([below](#evidence-per-job)). Jobs have run on that evidence. The workflow compares a NetBox job's verdict for each account with the checks', and stops on anything but a match. A match and five kinds of stop were seen on the live system ([below](#the-comparison)). The investigation was scored on twelve jobs over six held-out cases: 13 of 18 verdicts were the checks', every verdict line the comparison read cited a document its job had fetched, four workflows ended in a match, and none of the four held a wrong verdict ([below](#the-scored-runs)). Three gaps are stated in the rows below. No answer said the evidence disagrees, and no case has documents that disagree in the task's sense. An inconclusive verdict stopped a workflow in the pipeline's tests only. An operator's token can submit a job that skips the comparison. The [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation) holds the criteria and the status.
 
 Before the build, five pins moved to their newest stable release: Terraform, `hashicorp/azurerm`, Ruff, Goose, and Argo Workflows. Goose and Argo run on the platform, so both were installed and every check ran after them.
+
+| Gate | Result |
+| --- | --- |
+| The consumer contract lists endpoints, fields, permitted records, and expected denials | **Tested** by reading `netbox/contract.json` in the targets repository: each read's path, fields, and records, the two scoped grants, and four denials, each with its method, path, and status ([the seed](#the-seed-and-the-two-checks)). `N.14` and `N.17` read it, and each failed on a contract for another tenant ([fail sides](#the-checks-fail-on-broken-inputs)) |
+| Deterministic checks confirm the finding and a known unaffected case | **Tested** on the live system on 2026-10-25: `N.14` and `N.17` give `inventory-reader` `excess` and the control `within`, each by its own method ([the run](#the-run)) |
+| Evidence is collected per job. The tool service refuses a job's call for another job's evidence on the same target, and hands the model only the fields its schema names | **Tested** on the live service on 2026-10-25: a job with no collection of its own found `nothing by that reference` while another job's evidence was in place ([#45](https://github.com/sindredg/ai-security-platform/issues/45)), and a document with an injected field was refused with `evidence does not match its schema`, its text not in the answer ([#152](https://github.com/sindredg/ai-security-platform/issues/152), [the collection and the jobs](#the-collection-and-the-jobs)) |
+| The investigation is scored as a dispatched job, through the workflow, on held-out cases. The hash of the case file is committed before the first scored run | **Tested** on the live system, 2026-10-25 23:08 UTC to 2026-10-26 01:07 UTC: twelve jobs, two per held-out case, each collected and then dispatched through the workflow. The case file's SHA-256, `595db647...`, was in `623a269` on GitHub before the first job ([the scored runs](#the-scored-runs)) |
+| The investigation cites tool evidence for each conclusion, and says so when evidence disagrees. Conclusions without tool evidence are counted | **Tested** for the citations: each of the 16 verdict rows the comparison read cited a document its job had fetched, so the count of conclusions without tool evidence is 0 by the rule. The 10 verdict lines it could not read cite none, and each stopped its workflow ([the score](#the-score)). **Accepted gap** for the disagreement: no answer said the evidence disagrees. In `two-of-three` 1 the answer stated both facts the written rule asks for, so the rule counts it, and said it saw no disagreement between `ev-0002` and `ev-0003`. By the task's definition that is right: in that case the two documents agree, and the checks disagree because the contract grants a device its record list leaves out. The other job timed out. No case has documents that disagree in the task's sense ([#205](https://github.com/sindredg/ai-security-platform/issues/205)). The comparison stops on checks that disagree whatever the answer says, so a missed disagreement costs the operator an explanation, not a wrong match ([ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)) |
+| The workflow compares the model's verdict with the deterministic checks. A mismatch, an inconclusive verdict, or a failed job stops the workflow for the operator. A match and a stop are each shown, with evidence from that job only | **Tested** on the live system on 2026-10-25 and 2026-10-26: matches, mismatches, checks that disagree, an answer with no verdicts, lines the comparison could not read, and failed jobs. The comparison's pods of two jobs mounted only their own job's key, read from their specs ([the comparison](#the-comparison), [the scored runs](#the-scored-runs)). An inconclusive verdict stopped in the pipeline's tests only: no live answer gave one. **Accepted gap**: an operator's token can submit a NetBox job with another entrypoint, which skips the comparison ([#203](https://github.com/sindredg/ai-security-platform/issues/203)). Only the trusted operator holds one (T45), and nothing acts on a match before milestone 5, which has to close it first |
+| A baseline without AI, using the same tools, is recorded for comparison. A usefulness rubric, written before the runs, scores both, and operator effort and elapsed time are measured for both | **Tested**: the baseline is the same collection without the agent, its verdicts right by construction ([ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md)). The rules were in `b3ff6a3`, on GitHub before the first run. The collection that gives the checks' verdicts took 21.0 to 84.3 s and one command. Of that, 17 to 80 s was a wait until the tool service saw the documents, after the verdicts were known, so the checks alone took about 4 s, reasoned from the two figures. The agent's path took 325.8 to 885.3 s for the eleven jobs that completed, needed a submission, and left a stop to read in 8 of 12 jobs, with 13 of 18 verdicts the checks' ([against the baseline](#against-the-baseline)) |
+| Every image on the target side is pinned by digest. Signatures are verified where upstream signs | **Tested** on 2026-10-24 for NetBox's image, the only container image on the target side: pinned by the digests of its index, its linux/amd64 manifest, and that manifest's config. The orchestrator checks the archive against the pin before it reaches the VM, and `N.5` checks the running containers' image ID ([NetBox on its VM](#netbox-on-its-vm)). Upstream does not sign it: its attestations are unsigned provenance statements. PostgreSQL and Valkey are Ubuntu's packages, whose archive signature apt checks. No apt setting in the targets repository turns that check off |
 
 ## Pin moves
 
@@ -632,3 +643,279 @@ On the live system, 14:29:54 to 14:39:21 UTC, from the branch at `47477ed`, from
 - **The new limits on the live system.** No half and no answer there has come near them. They were seen to refuse in the tests only.
 - **`T.14`'s fail side** ([#195](https://github.com/sindredg/ai-security-platform/issues/195)).
 - **The answer's accuracy**, above.
+
+## The comparison
+
+Date: 2026-10-25. [ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md), accepted the same day. The procedure is the [evidence collection runbook](../runbooks/evidence-collection.md), steps 7 to 17.
+
+### What changed
+
+The comparison's code and the NetBox task merged first, in [#198](https://github.com/sindredg/ai-security-platform/pull/198), and ran nowhere until the template named their image. The collect command, the template, the system text, and the check came after it.
+
+| File | Change |
+| --- | --- |
+| `platform/dispatch/compare.py` and its tests (#198) | `compare.py JOB ANSWER` reads one `Verdict:` line per account from the answer, and the job's verdicts from the one file the workflow mounts. A match is every account the checks name, with both checks agreeing, neither `unknown`, and the model's value the same. Anything else is a stop. It prints one row per account and the outcome, keeps the rows as the step's output, writes the outcome as the termination message, and exits 1 on a stop. Of the answer it prints only what matched a pattern: account names, values, references, and counts |
+| `platform/dispatch/dispatch.py` and its tests (#198) | Hands the answer on to the comparison. Fails the job when the answer is longer than 8 KiB or holds `{{`, which Argo would render |
+| `platform/dispatch/Dockerfile`, `.github/workflows/checks.yml` (#198) | The image carries `compare.py`, and the image job runs it once in the built image |
+| `collectors/netbox/task.txt` (#198) | The NetBox task: what each document holds, each verdict defined the way the collector's checks decide it, and one `Verdict: ACCOUNT VALUE REFERENCES` line per account at the end. Since `5cc0ed9`, `cb63d57` after the branch was rebased, it also asks for one document at a time ([below](#the-task-on-development-jobs)) |
+| `collectors/netbox/collect_evidence.py` and its tests | Also writes the job's verdicts into the config map `netbox-verdicts` in `orchestration`, under the key `JOB.json`: the job, the time of the collection, and each account's configured and observed verdict. Keeps the newest 20 jobs there too. A failed write fails the command. One test runs the comparison on what the command wrote |
+| `platform/argo/workflow-template.yaml` | The entrypoint is a list of steps: dispatch, then the comparison when the target is `netbox`. The comparison's pod mounts only its job's key from `netbox-verdicts`, marked optional, holds no credential, and carries the label `compare`, which no network policy names. 120 seconds. The three templates on #198's image |
+| `platform/argo/install.sh` | Makes `netbox-verdicts` empty once, and never applies over it |
+| `worker/agent-runtime/system.txt` | One sentence: `If the task says how the answer ends, end it that way.` The two lines stay the default |
+| `validation/platform-checks.sh` | `W.12` |
+
+### Before the run
+
+Locally, on the workstation:
+
+- **The tests.** The dispatch step's, with the comparison's: 47 pass on Python 3.15.1. The collector's: 47 pass on Python 3.12.3 with `-I -S` and resource warnings as errors, 4 of them new. The job program's: 52 pass, 1 new. The tool service's: 212 pass, with every package installed by hash.
+- **Each new test failed first.** A copy of `compare.py` whose per-account rule ignored a disagreement between the checks failed `test_checks_that_disagree_stop_whatever_the_model_says`. A copy of the collect command that wrote the verdicts into the tool service's config map failed 5 tests, among them `test_a_collection_writes_the_verdicts_for_the_comparison` and the older test that no verdict reaches that config map. The system text's test failed before the sentence was there.
+- **Linters.** `argo lint --offline` with Argo 4.1.6: no finding. kubeconform 0.8.0: 33 valid, 1 skipped. ShellCheck 0.11.0 at `-S warning` on `install.sh` and the check script, hadolint 2.15.1 on the dispatch Dockerfile, and Ruff 0.17.2: no finding.
+- **The network policies, read.** The label `compare` matches `workflow-to-api` and `default-deny` only, so the comparison's pod reaches the API server and nothing else.
+
+In the pipeline, on `main` after #198, the image job ran `compare.py` in the built image, which printed its usage, and pushed `dispatch@sha256:7e79957e...`.
+
+Written before the run, as each step's expected result: the comparison's pod refused on the worker's SSH port and the tool service's registration port, a synthetic job skips the comparison, a job whose checks disagree stops whatever the model answers, and a job with no collection stops for lack of verdicts. The first NetBox job's outcome is the model's, recorded either way. ADR 0041 lists four mechanisms not seen when it was written. The run shows each.
+
+### The rollout and the first jobs
+
+On the live system, 17:51:59 to 18:32:05 UTC, from the branch at `73f0f9d`, `f05ba84` after the branch was rebased, from a script with the runbook's commands, each step's expected result printed before it. Every job had 900 seconds and 8 turns.
+
+| Step | Expected | Seen |
+| --- | --- | --- |
+| The collect command, runbook step 1 | The observer key's public half as before, and the installed command's SHA-256 equal to the checkout's | The same key. `13a066ea...` for both |
+| The dispatch image and Argo's objects, steps 7, 8, and 10 | An `ok` line for `dispatch@sha256:7e79957e...` and for Argo's two images, then `closed`. `configmap/netbox-verdicts created`, the template `configured`, `successfully rolled out`. The entrypoint `investigate`, then `dispatch`, `compare`, and `revoke` on the new digest, and no key in `netbox-verdicts` | All of it. The install also printed `configmap/argo-ui configured`, as it does on every install |
+| The worker's system text, [agent runtime](../runbooks/agent-runtime.md) step 8 and `install-fixture.sh` | The job programs' copy and the fixture's with the checkout's SHA-256 | `68a86a23...` for all three |
+| Two probe pods, [workflows](../runbooks/workflows.md) step 6, with the comparison's label and with dispatch's | The comparison's refused on both ports at 5 and 20 s, dispatch's open on both | The comparison's: `refused` on both at 5 and 20 s. At 0 s the worker's port was `open`, before kube-router wrote the pod's policy, the residual ADR 0030 names (T47). Dispatch's: `open` on both at 5 and 20 s. At 0 s the registration port refused it |
+| A synthetic job, workflows step 10 | `Succeeded`, the comparison `Skipped`, one allowed call, an answer that ends with the two lines | `Succeeded`, and `when ''synthetic' == 'netbox'' evaluated false`. One call, 312 bytes. The answer had the right content and no `Status:` or `Excess:` line ([below](#the-system-text)) |
+| Collect `nb-10251751-a`, step 11 | Three documents, the four verdicts, and the job's key in `netbox-verdicts` | `visible to the tool service after 41 s`, `inventory-reader:excess/excess inventory-reader-control:within/within`. The key `nb-10251751-a.json`, with the job, `2026-10-25T17:55:40Z`, and the same four verdicts |
+| The job on it, steps 12 and 13 | Dispatch `Succeeded` with three or more allowed calls. Then a match or a stop. The comparison's pod mounts one item, this job's key, and no secret | Dispatch `Succeeded`: 3 calls, 373 s. The workflow `Failed`, with the comparison's message `main: Error (exit code 1): stop: inventory-reader: the model says missing, the checks say excess`. The control matched. The pod mounted `netbox-verdicts` with one item, `nb-10251751-a.json`, its own `/tmp`, and Argo's directory. Why the model said `missing` is [troubleshooting 18](../troubleshooting/18-tool-results-come-back-in-another-order.md) |
+| `nb-10251751-b`: collected, its key changed so that the checks disagree on `inventory-reader`, step 17 | `Failed` at the comparison, with `the checks disagree, configured excess, observed within`, whatever the model answers | Not reached. The job hit its 900-second limit after 9 calls in 4 turns, and its result said `timeout`. The slot erase after it failed ([#199](https://github.com/sindredg/ai-security-platform/issues/199)), and the result counted 0 calls ([#200](https://github.com/sindredg/ai-security-platform/issues/200)). The dispatch step failed with the message `main: Error (exit code 1)` only. Its log has the reason: `failed: the model server's slot was not erased after the job`. The next job's erase before it started succeeded, read in the worker's journal |
+| `nb-10251751-c`: no collection | Each call refused `nothing by that reference`, then `Failed` at the comparison with `no checks' verdicts for this job` | Three calls refused (audit 44 to 46), and the answer said the evidence was not accessible. `stop: no checks' verdicts for this job`. The key was missing, and the optional volume let the pod start |
+| Every check, step 15 | `W.12` passes with `0 28`, and the last line says `0 failed` | 18:23:58 to 18:32:05 UTC: `412 passed, 0 failed`. `N.18`, `W.9`, `W.12`, `G.2`, and `G.8` among them |
+
+The four mechanisms ADR 0041 had not seen:
+
+| Mechanism | Seen |
+| --- | --- |
+| A template volume whose key names the workflow | The pod's volume listed `nb-10251751-a.json` for the workflow `nb-10251751-a` |
+| A missing key in a volume marked optional | The pod started, and the comparison stopped on the missing file |
+| The reason as Argo's step message | `main: Error (exit code 1): stop: ...`. Argo adds the prefix |
+| The condition on the target | `Skipped` for a synthetic job, run for each NetBox job |
+
+### The task on development jobs
+
+The first NetBox job read its three results by position, in the order the tool service answered them ([troubleshooting 18](../troubleshooting/18-tool-results-come-back-in-another-order.md)). Two more runs tried a line in the task against that. They are development runs: the task changed between them, and they are not scored. Each job had 1200 seconds and 8 turns. On the live system, from a script with the runbook's commands, from the branch at `73f0f9d`, `f05ba84` after the rebase, with `task.txt` changed and not committed. Its SHA-256 was printed at the start.
+
+| Run | The added line | Job | Calls | Outcome |
+| --- | --- | --- | --- | --- |
+| 18:56 to 19:16 UTC | ``The documents can come back in a different order than you asked for them. Tell them apart by their `reference` field, not by their order.`` | `syn-10251856-1` | 1 | `Succeeded`, the comparison `Skipped`. Both lines, right |
+| | | `syn-10251856-2` | 1 | `Succeeded`, the comparison `Skipped`. Both lines, with `Excess: none` against two types in excess |
+| | | `nb-10251856-a` | 3 in one turn, the results in the order `ev-0003`, `ev-0001`, `ev-0002` | `stop: inventory-reader-control: the model says excess, the checks say within`. `inventory-reader` matched |
+| | | `nb-10251856-b`, its key changed as in step 17 | 3 in one turn, `ev-0002`, `ev-0003`, `ev-0001` | `stop: inventory-reader: the checks disagree, configured excess, observed within`. The model said `missing` for that account |
+| 19:22 to 19:40 UTC | `Ask for one document at a time, and read it before you ask for the next.` | `nb-10251922-a1` | 5, one per turn | Stop: no verdict line for either account, and `verdict lines that could not be read: 2`. The answer gave the right verdicts as `- Verdict: excess` under a heading, and ended with `**inventory-reader excess ev-0003**` |
+| | | `nb-10251922-a2` | 3, one per turn | Match. The workflow `Succeeded`, with `Verdict: inventory-reader excess ev-0002 ev-0003` and `Verdict: inventory-reader-control within ev-0003` |
+
+The second line was committed as `5cc0ed9`, `cb63d57` after the rebase. In these two runs, every job's slot was erased before and after it. Every kind of stop seen on the live system came from these runs and the rollout: a mismatch, checks that disagree, no verdicts for the job, lines that could not be read, and a failed job. A match was seen once.
+
+### The system text
+
+Of the three synthetic jobs after the new sentence, one ended without the two lines and one with `Excess: none`, which the evidence contradicts. Three jobs cannot say whether the sentence changed the answers: before it, the agent runtime runbook's step 5 had 3 of 3 runs right on 2026-10-23 and 2 of 3 on 2026-10-24. Nothing in dispatch reads the two lines. The comparison reads only NetBox's `Verdict:` lines.
+
+### W.12 fails on a broken input
+
+On the live system, 20:07:25 to 20:14:54 UTC, from the branch at `5cc0ed9`, `cb63d57` after the rebase, without the Azure and workstation checks. Written before the run: with a Role that gives `argo-operator` `patch` on config maps in `orchestration`, only `W.12` fails, with `1 27`.
+
+| Step | Seen |
+| --- | --- |
+| The Role and its binding `w12-failside` | `created` twice. `kubectl auth can-i patch configmaps` as `argo-operator`: `yes` |
+| Every check, 20:07:32 to 20:11:13 UTC | `361 passed, 1 failed`. The one was `W.12`: expected `0 28`, actual `1 27` |
+| The Role and its binding removed | `deleted` twice. The same question: `no` |
+| Every check, 20:11:16 to 20:14:54 UTC | `362 passed, 0 failed` |
+
+### Not verified
+
+- **The other stops, on the live system.** An inconclusive verdict, two lines that disagree for one account, a line for an account the checks do not name, and checks that cannot settle an account each stop in the tests only.
+- **Dispatch's limits on the answer.** No live answer was longer than 2,751 bytes or held `{{`. A refusal was seen in the tests only.
+- **The verdicts' config map at its limit.** It held 6 keys at most. The removal past 20 jobs ran in the tests only.
+- **The runbook's undo for `netbox-verdicts`.** Not run.
+- **`argo terminate` on a job with the comparison** ([#174](https://github.com/sindredg/ai-security-platform/issues/174)).
+- **How often the model's verdict matches.** These were development jobs, with the task changing between runs. The investigation is scored on held-out cases, which do not exist yet.
+
+## Held-out cases and the scored investigation
+
+Date: 2026-10-25. [ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md), accepted the same day. The cases and the rules that score them are on [the investigation's page](../validation/investigation.md).
+
+### What changed
+
+An independent review of the comparison's branch, before this part, read the code, the raw output of the runs above, and the live system. Its findings are fixed below, or opened as [#203](https://github.com/sindredg/ai-security-platform/issues/203). A second review read the image's pull request, [#202](https://github.com/sindredg/ai-security-platform/pull/202), before it merged.
+
+| File | Change |
+| --- | --- |
+| `platform/dispatch/compare.py` (#202) | A line whose first word is `Verdict` is a verdict line, after compatibility forms are folded and format characters, emphasis, and anything before the first letter are taken out. It is read only in the exact form: the account, one value, and references. Before, a contradicting line under a heading, a quote, a task mark, or a table bar was not seen, and `excess/within` was read as `excess`. Any verdict line in another form now stops the workflow |
+| `platform/dispatch/dispatch.py` (#202) | Fails a job whose answer holds a control character, DEL, a lone surrogate, or any character above U+FFFF, which Argo's quoting would turn into invalid JSON. Takes no call counts from a job that did not complete ([#200](https://github.com/sindredg/ai-security-platform/issues/200)) |
+| `platform/argo/workflow-template.yaml` | The three templates on #202's image |
+| `worker/agent-runtime/job/agent_job.py` | Reads the tool list from each request Goose logged, and fails a completed job offered any tool but the recipe's and Goose's own `load_skill` ([#139](https://github.com/sindredg/ai-security-platform/issues/139)). Fails a completed job whose answer had to be cut to fit the result. Gives no call counts without a transcript (#200) |
+| `collectors/netbox/cases.json`, `collect_evidence.py`, `install-collector.sh` | Six held-out cases, each a variant of the consumer contract with the verdicts the checks are expected to give. `collect-netbox-evidence JOB CASE` collects against a case's contract. The installer puts the file beside the contract |
+| `validation/platform-checks.sh` | `N.18` also holds the installed case file to the checkout |
+| `collectors/netbox/task.txt` | Asks for the verdict lines as plain text, after a development job ended with bold lines that held no `Verdict:` |
+
+### Before the rollout
+
+Locally, on the workstation: the dispatch tests, `Ran 61 tests ... OK` on Python 3.15.1. The collector's, `Ran 51 tests ... OK`, and the job program's, `Ran 63 tests ... OK`, both on Python 3.12.3 with `-I -S`. The tool service's, `218 passed`, six of them one per case's contract through the evidence schema. Each new test failed on the code before its change, except two guards in the comparison's tests: references in brackets or a list, and the time to read hostile 8 KiB lines, a few milliseconds. Ruff 0.17.2 and ShellCheck 0.11.0: no finding. `argo lint --offline` 4.1.6: no finding.
+
+Each case's expected verdicts were worked out with the collector's own functions against a stand-in for the seed, which gives the seed's contract the verdicts the live checks give. A case file with one expectation changed failed that comparison.
+
+The five development answers above with `Verdict:` lines were read again with #202's comparison: every model value, reference, and reason came out as the live comparison had read them.
+
+In the pipeline, on `main` after #202 merged as `731de86`, the image job ran `compare.py` in the built image, which printed its usage, and pushed `dispatch@sha256:39967b73...`. The registry answers that digest anonymously.
+
+### The rollout
+
+On the live system, 21:48:28 to 22:10:45 UTC, from the branch at `dde15f2`, from a script with the runbooks' commands, each step's expected result printed before it.
+
+| Step | Seen |
+| --- | --- |
+| The collect command and the case file, [evidence collection](../runbooks/evidence-collection.md) step 1 | The command and `/etc/aisec/netbox/cases.json` with the checkout's SHA-256, the case file `root 644` |
+| The new image and Argo's objects, steps 7, 8, and 10 | `ok` for `dispatch@sha256:39967b73...`, the window closed. The template `configured`, and `dispatch`, `compare`, and `revoke` on the new digest |
+| The job program, [agent runtime](../runbooks/agent-runtime.md) step 8 | The checkout's SHA-256 |
+| The keys changed by hand for step 17 on the afternoon's runs | `nb-10251751-b.json` and `nb-10251856-b.json` removed with step 17's new last command. A later workflow under either name would have read verdicts nobody collected |
+| A synthetic job | `Succeeded`, the comparison `Skipped`, one call. The worker's journal: `{"job": "syn-10252148", "offered": ["load_skill", "tools__get_evidence"]}` |
+| Each case collected once, with no job on it | All six gave the case file's verdicts, the configured verdict and the observed one for each account. Visible to the tool service after 27 to 81 s |
+| `N.18` with one line added to the installed case file, every check without the Azure and workstation checks, 21:58 UTC | `361 passed, 1 failed`. The one was `N.18`, its fourth digest different. The file was put back, with the checkout's SHA-256 |
+| Every check, 22:01:53 to 22:10:45 UTC | `412 passed, 0 failed`. `G.8`, `N.18`, `W.9`, and `W.12` among them |
+
+### Thinking, and the task's last change
+
+Development jobs on the seed's contract, not on a held-out case, each with 1200 seconds and 8 turns. On the live system, 22:11 to 22:50 UTC, from a script with the runbooks' commands. For thinking on, a systemd drop-in ran the model server without `--reasoning off`, the model's default, and was removed after the two jobs. The server came back with `--reasoning off` ([#36](https://github.com/sindredg/ai-security-platform/issues/36)).
+
+| Job | Thinking | Calls | Seconds | Output tokens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| `nb-10252211-on1` | On | 4 | 682 | 1,915 | Match |
+| `nb-10252211-on2` | On | 3 | 621 | 2,034 | Stop: `verdict lines that could not be read: 2` |
+| `nb-10252211-off1` | Off | 3 | 432 | 1,007 | Stop: `verdict lines that could not be read: 2` |
+| `nb-10252211-off2` | Off | 3 | 294 | 279 | Match |
+
+All four answers gave both accounts the checks' verdicts on their last lines. Both stops came from bullets in the analysis before them, such as `- Verdict: EXCESS (returned records beyond contract listing)`, which the comparison counts as verdict lines it cannot read. With thinking on, a job took 1.8 times as long on average, for no better answer. Thinking stays off for the scored runs. Two jobs each, on one contract with no disagreement in its evidence, do not show how thinking does on harder cases.
+
+The task then gained one sentence, committed as `666abb4` before the first scored run: `Write the word Verdict only at the start of those lines.` Two development jobs with it, 22:51 to 23:08 UTC: `nb-10252251-a1` matched in 482 seconds, and `nb-10252251-a2` stopped with `inventory-reader-control: the model says excess, the checks say within`, a wrong verdict in the right form. Neither answer had a line the comparison could not read.
+
+### The scored runs
+
+On the live system, 2026-10-25 23:08:26 to 2026-10-26 01:07:22 UTC, from the branch at `666abb4`, from a script with the runbook's commands ([evidence collection](../runbooks/evidence-collection.md) steps 11 to 13). Each case ran twice: the collect command with the case, then the workflow under the same name with the NetBox task from the same commit, 1200 seconds, and 8 turns. Thinking was off. The rules that score the runs were written before them, on [the investigation's page](../validation/investigation.md).
+
+Before the first job, the script printed the case file's SHA-256, `595db647...`, the same as the installed file's, and the task's, `68f63371...`. The last commit to change each of the case file, the task, and the rules was on GitHub: `623a269`, `666abb4`, and `b3ff6a3`.
+
+The script lost its tunnel to the orchestrator before it read the twelfth workflow: after `client_loop: send disconnect: Broken pipe`, `argo get` found nothing listening on the tunnel's port at 05:32 UTC, and the script stopped. The workflow had ended at 01:07:22. Its record was built afterwards from the same fields: the workflow, read with `kubectl` on the orchestrator at 05:32 UTC, and the job's lines in the audit log, read at the same time. The script measured no times for it. The table gives the workflow's own timestamps instead, marked with an asterisk: from the step's start to the workflow's creation, which includes the submission, and from the creation to its end.
+
+Every collection gave the case file's verdicts, and each job's evidence was visible to the tool service after 17 to 80 s.
+
+| Case, run | Outcome | Verdicts right | Lines citing | Calls | Turns | Collection | Collection to the end |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `control-only` 1 | Match | 1 of 1 | 1 of 1 | 3 | 4 | 57.8 s | 453.5 s |
+| `control-only` 2 | Stop: a line it could not read, `**Verdict: within**` | 1 of 1 | 1 of 1 | 3 | 4 | 39.7 s | 447.4 s |
+| `consumer-only` 1 | Stop: a line it could not read, `**Verdict for inventory-reader:**` | 1 of 1 | 1 of 1 | 4 | 5 | 51.9 s | 537.5 s |
+| `consumer-only` 2 | Match | 1 of 1 | 1 of 1 | 3 | 4 | 37.0 s | 325.8 s |
+| `sites` 1 | Stop: a line it could not read, `Verdict is **missing**.` | 2 of 2 | 2 of 2 | 4 | 5 | 23.6 s | 771.1 s |
+| `sites` 2 | Stop: the control `within`, the checks `missing` | 1 of 2 | 2 of 2 | 3 | 4 | 21.0 s | 360.5 s |
+| `devices-only` 1 | Match | 2 of 2 | 2 of 2 | 3 | 4 | 26.4 s | 376.4 s |
+| `devices-only` 2 | Stop: no verdict line for either account, and one it could not read, `Verdict: excess` | 0 of 2 | 0 of 0 | 3 | 4 | 67.3 s | 517.8 s |
+| `change` 1 | Match | 2 of 2 | 2 of 2 | 4 | 5 | 84.3 s | 683.6 s |
+| `change` 2 | Stop: the control `within`, the checks `missing` | 1 of 2 | 2 of 2 | 3 | 4 | 24.2 s | 346.0 s |
+| `two-of-three` 1 | Stop: the checks disagree on the control, and six lines it could not read | 1 of 1 | 2 of 2 | 3 | 4 | 65.3 s | 885.3 s |
+| `two-of-three` 2 | Failed at dispatch: the job reached its 1200-second limit with no answer | 0 of 1 | 0 of 0 | 4 | 5, the last cancelled | 77.0 s* | 1392.0 s* |
+
+"Verdicts right" counts the accounts the checks agree on. "Lines citing" counts the comparison's rows that hold a model value, one per account. "Turns" are the model server's requests during the job, from its journal. Every call was allowed. Each job fetched all three of its documents, so no line cited a reference its job had not fetched. In the eleven jobs with a transcript, the model asked for one document at a time, `ev-0001` to `ev-0003` in order, the order the task has asked for since [troubleshooting 18](../troubleshooting/18-tool-results-come-back-in-another-order.md). The fourth call in four jobs fetched a document a second time.
+
+In the worker's journal, the erase before each job was `true`, and each job was offered `["load_skill", "tools__get_evidence"]`, the timed-out job too. The erase after the job was `true` for the eleven that completed and `false` for the one that timed out ([below](#the-timed-out-job)).
+
+### The score
+
+| Rule | Result |
+| --- | --- |
+| The verdict for each account the checks agree on is theirs | 13 of 18 accounts. Wrong in two: `within` for the control where the checks say `missing`, in `sites` 2 and `change` 2. No verdict in three: both accounts in `devices-only` 2, and `inventory-reader` in `two-of-three` 2 |
+| Each verdict line cites at least one reference | 16 of 16 rows, the lines the comparison read. In `two-of-three` 1, each account's line came twice, the same both times. The 10 lines it could not read, in five answers, cite none |
+| Each cited reference was fetched in that job | All of them |
+| The answer names the disagreement, in `two-of-three` | 1 of 2 jobs, by the written rule, read below. No answer said the evidence disagrees. The second job gave no answer |
+| Conclusions without tool evidence | None among the rows the rule reads. The 10 lines the comparison could not read each hold a verdict and no reference |
+
+The reading for `two-of-three` 1, written down as the rule asks. For the control, the answer says the permission is the contract's, `So the permissions match the contract.`, and that the token returned a device the contract does not list, `But the actual reads returned records that are not in the contract's expected list.`, naming `a-sw-02`. That meets the rule. The same answer then says `I don't see any disagreement between ev-0002 and ev-0003.` and gives the control `excess`, which the task's definition of `excess` allows when the token returned a record the contract does not list. The model stated both facts and did not call them a disagreement.
+
+By the task's definition, the answer is right that there is none. The task makes `ev-0002` and `ev-0003` disagreeing a reason for `inconclusive` ([`task.txt`](../../collectors/netbox/task.txt)), and in this case they agree: a permission scoped to tenant A, and tenant A's three devices returned. The checks disagree because the contract grants all of tenant A's devices and lists two of them. The rule, written for this case before the runs, counts the answer. No answer said the evidence disagrees, and no case has documents that disagree in the task's sense ([#205](https://github.com/sindredg/ai-security-platform/issues/205)).
+
+The rows above come from the records by script, and were checked by hand for `sites` 2 and `devices-only` 2.
+
+### Against the baseline
+
+The baseline is the same collection without the agent ([ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md)). Its verdicts are the checks', right by construction.
+
+| | The checks alone | The agent, through the workflow |
+| --- | --- | --- |
+| Verdicts for the accounts the checks agree on | 18 of 18, by construction | 13 of 18 |
+| The control in `two-of-three` | `within/excess` in both runs: the line shows that the checks disagree | The written rule met in 1 of 2 jobs. No answer said the evidence disagrees |
+| Elapsed time per job | 21.0 to 84.3 s for the collection. 17 to 80 s of it was a wait for the tool service, after the verdicts were known, so about 4 s without it, reasoned from the two figures | 325.8 to 885.3 s, and 1392.0 s* for the job that timed out |
+| The operator's effort | One command and one line to read | One command and a submission. Then a match in 4 jobs, and a stop to read in 8 |
+| What the answer gives | Two verdicts per account. The documents hold the details | One verdict per account, with the permission or the records behind it and the documents it read |
+
+### What the runs show
+
+- **No wrong verdict ended in a match.** The four matches held the checks' verdicts for every account, and each wrong or missing verdict stopped the workflow. Twelve jobs show that this happened, not how often it would.
+- **Both wrong verdicts were `within` for `missing`.** In `sites` and `change`, the control lacks a grant the contract gives, and the checks say `missing`. One run of each found it. The other said `within`: it checked that the account's grants are in the contract and that its records are listed, and not what the contract grants that the account lacks.
+- **The form stopped three right answers.** Five of the eleven answers held verdict lines the comparison could not read, despite the task's sentence from `666abb4`. In three of them, the lines it could read held the checks' verdicts for every account, so the stop came from the form alone. `two-of-three` 1 would have stopped on the checks' disagreement anyway, and `devices-only` 2 had no line the comparison could read. [ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md) stops on such lines on purpose: a contradicting line the comparison cannot read would otherwise let a match through.
+- **Two cases are close to the contract the task was tuned on.** `control-only` and `consumer-only` change only the accounts the contract names ([ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md)). They hold 4 of the 18 scored verdicts, all right. The other four cases hold 14, and 9 were right.
+- **The case with the disagreement had the longest answers.** The two `two-of-three` jobs wrote 2,860 and 3,883 output tokens, the most of the twelve, and the second ran out of time in its fifth turn. The first's answer was 7,958 bytes, 234 under the 8 KiB the dispatch step hands on to the comparison. A longer one fails the job ([T55](../security/threat-model.md)). The other answers were 90 to 2,631 bytes, and none held a character the step refuses.
+
+### The timed-out job
+
+The fourth turn of `two-of-three` 2 wrote 3,323 tokens in 630 seconds. Its fifth turn, after a fourth call, was still in its prompt when the 1200 seconds ran out. The model server's journal has `cancel task` at 01:05:32 and the slot released at 01:07:32 with `n_tokens = 4096`. The job program had stopped waiting for the erase at 01:07:02, and the worker's journal says `"outcome": "timeout", "slot_erased": false`. That is [#199](https://github.com/sindredg/ai-security-platform/issues/199), seen a second time on the live system. No job followed, and each job's erase before it starts empties the slot ([ADR 0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md)).
+
+The job's result had no call counts, `"tool_calls": null`, and the audit log held four calls. Before the change for [#200](https://github.com/sindredg/ai-security-platform/issues/200), a timed-out job's result said 0. The dispatch step failed the job with `main: Error (exit code 1)`.
+
+### Every check
+
+From the branch at `ce835b5`, on the live system, 05:51:00 to 05:59:12 UTC: `411 passed, 1 failed`. The one was `G.10`, `The last job erased the model server's slot`, expected `true` and actually `false`. It reads the outcome of the worker's last job, which was the job that timed out ([above](#the-timed-out-job)).
+
+A synthetic job then ran, `syn-10260607`, 06:08 to 06:11 UTC: `Succeeded`, the comparison `Skipped`, three calls, and in the worker's journal the erase before it and after it `true`, with the same two tools offered. Every check again, 06:11:56 to 06:20:01 UTC: `412 passed, 0 failed`, `G.10` among them.
+
+### The counting checks fail on a broken command
+
+[#173](https://github.com/sindredg/ai-security-platform/issues/173): ten checks counted the lines a command printed after discarding its errors. A command that failed printed nothing, which counts as 0, the passing value. Each now expects the command's exit status after the count: `K.3`, `K.6`, `L.5`, `W.7`, `U.1`, `U.5`, `U.9`, `U.13`, `U.14`, and `U.15`.
+
+Two copies of the check script ask for a kubectl verb and an apt command that do not exist, on the nine lines those ten checks read. Nothing on the hosts changed. Written before the run: the branch's copy fails exactly the ten, with `0 1` from kubectl and `0 100` from apt, both exit codes reasoned and not seen before, and the copy from before the change passes them. Both ran on the live system without the Azure and workstation checks.
+
+| Copy | Seen |
+| --- | --- |
+| The branch's, 05:59:12 to 06:02:48 UTC | `351 passed, 11 failed`: the ten, `K.3`, `K.6`, `L.5`, and `W.7` with `0 1`, `U.1`, `U.5`, `U.9`, and `U.13` with `0 100`, and `U.14` and `U.15` with `yes 0 100 no`. The eleventh was `G.10`, as above |
+| From before the change, `7058bd9^`, 06:02:48 to 06:06:24 UTC | `361 passed, 1 failed`. The ten passed on commands that had failed, the fault #173 names. The one was `G.10` |
+
+### Read for the close
+
+- **The daily volume.** On 2026-10-25 UTC, the day with the comparison's live runs, the development jobs, the first four scored jobs, and the day's check runs, the workspace took 81.90 MB billable, read with the [monitoring runbook](../runbooks/monitoring.md)'s query, step 14. Of it, 52.39 MB was the worker's journal, and 27.08 MB `Perf`. Three times that is above the cap of 0.21 GB, so by the rule that set the cap it moves to 0.25 GB. That is a Terraform change and an apply, left for the start of milestone 5 ([#175](https://github.com/sindredg/ai-security-platform/issues/175)).
+- **The newest 20 jobs.** On the live system at 06:52 UTC, `netbox-verdicts` held 20 keys, and the tool service's config map 60, three documents for each of the same 20 jobs, `nb-10252148-v-change` to `nb-10252308-two-of-three-2`. The orchestrator kept the directories of all 32 jobs. Both config maps' pruning past 20 jobs has run on the live system.
+
+### The review for the close
+
+An independent review read this milestone's claims against the code, the raw output of the runs, and the live system on 2026-10-26, from the branch at `9b22ab0`. Its run of every check, 06:22 to 06:30 UTC, reported `412 passed, 0 failed`. It found the case file and the rules on GitHub before the first scored job, the same score table when it was computed again, the live template equal to the branch's, the image the pipeline built from `main`, and each of the 20 keys in `netbox-verdicts` equal to its collection.
+
+| Finding | Change |
+| --- | --- |
+| No answer said the evidence disagrees. The answer the rule counts said it saw no disagreement, which by the task's definition is right, and no case has documents that disagree | The criterion's row, [the score](#the-score), and the roadmap say so. [#205](https://github.com/sindredg/ai-security-platform/issues/205) |
+| 10 verdict lines the comparison could not read cite nothing | The summary, the criterion's row, and the score say "the rows the comparison read" |
+| An operator's token can skip the comparison, missing from the criterion's row | Added, with [#203](https://github.com/sindredg/ai-security-platform/issues/203) |
+| Nine open issues still named milestone 4 | Each has a comment with its new milestone or trigger, listed below |
+| [#36](https://github.com/sindredg/ai-security-platform/issues/36) asked for several runs each way and a case with a disagreement | Left open, on [#151](https://github.com/sindredg/ai-security-platform/issues/151)'s trigger |
+| Stale pages: the README's status, three security status lines, the check history, the agent runtime's limits, the investigation's first step, the architecture's line on workflow parameters, and T27 | Moved |
+| Sixteen more checks pass when the command they count fails, #173's fault | [#204](https://github.com/sindredg/ai-security-platform/issues/204) |
+| Two refused workflows from 2026-10-21 stay in `orchestration` | [#206](https://github.com/sindredg/ai-security-platform/issues/206) |
+| Two cases are close to the tuning contract, the baseline's time includes a wait, the pruning past 20 jobs ran, and pre-rebase commits are cited | Recorded above |
+
+### Not verified
+
+- **A rate.** Twelve jobs show whether the investigation works at all, not how often its verdict is right ([ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md)).
+- **An inconclusive verdict, an answer over 8 KiB, a cut answer, and a job offered another tool, on the live system.** Each stops the workflow or fails the job in the tests. No live job gave one.
+- **Thinking on the held-out cases.** It stayed off on the strength of two development jobs each way, on the seed's contract ([above](#thinking-and-the-tasks-last-change)).
+- **The twelfth job's times.** They are the workflow's timestamps. The script measured none ([above](#the-scored-runs)).
+- **The slot erase after a timeout** ([#199](https://github.com/sindredg/ai-security-platform/issues/199)). Not fixed, and moved to milestone 6, with its cleanup verification.
+- **A case outside one configuration.** Every case reads the same permissions and records ([limits](../validation/investigation.md#limits)).
+- **A case whose documents disagree.** None has one in the task's sense, so whether an answer says so when `ev-0002` and `ev-0003` disagree was not tested ([#205](https://github.com/sindredg/ai-security-platform/issues/205)).
+- **Issues that named milestone 4.** Each has a comment with its new milestone or trigger: [#23](https://github.com/sindredg/ai-security-platform/issues/23), `C.3` with the rehearsal copy in milestone 5. [#175](https://github.com/sindredg/ai-security-platform/issues/175), the cap, at the start of milestone 5. [#108](https://github.com/sindredg/ai-security-platform/issues/108), [#174](https://github.com/sindredg/ai-security-platform/issues/174), [#176](https://github.com/sindredg/ai-security-platform/issues/176), and [#186](https://github.com/sindredg/ai-security-platform/issues/186), milestone 6. [#187](https://github.com/sindredg/ai-security-platform/issues/187) and [#191](https://github.com/sindredg/ai-security-platform/issues/191), the next update run of the NetBox VM, due by 2026-10-31. [#195](https://github.com/sindredg/ai-security-platform/issues/195), the next deploy of the tool service. [#36](https://github.com/sindredg/ai-security-platform/issues/36) and [#151](https://github.com/sindredg/ai-security-platform/issues/151), the next change to the model or to a task's verdict definitions.

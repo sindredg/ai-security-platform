@@ -1,14 +1,15 @@
 #!/usr/bin/python3 -I
 """Collects one job's NetBox evidence on the orchestrator (ADR 0040).
 
-    collect-netbox-evidence JOB
+    collect-netbox-evidence JOB [CASE]
 
 Runs the configured half here, with the collector's token, and the observed
 half on the lab VM, through the observer account's forced command. Both get
 the contract on standard input. Both answers are target side, NetBox's and
 the lab VM's: each half gets a megabyte and two minutes, and what comes back
 has to name the contract's accounts, and no read or denial the contract does
-not, before anything is written.
+not, before anything is written. The contract is the installed one, or with
+CASE that held-out case's, from the installed case file (ADR 0042).
 
 The job gets the facts the verdicts rest on, in three documents: ev-0001 the
 contract, ev-0002 the configured permissions, ev-0003 the records each read
@@ -17,8 +18,11 @@ NetBox are left out. The verdicts and both full reports stay here, under the
 job's directory, for the workflow's comparison and for the operator.
 
 The documents go into the tool service's ConfigMap for NetBox, keyed
-`JOB.REFERENCE.json`, which the pod mounts as a directory. The command then
-waits until the kubelet has put them there. A job ID is collected once.
+`JOB.REFERENCE.json`, which the pod mounts as a directory. The verdicts go
+into the ConfigMap `netbox-verdicts` in `orchestration`, keyed `JOB.json`,
+where the workflow's comparison step reads its own job's key (ADR 0041). The
+command then waits until the kubelet has put the documents in the tool
+service's directory. A job ID is collected once.
 
 Standard library only.
 """
@@ -35,6 +39,7 @@ from pathlib import Path
 
 STATE = Path(os.environ.get("AISEC_STATE", "/var/lib/aisec/evidence/netbox"))
 CONTRACT = Path(os.environ.get("AISEC_CONTRACT", "/etc/aisec/netbox/contract.json"))
+CASES = Path(os.environ.get("AISEC_CASES", "/etc/aisec/netbox/cases.json"))
 COLLECTOR = os.environ.get("AISEC_COLLECTOR", "/usr/local/lib/aisec/netbox_access.py")
 SSH = os.environ.get("AISEC_SSH", "/usr/bin/ssh")
 KUBECTL = os.environ.get("AISEC_KUBECTL", "/usr/local/bin/k3s kubectl").split()
@@ -49,6 +54,9 @@ KNOWN_HOSTS = "/etc/aisec/netbox/observe/known_hosts"
 LAB = "aisec-observe@10.50.0.36"
 NAMESPACE = "tool-services"
 CONFIGMAP = "tool-service-evidence-netbox"
+# The comparison step's, which no job reads (ADR 0041).
+VERDICTS_NAMESPACE = "orchestration"
+VERDICTS_CONFIGMAP = "netbox-verdicts"
 VOLUME = "evidence-netbox"
 POD = "app.kubernetes.io/name=tool-service"
 KEEP_JOBS = 20
@@ -58,6 +66,7 @@ RESULT_BYTES = 16384
 # A report is a few kilobytes. Far more is not a report, and is not held.
 OUTPUT_BYTES = 1 << 20
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
+CASE = re.compile(r"[a-z0-9][a-z0-9-]{0,31}")
 VERDICTS = ("excess", "missing", "unknown", "within")
 
 
@@ -247,22 +256,32 @@ def write(path, document):
 
 
 def collected_at(data, job):
-    try:
-        return json.loads(data[f"{job}.ev-0001.json"])["collected"]
-    except (KeyError, ValueError, TypeError):
-        return ""
+    """When the job was collected, from the first of its documents that says."""
+    for key, value in data.items():
+        if key.split(".", 1)[0] != job:
+            continue
+        try:
+            collected = json.loads(value)["collected"]
+        except (KeyError, ValueError, TypeError):
+            continue
+        if isinstance(collected, str):
+            return collected
+    return ""
 
 
-def store(job, documents):
-    """Adds the job's keys to the ConfigMap, and keeps the newest jobs.
+def verdicts_document(job, collected, found):
+    return {"job": job, "collected": collected, "accounts": found}
+
+
+def store(namespace, name, entries):
+    """Adds the entries to a ConfigMap, and keeps the newest jobs' keys.
 
     The replace carries the resourceVersion it read, so a change made in
     between fails the replace instead of being lost."""
-    get = [*KUBECTL, "-n", NAMESPACE, "get", "configmap", CONFIGMAP, "-o", "json"]
-    configmap = json.loads(run(get, None, "reading the ConfigMap"))
+    get = [*KUBECTL, "-n", namespace, "get", "configmap", name, "-o", "json"]
+    configmap = json.loads(run(get, None, f"reading the ConfigMap {name}"))
     data = configmap.get("data") or {}
-    for reference, document in documents.items():
-        data[f"{job}.{reference}.json"] = json.dumps(document, indent=2)
+    data.update(entries)
     jobs = sorted(
         {key.split(".", 1)[0] for key in data},
         key=lambda name: collected_at(data, name),
@@ -273,7 +292,7 @@ def store(job, documents):
             del data[key]
     configmap["data"] = data
     replace = [*KUBECTL, "replace", "-f", "-"]
-    run(replace, json.dumps(configmap), "writing the ConfigMap")
+    run(replace, json.dumps(configmap), f"writing the ConfigMap {name}")
 
 
 def wait_visible(job):
@@ -295,12 +314,26 @@ def wait_visible(job):
     return round(time.monotonic() - start)
 
 
-def collect(job):
+def contract_for(case):
+    """The installed contract, or the held-out case's from the case file."""
+    if case is None:
+        return json.loads(CONTRACT.read_text(encoding="utf-8"))
+    if not CASE.fullmatch(case):
+        raise Failed("not a case name")
+    cases = json.loads(CASES.read_text(encoding="utf-8"))["cases"]
+    if case not in cases:
+        raise Failed(f"no case {case}")
+    return cases[case]["contract"]
+
+
+def collect(job, case=None):
     if not JOB_ID.fullmatch(job):
         raise Failed("not a job ID")
     if (STATE / job).exists():
         raise Failed(f"{job} already collected")
-    contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    contract = contract_for(case)
+    if case is not None:
+        print(f"{job}: case {case}", flush=True)
     sent = json.dumps(contract)
     halves = {
         "configured": [sys.executable, "-I", COLLECTOR, "configured"],
@@ -338,20 +371,34 @@ def collect(job):
         *((f"{ref}.json", doc) for ref, doc in documents.items()),
     ):
         write(STATE / job / name, document)
-    store(job, documents)
+    store(
+        NAMESPACE,
+        CONFIGMAP,
+        {
+            f"{job}.{reference}.json": json.dumps(document, indent=2)
+            for reference, document in documents.items()
+        },
+    )
+    checks = verdicts_document(job, collected, found)
+    store(
+        VERDICTS_NAMESPACE,
+        VERDICTS_CONFIGMAP,
+        {f"{job}.json": json.dumps(checks, indent=2)},
+    )
     seconds = wait_visible(job)
     print(
         f"{job}: ev-0001 ev-0002 ev-0003, visible to the tool service after {seconds} s"
     )
     print(" ".join(f"{a}:{v['configured']}/{v['observed']}" for a, v in found.items()))
+    print(f"verdicts for the comparison in {VERDICTS_NAMESPACE}/{VERDICTS_CONFIGMAP}")
 
 
 def main(argv):
-    if len(argv) != 2:
+    if len(argv) not in (2, 3):
         print(__doc__.split("\n\n")[1], file=sys.stderr)
         return 2
     try:
-        collect(argv[1])
+        collect(argv[1], argv[2] if len(argv) == 3 else None)
     except Failed as error:
         print(f"failed: {error}", file=sys.stderr)
         return 1

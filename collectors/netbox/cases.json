@@ -1,0 +1,549 @@
+{
+  "cases": {
+    "control-only": {
+      "contract": {
+        "accounts": [
+          "inventory-reader-control"
+        ],
+        "viewpoint": "10.50.0.36",
+        "grants": [
+          {
+            "object_type": "dcim.device",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          },
+          {
+            "object_type": "ipam.ipaddress",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          }
+        ],
+        "reads": [
+          {
+            "path": "/api/dcim/devices/",
+            "key": "name",
+            "fields": [
+              "id",
+              "name",
+              "status",
+              "site",
+              "tenant",
+              "device_type",
+              "role"
+            ],
+            "records": [
+              "a-fw-01",
+              "a-sw-01",
+              "a-sw-02"
+            ]
+          },
+          {
+            "path": "/api/ipam/ip-addresses/",
+            "key": "address",
+            "fields": [
+              "id",
+              "address",
+              "status",
+              "tenant"
+            ],
+            "records": [
+              "172.16.1.1/24",
+              "172.16.1.2/24",
+              "172.16.1.3/24"
+            ]
+          }
+        ],
+        "denials": [
+          {
+            "method": "GET",
+            "path": "/api/dcim/sites/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/tenancy/tenants/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/users/permissions/",
+            "status": 403
+          },
+          {
+            "method": "POST",
+            "path": "/api/dcim/devices/",
+            "status": 403
+          }
+        ]
+      },
+      "expected": {
+        "inventory-reader-control": {
+          "configured": "within",
+          "observed": "within"
+        }
+      }
+    },
+    "consumer-only": {
+      "contract": {
+        "accounts": [
+          "inventory-reader"
+        ],
+        "viewpoint": "10.50.0.36",
+        "grants": [
+          {
+            "object_type": "dcim.device",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          },
+          {
+            "object_type": "ipam.ipaddress",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          }
+        ],
+        "reads": [
+          {
+            "path": "/api/dcim/devices/",
+            "key": "name",
+            "fields": [
+              "id",
+              "name",
+              "status",
+              "site",
+              "tenant",
+              "device_type",
+              "role"
+            ],
+            "records": [
+              "a-fw-01",
+              "a-sw-01",
+              "a-sw-02"
+            ]
+          },
+          {
+            "path": "/api/ipam/ip-addresses/",
+            "key": "address",
+            "fields": [
+              "id",
+              "address",
+              "status",
+              "tenant"
+            ],
+            "records": [
+              "172.16.1.1/24",
+              "172.16.1.2/24",
+              "172.16.1.3/24"
+            ]
+          }
+        ],
+        "denials": [
+          {
+            "method": "GET",
+            "path": "/api/dcim/sites/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/tenancy/tenants/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/users/permissions/",
+            "status": 403
+          },
+          {
+            "method": "POST",
+            "path": "/api/dcim/devices/",
+            "status": 403
+          }
+        ]
+      },
+      "expected": {
+        "inventory-reader": {
+          "configured": "excess",
+          "observed": "excess"
+        }
+      }
+    },
+    "sites": {
+      "contract": {
+        "accounts": [
+          "inventory-reader",
+          "inventory-reader-control"
+        ],
+        "viewpoint": "10.50.0.36",
+        "grants": [
+          {
+            "object_type": "dcim.device",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          },
+          {
+            "object_type": "ipam.ipaddress",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          },
+          {
+            "object_type": "dcim.site",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          }
+        ],
+        "reads": [
+          {
+            "path": "/api/dcim/devices/",
+            "key": "name",
+            "fields": [
+              "id",
+              "name",
+              "status",
+              "site",
+              "tenant",
+              "device_type",
+              "role"
+            ],
+            "records": [
+              "a-fw-01",
+              "a-sw-01",
+              "a-sw-02"
+            ]
+          },
+          {
+            "path": "/api/ipam/ip-addresses/",
+            "key": "address",
+            "fields": [
+              "id",
+              "address",
+              "status",
+              "tenant"
+            ],
+            "records": [
+              "172.16.1.1/24",
+              "172.16.1.2/24",
+              "172.16.1.3/24"
+            ]
+          },
+          {
+            "path": "/api/dcim/sites/",
+            "key": "slug",
+            "fields": [
+              "id",
+              "slug"
+            ],
+            "records": [
+              "site-a"
+            ]
+          }
+        ],
+        "denials": [
+          {
+            "method": "GET",
+            "path": "/api/tenancy/tenants/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/users/permissions/",
+            "status": 403
+          },
+          {
+            "method": "POST",
+            "path": "/api/dcim/devices/",
+            "status": 403
+          }
+        ]
+      },
+      "expected": {
+        "inventory-reader": {
+          "configured": "excess",
+          "observed": "excess"
+        },
+        "inventory-reader-control": {
+          "configured": "missing",
+          "observed": "missing"
+        }
+      }
+    },
+    "devices-only": {
+      "contract": {
+        "accounts": [
+          "inventory-reader",
+          "inventory-reader-control"
+        ],
+        "viewpoint": "10.50.0.36",
+        "grants": [
+          {
+            "object_type": "dcim.device",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          }
+        ],
+        "reads": [
+          {
+            "path": "/api/dcim/devices/",
+            "key": "name",
+            "fields": [
+              "id",
+              "name",
+              "status",
+              "site",
+              "tenant",
+              "device_type",
+              "role"
+            ],
+            "records": [
+              "a-fw-01",
+              "a-sw-01",
+              "a-sw-02"
+            ]
+          }
+        ],
+        "denials": [
+          {
+            "method": "GET",
+            "path": "/api/dcim/sites/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/tenancy/tenants/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/users/permissions/",
+            "status": 403
+          },
+          {
+            "method": "POST",
+            "path": "/api/dcim/devices/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/ipam/ip-addresses/",
+            "status": 403
+          }
+        ]
+      },
+      "expected": {
+        "inventory-reader": {
+          "configured": "excess",
+          "observed": "excess"
+        },
+        "inventory-reader-control": {
+          "configured": "excess",
+          "observed": "excess"
+        }
+      }
+    },
+    "change": {
+      "contract": {
+        "accounts": [
+          "inventory-reader",
+          "inventory-reader-control"
+        ],
+        "viewpoint": "10.50.0.36",
+        "grants": [
+          {
+            "object_type": "dcim.device",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          },
+          {
+            "object_type": "ipam.ipaddress",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          },
+          {
+            "object_type": "dcim.device",
+            "action": "change",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          }
+        ],
+        "reads": [
+          {
+            "path": "/api/dcim/devices/",
+            "key": "name",
+            "fields": [
+              "id",
+              "name",
+              "status",
+              "site",
+              "tenant",
+              "device_type",
+              "role"
+            ],
+            "records": [
+              "a-fw-01",
+              "a-sw-01",
+              "a-sw-02",
+              "a-rt-01"
+            ]
+          },
+          {
+            "path": "/api/ipam/ip-addresses/",
+            "key": "address",
+            "fields": [
+              "id",
+              "address",
+              "status",
+              "tenant"
+            ],
+            "records": [
+              "172.16.1.1/24",
+              "172.16.1.2/24",
+              "172.16.1.3/24"
+            ]
+          }
+        ],
+        "denials": [
+          {
+            "method": "GET",
+            "path": "/api/dcim/sites/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/tenancy/tenants/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/users/permissions/",
+            "status": 403
+          },
+          {
+            "method": "POST",
+            "path": "/api/dcim/devices/",
+            "status": 403
+          }
+        ]
+      },
+      "expected": {
+        "inventory-reader": {
+          "configured": "excess",
+          "observed": "excess"
+        },
+        "inventory-reader-control": {
+          "configured": "missing",
+          "observed": "missing"
+        }
+      }
+    },
+    "two-of-three": {
+      "contract": {
+        "accounts": [
+          "inventory-reader",
+          "inventory-reader-control"
+        ],
+        "viewpoint": "10.50.0.36",
+        "grants": [
+          {
+            "object_type": "dcim.device",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          },
+          {
+            "object_type": "ipam.ipaddress",
+            "action": "view",
+            "constraints": {
+              "tenant__slug": "tenant-a"
+            }
+          }
+        ],
+        "reads": [
+          {
+            "path": "/api/dcim/devices/",
+            "key": "name",
+            "fields": [
+              "id",
+              "name",
+              "status",
+              "site",
+              "tenant",
+              "device_type",
+              "role"
+            ],
+            "records": [
+              "a-fw-01",
+              "a-sw-01"
+            ]
+          },
+          {
+            "path": "/api/ipam/ip-addresses/",
+            "key": "address",
+            "fields": [
+              "id",
+              "address",
+              "status",
+              "tenant"
+            ],
+            "records": [
+              "172.16.1.1/24",
+              "172.16.1.2/24",
+              "172.16.1.3/24"
+            ]
+          }
+        ],
+        "denials": [
+          {
+            "method": "GET",
+            "path": "/api/dcim/sites/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/tenancy/tenants/",
+            "status": 403
+          },
+          {
+            "method": "GET",
+            "path": "/api/users/permissions/",
+            "status": 403
+          },
+          {
+            "method": "POST",
+            "path": "/api/dcim/devices/",
+            "status": 403
+          }
+        ]
+      },
+      "expected": {
+        "inventory-reader": {
+          "configured": "excess",
+          "observed": "excess"
+        },
+        "inventory-reader-control": {
+          "configured": "within",
+          "observed": "excess"
+        }
+      }
+    }
+  }
+}

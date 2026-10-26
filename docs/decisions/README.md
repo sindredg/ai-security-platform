@@ -45,6 +45,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0039](0039-netbox-takes-a-clients-address-from-the-connection.md) | NetBox takes a client's address from the connection and never from a header, on an IPv4 socket, so that a token's address limit holds | Accepted |
 | [0040](0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md) | A job's evidence is collected on the hosts, on request, and stored per job in the tool service, which hands the model only the fields its schema names | Accepted |
 | [0041](0041-the-workflow-compares-the-models-verdict-with-the-checks.md) | The workflow compares a NetBox job's verdict per account with the deterministic checks, and a failed step stops it on anything but a match | Accepted |
+| [0042](0042-held-out-cases-and-the-baseline-without-the-agent.md) | The investigation is scored on held-out variants of the consumer contract against the same seed, by rules written before the runs, beside the same run without the agent | Accepted |
 
 ## Format
 

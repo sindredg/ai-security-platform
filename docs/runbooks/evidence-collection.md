@@ -1,8 +1,8 @@
-# Evidence collection for a NetBox job: operator procedure
+# Evidence collection and the comparison for a NetBox job: operator procedure
 
-Status: Implemented on 2026-10-25. Run once, on the live system, 12:08 to 12:33 UTC, from two scripts with the same commands ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#evidence-per-job)). Steps 1 to 6 ran from the first script, and steps 7 to 15 from the second, with three more jobs before step 15 that show what the tool service refuses. Steps 1 to 6 and 11 ran again at 14:29 to 14:31 UTC, after fixes from a review, and the checks after them ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#fixes-from-the-review)). The undo and the steps after a rebuild were not run.
+Status: Implemented on 2026-10-25. Run once, on the live system, 12:08 to 12:33 UTC, from two scripts with the same commands ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#evidence-per-job)). Steps 1 to 6 ran from the first script, and steps 7 to 15 from the second, with three more jobs before step 15 that show what the tool service refuses. Steps 1 to 6 and 11 ran again at 14:29 to 14:31 UTC, after fixes from a review, and the checks after them ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#fixes-from-the-review)). The undo and the steps after a rebuild were not run. For the comparison, steps 1, 10 to 13, 15, and 17 ran at 17:51 to 18:32 UTC, from a script with the same commands, and steps 7 and 8 for Argo's files and images only. The tool service did not change, so step 9 did not run. Steps 11 to 13 ran for four more NetBox jobs at 18:56 to 19:40 UTC while the task was tuned, and step 17 for one of them ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-comparison)). Step 14, step 16, and the undo for `netbox-verdicts` were not run. Steps 1 and 2 ran again at 21:48 UTC with the case file, step 17's last command for the two keys it had changed, and step 11 once for each held-out case ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-rollout)). The read of the reports in step 16 ran on 2026-10-25, against `nb-10251922-a2`'s directory. Steps 11 to 13 ran for the twelve jobs of the scored investigation, 2026-10-25 23:08 UTC to 2026-10-26 01:07 UTC, from a script with the same commands, with a case's name in step 11 and 1200 seconds in step 12 ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-scored-runs)).
 
-This installs NetBox's collect command on the orchestrator and an observer account on the lab VM, deploys the tool service that stores evidence per job and the workflow template that names a job's target, then collects one job's evidence and runs the job on it ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)). No cloud resource changes, and no network rule.
+This installs NetBox's collect command on the orchestrator and an observer account on the lab VM, deploys the tool service that stores evidence per job and the workflow template that names a job's target, then collects one job's evidence and runs the job on it ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)). The workflow then compares the job's verdict for each account with the checks', and stops on anything but a match ([ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)). No cloud resource changes, and no network rule.
 
 Before this:
 
@@ -16,7 +16,7 @@ Before this:
 | --- | --- |
 | A certificate signed today | As in the [SSH certificates runbook](ssh-certificates.md) |
 | `REPLACE_WITH_SSH` | The operator's `ssh` command with its options. Host aliases `aisec-orchestrator`, `aisec-edge`, and `aisec-lab` |
-| A checkout of this repository | Run from its root, for `collectors/netbox/`, `platform/`, `policies/`, and the checks. The tool service's and the dispatch step's digests in it are the images to run |
+| A checkout of this repository | Run from its root, for `collectors/netbox/`, `platform/`, `policies/`, and the checks. The tool service's and the dispatch step's digests in it are the images to run. `collectors/netbox/task.txt` is the task a NetBox job is sent with |
 | A checkout of the targets repository | `REPLACE_WITH_TARGETS_CHECKOUT`, for `netbox/contract.json` |
 | Argo's command line and the operator's kubeconfig | As in the [workflows runbook](workflows.md#the-operators-token), step 9, with the tunnel to the API server up |
 | A job ID | `REPLACE_WITH_JOB`, used once: the collection and the workflow's name. Lower-case letters, digits, and hyphens, at most 63, starting with a letter or a digit |
@@ -26,7 +26,7 @@ Before this:
 1. Copy the collector, the collect command, and the installer to the orchestrator, with the contract, and install.
 
    ```bash
-   tar -C collectors/netbox -cf - netbox_access.py collect_evidence.py install-collector.sh |
+   tar -C collectors/netbox -cf - netbox_access.py collect_evidence.py cases.json install-collector.sh |
      REPLACE_WITH_SSH aisec-orchestrator 'rm -rf ~/collector-install && mkdir ~/collector-install && tar -C ~/collector-install -xf -'
    REPLACE_WITH_SSH aisec-orchestrator 'cat > ~/collector-install/contract.json' < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json
    KEY=$(REPLACE_WITH_SSH aisec-orchestrator 'sudo bash ~/collector-install/install-collector.sh')
@@ -40,7 +40,7 @@ Before this:
    ```bash
    REPLACE_WITH_SSH aisec-orchestrator 'sudo stat -c "%U %a %n" /etc/aisec/netbox/observe /etc/aisec/netbox/observe/id_ed25519 \
      /etc/aisec/netbox/observe/known_hosts /usr/local/lib/aisec/netbox_access.py /usr/local/sbin/collect-netbox-evidence \
-     /etc/aisec/netbox/contract.json /var/lib/aisec/evidence/netbox; sudo cut -c1-40 /etc/aisec/netbox/observe/known_hosts'
+     /etc/aisec/netbox/contract.json /etc/aisec/netbox/cases.json /var/lib/aisec/evidence/netbox; sudo cut -c1-40 /etc/aisec/netbox/observe/known_hosts'
    ```
 
    Expected:
@@ -52,6 +52,7 @@ Before this:
    root 644 /usr/local/lib/aisec/netbox_access.py
    root 755 /usr/local/sbin/collect-netbox-evidence
    root 644 /etc/aisec/netbox/contract.json
+   root 644 /etc/aisec/netbox/cases.json
    root 700 /var/lib/aisec/evidence/netbox
    10.50.0.36 ssh-ed25519 AAAAC3NzaC1lZDI1N
    ```
@@ -158,7 +159,7 @@ Before this:
       -o jsonpath='{range .spec.templates[*]}{.name} {.container.image}{\"\\n\"}{end}{range .spec.arguments.parameters[*]}{.name}={.value} {.enum}{\"\\n\"}{end}'"
     ```
 
-    Expected: `workflowtemplate.argoproj.io/investigate configured`, the other objects `unchanged`, and `successfully rolled out`. Then `dispatch` and `revoke`, each on the dispatch digest, and among the parameters `target=synthetic ["synthetic","netbox"]`.
+    Expected: `configmap/netbox-verdicts created` the first time and no line for it after, `workflowtemplate.argoproj.io/investigate configured`, the other objects `unchanged`, except `configmap/argo-ui configured`, which every install prints, and `successfully rolled out`. The collect command adds each job's verdicts to that config map, and `install.sh` never applies over it. Then four templates: `investigate` with no image, which runs the next two as steps, then `dispatch`, `compare`, and `revoke`, each on the dispatch digest. Among the parameters, `target=synthetic ["synthetic","netbox"]`.
 
 ## A job
 
@@ -167,28 +168,44 @@ Before this:
     ```bash
     REPLACE_WITH_SSH aisec-orchestrator 'sudo collect-netbox-evidence REPLACE_WITH_JOB'
     REPLACE_WITH_SSH aisec-orchestrator 'sudo ls -l /var/lib/aisec/evidence/netbox/REPLACE_WITH_JOB && sudo cat /var/lib/aisec/evidence/netbox/REPLACE_WITH_JOB/verdicts.json'
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo k3s kubectl -n orchestration get configmap netbox-verdicts -o json' |
+      python3 -I -c 'import json, sys; print(json.load(sys.stdin)["data"][sys.argv[1] + ".json"])' REPLACE_WITH_JOB
     ```
 
-    Expected: `REPLACE_WITH_JOB: ev-0001 ev-0002 ev-0003, visible to the tool service after N s`, with `N` up to 180, then `inventory-reader:excess/excess inventory-reader-control:within/within`, the configured verdict before the slash and the observed one after. Then six files, each `root 600`: `configured.json`, `ev-0001.json` to `ev-0003.json`, `observed.json`, and `verdicts.json`, and the verdicts in full. The command stops before it writes anything when either half's report does not name the contract's accounts or names a read or a denial the contract does not, when a half sends more than a megabyte or takes more than two minutes, or when a document is larger than a tool result may be. The config map keeps the newest 20 jobs' keys, and the orchestrator keeps every job's directory.
+    For a held-out case of the scored investigation, add its name from `collectors/netbox/cases.json`: `sudo collect-netbox-evidence REPLACE_WITH_JOB REPLACE_WITH_CASE`. The first line of the output is then `REPLACE_WITH_JOB: case REPLACE_WITH_CASE`, and the verdicts are the case's expected ones ([ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md)).
+
+    Expected: `REPLACE_WITH_JOB: ev-0001 ev-0002 ev-0003, visible to the tool service after N s`, with `N` up to 180, then `inventory-reader:excess/excess inventory-reader-control:within/within`, the configured verdict before the slash and the observed one after, then `verdicts for the comparison in orchestration/netbox-verdicts`. Then six files, each `root 600`: `configured.json`, `ev-0001.json` to `ev-0003.json`, `observed.json`, and `verdicts.json`, and the verdicts in full. The command stops before it writes anything when either half's report does not name the contract's accounts or names a read or a denial the contract does not, when a half sends more than a megabyte or takes more than two minutes, or when a document is larger than a tool result may be. The config map keeps the newest 20 jobs' keys, and the orchestrator keeps every job's directory. Last, the job's key in `netbox-verdicts`: the job's ID, the time of the collection, and each account's configured and observed verdicts, the same as in `verdicts.json`. `netbox-verdicts` keeps the newest 20 jobs as well.
 
 12. Submit the job under the same name, with NetBox as its target, and wait for it.
 
     ```bash
     argo submit --from workflowtemplate/investigate --name REPLACE_WITH_JOB -p target=netbox \
-      -p max-turns=8 -p seconds=900 -p task="REPLACE_WITH_TASK"
+      -p max-turns=8 -p seconds=900 -p task="$(cat collectors/netbox/task.txt)"
     argo wait REPLACE_WITH_JOB
+    argo get REPLACE_WITH_JOB
     argo get REPLACE_WITH_JOB -o json | python3 -I -c 'import json, sys
     wf = json.load(sys.stdin)
     for node in wf["status"]["nodes"].values():
         for p in (node.get("outputs") or {}).get("parameters", []):
-            result = json.loads(p["value"])
-            result.pop("transcript", None)
-            print(node["displayName"], json.dumps(result, indent=1))'
+            if p["name"] == "result":
+                result = json.loads(p["value"])
+                result.pop("transcript", None)
+                print(node["displayName"], json.dumps(result, indent=1))
+            elif p["name"] == "comparison":
+                print(node["displayName"], p["value"])'
+    argo logs REPLACE_WITH_JOB
     ```
 
-    The task names the three references: `ev-0001` the contract, `ev-0002` the configured permissions, `ev-0003` the records and denials. The worker refuses a task with a slash, an exclamation mark, or braces.
+    For a job of the scored investigation, give it `-p seconds=1200`, the longest a job may have, and collect it with the case's name in step 11 ([investigation](../validation/investigation.md#how-a-scored-job-runs)).
 
-    Expected: `Succeeded`, and a result with `"status": "completed"`, `"tool_calls"` of 3 or more, `"tool_errors": 0`, `"slot_erased": true`, and an answer. Whether the answer is right is not checked here. A workflow under another name than the collection's finds no evidence: each call is refused with `nothing by that reference`.
+    The task names the three references: `ev-0001` the contract, `ev-0002` the configured permissions, `ev-0003` the records and denials. It defines each verdict, and asks the answer to end with one line per account, `Verdict:` with the account, its verdict, and its references. The worker refuses a task that starts with a slash or an exclamation mark, and one with template braces.
+
+    Expected: the dispatch step `Succeeded`, with a result with `"status": "completed"`, `"tool_calls"` of 3 or more, `"tool_errors": 0`, `"slot_erased": true`, and an answer. Then the comparison, one of two:
+
+    - **A match:** the workflow `Succeeded`. Every account's verdict line names the checks' value, and both checks agree. The compare step's log ends with `match`.
+    - **A stop:** the workflow `Failed`, with the compare step's message `stop: ` and each reason, such as `inventory-reader: the model says within, the checks say excess`. See [When a job stops](#when-a-job-stops).
+
+    The comparison's output and log have one row per account: the model's verdict and references, both checks' verdicts, and the outcome. Which of the two comes is the model's doing: the procedure is right either way. A workflow under another name than the collection's finds no evidence, each call refused with `nothing by that reference`, and stops at the comparison with `no checks' verdicts for this job`.
 
 13. Read the job's audit lines.
 
@@ -223,7 +240,41 @@ Before this:
       AISEC_USER_CA=REPLACE_WITH_CRED_DIR/aisec-user-ca.pub validation/platform-checks.sh
     ```
 
-    Expected: `N.18` to `N.23`, `T.2`, `T.14`, and `W.9` pass, and the last line says `0 failed`. `W.9` fails between a change to the template and step 10, and `T.2` between a new tool service digest and step 9.
+    Expected: `N.18` to `N.23`, `T.2`, `T.14`, `W.9`, and `W.12` pass, and the last line says `0 failed`. `W.9` fails between a change to the template and step 10, and `T.2` between a new tool service digest and step 9.
+
+## When a job stops
+
+16. Read why it stopped, then the checks' reports for that job.
+
+    ```bash
+    argo get REPLACE_WITH_JOB
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo cat /var/lib/aisec/evidence/netbox/REPLACE_WITH_JOB/{verdicts,configured,observed}.json'
+    ```
+
+    Expected: the compare step `Failed`, with its message `stop: ` and the reasons, or the dispatch step `Failed`, for a job that did not complete. Its message is then `main: Error (exit code 1)` only, and the reason is the last line of its log, `failed: ` and the reason. Then the checks' verdicts, and the reasons each check gave for them, from this job's collection only. The dispatch step's log, from step 12, holds the agent's transcript: what the model asked for, what it read, and its answer. A job stopped at its time limit has no transcript, and its result gives no call counts: the audit lines from step 13 hold its calls. Nothing runs after a stop. The next try is a new job ID, from step 11.
+
+17. Stop a job on purpose, to see the comparison stop on its input: collect a new job ID, change its key so that the two checks disagree on `inventory-reader`, then run step 12 on it.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo collect-netbox-evidence REPLACE_WITH_JOB'
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo k3s kubectl -n orchestration get configmap netbox-verdicts -o json' |
+      python3 -I -c 'import json, sys
+    job = sys.argv[1]
+    document = json.loads(json.load(sys.stdin)["data"][job + ".json"])
+    document["accounts"]["inventory-reader"]["observed"] = "within"
+    print(json.dumps({"data": {job + ".json": json.dumps(document, indent=2)}}))' REPLACE_WITH_JOB |
+      REPLACE_WITH_SSH aisec-orchestrator 'sudo k3s kubectl -n orchestration patch configmap netbox-verdicts --type merge --patch-file /dev/stdin'
+    ```
+
+    Expected: `configmap/netbox-verdicts patched`. After step 12, the workflow `Failed`, with the compare step's message `stop: inventory-reader: the checks disagree, configured excess, observed within`, whatever the model answers.
+
+    Then take the changed key out, so that no later workflow under the same name reads verdicts nobody collected. A name is free again once its workflow is deleted, 24 hours after it ends.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n orchestration patch configmap netbox-verdicts --type json -p '[{\"op\": \"remove\", \"path\": \"/data/REPLACE_WITH_JOB.json\"}]'"
+    ```
+
+    Expected: `configmap/netbox-verdicts patched`. The job's directory on the orchestrator keeps the checks' real verdicts.
 
 ## Replace the observer key
 
@@ -257,6 +308,12 @@ The config map stays, with every job's keys: `deploy.sh` makes it once and never
 
 ```bash
 REPLACE_WITH_SSH aisec-orchestrator 'sudo k3s kubectl -n tool-services delete configmap tool-service-evidence-netbox'
+```
+
+`netbox-verdicts` stays too, with every job's verdicts: Argo's `install.sh` makes it once. The comparison step mounts it as optional, so deleting it does not stop a pod from starting: every NetBox job then stops at the comparison, with `no checks' verdicts for this job`. A collection after the delete fails at `reading the ConfigMap netbox-verdicts`, after it has written the job's directory and the tool service's keys, so that job ID is spent. Argo's `install.sh` makes the config map again. That is reasoned from the template and the collect command, not observed.
+
+```bash
+REPLACE_WITH_SSH aisec-orchestrator 'sudo k3s kubectl -n orchestration delete configmap netbox-verdicts'
 ```
 
 ## After a rebuild

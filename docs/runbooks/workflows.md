@@ -1,6 +1,6 @@
 # Workflows and dispatch: operator procedure
 
-Status: Written on 2026-10-20 for [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) and [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md). Implemented on 2026-10-21, from scripts with the same commands. Steps 1 to 8 ran between 04:16 and 04:24 UTC, step 1 without the signature check, which ran on 2026-10-19. Steps 9 to 16 ran between 15:11 and 15:26 UTC, and steps 13, 14, and 7's name lookups again between 15:37 and 15:44 UTC. The first round trip, at 14:12 UTC, never started: the executor's token secret was missing ([troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md)). The UI exited without its config map ([troubleshooting 15](../troubleshooting/15-argo-server-exits-without-its-config-map.md)). Both are in the manifests now. Results are in the [worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows). [A new dispatch image](#a-new-dispatch-image) ran on 2026-10-22: steps 3, 4, 9, and 10 again ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base)), and again on 2026-10-23, for the image that reads `slot_erased`, with a job refused while the model server was stopped and a controller restart during a job ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines)). Steps 3, 4, 9, and 10 ran on 2026-10-24 for v4.1.6, after the signature check of step 1 on the workstation ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#argo)).
+Status: Written on 2026-10-20 for [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md) and [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md). Implemented on 2026-10-21, from scripts with the same commands. Steps 1 to 8 ran between 04:16 and 04:24 UTC, step 1 without the signature check, which ran on 2026-10-19. Steps 9 to 16 ran between 15:11 and 15:26 UTC, and steps 13, 14, and 7's name lookups again between 15:37 and 15:44 UTC. The first round trip, at 14:12 UTC, never started: the executor's token secret was missing ([troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md)). The UI exited without its config map ([troubleshooting 15](../troubleshooting/15-argo-server-exits-without-its-config-map.md)). Both are in the manifests now. Results are in the [worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows). [A new dispatch image](#a-new-dispatch-image) ran on 2026-10-22: steps 3, 4, 9, and 10 again ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base)), and again on 2026-10-23, for the image that reads `slot_erased`, with a job refused while the model server was stopped and a controller restart during a job ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines)). Steps 3, 4, 9, and 10 ran on 2026-10-24 for v4.1.6, after the signature check of step 1 on the workstation ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#argo)). Steps 3, 4, 6, 9, and 10 ran on 2026-10-25 for the comparison step and the image that carries it, with the first read of [A new dispatch image](#a-new-dispatch-image), from a script with the same commands ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-comparison)). Steps 3 and 4, with the first read of [A new dispatch image](#a-new-dispatch-image), ran again at 21:48 UTC for the image from #202 ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-rollout)).
 
 Run these steps to install Argo Workflows' controller, make the dispatch key, and send a job from a workflow to the worker and back: a round trip, a cancel, and the controller's refusal of anything but the template. No cloud resource changes. The worker's side is the [agent runtime runbook](agent-runtime.md#jobs-over-the-socket), steps 8 to 12, which come first.
 
@@ -65,7 +65,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
    REPLACE_WITH_SSH aisec-orchestrator 'cd feed/argo && sudo scripts/install.sh stage'
    ```
 
-   Expected: the eight custom resource definition names, `condition met` three times, the namespace and its default account patched, the policies, the controller, the accounts, the executor's token secret, and the template `created`, `successfully rolled out`, and one line with the controller pod, `Running`, and the image digest from `argo.yaml`. On the next check run, `W.1` to `W.9` and `W.11` pass.
+   Expected: the eight custom resource definition names, `condition met` three times, the namespace and its default account patched, the policies, the controller, the accounts, the executor's token secret, the comparison's config map `netbox-verdicts` ([ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)), and the template `created`, `successfully rolled out`, and one line with the controller pod, `Running`, and the image digest from `argo.yaml`. On the next check run, `W.1` to `W.9` and `W.11` pass.
 
 ## The host rule
 
@@ -80,42 +80,55 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
 
    Expected: the `forward` chain with four rules, the third `ip saddr 10.42.0.0/16 ip daddr 10.40.0.36 tcp dport 22 accept`. `E.6` passes on the next check run.
 
-6. Probe the worker's SSH port from two new pods in `orchestration`: one with the dispatch label, one without. Each tries at 0, 5, and 20 seconds.
+6. Probe the worker's SSH port and the tool service's registration port from two new pods in `orchestration`, each labelled as a workflow's pod: one with the dispatch label, one with the comparison step's. Each tries both ports at 0, 5, and 20 seconds, from the dispatch image.
 
    ```bash
-   IMAGE=$(sed -n 's/^ *image: \(ghcr.io[^ ]*\)$/\1/p' platform/tool-service/tool-service.yaml)
-   PROBE='import socket, time
+   IMAGE=$(grep -oE 'ghcr\.io/[^ ]+/dispatch@sha256:[0-9a-f]{64}' platform/argo/workflow-template.yaml | head -n 1)
+   REGISTRATION=$(REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n tool-services get service tool-service -o jsonpath='{.spec.clusterIP}'")
+   PROBE='import socket, sys, time
    start = time.monotonic()
    for at in (0, 5, 20):
        time.sleep(max(0, start + at - time.monotonic()))
-       try:
-           socket.create_connection(("10.40.0.36", 22), 4).close(); end = "open"
-       except ConnectionRefusedError: end = "refused"
-       except TimeoutError: end = "timeout"
-       except OSError as error: end = "other " + str(error)
-       print(f"{at}s {end}", end="  ")'
+       ends = []
+       for host, port in (("10.40.0.36", 22), (sys.argv[1], 8444)):
+           try:
+               socket.create_connection((host, port), 4).close(); ends.append("open")
+           except ConnectionRefusedError: ends.append("refused")
+           except TimeoutError: ends.append("timeout")
+           except OSError as error: ends.append("other " + str(error))
+       print(f"{at}s worker:{ends[0]} registration:{ends[1]}", end="  ")'
    probe() {
-     OVERRIDES=$(python3 -c 'import json, sys; print(json.dumps({"metadata": {"labels": json.loads(sys.argv[3])}, "spec": {
+     OVERRIDES=$(python3 -I -c 'import json, sys; print(json.dumps({"metadata": {"labels": json.loads(sys.argv[3])}, "spec": {
        "automountServiceAccountToken": False,
        "securityContext": {"runAsNonRoot": True, "runAsUser": 65532, "seccompProfile": {"type": "RuntimeDefault"}},
-       "containers": [{"name": "probe", "image": sys.argv[1], "command": ["python", "-c", sys.argv[2]],
+       "containers": [{"name": "probe", "image": sys.argv[1], "command": ["python", "-c", sys.argv[2], sys.argv[4]],
          "securityContext": {"allowPrivilegeEscalation": False, "readOnlyRootFilesystem": True,
-                             "capabilities": {"drop": ["ALL"]}}}]}}))' "$IMAGE" "$PROBE" "$1")
-     REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl run ssh-probe -n orchestration --restart=Never \
+                             "capabilities": {"drop": ["ALL"]}}}]}}))' "$IMAGE" "$PROBE" "$1" "$REGISTRATION")
+     echo "-- $1"
+     REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl run label-probe -n orchestration --restart=Never \
        --image='$IMAGE' --overrides='$OVERRIDES' >/dev/null &&
-       sudo k3s kubectl wait -n orchestration --for=jsonpath='{.status.phase}'=Succeeded pod/ssh-probe --timeout=90s >/dev/null &&
-       sudo k3s kubectl logs -n orchestration ssh-probe; echo; sudo k3s kubectl delete pod -n orchestration ssh-probe >/dev/null"
+       sudo k3s kubectl wait -n orchestration --for=jsonpath='{.status.phase}'=Succeeded pod/label-probe --timeout=90s >/dev/null &&
+       sudo k3s kubectl logs -n orchestration label-probe; echo; sudo k3s kubectl delete pod -n orchestration label-probe >/dev/null"
    }
-   probe '{"app.kubernetes.io/name": "dispatch"}'
-   probe '{"app.kubernetes.io/name": "not-dispatch"}'
+   probe '{"app.kubernetes.io/name": "compare", "workflows.argoproj.io/workflow": "label-probe"}'
+   probe '{"app.kubernetes.io/name": "dispatch", "workflows.argoproj.io/workflow": "label-probe"}'
    ```
 
-   Expected: `open` three times for the dispatch pod. For the other pod, `refused` at 5 and 20 seconds, where its policy holds. At 0 seconds it may read `open`: kube-router writes a pod's policy after the pod starts, and the host rule cannot tell pods apart. That is the residual ADR 0030 names (T47). Record what it reads.
+   Expected: for the comparison's pod, `refused` on both ports at 5 and 20 seconds, where its policy holds. For the dispatch pod, `open` on both at 5 and 20 seconds. At 0 seconds either may read otherwise: kube-router writes a pod's policies after the pod starts, and the host rule cannot tell pods apart. That is the residual ADR 0030 names (T47). Record what each reads. On 2026-10-25 the comparison's pod read `worker:open registration:refused` at 0 seconds, and the dispatch pod the same.
 
 7. The same start-of-pod probe in `tool-services`, which has never had one ([#65](https://github.com/sindredg/ai-security-platform/issues/65)): a new pod tries `1.1.1.1:443` at 0, 5, and 20 seconds.
 
    ```bash
-   PROBE2=$(sed 's/"10.40.0.36", 22/"1.1.1.1", 443/' <<< "$PROBE")
+   PROBE2='import socket, time
+   start = time.monotonic()
+   for at in (0, 5, 20):
+       time.sleep(max(0, start + at - time.monotonic()))
+       try:
+           socket.create_connection(("1.1.1.1", 443), 4).close(); end = "open"
+       except ConnectionRefusedError: end = "refused"
+       except TimeoutError: end = "timeout"
+       except OSError as error: end = "other " + str(error)
+       print(f"{at}s {end}", end="  ")'
    probe2() {
      OVERRIDES=$(python3 -c 'import json, sys; print(json.dumps({"spec": {
        "automountServiceAccountToken": False,
@@ -196,11 +209,12 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
     wf = json.load(sys.stdin)
     for node in wf["status"]["nodes"].values():
         for p in (node.get("outputs") or {}).get("parameters", []):
-            print(node["displayName"], json.dumps(json.loads(p["value"]), indent=1))'
+            if p["name"] == "result":
+                print(node["displayName"], json.dumps(json.loads(p["value"]), indent=1))'
     argo logs @latest
     ```
 
-    Expected, after one to three minutes: `Succeeded`, with the dispatch step and the exit handler both green. The result has `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, `"slot_erased": true`, an answer that ends with `Status: confirmed` and `Excess: tenancy.contact, circuits.circuit`, and a `transcript`. The dispatch step's log shows each part of the transcript under a `-- role type` line, from `-- system instructions` to the `get_evidence` call, the evidence, and `-- answer`. The audit file on the orchestrator has `register`, `call allowed` for `get_evidence`, and `revoke`, each with the workflow's name as the job.
+    Expected, after one to three minutes: `Succeeded`, with the dispatch step and the exit handler both green, and the compare step `Skipped`: it runs for NetBox jobs only ([evidence collection runbook](evidence-collection.md), step 12). The result has `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, `"slot_erased": true`, an answer that ends with `Status: confirmed` and `Excess: tenancy.contact, circuits.circuit`, and a `transcript`. The two lines are the model's: on 2026-10-25 one of three synthetic answers ended without them, and one with `Excess: none`. The dispatch step's log shows each part of the transcript under a `-- role type` line, from `-- system instructions` to the `get_evidence` call, the evidence, and `-- answer`. The audit file on the orchestrator has `register`, `call allowed` for `get_evidence`, and `revoke`, each with the workflow's name as the job.
 
     This is the first gate criterion of milestone 3: a workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back.
 
@@ -286,7 +300,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
     validation/platform-checks.sh
     ```
 
-    Expected: `PASS` for `E.6`, `G.5` to `G.10`, `K.3`, `W.1` to `W.11`, and every check that passed before.
+    Expected: `PASS` for `E.6`, `G.5` to `G.10`, `K.3`, `W.1` to `W.12`, and every check that passed before.
 
 ## A new dispatch image
 
@@ -305,14 +319,14 @@ REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n orchestration get workf
   -o jsonpath='{range .spec.templates[*]}{.name} {.container.image}{\"\\n\"}{end}'"
 ```
 
-Expected: `dispatch` and `revoke`, each with the new digest. After step 10, read the images the workflow's pods ran:
+Expected: `investigate` with no image, then `dispatch`, `compare`, and `revoke`, each with the new digest. After step 10, read the images the workflow's pods ran:
 
 ```bash
 REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n orchestration get pods -l workflows.argoproj.io/workflow=REPLACE_WITH_WORKFLOW \
   -o jsonpath='{range .items[*]}{.metadata.name}{range .status.containerStatuses[*]} {.name}={.imageID}{end}{\"\\n\"}{end}'"
 ```
 
-Expected: two pods, each with `main=` on the new dispatch digest and `wait=` on the executor's digest from `argo.yaml`. In step 16, `W.9` passes. It fails from the merge until step 4, because the template in the cluster differs from the checkout's.
+Expected: two pods, each with `main=` on the new dispatch digest and `wait=` on the executor's digest from `argo.yaml`. A NetBox job has a third, the comparison's. In step 16, `W.9` passes. It fails from the merge until step 4, because the template in the cluster differs from the checkout's.
 
 ## Remove
 

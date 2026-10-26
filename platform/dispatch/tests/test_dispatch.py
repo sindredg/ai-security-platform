@@ -29,7 +29,9 @@ sys.path.insert(0, str(HERE))
 
 import dispatch
 
-# A fake Goose: records the recipe, then answers as FAKE_MODE says.
+# A fake Goose: records the recipe, then answers as FAKE_MODE says. It logs
+# the request it would send the model, with the tools Goose 1.56.0 offers,
+# where the job program reads them (#139).
 FAKE_GOOSE = textwrap.dedent(
     """\
     #!{python}
@@ -42,6 +44,12 @@ FAKE_GOOSE = textwrap.dedent(
         time.sleep(60)
     if mode == "fail":
         sys.exit(1)
+    logs = os.path.join(os.environ["GOOSE_PATH_ROOT"], "state", "logs")
+    os.makedirs(logs)
+    with open(os.path.join(logs, "llm_request.0.jsonl"), "w") as f:
+        tools = [{{"type": "function", "function": {{"name": n}}}}
+                 for n in ("tools__get_evidence", "load_skill")]
+        print(json.dumps({{"model_config": {{}}, "input": {{"tools": tools}}}}), file=f)
     calls = [] if mode == "nocall" else [
         {{"role": "assistant", "content": [{{"type": "toolRequest", "toolCall": {{"value": {{}}}}}}]}},
         {{"role": "user", "content": [{{"type": "toolResponse",

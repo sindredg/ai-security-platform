@@ -37,12 +37,13 @@ The script changes nothing. It opens connections that should fail, reads setting
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Agent runtime](agent-runtime.md) | `G` | The Goose binary and the fixture are the pinned ones, and no finished job leaves its unit or its files |
 | [Cluster](cluster.md) | `K` | K3s health and the hardening benchmark findings |
-| [Workflows](workflows.md) | `W` | Argo's controller, kept to `orchestration` and to templates, the template itself, and the dispatch secret |
+| [Workflows](workflows.md) | `W` | Argo's controller, kept to `orchestration` and to templates, the template itself, the dispatch secret, and that no workload account may change config maps in `orchestration` |
 | [Tool service](tool-service.md) | `T` | The deployed tool service: its pod, namespaces, network paths, and certificate |
 | [Audit log](audit-log.md) | `L`, `J` | The copier that stores the tool service's audit lines, the pull of the worker's journal, and the append-only files they write |
 | [Monitoring](monitoring.md) | `O` | The log agents, their hosts entries, the workspace and its scope, heartbeats, and the identities |
 | [Host hardening](host-hardening.md) | `HO`, `HW`, `HR`, `HE`, `HN`, `HL` | SSH daemon, kernel settings, file modes, on every VM |
 | [Azure policy](azure-policy.md) | `Z.1` to `Z.3`, `Z.10` to `Z.12` | Public addresses and the policy that refuses them |
+| [Investigation](investigation.md) | None: scored per job | Exercise 1's investigation on held-out cases, the rules that score it, and the run without the agent beside it |
 
 ## Last run
 
@@ -109,6 +110,16 @@ The script changes nothing. It opens connections that should fail, reads setting
 | 2026-10-25 | 404 of 404 passed | From `main` at `c41f2cb` with the seed's checks uncommitted, 06:55 to 07:03 UTC, after [the seed](../worklogs/0005-netbox-target-and-exercise-1.md#the-seed-and-the-two-checks). First run with `N.12` to `N.17` |
 | 2026-10-25 | 411 of 411 passed | From the branch `feat/netbox-evidence-collection` at `6f74fe5`, 12:24 to 12:33 UTC, after the collect command, the observer account, and the images from #194 were installed and the [first jobs on NetBox's evidence](../worklogs/0005-netbox-target-and-exercise-1.md#every-check-after-the-collection) ran. First run with `N.18` to `N.23` and `T.14` |
 | 2026-10-25 | 411 of 411 passed | From the same branch at `47477ed`, 14:30 to 14:39 UTC, after the [fixes from its review](../worklogs/0005-netbox-target-and-exercise-1.md#fixes-from-the-review) were installed on both hosts |
+| 2026-10-25 | 412 of 412 passed | From the branch `feat/verdict-comparison` at `73f0f9d`, `f05ba84` after a rebase, 18:24 to 18:32 UTC, after the comparison step, its image, and the system text were installed and the [first jobs with the comparison](../worklogs/0005-netbox-target-and-exercise-1.md#the-rollout-and-the-first-jobs) ran. First run with `W.12` |
+| 2026-10-25 | 361 of 362 passed | Without the Azure and workstation checks, from the same branch at `5cc0ed9`, `cb63d57` after a rebase, 20:07 to 20:11 UTC, while `argo-operator` was given `patch` on config maps in `orchestration`. `W.12` failed, as written before the run ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#w12-fails-on-a-broken-input)) |
+| 2026-10-25 | 362 of 362 passed | The same, 20:11 to 20:15 UTC, after the grant was removed |
+| 2026-10-25 | 361 of 362 passed | Without the Azure and workstation checks, from the branch at `dde15f2`, at 21:58 UTC, with one line added to the installed case file. `N.18` failed, as written before the run ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-rollout)) |
+| 2026-10-25 | 412 of 412 passed | The same branch, 22:01 to 22:10 UTC, after the case file was put back, with #202's image and the job program's checks installed. `N.18` reads the case file |
+| 2026-10-26 | 411 of 412 passed | From the branch at `ce835b5`, 05:51 to 05:59 UTC, after the [scored investigation](../worklogs/0005-netbox-target-and-exercise-1.md#the-scored-runs). `G.10` failed: the last job had timed out, and the slot erase after it failed ([#199](https://github.com/sindredg/ai-security-platform/issues/199)) |
+| 2026-10-26 | 351 of 362 passed | Without the Azure and workstation checks, a copy of the same branch's script whose counted commands fail, 05:59 to 06:02 UTC. The ten checks changed for [#173](https://github.com/sindredg/ai-security-platform/issues/173) failed, as written before the run, and `G.10` as above ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-counting-checks-fail-on-a-broken-command)) |
+| 2026-10-26 | 361 of 362 passed | The same with a copy from before the change, 06:02 to 06:06 UTC. The ten passed on commands that failed, the fault #173 names, and `G.10` failed as above |
+| 2026-10-26 | 412 of 412 passed | The same branch, 06:11 to 06:20 UTC, after a synthetic job erased the slot |
+| 2026-10-26 | 412 of 412 passed | The same branch at `9b22ab0`, 06:22 to 06:30 UTC, run by the review for milestone 4's close |
 
 The three runs on 2026-10-11 used the first version of the script. It had two weaknesses:
 
@@ -130,7 +141,7 @@ The second run on 2026-10-12 adds the seven `S` checks, which brings the script 
 ## What the checks do not cover
 
 - **A rebuild of everything at once.** Each VM has been rebuilt from its template and passed every check, the worker on 2026-10-11 and the orchestrator on 2026-10-13. Both together, or from an empty subscription, has not been run.
-- **The target side, beyond its VMs.** NetBox and its data are not built yet.
+- **The target side's later parts.** The unintended viewpoint and the rehearsal copy are not built yet. NetBox, its seed, and the collect command are checked by the [`N` checks](targets.md#netbox).
 - **The agent runtime during a run.** The [`G` checks](agent-runtime.md) read what is installed and what a finished job leaves. The transient unit's sandbox and the tools a run loads are not checked.
 - **The tool service's round trip and audit lines.** They are steps in the [runbook](../runbooks/tool-service.md#round-trip), because they register and revoke jobs. Its rejection cases are tested in CI. The deployment itself is checked by the [tool service checks](tool-service.md).
 - **Anything a benchmark tool finds.** kube-bench and Lynis results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). The checks here hold the fixes in place.
