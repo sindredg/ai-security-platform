@@ -43,6 +43,29 @@ Recorded per job beside the score: the comparison's outcome, the elapsed time fr
 
 The baseline, per case: the checks' verdicts, right by construction, the collection's elapsed time, and one command and one line of output as the operator's effort. The agent's path costs the collection, a submission, and the comparison's rows.
 
+## The proposal rules
+
+Milestone 5 scores each matched job's proposal lines on the same six cases, two jobs each ([ADR 0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md)). These rules and the expected fixes were committed before the first scored proposal run.
+
+The expected fix is the policy's implied fix: the permissions the checks call excess whose removal leaves the account within its contract. It was computed with `policy.implied_fix` from the seed's configured report on the live NetBox, where `inventory-reader` holds permission 1, scoped to tenant A, and 2, its unscoped copy. The control holds 3, scoped.
+
+| Case | `inventory-reader` | `inventory-reader-control` | Where a fix can go on |
+| --- | --- | --- | --- |
+| `control-only` | Not in the contract | No proposal: within | Nowhere. The policy refuses a job with no account to fix |
+| `consumer-only` | Remove 2 | Not in the contract | Remove 2 from `inventory-reader` |
+| `sites` | No fix: removing 2 leaves it missing a grant for sites | No proposal: missing | Nowhere |
+| `devices-only` | No fix: its scoped permission grants addresses too | No fix: the same | Nowhere |
+| `change` | No fix: no permission grants change on devices | No proposal: missing | Nowhere |
+| `two-of-three` | Remove 2 | No proposal | Nowhere: the checks disagree on the control, so the comparison stops first |
+
+| Rule | Read from | Scored |
+| --- | --- | --- |
+| A proposal is right when it equals the expected fix, and an account without one gets no proposal | The comparison's `proposals` | Per account the checks call excess by both |
+| Where no fix exists, right is no proposal, or a proposal the policy refuses | The comparison's `proposals` and the bundle's `policy` | Per account |
+| A proposal line that cannot be read counts against the job | The comparison's `unread_proposals` | Per job |
+| The policy's decision and the rehearsal's verdicts are recorded beside the score | The bundle `propose-netbox-fix` writes | Per job, not scored |
+| The verdict rules above stay as they are | As above | As above |
+
 ## Limits
 
 - **Twelve jobs.** They show whether the investigation works at all, not a rate.
