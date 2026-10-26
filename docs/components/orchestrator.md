@@ -4,7 +4,7 @@ The one trusted machine. It runs the cluster, copies software to the other machi
 
 | | |
 | --- | --- |
-| State | Built on 2026-10-11, rebuilt from its template on 2026-10-13 ([worklog](../worklogs/0002-platform-compute.md#orchestrator-rebuild)). Verified by the `HO`, `K`, `E`, and `A` checks, which passed in the run on 2026-10-24 from 07:12 to 07:18 UTC ([last run](../validation/README.md#last-run)) |
+| State | Built on 2026-10-11, rebuilt from its template on 2026-10-13 ([worklog](../worklogs/0002-platform-compute.md#orchestrator-rebuild)). Verified by the `HO`, `K`, `E`, and `A` checks ([last run](../validation/README.md#last-run)) |
 | Where | Sweden Central, `snet-orchestrator`, fixed private address `10.40.0.4` |
 | Size | `Standard_B2as_v2`: 2 vCPUs, 8 GiB, x64 |
 | Image | Ubuntu 26.04 LTS, `Canonical:ubuntu-26_04-lts:server` |
@@ -23,6 +23,7 @@ The one trusted machine. It runs the cluster, copies software to the other machi
 | `aisec-audit-copy` | Copies the tool service's audit lines into an append-only file. Running since 2026-10-16 (`L.1`) | [Audit log](../security/audit-log.md) |
 | `aisec-journal-pull.timer` | Pulls the worker's journal every five minutes into an append-only file. Running since 2026-10-16 (`J.1`) | [Audit log](../security/audit-log.md#the-workers-journal) |
 | `aisec-target-update-run` | Not a service: a command the operator runs as root. One update run on a target, through a forward of Squid's target port, with the targets' update key and their pinned host keys. Installed by `platform/target-update/install-target-update.sh`, not by first boot. First run on 2026-10-24 (`E.17`, `E.18`) | [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md), [targets runbook](../runbooks/targets.md#update-run) |
+| `collect-netbox-evidence` | Not a service: a command the operator runs as root before a NetBox job. Collects the job's evidence and the checks' verdicts, the observed half through the lab VM. Installed by `collectors/netbox/install-collector.sh` | [ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md), [evidence collection](../runbooks/evidence-collection.md) |
 | The Azure Monitor agent | Sends the audit copy, the worker's journal copy, syslog, and CPU, memory, and disk use to the workspace over Private Link, since 2026-10-17 (`O` checks) | [Monitoring](monitoring.md) |
 | `ssh` | Administration. The administrator account takes only the operator's certificate, and may forward to the API server on loopback and nowhere else, since 2026-10-16 (`HO.17`, `A.8`) | [Validation: host hardening](../validation/host-hardening.md), [access](../validation/access.md) |
 
@@ -49,7 +50,7 @@ About 20 minutes after boot, with an empty cluster: 1.0 of 7.9 GiB memory used, 
 - **It is the supply chain.** What it copies to the worker and the targets is what runs there.
 - **A compromise of it is not contained.** It holds every credential that matters. Its mesh node moved to the router, and its way out to the edge, on 2026-10-17 ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md), [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md), [worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm)). During a fetch window it can still upload to a listed host (T40).
 - **No encryption at host.** The subscription feature is not registered.
-- **A rebuild loses the update run and its key.** First boot installs neither. The [targets runbook](../runbooks/targets.md#the-update-key) installs the command again, and a new key means rebuilding the targets with its public half.
+- **A rebuild loses the update run, the collect command, and their keys.** First boot installs none of them. The [targets runbook](../runbooks/targets.md#the-update-key) and the [evidence collection runbook](../runbooks/evidence-collection.md#after-a-rebuild) install them again, and a new update key means rebuilding the targets with its public half.
 - **Rebuilt once, with an empty cluster.** The [rebuild](../worklogs/0002-platform-compute.md#orchestrator-rebuild) on 2026-10-13 proves the template. It says nothing about bringing workloads back.
 
 ## Official documentation
