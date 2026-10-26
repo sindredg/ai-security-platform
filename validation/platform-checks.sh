@@ -512,6 +512,7 @@ keys=/home/aisec-logexport/.ssh/authorized_keys
 echo "export_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
 echo "export_groups=$(id -nG aisec-logexport 2>/dev/null)"
 echo "export_command=$(sha256sum /usr/local/sbin/aisec-journal-export 2>/dev/null | cut -d " " -f 1)"
+echo "export_manager=$(u=$(id -u aisec-logexport 2>/dev/null); n=$(journalctl --no-pager -o cat --since -20min -u ssh.service 2>/dev/null | grep -c "Accepted publickey for aisec-logexport "); if [ -n "$u" ] && [ "$n" -gt 0 ]; then journalctl --no-pager -o cat --since -20min _SYSTEMD_UNIT=user@$u.service 2>/dev/null | wc -l; else echo no-logins; fi)"
 keys=/home/aisec-feed/.ssh/authorized_keys
 echo "feed_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
 echo "feed_account=$(id -nG aisec-feed 2>/dev/null) $(sudo -n -l -U aisec-feed 2>/dev/null | grep -c "may run") $(stat -c %U /home/aisec-feed 2>/dev/null)"
@@ -523,6 +524,7 @@ echo "agent_job_tmp=$(ls -d /tmp/systemd-private-*-aisec-agent-job.service-* /va
 keys=/home/aisec-job/.ssh/authorized_keys
 echo "job_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
 echo "job_account=$(id -nG aisec-job 2>/dev/null) $(sudo -n -l -U aisec-job 2>/dev/null | grep -c "may run") $(stat -c %U /home/aisec-job 2>/dev/null)"
+echo "job_session=$(grep -c "pam_succeed_if.so quiet user != aisec-job$" /etc/pam.d/common-session 2>/dev/null) $(cat /etc/security/aisec-light-session.conf 2>/dev/null)"
 echo "job_socket=$(systemctl is-active aisec-agent-job.socket 2>/dev/null) $(stat -c "%U %G %a" /run/aisec-job/agent.sock 2>/dev/null)"
 echo "job_programs=$(cat /usr/local/sbin/aisec-job-runner /usr/local/lib/aisec/job/agent_job.py /usr/local/lib/aisec/job/system.txt /etc/systemd/system/aisec-agent-job.socket /etc/systemd/system/aisec-agent-job@.service 2>/dev/null | sha256sum | cut -d " " -f 1)"
 echo "job_instances=$(systemctl list-units --all --no-legend "aisec-agent-job@*" 2>/dev/null | wc -l)"
@@ -880,6 +882,10 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # The export command is the boundary on the worker. It has to be the
   # reviewed one.
   check J.9 "The worker runs the export command in this checkout" "$EXPORT_SHA" "$(value export_command)"
+  # Each pull is a login. A login that starts the account's user service
+  # manager logs about 67 lines, which the next pull copies (issue 164).
+  # Without a pull in the last 20 minutes this reads no-logins.
+  check J.10 "The export account's logins start no user service manager" 0 "$(value export_manager)"
   # The same shape for the feed key (ADR 0026).
   check E.9 "The feed key is restricted to the orchestrator and the feed command" \
     "1 root root 644 from=\"$ORCH_IP\",restrict,command=\"/usr/local/sbin/aisec-feed-receive\"" "$(value feed_key)"
@@ -905,6 +911,10 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # fails this.
   slot_erased=$(value slot_erased)
   check G.10 "The last job erased the model server's slot" true "${slot_erased:-no job outcome in the journal}"
+  # The job account gets the export account's light session (issue 164). It
+  # logs in only during a job, so this reads the PAM configuration.
+  check G.11 "The job account's sessions start no user service manager" \
+    "1 XDG_SESSION_CLASS DEFAULT=background-light" "$(value job_session)"
   # The dispatch secret, read in the orchestrator's section, holds the key and
   # the worker's host key, and that host key is this worker's.
   check W.10 "The dispatch secret pins this worker's host key" \
