@@ -119,6 +119,7 @@ def rehearse(changes, contract):
         "verdicts": {},
         "passed": False,
         "reason": None,
+        "reset_after": None,
     }
     try:
         result["reset"] = reset()
@@ -131,6 +132,8 @@ def rehearse(changes, contract):
         netbox_change.apply(copy, applied)
         result["applied"] = applied
         configured, observed = halves(contract)
+        # The copy rests at the seed between rehearsals.
+        result["reset_after"] = reset()
     except (collection.Failed, netbox_change.Failed, OSError) as error:
         result["reason"] = str(error)
         return result

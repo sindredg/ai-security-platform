@@ -165,6 +165,13 @@ class Rehearse(unittest.TestCase):
             },
         )
 
+    def test_the_copy_is_reset_after_the_halves_too(self):
+        # So the copy rests at the seed between rehearsals, as Q.3 reads it.
+        result = rehearse.rehearse(CHANGES, REPORTS["contract"])
+        events = self.events.read_text().splitlines()
+        self.assertEqual((events[0], events[-1]), ("aisec-rehearse", "aisec-rehearse"))
+        self.assertEqual(result["reset_after"], SEED_SHA)
+
     def test_a_report_not_in_shape_fails_the_rehearsal(self):
         self.write("observed.out", '{"check": "observed", "accounts": {}}')
         result = rehearse.rehearse(CHANGES, REPORTS["contract"])
