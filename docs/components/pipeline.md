@@ -4,7 +4,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 
 | | |
 | --- | --- |
-| State | Built. Verified on GitHub on 2026-10-17: the required signature check blocked a pull request with a commit GitHub signed ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github)). Settings read on 2026-10-25 ([repository settings](#repository-settings)) |
+| State | Built. Verified on GitHub on 2026-10-17: the required signature check blocked a pull request with a commit GitHub signed ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github)). Settings read on 2026-10-26 ([repository settings](#repository-settings)) |
 | Defined in | `.github/workflows/checks.yml`, `.github/workflows/signatures.yml`, `.github/allowed_signers`, `.github/dependabot.yml`, and repository settings |
 | Decision | [0010](../decisions/0010-threat-model-and-security-checks-per-milestone.md), [0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
 
@@ -31,7 +31,7 @@ The repository is the approval channel: a change reaches `main` only through a p
 | Converter dependency scan | Trivy over the converter's Python pins. Reports, never blocks |
 | Commit signatures | `git verify-commit` on every commit in the pull request, against `.github/allowed_signers`: the public half of the operator's signing key, nothing else. A commit signed by GitHub, by another key, or not at all fails. See [below](#the-signature-check) |
 
-All but the converter dependency scan and the evidence pages are required by the ruleset on `main`. The evidence pages are new and not required yet. The converter dependency scan runs on every pull request and does not block a merge ([advisories](../security/accepted-risks.md#advisories-in-the-converters-packages)).
+All but the converter dependency scan are required by the ruleset on `main`. The converter dependency scan runs on every pull request and does not block a merge ([advisories](../security/accepted-risks.md#advisories-in-the-converters-packages)).
 
 The two image jobs are the only jobs with write permission. Each can write its package to this repository's registry, in a step that runs on `main` only.
 
@@ -63,6 +63,8 @@ Read again on 2026-10-20 at 15:00 UTC, after "Dispatch tests" and "Dispatch imag
 Read again on 2026-10-23 at 19:26 UTC, after "Tool service dependency scan" was made required ([#167](https://github.com/sindredg/ai-security-platform/issues/167)): fifteen checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. The read-back equals the ruleset that was written. Tested the same day: a pull request with a known-vulnerable development pin was blocked by that check alone, and was clean again once the pin was removed ([worklog](../worklogs/0003-toolchain-integration.md#fix-a-required-tool-service-scan-and-the-host-code-on-the-hosts-python)).
 
 Read again on 2026-10-25 at 07:46 UTC, after "Collector tests" was made required: sixteen checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. Configured, not tested: no pull request has been seen blocked by it.
+
+Read again on 2026-10-26 at 17:10 UTC, after "Evidence pages" was made required: seventeen checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. Configured, not tested: no pull request has been seen blocked by it.
 
 The [repository settings runbook](../runbooks/repository-settings.md) sets these up and repeats the fail side.
 
