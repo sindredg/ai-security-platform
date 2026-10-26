@@ -139,11 +139,52 @@ def scope(constraints):
     return None if any(not f for f in filters) else filters
 
 
-def configured(contract):
-    netbox = NetBox(read_token(COLLECTOR))
+def judge_configured(permissions, contract):
+    """The configured check's reasons for one account's enabled permissions,
+    each with the IDs of the permissions it rests on. The configured check
+    reports the reasons without the IDs. The policy on a proposed fix reads
+    them (platform ADR 0043)."""
     wanted = {
         (g["object_type"], g["action"]): g["constraints"] for g in contract["grants"]
     }
+    granted, reasons = {}, []
+    for p in permissions:
+        for object_type in p["object_types"]:
+            for action in p["actions"]:
+                granted.setdefault((object_type, action), []).append(p)
+    for (object_type, action), grants in sorted(granted.items()):
+        names = ", ".join(p["name"] for p in grants)
+        if (object_type, action) not in wanted:
+            why = f"{action} on {object_type}, which the contract does not grant"
+            ids = [p["id"] for p in grants]
+            reasons.append(
+                {"kind": "excess", "why": f"{why} ({names})", "permissions": ids}
+            )
+            continue
+        want = scope(wanted[(object_type, action)])
+        for p in grants:
+            have = scope(p["constraints"])
+            if have is None:
+                why = f"{action} on {object_type} without a constraint ({p['name']})"
+                reasons.append({"kind": "excess", "why": why, "permissions": [p["id"]]})
+            elif have != want:
+                why = f"{action} on {object_type} with {have}, not the contract's"
+                reasons.append(
+                    {
+                        "kind": "unknown",
+                        "why": f"{why} ({p['name']})",
+                        "permissions": [p["id"]],
+                    }
+                )
+    for object_type, action in wanted:
+        if (object_type, action) not in granted:
+            why = f"no permission grants {action} on {object_type}"
+            reasons.append({"kind": "missing", "why": why, "permissions": []})
+    return reasons
+
+
+def configured(contract):
+    netbox = NetBox(read_token(COLLECTOR))
     accounts = {}
     for account in contract["accounts"]:
         reasons, permissions = [], {}
@@ -166,30 +207,10 @@ def configured(contract):
                 for p in found:
                     if p.get("enabled"):
                         permissions.setdefault(p["id"], dict(p, via=via))
-        granted = {}
-        for p in permissions.values():
-            for object_type in p["object_types"]:
-                for action in p["actions"]:
-                    granted.setdefault((object_type, action), []).append(p)
-        for (object_type, action), grants in sorted(granted.items()):
-            names = ", ".join(p["name"] for p in grants)
-            if (object_type, action) not in wanted:
-                why = f"{action} on {object_type}, which the contract does not grant"
-                reasons.append({"kind": "excess", "why": f"{why} ({names})"})
-                continue
-            want = scope(wanted[(object_type, action)])
-            for p in grants:
-                have = scope(p["constraints"])
-                if have is None:
-                    why = f"{action} on {object_type} without a constraint"
-                    reasons.append({"kind": "excess", "why": f"{why} ({p['name']})"})
-                elif have != want:
-                    why = f"{action} on {object_type} with {have}, not the contract's"
-                    reasons.append({"kind": "unknown", "why": f"{why} ({p['name']})"})
-        for object_type, action in wanted:
-            if (object_type, action) not in granted:
-                why = f"no permission grants {action} on {object_type}"
-                reasons.append({"kind": "missing", "why": why})
+        reasons += [
+            {"kind": r["kind"], "why": r["why"]}
+            for r in judge_configured(list(permissions.values()), contract)
+        ]
         evidence = [
             {
                 k: p.get(k)

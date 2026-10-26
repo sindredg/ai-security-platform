@@ -413,6 +413,13 @@ jobs:
           cd collectors/netbox
           PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
 
+      # The change commands run beside the collector on the orchestrator, and
+      # import it (ADR 0043). The required check keeps its name.
+      - name: Test the change commands
+        run: |
+          cd platform/change
+          PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
+
   dispatch-tests:
     name: Dispatch tests
     runs-on: ubuntu-26.04
