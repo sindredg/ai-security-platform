@@ -129,7 +129,7 @@ Define the consumer contract. Deploy NetBox, synthetic inventory, and the consum
 
 Rehearse a proposed fix on the rehearsal copy, publish it as a pull request, and deliver it after approval.
 
-**Depends on:** the credential and approval enforcement decisions, and a fix for [#203](https://github.com/sindredg/ai-security-platform/issues/203), so that no job skips the comparison.
+**Depends on:** ADRs [0043](decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [0046](decisions/0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md), decided, and a fix for [#203](https://github.com/sindredg/ai-security-platform/issues/203), so that no job skips the comparison.
 
 **Completion criteria:**
 

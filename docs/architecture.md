@@ -229,7 +229,6 @@ Each gets a decision record before the milestone that depends on it.
 | --- | --- |
 | Cloud identity for K3s workloads | A collector that reads from Azure |
 | Worker isolation beyond VM separation | Connecting real target evidence |
-| GitHub App permissions and approval enforcement | Remediation and pull requests |
 | Acceptance thresholds for quality, recovery, and cost | Operational drills |
 
 ## Limitations

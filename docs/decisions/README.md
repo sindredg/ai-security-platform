@@ -46,6 +46,10 @@ One record per consequential architecture choice. A record states the context, t
 | [0040](0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md) | A job's evidence is collected on the hosts, on request, and stored per job in the tool service, which hands the model only the fields its schema names | Accepted |
 | [0041](0041-the-workflow-compares-the-models-verdict-with-the-checks.md) | The workflow compares a NetBox job's verdict per account with the deterministic checks, and a failed step stops it on anything but a match | Accepted |
 | [0042](0042-held-out-cases-and-the-baseline-without-the-agent.md) | The investigation is scored on held-out variants of the consumer contract against the same seed, by rules written before the runs, beside the same run without the agent | Accepted |
+| [0043](0043-proposals-are-remove-only-and-a-policy-check-decides.md) | A fix is proposed in the same answer as the verdicts, removes one permission from one account, and a policy check on the orchestrator host decides | Accepted |
+| [0044](0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md) | The rehearsal copy is a second NetBox on the lab VM, with its own interface in the rehearsal subnet, reset from a dump before each rehearsal | Accepted |
+| [0045](0045-the-operator-publishes-a-checked-proposal.md) | No repository credential on the platform: it prepares a proposal of checked fields, and the operator's machine commits and opens it | Accepted |
+| [0046](0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md) | A tag signed with a separate approval key approves one commit once, delivery checks the target after applying it, and the merge comes last | Accepted |
 
 ## Format
 
