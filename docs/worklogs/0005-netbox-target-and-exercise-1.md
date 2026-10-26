@@ -773,3 +773,18 @@ On the live system, 21:48:28 to 22:10:45 UTC, from the branch at `dde15f2`, from
 | Each case collected once, with no job on it | All six gave the case file's verdicts, the configured verdict and the observed one for each account. Visible to the tool service after 27 to 81 s |
 | `N.18` with one line added to the installed case file, every check without the Azure and workstation checks, 21:58 UTC | `361 passed, 1 failed`. The one was `N.18`, its fourth digest different. The file was put back, with the checkout's SHA-256 |
 | Every check, 22:01:53 to 22:10:45 UTC | `412 passed, 0 failed`. `G.8`, `N.18`, `W.9`, and `W.12` among them |
+
+### Thinking, and the task's last change
+
+Development jobs on the seed's contract, not on a held-out case, each with 1200 seconds and 8 turns. On the live system, 22:11 to 22:50 UTC, from a script with the runbooks' commands. For thinking on, a systemd drop-in ran the model server without `--reasoning off`, the model's default, and was removed after the two jobs. The server came back with `--reasoning off` ([#36](https://github.com/sindredg/ai-security-platform/issues/36)).
+
+| Job | Thinking | Calls | Seconds | Output tokens | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| `nb-10252211-on1` | On | 4 | 682 | 1,915 | Match |
+| `nb-10252211-on2` | On | 3 | 621 | 2,034 | Stop: `verdict lines that could not be read: 2` |
+| `nb-10252211-off1` | Off | 3 | 432 | 1,007 | Stop: `verdict lines that could not be read: 2` |
+| `nb-10252211-off2` | Off | 3 | 294 | 279 | Match |
+
+All four answers gave both accounts the checks' verdicts on their last lines. Both stops came from bullets in the analysis before them, such as `- Verdict: EXCESS (returned records beyond contract listing)`, which the comparison counts as verdict lines it cannot read. With thinking on, a job took 1.8 times as long on average, for no better answer. Thinking stays off for the scored runs. Two jobs each, on one contract with no disagreement in its evidence, do not show how thinking does on harder cases.
+
+The task then gained one sentence, committed as `666abb4` before the first scored run: `Write the word Verdict only at the start of those lines.` Two development jobs with it, 22:51 to 23:08 UTC: `nb-10252251-a1` matched in 482 seconds, and `nb-10252251-a2` stopped with `inventory-reader-control: the model says excess, the checks say within`, a wrong verdict in the right form. Neither answer had a line the comparison could not read.
