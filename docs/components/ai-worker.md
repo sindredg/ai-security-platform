@@ -89,7 +89,7 @@ The exchange and the full tables are in the [milestone 3 worklog](../worklogs/00
 
 | Role | Candidate | Has to prove |
 | --- | --- | --- |
-| Starting model | Qwen3.5-4B, running. Kept after a comparison, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3 ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). Still to show: a real investigation |
+| Starting model | Qwen3.5-4B, running. Kept after a comparison, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3 ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). Scored on 2026-10-26 in exercise 1's investigation, twelve jobs on held-out cases: 13 of 18 verdicts were the checks' ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-score)) |
 
 ## Dispatch
 

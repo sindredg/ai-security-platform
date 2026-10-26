@@ -36,7 +36,7 @@ Candidates, not selections, except the rows that name a decision record. Each ha
 
 | Role | Candidate | Has to prove | Milestone |
 | --- | --- | --- | --- |
-| Starting model | Qwen3.5-4B, running. Kept after a comparison with Granite 4.2 3B and Qwen3.5-2B, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3, the same in both runs ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). On 2026-10-25, NetBox jobs ran while the task was tuned, and one ended in a match with the checks ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-task-on-development-jobs)). Still to show: the scored investigation | 4 |
+| Starting model | Qwen3.5-4B, running. Kept after a comparison with Granite 4.2 3B and Qwen3.5-2B, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3, the same in both runs ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). On 2026-10-25, NetBox jobs ran while the task was tuned, and one ended in a match with the checks ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-task-on-development-jobs)). Scored on 2026-10-26 in exercise 1's investigation, twelve jobs on held-out cases: 13 of 18 verdicts were the checks' ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-score)) | 4 |
 | Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 4 |
 
 ## Versions

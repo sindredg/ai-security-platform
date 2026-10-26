@@ -2,7 +2,7 @@
 
 How the investigation is scored: as dispatched jobs, through the workflow, on held-out cases, beside the same run without the agent ([ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md)). The criteria are in the [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation).
 
-Status: **written** on 2026-10-25, before the first scored run. The case file and these rules are both committed and pushed before it. No scored job has run.
+Status: **tested** on 2026-10-26. Twelve scored jobs ran on the live system, two per case, and were scored by these rules ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-scored-runs)). The case file and these rules were committed and pushed before the first of them.
 
 ## The cases
 
