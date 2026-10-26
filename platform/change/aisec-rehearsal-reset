@@ -1,0 +1,41 @@
+#!/bin/bash
+# Resets the rehearsal copy on the lab VM to the seed (ADR 0044), before each
+# rehearsal. Runs as root, through the reset account's forced command, and
+# takes no argument.
+#
+# The copy's database is dropped and made again from the dump taken right
+# after the copy was seeded, so nothing a rehearsal changed survives it, the
+# tokens the seed made included. Valkey's cache is flushed, and both NetBox
+# units start again. The last line is the dump's SHA-256, which the
+# orchestrator compares with the one it recorded when the dump was made.
+set -euo pipefail
+
+dump=/var/lib/aisec/rehearsal/seed.dump
+conf=/etc/aisec/netbox-rehearsal
+name=netbox.aisec.internal
+address=10.50.1.4
+
+[ "$(id -u)" -eq 0 ] || { echo "run as root" >&2; exit 1; }
+[ "$#" -eq 0 ] || { echo "usage: aisec-rehearsal-reset" >&2; exit 2; }
+[ -f "$dump" ] || { echo "no seed dump at $dump" >&2; exit 1; }
+
+systemctl stop netbox-worker.service netbox.service
+runuser -u postgres -- dropdb --if-exists --force netbox
+runuser -u postgres -- createdb -O netbox netbox
+runuser -u postgres -- pg_restore --exit-on-error --single-transaction --no-owner \
+  --role=netbox -d netbox <"$dump"
+# The password goes in the environment, not in an argument that other
+# processes can read.
+VALKEYCLI_AUTH=$(podman secret inspect --showsecret --format '{{.SecretData}}' netbox_valkey_password) \
+  valkey-cli FLUSHALL >/dev/null
+systemctl start netbox.service netbox-worker.service
+
+code=000
+for _ in $(seq 1 60); do
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 --cacert "$conf/tls.crt" \
+    --resolve "$name:8443:$address" "https://$name:8443/login/" || true)
+  [ "$code" = 200 ] && break
+  sleep 5
+done
+[ "$code" = 200 ] || { echo "the copy did not answer after the reset: $code" >&2; exit 1; }
+sha256sum "$dump" | cut -d " " -f 1
