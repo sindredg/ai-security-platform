@@ -475,7 +475,7 @@ code() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 "$@"; }
 echo "internet=$(tcp 1.1.1.1 443)"
 echo "targets_netbox=$(tcp 10.50.0.4 22)"
 echo "targets_netbox_api=$(tcp 10.50.0.4 '"$NETBOX_PORT"')"
-echo "targets_rehearsal=$(tcp 10.50.1.4 22)"
+echo "targets_rehearsal=$(tcp 10.50.1.4 '"$NETBOX_PORT"')"
 echo "targets_consumer=$(tcp '"$LAB_IP"' 22)"
 echo "azure_dns=$(tcp 168.63.129.16 53)"
 echo "azure_dns_udp=$(udp_dns)"
@@ -826,14 +826,14 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check A.10 "The administrator forwards nothing on the worker" "no any" "$(value sshd_admin_forwarding)"
   # C.1 and C.4 aim at ports that are known to listen, so a timeout is a drop.
   check C.1 "No connection to the internet" timeout "$(value internet)"
-  # The NetBox and lab VMs listen on 22 (E.15), so a timeout is a drop. No
-  # machine is in the rehearsal subnet, so C.3 times out with or without the
-  # deny rule. Z.6 names the rule.
+  # The NetBox and lab VMs listen on 22 (E.15), so a timeout is a drop. The
+  # rehearsal copy listens on its port on the lab VM's second interface (Q.1),
+  # so C.3's timeout is a drop too. Z.6 names the rule.
   check C.2 "No connection to the NetBox subnet" timeout "$(value targets_netbox)"
   check C.11 "No connection to the consumer subnet" timeout "$(value targets_consumer)"
   # NetBox listens on its port (N.1), so a timeout is a drop.
   check C.12 "No connection to NetBox's port" timeout "$(value targets_netbox_api)"
-  check C.3 "No connection to the rehearsal subnet" timeout "$(value targets_rehearsal)"
+  check C.3 "No connection to the rehearsal copy's port" timeout "$(value targets_rehearsal)"
   check C.4 "No connection to the platform resolver" timeout "$(value azure_dns)"
   # The same query from the edge gets an answer, so a timeout here is the
   # worker's rule and not the resolver.
@@ -1259,7 +1259,8 @@ print("\n".join(sorted(lines)))
   # target VM's group is its subnet's.
   for row in Z.4:orchestrator:nsg-aisec-platform-orchestrator:$RG Z.5:worker:nsg-aisec-platform-worker:$RG \
     Z.16:router:nsg-aisec-edge-router:$RG Z.20:edge:nsg-aisec-edge-edge:$RG \
-    Z.27:netbox:nsg-aisec-targets-netbox:$RG_TARGETS Z.28:lab:nsg-aisec-targets-consumer:$RG_TARGETS; do
+    Z.27:netbox:nsg-aisec-targets-netbox:$RG_TARGETS Z.28:lab:nsg-aisec-targets-consumer:$RG_TARGETS \
+    Z.29:lab-rehearsal:nsg-aisec-targets-rehearsal:$RG_TARGETS; do
     IFS=: read -r id vm nsg group <<<"$row"
     claim="Effective rules on the $vm interface equal the configured rules"
     : >"$az_err"
@@ -1313,6 +1314,7 @@ print("\n".join(sorted(lines)))
   check Z.22 "Orchestrator to the internet is denied by its own rule" "Deny deny-to-internet" "$(flow 1.1.1.1:443 orchestrator $ORCH_IP)"
   check Z.23 "Orchestrator to the proxy on the edge is allowed by its own rule" "Allow allow-proxy-to-edge" "$(flow $EDGE_IP:3128 orchestrator $ORCH_IP)"
   check Z.26 "Orchestrator to the target port on the edge is allowed by its own rule" "Allow allow-target-packages-to-edge" "$(flow $EDGE_IP:3129 orchestrator $ORCH_IP)"
+  check Z.30 "Orchestrator to the rehearsal copy's port is allowed by its own rule" "Allow allow-rehearsal-copy-to-targets" "$(flow 10.50.1.4:$NETBOX_PORT orchestrator $ORCH_IP)"
 
   # A network interface with a public address, validated and never deployed.
   sub=$(az account show --query id -o tsv 2>/dev/null)
@@ -1357,21 +1359,23 @@ EOF
     "$(az network vnet peering show -g $RG --vnet-name vnet-aisec-edge -n peer-edge-to-targets \
       --query peeringState -o tsv 2>/dev/null) $(az network vnet peering show -g $RG_TARGETS \
       --vnet-name vnet-aisec-targets -n peer-targets-to-edge --query peeringState -o tsv 2>/dev/null)"
-  # The configured inbound allows of each target group. The NetBox and lab
-  # groups' effective rules are Z.27 and Z.28. No VM is in the other two
-  # subnets, so there is no interface to read their effective rules from.
-  # NetBox's port is allowed into its subnet from the orchestrator's address
-  # and the consumer subnet (ADR 0035).
+  # The configured inbound allows of each target group. The NetBox, lab, and
+  # rehearsal groups' effective rules are Z.27 to Z.29. No VM is in the
+  # unintended subnet, so there is no interface to read its effective rules
+  # from. NetBox's port is allowed into its subnet from the orchestrator's
+  # address and the consumer subnet (ADR 0035), and the rehearsal copy's from
+  # the orchestrator's address alone (ADR 0044).
   want="" got=""
   for g in netbox consumer unintended rehearsal; do
     want="$want$g: "
     [ "$g" = netbox ] && want="${want}allow-netbox-from-consumer 10.50.0.32/27 $NETBOX_PORT, allow-netbox-from-orchestrator $ORCH_IP/32 $NETBOX_PORT, "
+    [ "$g" = rehearsal ] && want="${want}allow-netbox-from-orchestrator $ORCH_IP/32 $NETBOX_PORT, "
     want="${want}allow-ssh-from-orchestrator 10.40.0.0/27 22, allow-ssh-from-router 10.45.0.32/27 22; "
     got="$got$g: $(az network nsg rule list -g $RG_TARGETS --nsg-name "nsg-aisec-targets-$g" \
       --query "[?direction=='Inbound' && access=='Allow'].[name, sourceAddressPrefix, destinationPortRange]" \
       -o tsv 2>/dev/null | sort | tr '\t' ' ' | paste -sd ',' - | sed 's/,/, /g'); "
   done
-  check Z.25 "Only SSH from the orchestrator and the router, and NetBox's port from the orchestrator and the consumer, is allowed into the target subnets" \
+  check Z.25 "Only SSH from the orchestrator and the router, and NetBox's ports from the orchestrator and the consumer, are allowed into the target subnets" \
     "$want" "$got"
   check Z.19 "The edge network is in Denmark East" denmarkeast \
     "$(az network vnet show -g $RG -n vnet-aisec-edge --query location -o tsv 2>/dev/null)"
