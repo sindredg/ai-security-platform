@@ -1,0 +1,105 @@
+{
+  "title": "The slot erase after its fix",
+  "short": "Slot erase",
+  "milestone": 3,
+  "tested": "Whether the model server's slot is erased after a completed job and after a cancelled one.",
+  "changed": "The model server's unit got an empty, read-only slot save path, so the erase answers ([PR 140](https://github.com/sindredg/ai-security-platform/pull/140)). The job program also refuses a task with template syntax or a leading command character.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.55.0"
+    ],
+    [
+      "Task",
+      "The fixture question: is finding F-0001 confirmed, with its evidence under `ev-0001`"
+    ],
+    [
+      "Sent by",
+      "Hand, with a token made for the two jobs"
+    ]
+  ],
+  "source": "Live system, 2026-10-20 20:12 UTC. The result the job program wrote, the worker's job lines, and the audit lines. Three refused tasks never started Goose and have no record here.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0003-toolchain-integration.md#installed-and-run-on-the-worker"
+    ],
+    [
+      "Troubleshooting 12",
+      "../troubleshooting/12-slot-erase-needs-a-save-path.md"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "hand-3",
+      "target": null,
+      "case": null,
+      "limits": {
+        "seconds": null,
+        "turns": null
+      },
+      "started": null,
+      "finished": "2026-10-20T20:14:32Z",
+      "phase": null,
+      "message": "",
+      "steps": [],
+      "result": {
+        "status": "completed",
+        "seconds": 92.6,
+        "agent_status": "completed",
+        "tool_calls": 1,
+        "tool_errors": 0,
+        "input_tokens": 2187,
+        "output_tokens": 143,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-20T20:14:03Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 313
+        }
+      ],
+      "answer": "Yes, the finding is confirmed.\n\nThe evidence shows that the API token `consumer-readonly` is granted access to more record types than its contract specifies:\n\n- **Contract types** (what it should be able to access): `dcim.device`, `ipam.prefix`\n- **Granted types** (actual permissions): `dcim.device`, `ipam.prefix`, `tenancy.contact`, `circuits.circuit`\n\nThe token has unnecessary access to `tenancy.contact` and `circuits.circuit`.",
+      "note": "Its first turn read the whole 1,004-token prompt, so nothing of the last job was left in the slot."
+    },
+    {
+      "job": "hand-4",
+      "target": null,
+      "case": null,
+      "limits": {
+        "seconds": null,
+        "turns": null
+      },
+      "started": null,
+      "finished": "2026-10-20T20:15:02Z",
+      "phase": null,
+      "message": "",
+      "steps": [],
+      "result": {
+        "status": "cancelled",
+        "seconds": null,
+        "agent_status": null,
+        "tool_calls": null,
+        "tool_errors": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [],
+      "answer": "",
+      "note": "Cancelled during its run, to test a cancel. The slot was erased all the same."
+    }
+  ]
+}

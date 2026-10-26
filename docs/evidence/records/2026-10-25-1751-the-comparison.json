@@ -1,0 +1,421 @@
+{
+  "title": "The comparison's first live jobs",
+  "short": "The comparison",
+  "milestone": 4,
+  "tested": "The comparison step on the live system: a real answer, checks made to disagree, and a job with nothing collected.",
+  "changed": "A comparison step after dispatch for NetBox jobs, and the NetBox task with one verdict line per account ([ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)). The system text: `If the task says how the answer ends, end it that way.`",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.56.0"
+    ],
+    [
+      "Task",
+      "`collectors/netbox/task.txt` from #198"
+    ],
+    [
+      "Limits",
+      "900 seconds and 8 turns"
+    ],
+    [
+      "Dispatch image",
+      "`dispatch@sha256:7e79957e...`"
+    ]
+  ],
+  "source": "Live system, 2026-10-25 17:51 to 18:32 UTC. Each workflow as Argo kept it, read at 05:32 UTC the next day, the worker's job lines, and the tool service's audit lines.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0005-netbox-target-and-exercise-1.md#the-rollout-and-the-first-jobs"
+    ],
+    [
+      "ADR 0041",
+      "../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md"
+    ],
+    [
+      "Troubleshooting 18",
+      "../troubleshooting/18-tool-results-come-back-in-another-order.md"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "syn-10251751",
+      "target": "synthetic",
+      "case": null,
+      "limits": {
+        "seconds": 900,
+        "turns": 8
+      },
+      "started": "2026-10-25T17:53:40Z",
+      "finished": "2026-10-25T17:55:33Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T17:53:40Z",
+          "finished": "2026-10-25T17:55:13Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T17:55:23Z",
+          "finished": "2026-10-25T17:55:28Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 88.1,
+        "agent_status": "completed",
+        "tool_calls": 1,
+        "tool_errors": 0,
+        "input_tokens": 2317,
+        "output_tokens": 89,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-25T17:54:52Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 312
+        }
+      ],
+      "answer": "The finding is confirmed. The token 'consumer-readonly' has granted access to record types `tenancy.contact` and `circuits.circuit` that are not needed based on its contract, which only lists `dcim.device` and `ipam.prefix`.",
+      "note": "The comparison was skipped, as for every synthetic job. The answer had no `Status:` or `Excess:` line."
+    },
+    {
+      "job": "nb-10251751-a",
+      "target": "netbox",
+      "case": null,
+      "limits": {
+        "seconds": 900,
+        "turns": 8
+      },
+      "started": "2026-10-25T17:56:25Z",
+      "finished": "2026-10-25T18:03:13Z",
+      "phase": "Failed",
+      "message": "child 'nb-10251751-a-3732585890' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T17:56:25Z",
+          "finished": "2026-10-25T18:02:43Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: inventory-reader: the model says missing, the checks say excess",
+          "started": "2026-10-25T18:02:53Z",
+          "finished": "2026-10-25T18:02:58Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T18:03:03Z",
+          "finished": "2026-10-25T18:03:08Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 372.9,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 4547,
+        "output_tokens": 766,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "within",
+          "within"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "inventory-reader: the model says missing, the checks say excess"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "missing",
+            "references": [
+              "ev-0001",
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "mismatch"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": "within",
+            "references": [
+              "ev-0001",
+              "ev-0003"
+            ],
+            "configured": "within",
+            "observed": "within",
+            "outcome": "match"
+          }
+        ]
+      },
+      "calls": [
+        {
+          "at": "2026-10-25T17:58:12Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1482
+        },
+        {
+          "at": "2026-10-25T17:58:12Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1084
+        },
+        {
+          "at": "2026-10-25T17:58:12Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1857
+        }
+      ],
+      "answer": "Let me analyze the evidence carefully:\n\n**ev-0001 (Contract):**\n- **inventory-reader:**\n  - Denies: /api/dcim/sites/, /api/tenancy/tenants/, /api/users/permissions/, POST /api/dcim/devices/\n  - Reads: All 7 devices (a-fw-01, a-sw-01, a-sw-02, b-fw-01, b-sw-01, c-fw-01, c-sw-01) and all 7 IP addresses\n  \n- **inventory-reader-control:**\n  - Same denials as inventory-reader\n  - Reads: Only 3 devices (a-fw-01, a-sw-01, a-sw-02) and 3 IP addresses (172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24)\n\n**ev-0002 (Permissions):**\n- **inventory-reader:**\n  - Permission id 2: view on dcim.device and ipam.ipaddress (no constraints)\n  - Permission id 1: view on dcim.device and ipam.ipaddress with tenant__slug = tenant-a constraint\n  \n- **inventory-reader-control:**\n  - Permission id 3: view on dcim.device and ipam.ipaddress with tenant__slug = tenant-a constraint\n\n**ev-0003 (Actual Token Results):**\n- Global denials match contract: sites, tenants, permissions, POST devices all denied (403)\n- Grants: view on dcim.device and ipam.ipaddress with tenant__slug = tenant-a constraint\n- Reads: Only shows 3 devices and 3 IP addresses (same as inventory-reader-control, NOT inventory-reader)\n\n**Analysis:**\n\n1. **inventory-reader**:\n   - Contract grants reads to 7 devices and 7 IP addresses\n   - ev-0003 only shows 3 devices and 3 IP addresses\n   - This is **missing** - the token returned fewer records than the contract lists\n\n2. **inventory-reader-control**:\n   - Contract grants reads to 3 devices and 3 IP addresses\n   - ev-0003 shows exactly 3 devices and 3 IP addresses\n   - Permissions grant view with tenant__slug = tenant-a constraint\n   - This appears to be **within**\n\n**Disagreement**: ev-0003 shows the same reads for both accounts (3 devices, 3 IPs), but the contract expects different amounts for each account.\n\n- **inventory-reader**: Contract expects 7 devices/7 IPs, but ev-0003 shows only 3/3 → **missing**\n- **inventory-reader-control**: Contract expects 3 devices/3 IPs, and ev-0003 shows 3/3 → **within**\n\nVerdict: inventory-reader missing ev-0001 ev-0003\nVerdict: inventory-reader-control within ev-0001 ev-0003",
+      "note": "The model read its three results by position, in the order the tool service answered them ([troubleshooting 18](../troubleshooting/18-tool-results-come-back-in-another-order.md))."
+    },
+    {
+      "job": "nb-10251751-b",
+      "target": "netbox",
+      "case": null,
+      "limits": {
+        "seconds": 900,
+        "turns": 8
+      },
+      "started": "2026-10-25T18:04:21Z",
+      "finished": "2026-10-25T18:21:16Z",
+      "phase": "Failed",
+      "message": "child 'nb-10251751-b-4040925879' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1)",
+          "started": "2026-10-25T18:04:21Z",
+          "finished": "2026-10-25T18:20:56Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T18:21:06Z",
+          "finished": "2026-10-25T18:21:11Z"
+        }
+      ],
+      "result": {
+        "status": "timeout",
+        "seconds": 990.6,
+        "agent_status": null,
+        "tool_calls": 0,
+        "tool_errors": 0,
+        "input_tokens": null,
+        "output_tokens": null,
+        "slot_erased": false
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "within",
+          "within"
+        ]
+      },
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-25T18:06:08Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1857
+        },
+        {
+          "at": "2026-10-25T18:06:08Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1084
+        },
+        {
+          "at": "2026-10-25T18:06:08Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1482
+        },
+        {
+          "at": "2026-10-25T18:08:55Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1857
+        },
+        {
+          "at": "2026-10-25T18:08:55Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1084
+        },
+        {
+          "at": "2026-10-25T18:11:22Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1857
+        },
+        {
+          "at": "2026-10-25T18:11:22Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1084
+        },
+        {
+          "at": "2026-10-25T18:11:22Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1482
+        },
+        {
+          "at": "2026-10-25T18:15:35Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1857
+        }
+      ],
+      "answer": "",
+      "note": "Its checks' verdicts were changed by hand to disagree, to test that stop, and it hit its time limit before the comparison. The slot was not erased ([#199](https://github.com/sindredg/ai-security-platform/issues/199)), and the result counted 0 calls ([#200](https://github.com/sindredg/ai-security-platform/issues/200))."
+    },
+    {
+      "job": "nb-10251751-c",
+      "target": "netbox",
+      "case": null,
+      "limits": {
+        "seconds": 900,
+        "turns": 8
+      },
+      "started": "2026-10-25T18:21:22Z",
+      "finished": "2026-10-25T18:23:54Z",
+      "phase": "Failed",
+      "message": "child 'nb-10251751-c-244742288' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T18:21:22Z",
+          "finished": "2026-10-25T18:23:24Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: no checks' verdicts for this job",
+          "started": "2026-10-25T18:23:34Z",
+          "finished": "2026-10-25T18:23:38Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T18:23:44Z",
+          "finished": "2026-10-25T18:23:48Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 116.6,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 3,
+        "input_tokens": 2921,
+        "output_tokens": 172,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "no checks' verdicts for this job"
+        ],
+        "accounts": []
+      },
+      "calls": [
+        {
+          "at": "2026-10-25T18:23:09Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "refused",
+          "reason": "nothing by that reference",
+          "bytes": null
+        },
+        {
+          "at": "2026-10-25T18:23:09Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "refused",
+          "reason": "nothing by that reference",
+          "bytes": null
+        },
+        {
+          "at": "2026-10-25T18:23:09Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "refused",
+          "reason": "nothing by that reference",
+          "bytes": null
+        }
+      ],
+      "answer": "The evidence references ev-0001, ev-0002, and ev-0003 were all refused. Without this evidence, I cannot determine the accounts, their permissions, expected contract behavior, or actual token/NetBox behavior. The verdict is inconclusive because the required evidence was not accessible.",
+      "note": "Nothing was collected under this name, to test the stop for missing verdicts."
+    }
+  ]
+}

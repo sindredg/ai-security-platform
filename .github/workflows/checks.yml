@@ -301,12 +301,12 @@ jobs:
       - name: Lint the Python files
         run: >
           docker run --rm --volume "${PWD}:/io:ro" --workdir /io "${RUFF_IMAGE}"
-          check --no-cache worker platform tool-service collectors
+          check --no-cache worker platform tool-service collectors validation
 
       - name: Check the formatting
         run: >
           docker run --rm --volume "${PWD}:/io:ro" --workdir /io "${RUFF_IMAGE}"
-          format --no-cache --check worker platform tool-service collectors
+          format --no-cache --check worker platform tool-service collectors validation
 
   manifests:
     name: Kubernetes manifests
@@ -443,6 +443,28 @@ jobs:
           docker run --rm --volume "${PWD}:/src:ro" --workdir /src/platform/dispatch \
             --env PYTHONDONTWRITEBYTECODE=1 "${PYTHON_IMAGE}" \
             python -m unittest discover -s tests -v
+
+  evidence-pages:
+    name: Evidence pages
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The test evidence pages in docs/evidence/ are generated from their
+      # records. The record builder and the page generator use the standard
+      # library only, so nothing is installed. A page that differs from its
+      # record, a record that holds something not to publish, a lesson that
+      # names a missing job, or a page that breaks the page rules fails here.
+      - name: Test the record builder and the page generator
+        run: |
+          cd validation/evidence
+          PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
+
+      - name: Check that each page matches its record
+        run: PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S validation/evidence/render.py --check
 
   tool-service-image:
     name: Tool service image

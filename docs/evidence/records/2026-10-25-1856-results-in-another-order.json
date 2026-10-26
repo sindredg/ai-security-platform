@@ -1,0 +1,375 @@
+{
+  "title": "A task line about the order of results",
+  "short": "Results in another order",
+  "milestone": 4,
+  "tested": "Whether telling the model to tell documents apart by their `reference` field stops it reading results by position.",
+  "changed": "The task gained a line, not committed: tell the documents apart by their `reference` field, not by their order. Jobs got 1200 seconds.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.56.0"
+    ],
+    [
+      "Task",
+      "#198's task with the line added"
+    ],
+    [
+      "Limits",
+      "1200 seconds and 8 turns"
+    ]
+  ],
+  "source": "Live system, 2026-10-25 18:56 to 19:16 UTC. Development jobs: the task changed between run sets, and they are not scored. Each workflow as Argo kept it, read at 05:32 UTC the next day, the worker's job lines, and the tool service's audit lines.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0005-netbox-target-and-exercise-1.md#the-task-on-development-jobs"
+    ],
+    [
+      "Troubleshooting 18",
+      "../troubleshooting/18-tool-results-come-back-in-another-order.md"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "syn-10251856-1",
+      "target": "synthetic",
+      "case": null,
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-25T18:56:16Z",
+      "finished": "2026-10-25T18:58:13Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T18:56:16Z",
+          "finished": "2026-10-25T18:57:53Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T18:58:03Z",
+          "finished": "2026-10-25T18:58:08Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 91.1,
+        "agent_status": "completed",
+        "tool_calls": 1,
+        "tool_errors": 0,
+        "input_tokens": 2317,
+        "output_tokens": 105,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-25T18:57:29Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 312
+        }
+      ],
+      "answer": "Yes, the finding is confirmed. The API token 'consumer-readonly' has granted access to record types it does not need: `tenancy.contact` and `circuits.circuit`. It only requires access to `dcim.device` and `ipam.prefix`.\n\nStatus: confirmed\nExcess: tenancy.contact, circuits.circuit"
+    },
+    {
+      "job": "syn-10251856-2",
+      "target": "synthetic",
+      "case": null,
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-25T18:58:17Z",
+      "finished": "2026-10-25T19:00:19Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T18:58:17Z",
+          "finished": "2026-10-25T18:59:59Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T19:00:09Z",
+          "finished": "2026-10-25T19:00:14Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 97.1,
+        "agent_status": "completed",
+        "tool_calls": 1,
+        "tool_errors": 0,
+        "input_tokens": 2317,
+        "output_tokens": 142,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-25T18:59:29Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 312
+        }
+      ],
+      "answer": "The evidence shows that the API token `consumer-readonly` has write access disabled and was granted access to four object types: `dcim.device`, `ipam.prefix`, `tenancy.contact`, and `circuits.circuit`, but the contract object types are limited to `dcim.device` and `ipam.prefix`. This means the token can list record types (`tenancy.contact` and `circuits.circuit`) that it doesn't need, which matches the finding.\n\nStatus: confirmed\nExcess: none",
+      "note": "Answered `Excess: none` against two types in excess."
+    },
+    {
+      "job": "nb-10251856-a",
+      "target": "netbox",
+      "case": null,
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-25T19:00:58Z",
+      "finished": "2026-10-25T19:08:36Z",
+      "phase": "Failed",
+      "message": "child 'nb-10251856-a-1478154770' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T19:00:58Z",
+          "finished": "2026-10-25T19:08:06Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: inventory-reader-control: the model says excess, the checks say within",
+          "started": "2026-10-25T19:08:16Z",
+          "finished": "2026-10-25T19:08:21Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T19:08:26Z",
+          "finished": "2026-10-25T19:08:30Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 422.5,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 4609,
+        "output_tokens": 1011,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "within",
+          "within"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "inventory-reader-control: the model says excess, the checks say within"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "excess",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "match"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": "excess",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "within",
+            "observed": "within",
+            "outcome": "mismatch"
+          }
+        ]
+      },
+      "calls": [
+        {
+          "at": "2026-10-25T19:02:49Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1482
+        },
+        {
+          "at": "2026-10-25T19:02:49Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1084
+        },
+        {
+          "at": "2026-10-25T19:02:49Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1857
+        }
+      ],
+      "answer": "I need to clarify which document is which. Let me check the references:\n\n- **ev-0001**: This has accounts with `denials` and `reads` - this is the contract (what accounts should get, what they should be denied)\n- **ev-0002**: This has accounts, `denials`, `grants` (what permissions NetBox configured), and `reads` (what records each account's token returned) - this is the permissions configuration\n- **ev-0003**: This has accounts with `permissions` (what permissions NetBox actually granted via tokens) - this is what the contract expects\n\nWait, the evidence returned shows different reference fields than the arguments I passed. Let me re-read:\n\n- ev-0001 returned: has `denials` and `reads` per account, reference says \"ev-0003\" - this is the contract\n- ev-0002 returned: has `grants` and `reads`, reference says \"ev-0001\" - this is permissions NetBox configured\n- ev-0003 returned: has `permissions` per account, reference says \"ev-0002\" - this is what tokens actually returned\n\nSo the mapping is:\n- Contract (what accounts should get): ev-0001\n- Permissions configured: ev-0002  \n- What tokens actually returned: ev-0003\n\n**Account: inventory-reader**\n\nContract (ev-0001):\n- Should get: devices a-fw-01, a-sw-01, a-sw-02, b-fw-01, b-sw-01, c-fw-01, c-sw-01 (7 devices)\n- Should get: ip-addresses 172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24, 172.16.2.1/24, 172.16.2.2/24, 172.16.3.1/24, 172.16.3.2/24 (7 addresses)\n- Should be denied: sites, tenants, permissions, POST devices\n\nPermissions configured (ev-0002):\n- grant view on dcim.device with tenant__slug=tenant-a\n- grant view on ipam.ipaddress with tenant__slug=tenant-a\n\nWhat token returned (ev-0003):\n- Permissions: view on dcim.device AND ipam.ipaddress (no constraints)\n\n**Discrepancy**: The token granted view on ALL dcim.device and ipam.ipaddress without tenant constraint, but the contract only grants view on devices/addresses where tenant__slug=tenant-a. This is excess.\n\n**Verdict: inventory-reader excess ev-0001 ev-0002 ev-0003**\n\n---\n\n**Account: inventory-reader-control**\n\nContract (ev-0001):\n- Should get: devices a-fw-01, a-sw-01, a-sw-02 (3 devices)\n- Should get: ip-addresses 172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24 (3 addresses)\n- Should be denied: sites, tenants, permissions, POST devices\n\nPermissions configured (ev-0002):\n- grant view on dcim.device with tenant__slug=tenant-a\n- grant view on ipam.ipaddress with tenant__slug=tenant-a\n\nWhat token returned (ev-0003):\n- Permissions: view on dcim.device AND ipam.ipaddress (no constraints)\n\n**Discrepancy**: Token granted view on ALL devices/addresses without tenant constraint, but contract only grants for tenant__slug=tenant-a. This is excess.\n\n**Verdict: inventory-reader-control excess ev-0001 ev-0002 ev-0003**",
+      "note": "Asked for all three documents in one turn, and the results came back as `ev-0003`, `ev-0001`, `ev-0002`."
+    },
+    {
+      "job": "nb-10251856-b",
+      "target": "netbox",
+      "case": null,
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-25T19:09:54Z",
+      "finished": "2026-10-25T19:16:15Z",
+      "phase": "Failed",
+      "message": "child 'nb-10251856-b-3967702401' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T19:09:54Z",
+          "finished": "2026-10-25T19:15:45Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: inventory-reader: the checks disagree, configured excess, observed within",
+          "started": "2026-10-25T19:15:55Z",
+          "finished": "2026-10-25T19:16:00Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T19:16:05Z",
+          "finished": "2026-10-25T19:16:10Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 345.4,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 4609,
+        "output_tokens": 593,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "within"
+        ],
+        "inventory-reader-control": [
+          "within",
+          "within"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "inventory-reader: the checks disagree, configured excess, observed within"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "missing",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "within",
+            "outcome": "checks-disagree"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": "within",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "within",
+            "observed": "within",
+            "outcome": "match"
+          }
+        ]
+      },
+      "calls": [
+        {
+          "at": "2026-10-25T19:11:45Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1482
+        },
+        {
+          "at": "2026-10-25T19:11:45Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1084
+        },
+        {
+          "at": "2026-10-25T19:11:45Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1857
+        }
+      ],
+      "answer": "The evidence returned in different orders than requested:\n- ev-0001 is the contract (accounts, permissions, records, denials)\n- ev-0002 is the permissions NetBox has configured for each account\n- ev-0003 is the records each account's token returned for each read, and the status NetBox gave each request\n\nLet me analyze each account:\n\n**inventory-reader:**\n- Contract (ev-0001): Has 2 permissions - one with tenant-a constraint, one without. Both grant view on dcim.device and ipam.ipaddress. Contract lists 7 devices and 7 IP addresses.\n- Permissions (ev-0002): Same 2 permissions as contract - matches contract.\n- Token reads (ev-0003): Lists 3 devices (a-fw-01, a-sw-01, a-sw-02) and 3 IP addresses (172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24). But contract expects 7 of each. Missing 4 devices and 4 IP addresses.\n- Denials (ev-0003): Same as contract - matches.\n\n**inventory-reader-control:**\n- Contract (ev-0001): Has 1 permission with tenant-a constraint, granting view on dcim.device and ipam.ipaddress. Contract lists 3 devices and 3 IP addresses.\n- Permissions (ev-0002): Same 1 permission as contract - matches contract.\n- Token reads (ev-0003): Lists 3 devices and 3 IP addresses - matches contract.\n- Denials (ev-0003): Same as contract - matches.\n\nVerdicts:\n- inventory-reader: missing (returned 3 devices and 3 IP addresses instead of 7 of each, and missing fields)\n- inventory-reader-control: within (matches contract exactly)\n\nVerdict: inventory-reader missing ev-0001 ev-0002 ev-0003\nVerdict: inventory-reader-control within ev-0001 ev-0002 ev-0003",
+      "note": "Its checks' verdicts were changed by hand so that the two checks disagree on `inventory-reader`. The model said `missing` for that account."
+    }
+  ]
+}
