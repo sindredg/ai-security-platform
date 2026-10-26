@@ -28,6 +28,8 @@ SSH = os.environ.get("AISEC_SSH", "/usr/bin/ssh")
 PYTHON = os.environ.get("AISEC_PYTHON", "/usr/bin/python3")
 COLLECTOR = os.environ.get("AISEC_COLLECTOR", "/usr/local/lib/aisec/netbox_access.py")
 LAB = "10.50.0.36"
+# The reset restores the database and waits up to five minutes for NetBox.
+RESET_SECONDS = 360
 OBSERVE = "/etc/aisec/netbox/observe"
 
 
@@ -56,7 +58,10 @@ def ssh(key, user, *command):
 def reset():
     """Resets the copy, and returns the dump's SHA-256 the reset printed."""
     out = collection.run(
-        ssh(COPY / "reset" / "id_ed25519", "aisec-rehearse"), "", "the copy's reset"
+        ssh(COPY / "reset" / "id_ed25519", "aisec-rehearse"),
+        "",
+        "the copy's reset",
+        timeout=RESET_SECONDS,
     )
     lines = out.strip().splitlines()
     got = lines[-1] if lines else ""
