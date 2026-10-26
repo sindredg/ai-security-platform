@@ -169,6 +169,12 @@ class Policy(unittest.TestCase):
         )
         self.assert_refused(result, "the comparison's outcome is stop")
 
+    def test_the_same_proposal_twice_counts_once(self):
+        # As two agreeing verdict lines count as one.
+        result = policy.check(comparison(proposal(), proposal()), CONFIGURED, CONTRACT)
+        self.assertTrue(result["allowed"], result)
+        self.assertEqual(len(result["changes"]), 1)
+
     def test_only_remove_is_an_action(self):
         result = policy.check(comparison(proposal(action="add")), CONFIGURED, CONTRACT)
         self.assert_refused(result, "inventory-reader: the action add, not remove")

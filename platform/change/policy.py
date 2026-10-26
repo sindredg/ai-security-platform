@@ -78,9 +78,17 @@ def check(comparison, configured, contract):
     }
     if not excess:
         reasons.append("no account the checks call excess")
+    # The same change twice is one proposal, as two agreeing verdict lines
+    # are one verdict.
     by_account = {}
     for proposal in comparison["proposals"]:
-        by_account.setdefault(proposal["account"], []).append(proposal)
+        same = by_account.setdefault(proposal["account"], [])
+        if not any(
+            (p["action"], p["permission"])
+            == (proposal["action"], proposal["permission"])
+            for p in same
+        ):
+            same.append(proposal)
     for name in sorted(by_account):
         if name not in rows:
             reasons.append(f"{name}: not an account the checks name")
