@@ -471,7 +471,8 @@ jobs:
       - name: Check the page rules on the living pages
         run: |
           PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S validation/evidence/render.py \
-            --rules README.md docs/architecture.md docs/roadmap.md
+            --rules README.md docs/architecture.md docs/roadmap.md \
+            docs/security/threat-model.md docs/security/ai-threats.md
 
   tool-service-image:
     name: Tool service image
