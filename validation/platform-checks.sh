@@ -541,7 +541,7 @@ keys=/home/aisec-logexport/.ssh/authorized_keys
 echo "export_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
 echo "export_groups=$(id -nG aisec-logexport 2>/dev/null)"
 echo "export_command=$(sha256sum /usr/local/sbin/aisec-journal-export 2>/dev/null | cut -d " " -f 1)"
-echo "export_manager=$(u=$(id -u aisec-logexport 2>/dev/null); n=$(journalctl --no-pager -o cat --since -20min -u ssh.service 2>/dev/null | grep -c "Accepted publickey for aisec-logexport "); if [ -n "$u" ] && [ "$n" -gt 0 ]; then journalctl --no-pager -o cat --since -20min _SYSTEMD_UNIT=user@$u.service 2>/dev/null | wc -l; else echo no-logins; fi)"
+echo "export_manager=$(u=$(id -u aisec-logexport 2>/dev/null); n=$(journalctl --no-pager -o cat --since -20min -u ssh.service 2>/dev/null | grep -c "Accepted publickey for aisec-logexport "); if [ -n "$u" ] && [ "$n" -gt 0 ]; then count -c "" -- journalctl --no-pager -o cat --since -20min _SYSTEMD_UNIT=user@$u.service; else echo no-logins; fi)"
 keys=/home/aisec-feed/.ssh/authorized_keys
 echo "feed_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
 echo "feed_account=$(id -nG aisec-feed 2>/dev/null) $(sudo -n -l -U aisec-feed 2>/dev/null | grep -c "may run") $(stat -c %U /home/aisec-feed 2>/dev/null)"
@@ -932,7 +932,7 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # Each pull is a login. A login that starts the account's user service
   # manager logs about 67 lines, which the next pull copies (issue 164).
   # Without a pull in the last 20 minutes this reads no-logins.
-  check J.11 "The export account's logins start no user service manager" 0 "$(value export_manager)"
+  check J.11 "The export account's logins start no user service manager" "0 0" "$(value export_manager)"
   # The same shape for the feed key (ADR 0026).
   check E.9 "The feed key is restricted to the orchestrator and the feed command" \
     "1 root root 644 from=\"$ORCH_IP\",restrict,command=\"/usr/local/sbin/aisec-feed-receive\"" "$(value feed_key)"
