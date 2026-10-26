@@ -318,6 +318,92 @@ class TheComparison(unittest.TestCase):
         self.assertEqual(result["outcome"], "match", result["reasons"])
 
 
+PROPOSAL = "Proposal: inventory-reader remove 2 ev-0002\n"
+KEPT = {
+    "account": "inventory-reader",
+    "action": "remove",
+    "permission": 2,
+    "references": ["ev-0002"],
+}
+
+
+class TheProposals(unittest.TestCase):
+    """ADR 0043: a proposal line per excess account, after the verdict lines.
+    The step keeps what it can read of them and never changes its outcome."""
+
+    def test_a_proposal_after_the_verdicts_is_kept(self):
+        self.assertEqual(
+            compare.proposal_lines(RIGHT + PROPOSAL),
+            ({"inventory-reader": [("remove", 2, ["ev-0002"])]}, 0),
+        )
+        result = compare.compare("nb-1", CHECKS, RIGHT + PROPOSAL)
+        self.assertEqual(result["outcome"], "match")
+        self.assertEqual(result["proposals"], [KEPT])
+        self.assertEqual(result["unread_proposals"], 0)
+
+    def test_proposals_never_change_the_outcome(self):
+        stop = "Verdict: inventory-reader within ev-0003\n" + CONTROL
+        for answer in (RIGHT, stop):
+            without = compare.compare("nb-1", CHECKS, answer)
+            for extra in (PROPOSAL, "Proposal: inventory-reader delete 2\n"):
+                with self.subTest(answer=answer, extra=extra):
+                    result = compare.compare("nb-1", CHECKS, answer + extra)
+                    self.assertEqual(result["outcome"], without["outcome"])
+                    self.assertEqual(result["reasons"], without["reasons"])
+                    self.assertEqual(result["accounts"], without["accounts"])
+
+    def test_a_proposal_in_another_form_is_unread(self):
+        for line in (
+            "Proposal: inventory-reader delete 2 ev-0002",
+            "Proposal: inventory-reader remove two ev-0002",
+            "Proposal: inventory-reader remove 1234567890 ev-0002",
+            "Proposal: inventory-reader remove 0 ev-0002",
+            "Proposal: remove 2 ev-0002",
+            "Proposal: inventory-reader remove 2 ev-0002 and more",
+            "Proposal inventory-reader remove 2 ev-0002",
+        ):
+            with self.subTest(line):
+                self.assertEqual(compare.proposal_lines(RIGHT + line), ({}, 1))
+                result = compare.compare("nb-1", CHECKS, RIGHT + line)
+                self.assertEqual(
+                    (result["proposals"], result["unread_proposals"]), ([], 1)
+                )
+
+    def test_a_proposal_with_marks_is_read_as_verdict_lines_are(self):
+        for line in (
+            "**Proposal:** inventory-reader remove 2 ev-0002",
+            "- Proposal: inventory-reader remove 2 ev-0002",
+            "Proposal\uff1a inventory-reader remove 2 ev-0002",
+            "Proposal: `inventory-reader` remove 2 (ev-0002)",
+        ):
+            with self.subTest(line):
+                self.assertEqual(
+                    compare.proposal_lines(line),
+                    ({"inventory-reader": [("remove", 2, ["ev-0002"])]}, 0),
+                )
+
+    def test_a_line_that_only_mentions_a_proposal_is_not_one(self):
+        answer = RIGHT + "The proposal: inventory-reader remove 2 ev-0002\n"
+        self.assertEqual(compare.proposal_lines(answer), ({}, 0))
+
+    def test_proposals_are_sorted_by_account(self):
+        answer = (
+            RIGHT
+            + "Proposal: inventory-reader-control remove 7 ev-0002\n"
+            + "Proposal: inventory-reader remove 3 ev-0002\n"
+            + PROPOSAL
+        )
+        result = compare.compare("nb-1", CHECKS, answer)
+        self.assertEqual(
+            [(p["account"], p["permission"]) for p in result["proposals"]],
+            [
+                ("inventory-reader", 3),
+                ("inventory-reader", 2),
+                ("inventory-reader-control", 7),
+            ],
+        )
+
+
 class TheChecks(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
@@ -454,6 +540,18 @@ class TheStep(unittest.TestCase):
             ("stop", ["no checks' verdicts for this job"], []),
         )
         self.assertEqual(out.splitlines()[-1], "stop: no checks' verdicts for this job")
+
+    def test_the_step_writes_proposals_for_a_stop_too(self):
+        self.verdicts.unlink()
+        code, _, err = self.run_compare(
+            "nb-1", RIGHT + PROPOSAL + "Proposal: x delete 1\n"
+        )
+        self.assertEqual(code, 1, err)
+        written = json.loads(self.comparison.read_text())
+        self.assertEqual(written["outcome"], "stop")
+        self.assertEqual(
+            (written["proposals"], written["unread_proposals"]), ([KEPT], 1)
+        )
 
     def test_an_escape_sequence_reaches_neither_the_log_nor_the_output(self):
         answer = "Verdict: inventory-reader\x1b[2J excess ev-0002\n" + CONTROL
