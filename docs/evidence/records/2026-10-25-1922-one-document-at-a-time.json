@@ -1,0 +1,271 @@
+{
+  "title": "One document at a time",
+  "short": "One document at a time",
+  "milestone": 4,
+  "tested": "Whether asking for one document at a time, read before the next, gets each result read under its own reference.",
+  "changed": "The line from the run set before was replaced: `Ask for one document at a time, and read it before you ask for the next.` Committed as `5cc0ed9`, `cb63d57` after a rebase.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.56.0"
+    ],
+    [
+      "Task",
+      "#198's task with the new line"
+    ],
+    [
+      "Limits",
+      "1200 seconds and 8 turns"
+    ]
+  ],
+  "source": "Live system, 2026-10-25 19:22 to 19:40 UTC. Development jobs, not scored. Each workflow as Argo kept it, read at 05:32 UTC the next day, the worker's job lines, and the tool service's audit lines.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0005-netbox-target-and-exercise-1.md#the-task-on-development-jobs"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "nb-10251922-a1",
+      "target": "netbox",
+      "case": null,
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-25T19:23:29Z",
+      "finished": "2026-10-25T19:34:34Z",
+      "phase": "Failed",
+      "message": "child 'nb-10251922-a1-1735766575' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T19:23:29Z",
+          "finished": "2026-10-25T19:34:04Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: inventory-reader: the answer has no verdict line for it; inventory-reader-control: the answer has no verdict line for it; verdict lines that could not be read: 2",
+          "started": "2026-10-25T19:34:14Z",
+          "finished": "2026-10-25T19:34:20Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T19:34:24Z",
+          "finished": "2026-10-25T19:34:29Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 630.2,
+        "agent_status": "completed",
+        "tool_calls": 5,
+        "tool_errors": 0,
+        "input_tokens": 18809,
+        "output_tokens": 1327,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "within",
+          "within"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "inventory-reader: the answer has no verdict line for it",
+          "inventory-reader-control: the answer has no verdict line for it",
+          "verdict lines that could not be read: 2"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": null,
+            "references": [],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "no-verdict"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": null,
+            "references": [],
+            "configured": "within",
+            "observed": "within",
+            "outcome": "no-verdict"
+          }
+        ]
+      },
+      "calls": [
+        {
+          "at": "2026-10-25T19:25:06Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1483
+        },
+        {
+          "at": "2026-10-25T19:26:23Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1085
+        },
+        {
+          "at": "2026-10-25T19:27:05Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1858
+        },
+        {
+          "at": "2026-10-25T19:30:14Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1085
+        },
+        {
+          "at": "2026-10-25T19:31:05Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1858
+        }
+      ],
+      "answer": "**inventory-reader:**\n- Permissions: view dcim.device and ipam.ipaddress (no tenant constraint) with tenant=tenant-a constraint\n- Expected reads: dcim/devices with 3 records (a-fw-01, a-sw-01, a-sw-02) and ipam/ip-addresses with 3 records (172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24)\n- Actual reads: dcim/devices returned 7 records and ipam/ip-addresses returned 7 records\n- Excess: The token returned 4 additional records not listed in the contract (b-fw-01, b-sw-01, c-fw-01, c-sw-01 for devices and 172.16.2.1/24, 172.16.2.2/24, 172.16.3.1/24, 172.16.3.2/24 for ip-addresses)\n- Denials match expectations\n- Verdict: excess\n\n**inventory-reader-control:**\n- Permissions: view dcim.device and ipam.ipaddress with tenant=tenant-a constraint\n- Expected reads: dcim/devices with 3 records (a-fw-01, a-sw-01, a-sw-02) and ipam/ip-addresses with 3 records (172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24)\n- Actual reads: exactly matches (3 records each)\n- Denials match expectations\n- Verdict: within\n\n**inventory-reader excess ev-0003**\n**inventory-reader-control within ev-0003**",
+      "note": "Gave the right verdicts in a form the comparison does not read: `- Verdict: excess` under a heading, and a bold last line."
+    },
+    {
+      "job": "nb-10251922-a2",
+      "target": "netbox",
+      "case": null,
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-25T19:35:11Z",
+      "finished": "2026-10-25T19:40:29Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T19:35:11Z",
+          "finished": "2026-10-25T19:39:59Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T19:40:09Z",
+          "finished": "2026-10-25T19:40:13Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T19:40:19Z",
+          "finished": "2026-10-25T19:40:24Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 282.8,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 9083,
+        "output_tokens": 235,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "within",
+          "within"
+        ]
+      },
+      "comparison": {
+        "outcome": "match",
+        "reasons": [],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "excess",
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "match"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": "within",
+            "references": [
+              "ev-0003"
+            ],
+            "configured": "within",
+            "observed": "within",
+            "outcome": "match"
+          }
+        ]
+      },
+      "calls": [
+        {
+          "at": "2026-10-25T19:36:48Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1483
+        },
+        {
+          "at": "2026-10-25T19:37:42Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1085
+        },
+        {
+          "at": "2026-10-25T19:38:21Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1858
+        }
+      ],
+      "answer": "Verdict: inventory-reader excess ev-0002 ev-0003\nThe token returned 7 device records (including b-* and c-* devices) and 7 IP address records (including 172.16.2.x and 172.16.3.x), while the contract only lists 3 devices and 3 IP addresses. Also, ev-0002 grants permission for dcim.device and ipam.ipaddress without tenant constraints, while ev-0001 restricts to tenant-a.\n\nVerdict: inventory-reader-control within ev-0003",
+      "note": "The first match on the live system."
+    }
+  ]
+}

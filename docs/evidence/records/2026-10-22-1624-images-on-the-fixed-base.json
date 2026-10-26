@@ -1,0 +1,86 @@
+{
+  "title": "A round trip on the rebuilt images",
+  "short": "Rebuilt images",
+  "milestone": 3,
+  "tested": "Whether a job still runs end to end on the dispatch and tool service images rebuilt on the fixed base image.",
+  "changed": "Both images were rebuilt from `main` at `96f91ba`, on Python 3.15.1 and musl 1.2.6-r3. The code in them did not change.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.55.0"
+    ],
+    [
+      "Workflow",
+      "Argo v4.1.5, the `investigate` template: dispatch, then the token's revoke"
+    ],
+    [
+      "Task",
+      "The fixture question, 600 seconds and 6 turns"
+    ]
+  ],
+  "source": "Live system, 2026-10-22 16:24 UTC. `argo get` and the result as the script printed them, the worker's job lines, and the audit lines.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "investigate-t6rnv",
+      "target": null,
+      "case": null,
+      "limits": {
+        "seconds": 600,
+        "turns": 6
+      },
+      "started": "2026-10-22T16:24:13Z",
+      "finished": "2026-10-22T16:26:09Z",
+      "phase": "Succeeded",
+      "message": "18:26:09 +0200 CEST",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": null,
+          "finished": null
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": null,
+          "finished": null
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 91.1,
+        "agent_status": "completed",
+        "tool_calls": 1,
+        "tool_errors": 0,
+        "input_tokens": 2187,
+        "output_tokens": 137,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-22T16:25:21Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 313
+        }
+      ],
+      "answer": "Yes, the finding is confirmed.\n\nThe API token `consumer-readonly` (F-0001) is granted access to record types beyond what it needs:\n\n- **Contract types (needed)**: `dcim.device`, `ipam.prefix`\n- **Granted types (excess access)**: `tenancy.contact`, `circuits.circuit`\n\nThe token has unnecessary permissions for `tenancy.contact` and `circuits.circuit`, which it does not require."
+    }
+  ]
+}

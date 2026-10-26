@@ -1,0 +1,93 @@
+{
+  "title": "First workflows, the attempt that never started",
+  "short": "First workflows, attempt",
+  "milestone": 3,
+  "tested": "The first round trip through an Argo workflow, and a stop while the agent works.",
+  "changed": "Argo v4.1.5, the workflow template, and the dispatch image went on the orchestrator that morning, with the host rule that lets dispatch pods reach the worker.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.55.0"
+    ],
+    [
+      "Workflow",
+      "Argo v4.1.5, the `investigate` template: dispatch, then the token's revoke"
+    ],
+    [
+      "Task",
+      "The fixture question, 600 seconds and 6 turns"
+    ]
+  ],
+  "source": "Live system, 2026-10-21 14:12 to 15:00 UTC. `argo get` and `argo list` as the script printed them. Argo has deleted both workflows.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows"
+    ],
+    [
+      "Troubleshooting 14",
+      "../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "investigate-ctstv",
+      "target": null,
+      "case": null,
+      "limits": {
+        "seconds": null,
+        "turns": null
+      },
+      "started": null,
+      "finished": null,
+      "phase": "Failed",
+      "message": "Stopped with strategy 'Stop'",
+      "steps": [],
+      "result": null,
+      "checks": null,
+      "comparison": null,
+      "calls": [],
+      "answer": "",
+      "note": "After a Ctrl-C the script went on and submitted the stop step's workflow, which waited for the lock and was stopped there. No job reached the worker."
+    },
+    {
+      "job": "investigate-2llvm",
+      "target": null,
+      "case": null,
+      "limits": {
+        "seconds": 600,
+        "turns": 6
+      },
+      "started": "2026-10-21T14:12:34Z",
+      "finished": null,
+      "phase": "Failed",
+      "message": "Pod was active on the node longer than the specified deadline",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Failed",
+          "message": "Pod was active on the node longer than the specified deadline",
+          "started": null,
+          "finished": null
+        },
+        {
+          "step": "revoke",
+          "phase": "Pending",
+          "message": "PodInitializing",
+          "started": null,
+          "finished": null
+        }
+      ],
+      "result": null,
+      "checks": null,
+      "comparison": null,
+      "calls": [],
+      "answer": "",
+      "note": "No pod started: the executor's token secret was missing, so the pods waited ([troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md)). The workflow failed at its deadline."
+    }
+  ]
+}

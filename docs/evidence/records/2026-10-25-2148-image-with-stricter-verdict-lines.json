@@ -1,0 +1,91 @@
+{
+  "title": "The image with stricter verdict lines",
+  "short": "Stricter verdict lines",
+  "milestone": 4,
+  "tested": "Whether a synthetic job still succeeds on the dispatch image from #202.",
+  "changed": "The dispatch image from [#202](https://github.com/sindredg/ai-security-platform/pull/202): stricter verdict lines, answers Argo can pass on, and no call counts for a job that did not complete. The job program fails a job offered a tool beyond the recipe's and `load_skill`.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.56.0"
+    ],
+    [
+      "Task",
+      "The fixture question: is finding F-0001 confirmed, with its evidence under `ev-0001`"
+    ],
+    [
+      "Limits",
+      "600 seconds and 8 turns"
+    ],
+    [
+      "Dispatch image",
+      "`dispatch@sha256:39967b73...`"
+    ]
+  ],
+  "source": "Live system, 2026-10-25 21:49 UTC. Each workflow as Argo kept it, read at 05:32 UTC the next day, the worker's job lines, and the tool service's audit lines.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0005-netbox-target-and-exercise-1.md#the-rollout"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "syn-10252148",
+      "target": "synthetic",
+      "case": null,
+      "limits": {
+        "seconds": 600,
+        "turns": 8
+      },
+      "started": "2026-10-25T21:49:20Z",
+      "finished": "2026-10-25T21:51:15Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T21:49:20Z",
+          "finished": "2026-10-25T21:50:55Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-25T21:51:05Z",
+          "finished": "2026-10-25T21:51:10Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 89.6,
+        "agent_status": "completed",
+        "tool_calls": 1,
+        "tool_errors": 0,
+        "input_tokens": 2317,
+        "output_tokens": 101,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-25T21:50:32Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 312
+        }
+      ],
+      "answer": "The finding is confirmed. The API token 'consumer-readonly' is granted access to `tenancy.contact` and `circuits.circuit` record types, but these are not listed in its contract object types. This means it can list more record types than its consumer needs.\n\nStatus: confirmed\nExcess: none",
+      "note": "Offered `load_skill` and `tools__get_evidence`, which the job program's new check allows."
+    }
+  ]
+}

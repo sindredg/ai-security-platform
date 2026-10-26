@@ -62,6 +62,7 @@ Three exercises test this on a NetBox target ([ADR 0004](docs/decisions/0004-net
 | How it is built | [Architecture](docs/architecture.md), [components](docs/components/README.md) |
 | Why each choice | [Decision records](docs/decisions/README.md) |
 | The check behind each claim | [Validation](docs/validation/README.md) |
+| What each test run showed | [Test evidence](docs/evidence/README.md), [lessons](docs/evidence/lessons.md) |
 | Commands and output per milestone | [Worklogs](docs/worklogs/README.md) |
 | Threats and controls | [Security](docs/security/README.md) |
 | Rebuild steps | [Runbooks](docs/runbooks/README.md) |

@@ -1,0 +1,187 @@
+{
+  "title": "The erase before each job",
+  "short": "Erase before each job",
+  "milestone": 3,
+  "tested": "Whether a job starts only after the slot is erased, whether the worker refuses a job it cannot erase for, and a controller restart during a job.",
+  "changed": "The job program erases the slot before each job and refuses the job when that fails ([ADR 0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md)). The system text asks each answer to end with a `Status:` and an `Excess:` line.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.55.0"
+    ],
+    [
+      "Workflow",
+      "Argo v4.1.5, the `investigate` template: dispatch, then the token's revoke"
+    ],
+    [
+      "Task",
+      "The fixture question, 600 seconds and 6 turns"
+    ]
+  ],
+  "source": "Live system, 2026-10-23 14:59 to 15:14 UTC. `argo get`, the result, and the answer as the script printed them, the worker's job lines, and the audit lines.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0003-toolchain-integration.md#installed-the-erase-before-each-job-and-the-answer-lines"
+    ],
+    [
+      "ADR 0032",
+      "../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "investigate-q6ttr",
+      "target": null,
+      "case": null,
+      "limits": {
+        "seconds": 600,
+        "turns": 6
+      },
+      "started": "2026-10-23T15:00:49Z",
+      "finished": "2026-10-23T15:02:42Z",
+      "phase": "Succeeded",
+      "message": "17:02:42 +0200 CEST",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": null,
+          "finished": null
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": null,
+          "finished": null
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 88.1,
+        "agent_status": "completed",
+        "tool_calls": 2,
+        "tool_errors": 1,
+        "input_tokens": 3594,
+        "output_tokens": 79,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-23T15:02:01Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 313
+        },
+        {
+          "at": "2026-10-23T15:02:18Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "refused",
+          "reason": "nothing by that reference",
+          "bytes": null
+        }
+      ],
+      "answer": "Status: confirmed  \nExcess: none",
+      "note": "Asked for `ev-0002`, which does not exist, and answered `Excess: none` against two types in excess. The dispatch step passed it, since it checked the job's status and not the verdict."
+    },
+    {
+      "job": "investigate-55hwd",
+      "target": null,
+      "case": null,
+      "limits": {
+        "seconds": 600,
+        "turns": 6
+      },
+      "started": "2026-10-23T15:02:52Z",
+      "finished": "2026-10-23T15:03:12Z",
+      "phase": "Failed",
+      "message": "Error (exit code 1)",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1)",
+          "started": null,
+          "finished": null
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": null,
+          "finished": null
+        }
+      ],
+      "result": null,
+      "checks": null,
+      "comparison": null,
+      "calls": [],
+      "answer": "",
+      "note": "Sent with the model server stopped. The worker refused the job before Goose started: `the model server's slot could not be erased`."
+    },
+    {
+      "job": "investigate-fvvpc",
+      "target": null,
+      "case": null,
+      "limits": {
+        "seconds": 600,
+        "turns": 6
+      },
+      "started": "2026-10-23T15:03:25Z",
+      "finished": "2026-10-23T15:05:06Z",
+      "phase": "Succeeded",
+      "message": "17:05:06 +0200 CEST",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": null,
+          "finished": null
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": null,
+          "finished": null
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 81.1,
+        "agent_status": "completed",
+        "tool_calls": 1,
+        "tool_errors": 0,
+        "input_tokens": 2297,
+        "output_tokens": 50,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-23T15:04:36Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 313
+        }
+      ],
+      "answer": "Status: confirmed\nExcess: tenancy.contact, circuits.circuit",
+      "note": "The controller restarted 30 seconds in. The workflow still succeeded, with a right answer."
+    }
+  ]
+}

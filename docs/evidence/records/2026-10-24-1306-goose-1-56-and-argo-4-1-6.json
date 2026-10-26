@@ -1,0 +1,95 @@
+{
+  "title": "A round trip on Goose 1.56.0 and Argo v4.1.6",
+  "short": "Goose 1.56.0 and Argo v4.1.6",
+  "milestone": 4,
+  "tested": "Whether a job runs end to end after the move to Goose 1.56.0 and Argo v4.1.6.",
+  "changed": "Goose 1.56.0 on the worker and Argo v4.1.6 on the orchestrator, each checked against its signed release before the pin.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.56.0"
+    ],
+    [
+      "Workflow",
+      "Argo v4.1.6, the same template"
+    ],
+    [
+      "Task",
+      "The fixture question, 600 seconds and 6 turns"
+    ]
+  ],
+  "source": "Live system, 2026-10-24 13:06 to 13:08 UTC. `argo get`, the result, and the answer as the script printed them, the worker's job lines, and the audit lines.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0005-netbox-target-and-exercise-1.md#the-install"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "investigate-6x9r6",
+      "target": null,
+      "case": null,
+      "limits": {
+        "seconds": 600,
+        "turns": 6
+      },
+      "started": "2026-10-24T13:06:21Z",
+      "finished": "2026-10-24T13:08:23Z",
+      "phase": "Succeeded",
+      "message": "15:08:23 +0200 CEST",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": null,
+          "finished": null
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": null,
+          "finished": null
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 98.1,
+        "agent_status": "completed",
+        "tool_calls": 2,
+        "tool_errors": 0,
+        "input_tokens": 3699,
+        "output_tokens": 85,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-24T13:07:32Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 313
+        },
+        {
+          "at": "2026-10-24T13:07:49Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 313
+        }
+      ],
+      "answer": "Status: confirmed\nExcess: tenancy.contact, circuits.circuit",
+      "note": "Called `get_evidence` twice with the same argument, and answered right."
+    }
+  ]
+}

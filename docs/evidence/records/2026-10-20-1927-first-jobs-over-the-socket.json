@@ -1,0 +1,114 @@
+{
+  "title": "First jobs over the worker's socket",
+  "short": "First jobs over the socket",
+  "milestone": 3,
+  "tested": "Whether a job sent to the worker's socket by hand reaches the tool service and returns an answer, and whether a cancel stops it.",
+  "changed": "First run set. The job account, the socket, the runner, and the job unit went on the worker that evening, before Argo was installed.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.55.0"
+    ],
+    [
+      "Task",
+      "The fixture question: is finding F-0001 confirmed, with its evidence under `ev-0001`"
+    ],
+    [
+      "Sent by",
+      "Hand, with a token made for the two jobs"
+    ]
+  ],
+  "source": "Live system, 2026-10-20 19:27 to 19:31 UTC. The result the job program wrote, the worker's job lines, and the tool service's audit lines.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0003-toolchain-integration.md#installed-and-run-on-the-worker"
+    ],
+    [
+      "Troubleshooting 12",
+      "../troubleshooting/12-slot-erase-needs-a-save-path.md"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "hand-1",
+      "target": null,
+      "case": null,
+      "limits": {
+        "seconds": null,
+        "turns": null
+      },
+      "started": null,
+      "finished": "2026-10-20T19:28:46Z",
+      "phase": null,
+      "message": "",
+      "steps": [],
+      "result": {
+        "status": "completed",
+        "seconds": 91.1,
+        "agent_status": "completed",
+        "tool_calls": 1,
+        "tool_errors": 0,
+        "input_tokens": 2187,
+        "output_tokens": 136,
+        "slot_erased": false
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-20T19:28:18Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 313
+        }
+      ],
+      "answer": "Yes, the finding is confirmed.\n\nThe evidence shows that the API token `consumer-readonly` is granted access to more object types than its contract specifies:\n\n- **Contract allows**: `dcim.device`, `ipam.prefix`\n- **Token granted**: `dcim.device`, `ipam.prefix`, `tenancy.contact`, `circuits.circuit`\n\nThe token has unnecessary access to `tenancy.contact` and `circuits.circuit`, which exceed its intended permissions.",
+      "note": "The first time Goose on the worker reached the tool service. The slot was not erased: the model server's unit had no slot save path ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md))."
+    },
+    {
+      "job": "hand-2",
+      "target": null,
+      "case": null,
+      "limits": {
+        "seconds": null,
+        "turns": null
+      },
+      "started": null,
+      "finished": "2026-10-20T19:29:10Z",
+      "phase": null,
+      "message": "",
+      "steps": [],
+      "result": {
+        "status": "cancelled",
+        "seconds": null,
+        "agent_status": null,
+        "tool_calls": null,
+        "tool_errors": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "slot_erased": false
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-20T19:28:56Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 313
+        }
+      ],
+      "answer": "",
+      "note": "Cancelled during its run, to test a cancel. It wrote nothing back."
+    }
+  ]
+}

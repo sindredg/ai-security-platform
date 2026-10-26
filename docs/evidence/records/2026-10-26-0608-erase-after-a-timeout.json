@@ -1,0 +1,103 @@
+{
+  "title": "A synthetic job after the timeout",
+  "short": "Erase after a timeout",
+  "milestone": 4,
+  "tested": "Whether the slot is erased again after the job that timed out, so the check on the last job's erase passes.",
+  "changed": "Nothing. The last scored job had timed out and left the slot unerased ([#199](https://github.com/sindredg/ai-security-platform/issues/199)), so `G.10` failed.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.56.0"
+    ],
+    [
+      "Task",
+      "The fixture question: is finding F-0001 confirmed, with its evidence under `ev-0001`"
+    ],
+    [
+      "Limits",
+      "1200 seconds and 8 turns"
+    ]
+  ],
+  "source": "Live system, 2026-10-26 06:08 to 06:11 UTC. The workflow as Argo kept it, read at 16:34 UTC, the worker's job lines, and the audit lines.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0005-netbox-target-and-exercise-1.md#every-check"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "syn-10260607",
+      "target": "synthetic",
+      "case": null,
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-26T06:08:09Z",
+      "finished": "2026-10-26T06:11:52Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-26T06:08:09Z",
+          "finished": "2026-10-26T06:11:32Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-26T06:11:42Z",
+          "finished": "2026-10-26T06:11:47Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 199.2,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 6922,
+        "output_tokens": 217,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-26T06:09:20Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 312
+        },
+        {
+          "at": null,
+          "tool": "load_skill",
+          "argument": "{\"name\":\"goose-doc-guide\"}",
+          "decision": "goose",
+          "reason": null,
+          "bytes": null
+        },
+        {
+          "at": "2026-10-26T06:10:56Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 312
+        }
+      ],
+      "answer": "**Status: confirmed**\n\n**Excess:** tenancy.contact, circuits.circuit\n\nThe evidence (ev-0001) confirms the finding. The API token `consumer-readonly` has contract object types limited to only `dcim.device` and `ipam.prefix`, but it has been granted access to four object types: `dcim.device`, `ipam.prefix`, `tenancy.contact`, and `circuits.circuit`. This means the token can list more record types (`tenancy.contact` and `circuits.circuit`) than its consumer needs.",
+      "note": "The model called Goose's own `load_skill` for `goose-doc-guide`, which put Goose's skill text into its context. The tool service's audit log cannot see such a call."
+    }
+  ]
+}
