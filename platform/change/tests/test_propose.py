@@ -210,7 +210,10 @@ class Main(unittest.TestCase):
         for name, document in files.items():
             (job / name).write_text(json.dumps(document))
         (self.tmp / "contract.json").write_text(json.dumps(CONTRACT))
-        (self.tmp / "cases.json").write_text(json.dumps({"cases": []}))
+        other = dict(CONTRACT, accounts=["inventory-reader-control"])
+        (self.tmp / "cases.json").write_text(
+            json.dumps({"cases": {"control-only": {"contract": other}}})
+        )
         self.workflow_file = self.tmp / "workflow.json"
         self.workflow_file.write_text(json.dumps(workflow()))
         kubectl = self.tmp / "kubectl"
@@ -330,6 +333,14 @@ class Main(unittest.TestCase):
         self.assertEqual(
             names, ["aisec-deliver: assignments", "inventory-reader: inventory"]
         )
+
+    def test_the_case_is_named_from_the_case_file(self):
+        other = dict(CONTRACT, accounts=["inventory-reader-control"])
+        ev = self.state / "nb-1" / "ev-0001.json"
+        document = json.loads(ev.read_text())
+        ev.write_text(json.dumps({**document, **other}))
+        propose.main(["propose-netbox-fix", "nb-1"])
+        self.assertEqual(self.bundle()["case"], "control-only")
 
     def test_a_job_proposed_once_is_not_proposed_again(self):
         self.assertEqual(propose.main(["propose-netbox-fix", "nb-1"]), 0)

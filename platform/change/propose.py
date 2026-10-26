@@ -130,7 +130,7 @@ def case_of(contract):
     installed = read_json(CONTRACT)
     if facts == {f: installed.get(f) for f in CONTRACT_FIELDS}:
         return "seed"
-    for name, case in read_json(CASES)["cases"]:
+    for name, case in read_json(CASES)["cases"].items():
         if facts == {f: case["contract"].get(f) for f in CONTRACT_FIELDS}:
             return name
     return "unknown"
