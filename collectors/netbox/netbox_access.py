@@ -56,8 +56,11 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class NetBox:
-    def __init__(self, token):
-        context = ssl.create_default_context(cafile=CERT)
+    def __init__(self, token, url=None, cert=None):
+        # The live NetBox's, or the copy's the environment names, unless the
+        # caller names another: the rehearsal and delivery talk to both.
+        self.url = url or URL
+        context = ssl.create_default_context(cafile=cert or CERT)
         # The orchestrator's proxy settings name Squid on the edge. NetBox is
         # reached directly, so the proxy handler has no proxies.
         self.opener = urllib.request.build_opener(
@@ -77,7 +80,7 @@ class NetBox:
         # The URL is NetBox's fixed address and a path from this script or the
         # contract, never one from an answer.
         request = urllib.request.Request(  # noqa: S310
-            URL + path, data=data, method=method, headers=self.headers
+            self.url + path, data=data, method=method, headers=self.headers
         )
         try:
             with self.opener.open(request, timeout=30) as answer:

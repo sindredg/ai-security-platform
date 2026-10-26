@@ -338,6 +338,18 @@ class Transport(unittest.TestCase):
             patch.start()
             self.addCleanup(patch.stop)
 
+    def test_a_client_can_name_another_netbox(self):
+        # The rehearsal and delivery talk to the copy and to the live NetBox in
+        # one process (platform ADR 0044, 0046), so the address is the client's.
+        port = urllib.parse.urlparse(collector.URL).port
+        with mock.patch.object(collector, "URL", "http://127.0.0.1:9"):
+            client = collector.NetBox(
+                "t", url=f"http://127.0.0.1:{port}", cert="unused"
+            )
+            status, answer = client.call("GET", "/away")
+        self.assertEqual((status, answer), (200, {}))
+        self.assertEqual(self.seen, [("/away", "Bearer t")])
+
     def test_a_redirect_is_an_answer_and_is_not_followed(self):
         status, answer = collector.NetBox("t").call("GET", "/api/status/")
         self.assertEqual((status, answer), (302, {"detail": "moved"}))
