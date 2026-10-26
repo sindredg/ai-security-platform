@@ -57,7 +57,7 @@ The risk column describes what an attacker could do, or what could fail, because
 | The tool service runs in a container on the orchestrator | The lab has one trusted machine | A service vulnerability could expose the machine that holds the credentials (T22) | A sandboxed runtime or separate machine, plus independent code review |
 | Credentials stored as files on the orchestrator and as Kubernetes Secrets, such as the dispatch key since 2026-10-21 | K3s secret encryption is enabled. One operator has root access | Root on the orchestrator can read them (T36) | A managed secret store, hardware-backed keys, and short-lived credentials |
 | A stop fails the workflow, and the next try is a new job ([ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)) | One worker. A workflow suspended for the operator would hold its lock, and every other job would wait | A right verdict in a form the comparison cannot read costs a whole job | A suspend the operator resumes or ends, with more than one worker, so that a stopped job holds none |
-| A small model, built on the worker from the publisher's weights | It fits in 8 GiB and keeps inference local | Investigation quality has not been evaluated (A3) | A model selected through evaluation, with request logging and appropriate data controls |
+| A small model, built on the worker from the publisher's weights | It fits in 8 GiB and keeps inference local | On six held-out cases, 13 of 18 verdicts were the checks' ([evidence](../evidence/2026-10-25-2308-scored-cases.md)). A wrong one stops the workflow (A3) | A model selected through evaluation, with request logging and appropriate data controls |
 
 ### Tool service and job identity
 
@@ -106,7 +106,7 @@ Production infrastructure alone does not remove these risks.
 
 1. **Independent approval and separate administrative accounts.** Reduce the authority of one operator or stolen session.
 2. **Logs stored outside the platform, with alerts.** Preserve evidence if a platform machine is compromised.
-3. **Outbound filtering on the orchestrator.** Restrict destinations to an explicit allowlist.
+3. **An egress firewall with TLS inspection for the orchestrator.** The edge VM's host list sees names, not content.
 4. **A sandbox per job and a separate host for the tool service.** Limit shared state and access to orchestrator credentials.
 5. **A secret store and an internal certificate authority.** Automate credential access and certificate renewal.
 
