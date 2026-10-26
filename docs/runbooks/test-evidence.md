@@ -52,6 +52,16 @@ This turns a run set's jobs into records under [`docs/evidence/records/`](../evi
 
    Expected: `REPLACE_WITH_JOB: Succeeded, 3 calls`, with the job's own phase and count. `not written` with two sets of verdicts means the collection and the comparison disagree: find out why first. Leave out the last argument for a synthetic job.
 
+   For a job whose fix was proposed, add the bundle, each delivery's result, and the fix's pull request in the targets repository. Copy them from the orchestrator's `/var/lib/aisec/proposals/` and `/var/lib/aisec/delivery/results/` first.
+
+   ```bash
+   python3 -I validation/evidence/record.py docs/evidence/records/REPLACE_WITH_SET.json \
+     REPLACE_WITH_RAW/REPLACE_WITH_JOB.json REPLACE_WITH_RAW/audit.jsonl REPLACE_WITH_RAW/REPLACE_WITH_JOB.collected \
+     --proposal REPLACE_WITH_RAW/proposal.json --delivery REPLACE_WITH_RAW/delivery-1.json --pr REPLACE_WITH_PR
+   ```
+
+   Expected: the same line. The page then gets a fixes table, and the job a proposal and a delivery section.
+
 6. Write the pages.
 
    ```bash

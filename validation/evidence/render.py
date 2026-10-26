@@ -280,6 +280,90 @@ def worker_line(result):
     )
 
 
+def proposal_lines(comparison):
+    """The proposal lines the comparison read from the answer (ADR 0043)."""
+    found, unread = comparison["proposals"], comparison.get("unread_proposals", 0)
+    out = [
+        f"The answer's proposal lines: {len(found)} read, {unread} that could not be.",
+        "",
+    ]
+    if found:
+        rows = [
+            [
+                f"`{p['account']}`",
+                p["action"],
+                p["permission"],
+                ", ".join(p["references"]) or "none",
+            ]
+            for p in found
+        ]
+        out += [table(["Account", "Action", "Permission ID", "References"], rows), ""]
+    return out
+
+
+def proposal_section(proposal):
+    """Who proposed the fix, the policy's decision, and the rehearsal."""
+    who = "the model" if proposal["source"] == "model" else "the operator"
+    policy = proposal["policy"]
+    if policy["allowed"]:
+        decided = "The policy allowed it."
+    else:
+        decided = "The policy refused it: " + "; ".join(policy["reasons"]) + "."
+    out = [f"**Proposal.** Proposed by {who}. {decided}", ""]
+    if proposal["changes"]:
+        rows = [
+            [f"`{c['account']}`", f"`{c['permission']}`", c["permission_id"]]
+            for c in proposal["changes"]
+        ]
+        out += [table(["Account", "Permission", "ID"], rows), ""]
+    rehearsal = proposal["rehearsal"]
+    if rehearsal["passed"]:
+        out += ["The rehearsal on the copy passed: every account within by both.", ""]
+    elif rehearsal.get("reason"):
+        out += [f"The rehearsal on the copy failed: `{rehearsal['reason']}`.", ""]
+    else:
+        out += ["The rehearsal on the copy failed.", ""]
+    if rehearsal["verdicts"]:
+        rows = [
+            [f"`{a}`", f"`{v['configured']}`", f"`{v['observed']}`"]
+            for a, v in sorted(rehearsal["verdicts"].items())
+        ]
+        out += [table(["Account", "Configured", "Observed"], rows), ""]
+    return out
+
+
+def checks_after(verdicts):
+    if all(
+        v == {"configured": "within", "observed": "within"} for v in verdicts.values()
+    ):
+        return "every account within by both"
+    return ", ".join(
+        f"`{a}` {v['configured']}/{v['observed']}" for a, v in sorted(verdicts.items())
+    )
+
+
+def delivery_section(deliveries):
+    """Each delivery: the approval, the mode, and the checks after it."""
+    rows = []
+    for d in deliveries:
+        approved = f"{clock(d['approved_at']):%Y-%m-%d %H:%M}"
+        verdicts = d["verdicts"]
+        after = checks_after(verdicts) if verdicts else "not run"
+        if not d["passed"] and d["mode"] == "fix":
+            after += ", stopped for the operator"
+        rows.append(
+            [
+                f"`{d['tag']}` on `{d['commit']}`",
+                d["mode"],
+                approved,
+                after,
+                f"#{d['pr']}" if d.get("pr") else "none",
+            ]
+        )
+    header = ["Approval", "Mode", "Approved (UTC)", "Checks after", "Pull request"]
+    return ["**Delivery.**", "", table(header, rows), ""]
+
+
 def job_section(job, label):
     out = [f"## {label}", ""]
     start, end = clock(job["started"]), clock(job["finished"])
@@ -302,6 +386,12 @@ def job_section(job, label):
         out += [f"The workflow's message: `{job['message']}`.", ""]
     if job.get("checks"):
         out += verdict_table(job)
+    if (job.get("comparison") or {}).get("proposals") is not None:
+        out += proposal_lines(job["comparison"])
+    if job.get("proposal"):
+        out += proposal_section(job["proposal"])
+    if job.get("deliveries"):
+        out += delivery_section(job["deliveries"])
     out += call_table(job) if job["calls"] else ["No tool call.", ""]
     if job.get("result"):
         out += [worker_line(job["result"]), ""]
@@ -337,7 +427,44 @@ def jobs_body(run_set):
         ),
         "",
     ]
+    fixed = [j for j in jobs if j.get("proposal") or j.get("deliveries")]
+    if fixed:
+        out += ["## Fixes", ""]
+        out += [
+            table(
+                ["Job", "Proposal", "Policy", "Rehearsal", "Delivery"],
+                [fix_row(j, names[j["job"]]) for j in fixed],
+            ),
+            "",
+        ]
     return out, [line for j in jobs for line in job_section(j, names[j["job"]])]
+
+
+def fix_row(job, label):
+    proposal = job.get("proposal") or {}
+    changes = proposal.get("changes") or []
+    what = "; ".join(
+        f"remove `{c['permission']}` from `{c['account']}`" for c in changes
+    )
+    if proposal:
+        who = "the model" if proposal["source"] == "model" else "the operator"
+        what = f"{what or 'none'}, by {who}"
+    policy = proposal.get("policy")
+    decided = ("allowed" if policy["allowed"] else "refused") if policy else "none"
+    rehearsal = proposal.get("rehearsal")
+    rehearsed = ("passed" if rehearsal["passed"] else "failed") if rehearsal else "none"
+    delivered = ", ".join(
+        f"{d['mode']}, {'passed' if d['passed'] else 'stopped'}"
+        + (f", #{d['pr']}" if d.get("pr") else "")
+        for d in job.get("deliveries") or []
+    )
+    return [
+        f"[{label}](#{anchor(label)})",
+        what or "none",
+        decided,
+        rehearsed,
+        delivered or "none",
+    ]
 
 
 def jobs_tally(run_set):

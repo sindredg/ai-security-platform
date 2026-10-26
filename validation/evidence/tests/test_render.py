@@ -283,6 +283,110 @@ class Rules(unittest.TestCase):
         self.assertEqual(self.run_rules()[0], 2)
 
 
+def looped(name):
+    """A matched job whose fix was proposed, allowed, rehearsed, and delivered."""
+    rows = [
+        {
+            "account": a,
+            "model": c,
+            "references": ["ev-0003"],
+            "configured": c,
+            "observed": o,
+            "outcome": "match",
+        }
+        for a, (c, o) in {
+            "inventory-reader": ("excess", "excess"),
+            "inventory-reader-control": ("within", "within"),
+        }.items()
+    ]
+    within = {"configured": "within", "observed": "within"}
+    return job(
+        name,
+        checks={
+            "inventory-reader": ["excess", "excess"],
+            "inventory-reader-control": ["within", "within"],
+        },
+        comparison={
+            "outcome": "match",
+            "reasons": [],
+            "accounts": rows,
+            "proposals": [
+                {
+                    "account": "inventory-reader",
+                    "action": "remove",
+                    "permission": 2,
+                    "references": ["ev-0002"],
+                }
+            ],
+            "unread_proposals": 0,
+        },
+        proposal={
+            "source": "model",
+            "changes": [
+                {
+                    "account": "inventory-reader",
+                    "permission_id": 2,
+                    "permission": "inventory-reader: inventory",
+                }
+            ],
+            "policy": {"allowed": True, "reasons": []},
+            "rehearsal": {
+                "passed": True,
+                "reason": None,
+                "verdicts": {
+                    "inventory-reader": within,
+                    "inventory-reader-control": within,
+                },
+            },
+        },
+        deliveries=[
+            {
+                "tag": "approve/netbox/nb-9",
+                "commit": "0123456789ab",
+                "mode": "fix",
+                "approved_at": "2026-10-27T11:58:00Z",
+                "applied": [{"permission": "inventory-reader: inventory", "users": []}],
+                "verdicts": {
+                    "inventory-reader": within,
+                    "inventory-reader-control": within,
+                },
+                "passed": True,
+                "pr": 15,
+            }
+        ],
+    )
+
+
+class Loop(unittest.TestCase):
+    def test_a_job_with_a_proposal_shows_policy_and_rehearsal(self):
+        text = "\n".join(render.job_section(looped("nb-9"), "nb-9"))
+        self.assertIn("inventory-reader: inventory", text)
+        self.assertIn("The policy allowed it", text)
+        self.assertIn("The rehearsal on the copy passed", text)
+        self.assertEqual(render.page_problems("job", text), [])
+
+    def test_a_delivered_fix_shows_its_tag_mode_and_checks(self):
+        text = "\n".join(render.job_section(looped("nb-9"), "nb-9"))
+        self.assertIn("`approve/netbox/nb-9`", text)
+        self.assertIn("`0123456789ab`", text)
+        self.assertIn("every account within by both", text)
+        self.assertIn("#15", text)
+
+    def test_a_run_set_with_a_fix_has_a_fixes_table(self):
+        run_set = copy.deepcopy(RUN_SET)
+        run_set["jobs"].append(looped("nb-9"))
+        page = render.set_page("2026-10-27-1200-a-fix", run_set, None, None)
+        self.assertIn("## Fixes", page)
+        self.assertIn("| Job | Proposal | Policy | Rehearsal | Delivery |", page)
+        self.assertEqual(render.page_problems("set", page), [])
+
+    def test_old_records_render_as_before(self):
+        self.assertNotIn("## Fixes", render.set_page("x", RUN_SET, None, None))
+        repo = Path(__file__).resolve().parent.parent.parent.parent
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(render.main(["render.py", "--check"], repo), 0)
+
+
 class Main(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

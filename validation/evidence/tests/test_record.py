@@ -215,6 +215,118 @@ class Build(unittest.TestCase):
         self.assertIsNone(record.build(flow, [])["answer"])
 
 
+PROPOSALS = [
+    {
+        "account": "inventory-reader",
+        "action": "remove",
+        "permission": 2,
+        "references": ["ev-0002"],
+    }
+]
+BUNDLE = {
+    "job": JOB,
+    "case": "seed",
+    "collected": "2026-10-25T23:09:00Z",
+    "source": "model",
+    "comparison": {"outcome": "match", "accounts": [], "proposals": PROPOSALS},
+    "policy": {
+        "allowed": True,
+        "reasons": [],
+        "changes": [
+            {
+                "account": "inventory-reader",
+                "permission_id": 2,
+                "permission": "inventory-reader: inventory",
+            }
+        ],
+    },
+    "rehearsal": {
+        "reset": "a" * 64,
+        "applied": [
+            {"permission": "inventory-reader: inventory", "id": 22, "users": []}
+        ],
+        "verdicts": {
+            "inventory-reader": {"configured": "within", "observed": "within"}
+        },
+        "passed": True,
+        "reason": None,
+    },
+}
+DELIVERY = {
+    "tag": "approve/netbox/nb-1",
+    "tag_sha": "b" * 40,
+    "commit": "c" * 40,
+    "mode": "fix",
+    "tagged_at": 1793000000,
+    "delivered_at": "2026-10-27T12:00:00Z",
+    "applied": [{"permission": "inventory-reader: inventory", "id": 2, "users": []}],
+    "read_back": True,
+    "verdicts": {"inventory-reader": {"configured": "within", "observed": "within"}},
+    "passed": True,
+}
+
+
+class Loop(unittest.TestCase):
+    """The rest of a fix's way: its proposal and each delivery (milestone 5)."""
+
+    def compared_workflow(self):
+        found = workflow()
+        node = found["status"]["nodes"]["c"]["outputs"]["parameters"][0]
+        compared = json.loads(node["value"])
+        compared.update(proposals=PROPOSALS, unread_proposals=1)
+        node["value"] = json.dumps(compared)
+        return found
+
+    def test_the_comparisons_proposals_are_kept(self):
+        found = record.build(self.compared_workflow(), [], COLLECTED)
+        self.assertEqual(found["comparison"]["proposals"], PROPOSALS)
+        self.assertEqual(found["comparison"]["unread_proposals"], 1)
+
+    def test_a_proposal_keeps_its_source_changes_policy_and_rehearsal(self):
+        found = record.build(self.compared_workflow(), [], COLLECTED, proposal=BUNDLE)
+        self.assertEqual(
+            found["proposal"],
+            {
+                "source": "model",
+                "changes": BUNDLE["policy"]["changes"],
+                "policy": {"allowed": True, "reasons": []},
+                "rehearsal": {
+                    "passed": True,
+                    "verdicts": BUNDLE["rehearsal"]["verdicts"],
+                    "reason": None,
+                },
+            },
+        )
+
+    def test_a_delivery_keeps_its_tag_short_commit_mode_and_checks(self):
+        found = record.build(
+            self.compared_workflow(), [], COLLECTED, deliveries=[DELIVERY], pr=15
+        )
+        self.assertEqual(
+            found["deliveries"],
+            [
+                {
+                    "tag": "approve/netbox/nb-1",
+                    "commit": "c" * 12,
+                    "mode": "fix",
+                    "approved_at": "2026-10-26T07:33:20Z",
+                    "applied": [
+                        {"permission": "inventory-reader: inventory", "users": []}
+                    ],
+                    "verdicts": DELIVERY["verdicts"],
+                    "passed": True,
+                    "pr": 15,
+                }
+            ],
+        )
+
+    def test_a_record_without_them_has_neither(self):
+        found = record.build(workflow(), [], COLLECTED)
+        self.assertNotIn("proposal", found)
+        self.assertNotIn("deliveries", found)
+        self.assertNotIn("proposals", found["comparison"])
+
+
 class Add(unittest.TestCase):
     def test_a_rebuilt_record_keeps_its_note_and_jobs_stay_in_order(self):
         early = {"job": "a", "started": "2026-10-25T10:00:00Z", "finished": None}
