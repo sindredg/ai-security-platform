@@ -382,6 +382,47 @@ class TheProposals(unittest.TestCase):
                     ({"inventory-reader": [("remove", 2, ["ev-0002"])]}, 0),
                 )
 
+    def test_an_id_that_folding_made_is_unread(self):
+        # The label's folding drops marks and folds compatibility forms. The
+        # ID is kept only when the line holds it as written.
+        for written in ("2*3", "1`2`", "1\u00b2", "\u2460\u2461", "1\u200b2", "\uff12"):
+            with self.subTest(written):
+                line = f"Proposal: inventory-reader remove {written} ev-0002"
+                self.assertEqual(compare.proposal_lines(line), ({}, 1))
+
+    def test_ids_are_one_to_nine_digits_without_a_leading_zero(self):
+        for written, want in (("02", None), ("123456789", 123456789), ("9", 9)):
+            with self.subTest(written):
+                line = f"Proposal: inventory-reader remove {written} ev-0002"
+                if want is None:
+                    self.assertEqual(compare.proposal_lines(line), ({}, 1))
+                else:
+                    found, _ = compare.proposal_lines(line)
+                    self.assertEqual(found["inventory-reader"][0][1], want)
+
+    def test_case_and_repeated_references_are_read_as_verdict_lines_are(self):
+        line = "Proposal: Inventory-Reader REMOVE 2 EV-0002, ev-0002 and ev-0003"
+        self.assertEqual(
+            compare.proposal_lines(line),
+            ({"inventory-reader": [("remove", 2, ["ev-0002", "ev-0003"])]}, 0),
+        )
+
+    def test_each_line_that_cannot_be_read_counts(self):
+        answer = RIGHT + "Proposal: x delete 1\nProposal: y remove\nProposal:\n"
+        self.assertEqual(compare.proposal_lines(answer), ({}, 3))
+
+    def test_a_long_proposal_line_is_read_quickly(self):
+        # An answer is at most 8 KiB. The reading has to stay linear in it.
+        for line in (
+            "Proposal: inventory-reader remove 2 ev-0002" + " " * 8000 + "x",
+            "Proposal: inventory-reader remove 2" + ", ev-0002" * 800 + " x",
+            "Proposal: inventory-reader remove " + "1" * 8000,
+        ):
+            with self.subTest(line[:40]):
+                started = time.monotonic()
+                compare.proposal_lines(line)
+                self.assertLess(time.monotonic() - started, 1)
+
     def test_a_line_that_only_mentions_a_proposal_is_not_one(self):
         answer = RIGHT + "The proposal: inventory-reader remove 2 ev-0002\n"
         self.assertEqual(compare.proposal_lines(answer), ({}, 0))

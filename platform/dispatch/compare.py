@@ -9,7 +9,7 @@ It reads the deterministic checks' verdicts for the job from the one file the
 workflow mounts: the job's own key in the config map `netbox-verdicts`, which
 the collect command on the orchestrator writes and no workload account can
 change. ANSWER is the model's answer, which the dispatch step hands on. It is
-untrusted. The step reads it for verdict lines only, one per account:
+untrusted. The step reads it for verdict lines, one per account:
 
     Verdict: ACCOUNT VALUE REFERENCES
 
@@ -34,8 +34,8 @@ orchestrator host.
 It prints a row per account and the outcome last, writes the comparison as
 the step's output, and writes the outcome as the container's termination
 message, which Argo shows as the step's message. Of the answer, only what
-matched a pattern is printed or kept: account names, values, references, and
-counts. Exits 0 for a match, 1 for a stop, and 2 for a call without a job ID
+matched a pattern is printed or kept: account names, values, actions,
+permission IDs, references, and counts. Exits 0 for a match, 1 for a stop, and 2 for a call without a job ID
 and an answer. Standard library only.
 """
 
@@ -198,7 +198,10 @@ def proposal_lines(answer):
         if text is None:
             continue
         found = PROPOSAL.fullmatch(text)
-        if not found:
+        # The folding before it drops marks and folds compatibility forms, so
+        # 2*3 or a superscript would read as another number. The ID is kept
+        # only where the line holds it as written, in ASCII digits.
+        if not found or not re.search(rf"(?<![0-9]){found[3]}(?![0-9])", line):
             unread += 1
             continue
         references = REFERENCE.findall(found[4])
