@@ -4,7 +4,7 @@ The stack, one page per part. Each page says what the part does, where it is def
 
 The [architecture](../architecture.md) is the overview: trust, flows, and boundaries. This folder is the detail.
 
-![The stack on the orchestrator and the worker: both share the private network, the machine type, Ubuntu 26.04, and host hardening. The orchestrator runs K3s with the tool service and Argo Workflows, is not on the mesh VPN, and has no way out of its own. The worker runs the model server and the agent runtime](../diagrams/stack.svg)
+![The stack on the orchestrator and the worker: both share the private network, Ubuntu 26.04, and host hardening, on two machine sizes. The orchestrator runs K3s with the tool service and Argo Workflows, is not on the mesh VPN, and has no way out of its own. The worker runs the model server and the agent runtime](../diagrams/stack.svg)
 
 The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 
@@ -22,7 +22,7 @@ The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 | [Repository and pipeline](pipeline.md) | The approval channel and its checks | GitHub |
 | [Tool service](../security/tool-service.md) | A small MCP server written for this project. Authorizes every tool call from the worker | Orchestrator, in K3s |
 | Workflow engine | Argo Workflows. The controller runs in the cluster, and the UI on the operator's machine, [ADR 0029](../decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md). Each workflow's dispatch step hands one job to the worker, [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), [runbook](../runbooks/workflows.md). Since 2026-10-25 a NetBox job's comparison step follows it, and fails on anything but a match with the checks, [ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md) | Orchestrator, in K3s |
-| [Model server](ai-worker.md#the-model-server) | llama.cpp's server with Qwen3.5-4B, built on the worker from the publisher's weights, [ADR 0015](../decisions/0015-build-the-model-file-on-the-worker.md), [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | AI worker |
+| [Model server](ai-worker.md#the-model-server) | llama.cpp's server with Qwen3.5-4B, thinking off, built on the worker from the publisher's weights, [ADR 0015](../decisions/0015-build-the-model-file-on-the-worker.md), [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md). Scored on exercise 1's held-out cases ([evidence](../evidence/2026-10-25-2308-scored-cases.md)) | AI worker |
 | [Agent runtime](ai-worker.md#the-agent-runtime) | Goose, one run per job in a sandboxed unit that a socket starts | AI worker |
 | SSH certificates | OpenSSH's own certificate authority. The administrator account takes only a certificate that expires within 12 hours, [ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md), [credentials](../security/credentials.md) | Every VM |
 | [Monitoring](monitoring.md) | The Azure Monitor Agent and a Log Analytics workspace reached over Private Link, alert rules shown in the portal, flow logs, and a workbook | The orchestrator, the edge, the router, and Azure |
@@ -32,12 +32,11 @@ The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 
 ## Planned
 
-Candidates, not selections, except the rows that name a decision record. Each has something to prove first.
+Candidates, not selections. Each has something to prove first.
 
 | Role | Candidate | Has to prove | Milestone |
 | --- | --- | --- | --- |
-| Starting model | Qwen3.5-4B, running. Kept after a comparison with Granite 4.2 3B and Qwen3.5-2B, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3, the same in both runs ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). On 2026-10-25, NetBox jobs ran while the task was tuned, and one ended in a match with the checks ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-task-on-development-jobs)). Scored on 2026-10-26 in exercise 1's investigation, twelve jobs on held-out cases: 13 of 18 verdicts were the checks' ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-score)) | 4 |
-| Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for the selected exercises | 4 |
+| Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for exercises 2 and 3. Exercise 1's checks are the NetBox collector's | 7, 8 |
 
 ## Versions
 

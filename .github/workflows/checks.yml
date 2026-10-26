@@ -466,6 +466,13 @@ jobs:
       - name: Check that each page matches its record
         run: PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S validation/evidence/render.py --check
 
+      # The same page rules on each living page cut to their shape. A page
+      # joins the list when it is cut.
+      - name: Check the page rules on the living pages
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S validation/evidence/render.py \
+            --rules README.md docs/architecture.md docs/roadmap.md
+
   tool-service-image:
     name: Tool service image
     runs-on: ubuntu-26.04

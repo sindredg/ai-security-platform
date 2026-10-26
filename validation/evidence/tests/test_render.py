@@ -238,6 +238,51 @@ class PageRules(unittest.TestCase):
         self.assertEqual(render.page_problems("p", page), [])
 
 
+class Rules(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.folder = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def page(self, name, text):
+        path = self.folder / name
+        path.write_text(text)
+        return str(path)
+
+    def run_rules(self, *pages):
+        with (
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(io.StringIO()) as err,
+        ):
+            code = render.main(["render.py", "--rules", *pages])
+        return code, err.getvalue()
+
+    def test_pages_within_the_rules_pass(self):
+        pages = (
+            self.page("a.md", "# A\n\nOne. Two. Three.\n"),
+            self.page("b.md", "| x | y |\n| --- | --- |\n| 1 | 2 |\n"),
+        )
+        self.assertEqual(self.run_rules(*pages), (0, ""))
+
+    def test_a_page_that_breaks_a_rule_fails_and_is_named(self):
+        good = self.page("a.md", "One. Two. Three.\n")
+        bad = self.page("b.md", "One. Two. Three. Four.\n")
+        code, err = self.run_rules(good, bad)
+        self.assertEqual(code, 1)
+        self.assertIn(f"{bad}: a paragraph of 4 sentences", err)
+        self.assertNotIn(good, err)
+
+    def test_a_page_that_cannot_be_read_fails(self):
+        code, err = self.run_rules(str(self.folder / "gone.md"))
+        self.assertEqual(code, 1)
+        self.assertIn("gone.md: cannot be read", err)
+
+    def test_no_page_is_a_usage_error(self):
+        self.assertEqual(self.run_rules()[0], 2)
+
+
 class Main(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

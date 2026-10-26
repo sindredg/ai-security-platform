@@ -31,7 +31,7 @@ SSH from the orchestrator subnet, and nothing else. The administrator account ta
 
 ## The model server
 
-llama.cpp v0.7.0, build `b11669`, serves Qwen3.5-4B, quantized to `Q4_K_M`, on `127.0.0.1:8080`. Nothing outside the worker can reach it.
+llama.cpp v0.7.0, build `b11669`, serves Qwen3.5-4B, quantized to `Q4_K_M`, on `127.0.0.1:8080`. Nothing outside the worker can reach it. The model was kept after a comparison with two others ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)), and on exercise 1's held-out cases 13 of 18 of its verdicts were the checks' ([evidence](../evidence/2026-10-25-2308-scored-cases.md)).
 
 | | |
 | --- | --- |
@@ -84,12 +84,6 @@ One agent run on the same question, through Goose 1.54.0, on 2026-10-12. Goose 1
 | Prompt | 672 tokens on the first turn. The bare exchange needs 385 |
 
 The exchange and the full tables are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#measurements).
-
-## Planned
-
-| Role | Candidate | Has to prove |
-| --- | --- | --- |
-| Starting model | Qwen3.5-4B, running. Kept after a comparison, [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) | Structured output and tool calling on held-out fixtures. Measured on 2026-10-21 on eight cases: the right calls in 7 and the right verdict in 3 ([worklog](../worklogs/0003-toolchain-integration.md#second-run)). Scored on 2026-10-26 in exercise 1's investigation, twelve jobs on held-out cases: 13 of 18 verdicts were the checks' ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-score)) |
 
 ## Dispatch
 

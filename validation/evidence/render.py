@@ -1,12 +1,17 @@
 """Write the test evidence pages from their records, or check them.
 
     render.py [--check]
+    render.py --rules PAGE...
 
 Reads each run set under `docs/evidence/records/` and the lessons in
 `records/lessons.json`, and writes beside the records' folder a page per run
 set, the lessons page, and the index. With `--check`, writes nothing and exits
 1 when a page differs from what its record gives, or when a page is missing or
 left over.
+
+With `--rules`, reads no record and checks the page rules on each page named,
+such as a living page cut to their shape. Exits 1 when a page breaks them or
+cannot be read.
 
 Fails before writing anything when a record lacks a field the pages use, when
 a lesson names a run set or job that has no record, when a record holds
@@ -605,7 +610,27 @@ def pages(root=ROOT):
     return written, problems
 
 
+def rules(names):
+    """The page rules on pages that no record writes."""
+    problems = []
+    for name in names:
+        try:
+            text = Path(name).read_text()
+        except OSError as error:
+            problems.append(f"{name}: cannot be read: {error.strerror}")
+            continue
+        problems += page_problems(name, text)
+    return problems
+
+
 def main(argv, root=ROOT):
+    if argv[1:2] == ["--rules"] and argv[2:]:
+        problems = rules(argv[2:])
+        if problems:
+            print("\n".join(problems), file=sys.stderr)
+            return 1
+        print(f"{len(argv) - 2} pages keep the page rules")
+        return 0
     check = argv[1:] == ["--check"]
     if argv[1:] and not check:
         print(__doc__.split("\n\n")[1], file=sys.stderr)

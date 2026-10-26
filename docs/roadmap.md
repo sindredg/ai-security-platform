@@ -1,23 +1,23 @@
 # Roadmap
 
-Each milestone has completion criteria: things that must be shown to work, not things that must be built. A milestone is done when those criteria are met and the evidence is in a [worklog](worklogs/README.md). The design behind all of this is in the [architecture](architecture.md).
+Each milestone has completion criteria: things that must be shown to work, not things that must be built. A milestone is done when each criterion is tested or an accepted gap, with the evidence in its [worklog](worklogs/README.md). The design is in the [architecture](architecture.md).
 
-Security work has no milestone of its own. Each practice is part of the completion criteria for the milestone that builds what it checks, as decided in [ADR 0010](decisions/0010-threat-model-and-security-checks-per-milestone.md).
+Security work has no milestone of its own. Each practice is part of the criteria for the milestone that builds what it checks ([ADR 0010](decisions/0010-threat-model-and-security-checks-per-milestone.md)).
 
 ## Status
 
-| Milestone | State |
-| --- | --- |
-| 0. Documentation baseline and preflight | Done. [Worklog](worklogs/0000-azure-preflight.md) |
-| 1. Network foundation | Done, with one check carried to milestone 2. [Worklog](worklogs/0001-network-foundation.md) |
-| 2. Platform compute | Done, with three stated gaps. No CIS result for the operating system, because no tool supports the release yet. Push protection is configured and not tested. No dependency update has been proposed yet. [Worklog](worklogs/0002-platform-compute.md) |
-| 3. Toolchain integration | Done on 2026-10-24, with two stated gaps. Another job's evidence on the same target was not refused, because the tool service stored evidence per target ([#45](https://github.com/sindredg/ai-security-platform/issues/45)). Closed on 2026-10-25 for NetBox's target, on the live service: its evidence is stored per job ([ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md), [worklog](worklogs/0005-netbox-target-and-exercise-1.md#evidence-per-job)). Root on the orchestrator can edit the audit file, the trusted machine by design. A workflow from the template hands a job to the worker, the agent calls the tool service with the job's token, and the checked result comes back to the workflow. Stopping a workflow ends its job and erases the model server's slot. Qwen3.5-4B stays the model ([ADR 0031](decisions/0031-qwen3-5-4b-stays-the-workers-model.md)), and the model gateway is dropped ([ADR 0034](decisions/0034-no-model-gateway-while-there-is-one-backend.md)). The claims were reviewed against the code and the running system on 2026-10-24. [Worklog](worklogs/0003-toolchain-integration.md) |
-| 3a. Edge network and monitoring | Done on 2026-10-19, with two stated gaps. No login through the router to a target, because no target VM existed: closed on 2026-10-24 by `VN.1` and `VL.1` ([worklog](worklogs/0005-netbox-target-and-exercise-1.md#the-target-vms)). No connection test from the router to an operator device. A third, traffic analytics not processing the platform network's flow log, closed on 2026-10-21 ([worklog](worklogs/0003-toolchain-integration.md#fix-the-denied-flow-alert)). Built and on the live system: Squid on an edge VM as the orchestrator's only way out, a router VM as the only mesh VPN node, SSH certificates, the orchestrator hardening, the targets in Poland Central in their own repository, a required signature check, and logs in Azure Monitor over Private Link with alert rules, each fired once on purpose, the last on 2026-10-21. The daily log volume, the cap set from it, and the orchestrator's footprint with the log agent were measured over one day, to 2026-10-19. [Worklog](worklogs/0004-edge-network-and-monitoring.md) |
-| 4. NetBox target and exercise 1 investigation | Done on 2026-10-26, with three stated gaps. No answer said the evidence disagrees, and no held-out case has documents that disagree in the task's sense ([#205](https://github.com/sindredg/ai-security-platform/issues/205)). The comparison stops on checks that disagree either way. An inconclusive verdict stopped a workflow in the pipeline's tests only. An operator's token can submit a NetBox job that skips the comparison ([#203](https://github.com/sindredg/ai-security-platform/issues/203)), to be closed before milestone 5 acts on a match. Two items moved to milestone 6: operator sessions to the targets in the audit log (T04), and the slot erase after a timeout ([#199](https://github.com/sindredg/ai-security-platform/issues/199)). Built and on the live system, decided in ADRs [0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0042](decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md): NetBox from its pinned image on a target VM with no way out, seeded with exercise 1's finding, which two deterministic checks confirm beside an unaffected control. A command on the orchestrator collects one job's evidence, the tool service hands it to that job only, in the fields its schema names, and the workflow stops unless the model's verdict for each account matches the checks'. Scored on 2026-10-26 on twelve jobs over six held-out cases, beside the same run without the agent: 13 of 18 verdicts were the checks', every verdict line the comparison read cited a document its job had fetched, and no wrong verdict ended in a match ([worklog](worklogs/0005-netbox-target-and-exercise-1.md#the-scored-runs)). The collection that gives the checks' verdicts took 21 to 84 seconds, most of it a wait for the tool service that a run without the agent does not need, and a job through the workflow 5 to 15 minutes. The claims were reviewed against the code and the running system on 2026-10-26. [Worklog](worklogs/0005-netbox-target-and-exercise-1.md) |
-| 5. Remediation, pull requests, and delivery | Planned |
-| 6. Operational and containment drills | Planned |
-| 7. Exercise 2: excess network access | Planned |
-| 8. Exercise 3: vulnerable image or dependency | Planned |
+| Milestone | State | Open gaps | Evidence |
+| --- | --- | --- | --- |
+| 0. Documentation baseline and preflight | Done | None | [Worklog](worklogs/0000-azure-preflight.md) |
+| 1. Network foundation | Done | None. The effective rules were tested in milestone 2 | [Worklog](worklogs/0001-network-foundation.md) |
+| 2. Platform compute | Done | Accepted gap: no tool has a CIS profile for Ubuntu 26.04. Configured, not tested: push protection, and an update pull request for a provider or an action | [Worklog](worklogs/0002-platform-compute.md) |
+| 3. Toolchain integration | Done | Accepted gap: every job on `synthetic` reads one fixed file. Root on the orchestrator, trusted by design, can edit the audit file before the log agent sends it | [Worklog](worklogs/0003-toolchain-integration.md) |
+| 3a. Edge network and monitoring | Done | Configured, not tested: a connection from the router to an operator device. The mesh policy's own tests refuse one | [Worklog](worklogs/0004-edge-network-and-monitoring.md) |
+| 4. NetBox target and exercise 1 investigation | Done | Accepted gap: no case whose documents disagree ([#205](https://github.com/sindredg/ai-security-platform/issues/205)), and a job that skips the comparison ([#203](https://github.com/sindredg/ai-security-platform/issues/203)). An inconclusive verdict stopped a workflow in tests only | [Worklog](worklogs/0005-netbox-target-and-exercise-1.md), [evidence](evidence/README.md) |
+| 5. Remediation, pull requests, and delivery | Next | | |
+| 6. Operational and containment drills | Planned | | |
+| 7. Exercise 2: excess network access | Planned | | |
+| 8. Exercise 3: vulnerable image or dependency | Planned | | |
 
 ## 0. Documentation baseline and preflight
 
@@ -27,9 +27,7 @@ Write down the design and the first decisions, and get account-specific evidence
 
 ## 1. Network foundation
 
-Create the state storage and both Terraform roots. Provision resource groups, virtual networks, subnets, network security groups, and peering. No compute yet.
-
-The point of doing this first is to prove the separation before there is anything to separate.
+Create the state storage and both Terraform roots. Provision resource groups, virtual networks, subnets, network security groups, and peering. No compute yet, so the separation is proven before there is anything to separate.
 
 **Completion criteria:**
 
@@ -38,13 +36,11 @@ The point of doing this first is to prove the separation before there is anythin
 - Effective rules show default deny between the networks, with only the documented flows allowed.
 - The target root's identity cannot modify platform resources, and the reverse.
 
-**Result:** met, except that effective rules cannot be read without a network interface. The configured rules are verified. The effective-rule check moves to milestone 2.
-
 ## 2. Platform compute
 
 Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN, the egress path, and the public address policy.
 
-**Depends on:** the egress decision, made in [ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md), and the first pass of the [threat model](security/threat-model.md).
+**Depends on:** the egress decision ([ADR 0009](decisions/0009-one-egress-point-on-the-orchestrator-subnet.md)) and the first pass of the [threat model](security/threat-model.md).
 
 **Completion criteria:**
 
@@ -62,11 +58,9 @@ Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN, 
 
 ## 3. Toolchain integration
 
-Deploy Argo Workflows, the agent runtime, and the model server. Prove the round trip from a workflow to the worker and back, on synthetic evidence only.
+Deploy Argo Workflows, the agent runtime, and the model server. Prove the round trip from a workflow to the worker and back, on synthetic evidence only. This is where the design is most likely to be wrong, so it comes before any target exists.
 
-This is where the design is most likely to be wrong, so it comes before any target exists.
-
-**Depends on:** the dispatch, job identity, and tool service decisions, made in ADRs [0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), [0030](decisions/0030-how-a-job-reaches-the-worker.md), [0029](decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), [0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), and [0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md). Cloud identity for cluster workloads is not needed here and moves to milestone 4.
+**Depends on:** the dispatch, job identity, and tool service decisions, in ADRs [0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), [0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), [0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), [0029](decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), and [0030](decisions/0030-how-a-job-reaches-the-worker.md).
 
 **Completion criteria:**
 
@@ -86,35 +80,13 @@ If a candidate needs a substantial custom service to meet these criteria, replac
 
 ### Hostile-input tests for the tool service
 
-Implemented in `tool-service/tests/`, with the service. The tool service is the one piece of custom code that reads what a compromised worker sends ([ADR 0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md)). These cases are unit tests that live beside its code and run in the pipeline. They are not drills, and they do not add to the milestone's completion criteria: those criteria demonstrate the round trip on the running system, and the tests keep the edges from moving afterwards.
-
-Every case ends the same way: the call is refused, nothing of the result goes back, and one audit line records the decision and the reason.
-
-| Group | Case |
-| --- | --- |
-| Malformed arguments | A body that is not JSON, or not valid UTF-8 |
-| | A missing field, a wrong type, and a field the schema does not name |
-| | An evidence reference with `..`, an absolute path, or a null byte |
-| | A tool name that no policy lists |
-| Cross-job access | A valid token for one job asks for another job's evidence |
-| | A valid token asks for a tool or a target outside its job's scope |
-| | The arguments name a different job than the token. The token decides |
-| Tokens | No token, a malformed token, and a token nobody issued |
-| | An expired token, and a token revoked when its job ended |
-| | A refusal never puts the token in the response or the log |
-| Oversized requests | A body over the size limit, refused before it is parsed |
-| | A result over the size limit, and one call more than the job's call limit |
-| Concurrent cancellation | A job is cancelled while its call is in flight. The result is dropped, not delivered late |
-| | Two calls race the revocation. None succeeds after it |
-| | The same job is cancelled twice, or registered twice. Neither is an error that leaves a live token |
+The tool service's rejection cases are unit tests beside its code, run on every pull request, and listed on the [tool service](security/tool-service.md#hostile-input-tests) page. They keep the edges from moving, and do not add to the criteria.
 
 ## 3a. Edge network and monitoring
 
-Move the platform's way out and its mesh VPN node off the orchestrator, and send every log to a store outside the machines it describes. Comes between the log copies of milestone 3 and its dispatch work.
+Move the platform's way out and its mesh VPN node off the orchestrator, and send every log to a store outside the machines it describes. Exercises on a platform that cannot show what an agent did would prove little.
 
-When the milestone started, the orchestrator held every credential that matters, reached any host on TCP 443 and 80 (T05), and was the mesh VPN node, beside the operator's devices. Running exercises on top of that, with nothing recording what happens, would test a platform that cannot show what an agent did. Milestone 3 resumes with dispatch once this is done.
-
-**Depends on:** the decisions in ADRs [0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) to [0025](decisions/0025-the-mesh-node-on-its-own-vm.md): the edge VM and its rules, monitoring in Azure Monitor, SSH certificates for the operator, a host rule for pod traffic to the host, the targets in their own repository, and the mesh node on a router VM. Three more records were written while it was built: [0026](decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md) for the feed key's account, [0027](decisions/0027-how-the-monitoring-is-built.md) for how the monitoring is built, and [0028](decisions/0028-alert-rules-flow-logs-and-drills.md) for the alert rules, flow logs, and drills. The subscription's quota cannot be raised, so the edge and the router take Denmark East's 4 vCPUs, and the targets move to Poland Central.
+**Depends on:** ADRs [0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) to [0028](decisions/0028-alert-rules-flow-logs-and-drills.md). The quota cannot be raised, so the edge and the router take Denmark East's 4 vCPUs, and the targets move to Poland Central.
 
 **Completion criteria:**
 
@@ -140,7 +112,7 @@ When the milestone started, the orchestrator held every credential that matters,
 
 Define the consumer contract. Deploy NetBox, synthetic inventory, and the consumer. Seed the excess-permission finding and investigate it.
 
-**Depends on:** decisions about the NetBox runtime ([ADR 0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md)), target package updates ([ADR 0036](decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)), and consumer permissions with the seeded finding ([ADR 0037](decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)), all accepted on 2026-10-24. Where NetBox's TLS key is made changed the same day ([ADR 0038](decisions/0038-netboxs-tls-key-made-on-the-netbox-vm.md)). Where NetBox takes a client's address from was decided on 2026-10-25 ([ADR 0039](decisions/0039-netbox-takes-a-clients-address-from-the-connection.md)). Where a job's evidence is collected and stored was decided the same day ([ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)), and so were how the workflow compares the model's verdict with the checks ([ADR 0041](decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)) and how the investigation is scored ([ADR 0042](decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md)). Cloud identity for cluster workloads stays open: no collector in exercise 1 reads from Azure ([ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)).
+**Depends on:** ADRs [0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0042](decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md). Cloud identity for cluster workloads stays open, because no collector in exercise 1 reads from Azure ([ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)).
 
 **Completion criteria:**
 
@@ -150,14 +122,14 @@ Define the consumer contract. Deploy NetBox, synthetic inventory, and the consum
 - The investigation is scored as a dispatched job, through the workflow, on held-out cases. The hash of the case file is committed before the first scored run.
 - The AI investigation cites tool evidence for each conclusion, and says so when evidence disagrees. Conclusions without tool evidence are counted.
 - The workflow compares the model's verdict with the deterministic checks. A mismatch, an inconclusive verdict, or a failed job stops the workflow for the operator. A match and a stop are each shown, with evidence from that job only.
-- A baseline without AI, using the same tools, is recorded for comparison. A usefulness rubric, written before the runs, scores both, and operator effort and elapsed time are measured for both. The result is recorded whichever way it falls. It is not a pass gate.
+- A baseline without AI, using the same tools, is recorded for comparison. A usefulness rubric, written before the runs, scores both, and operator effort and elapsed time are measured for both. The result is recorded whichever way it falls, and is not a pass gate.
 - Every image on the target side is pinned by digest. Signatures are verified where upstream signs.
 
 ## 5. Remediation, pull requests, and delivery
 
 Rehearse a proposed fix on the rehearsal copy, publish it as a pull request, and deliver it after approval.
 
-**Depends on:** the credential and approval enforcement decisions.
+**Depends on:** the credential and approval enforcement decisions, and a fix for [#203](https://github.com/sindredg/ai-security-platform/issues/203), so that no job skips the comparison.
 
 **Completion criteria:**
 
@@ -184,6 +156,8 @@ Break the finished workflow on purpose.
 - The incident response runbook, run for a compromised worker, a compromised target, and a leaked credential.
 - An audit daemon and file integrity monitoring on both VMs, with a drill that shows each one catching something.
 - A rebuild of each VM from the current templates, with every manual step recorded.
+- Operator sessions to the targets in the audit log (T04). Carried over from milestone 4.
+- The slot erase after a job that timed out ([#199](https://github.com/sindredg/ai-security-platform/issues/199)). Carried over from milestone 4.
 
 Every threat rated high in the threat model maps to one of these drills or to a stated accepted risk. A high threat with neither is a gap, and the milestone stays open.
 

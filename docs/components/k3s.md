@@ -4,7 +4,7 @@ The cluster on the orchestrator. One server, no agents. It runs the tool service
 
 | | |
 | --- | --- |
-| State | Built. The tool service runs in `tool-services`, the Argo controller in `argo`, and the workflows in `orchestration`, since 2026-10-21. Verified by the [`K` checks](../validation/cluster.md), which passed in the run on 2026-10-24 from 07:12 to 07:18 UTC ([last run](../validation/README.md#last-run)) |
+| State | Built. The tool service runs in `tool-services`, the Argo controller in `argo`, and the workflows in `orchestration`, since 2026-10-21. Verified by the [`K` checks](../validation/cluster.md) ([last run](../validation/README.md#last-run)) |
 | Version | `v1.36.5+k3s1`, the release the project's `stable` channel points at |
 | Pinned in | `infra/platform/variables.tf`: the version, and the SHA-256 of the binary, the install script, and the archive of the system images. `infra/platform/k3s-images.txt`: the digest of each system image in that archive ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)) |
 | Datastore | SQLite behind `kine`. No etcd |
