@@ -9,7 +9,7 @@ It reads the deterministic checks' verdicts for the job from the one file the
 workflow mounts: the job's own key in the config map `netbox-verdicts`, which
 the collect command on the orchestrator writes and no workload account can
 change. ANSWER is the model's answer, which the dispatch step hands on. It is
-untrusted. The step reads it for verdict lines only, one per account:
+untrusted. The step reads it for verdict lines, one per account:
 
     Verdict: ACCOUNT VALUE REFERENCES
 
@@ -21,11 +21,21 @@ line for an account the checks do not name, a verdict line that cannot be
 read, checks that disagree or cannot settle an account, and no checks for the
 job.
 
+After the verdict lines the answer may end with one proposal line for each
+account the model calls excess (ADR 0043):
+
+    Proposal: ACCOUNT remove PERMISSION_ID REFERENCES
+
+The step reads them as strictly as verdict lines and keeps them in its output,
+with the number of proposal lines it could not read. They never change the
+outcome. Whether a proposal goes on is decided after the workflow, on the
+orchestrator host.
+
 It prints a row per account and the outcome last, writes the comparison as
 the step's output, and writes the outcome as the container's termination
 message, which Argo shows as the step's message. Of the answer, only what
-matched a pattern is printed or kept: account names, values, references, and
-counts. Exits 0 for a match, 1 for a stop, and 2 for a call without a job ID
+matched a pattern is printed or kept: account names, values, actions,
+permission IDs, references, and counts. Exits 0 for a match, 1 for a stop, and 2 for a call without a job ID
 and an answer. Standard library only.
 """
 
@@ -79,6 +89,17 @@ REST = re.compile(
     re.IGNORECASE,
 )
 REFERENCE = re.compile(REF, re.IGNORECASE)
+# A proposal line after its label: the account, a separator as in REST, the
+# action, which is remove alone, a permission's ID, and nothing after it but
+# references. Anchored and possessive, as REST.
+PROPOSAL = re.compile(
+    r"\s*+([a-z0-9][a-z0-9._-]{0,63})"
+    r"(?:\s*+[:,=]\s*+|\s++[–—-]++\s++|\s++)"
+    r"(remove)\s++([1-9][0-9]{0,8}+)"
+    rf"((?:[\s,;.()\[\]|]++(?:and\s++)?{REF})*+)"
+    r"[\s,;.()\[\]_|]*+",
+    re.IGNORECASE,
+)
 # Argo shows the termination message as the step's message. The kubelet keeps
 # up to 4 KiB of it.
 MESSAGE_BYTES = 1024
@@ -127,8 +148,8 @@ def load_checks(path, job):
     return document["accounts"]
 
 
-def after_label(line):
-    """What follows a verdict line's label, "" for a verdict line in another
+def after_label(line, label="verdict"):
+    """What follows a line's label, "" for a line with the label in another
     form, or None for any other line."""
     text = unicodedata.normalize("NFKC", line)
     text = "".join(c for c in text if unicodedata.category(c) != "Cf")
@@ -141,10 +162,10 @@ def after_label(line):
             break
         text = text[mark.end() :]
     word = WORD.match(text)
-    if not word or word[0].casefold() != "verdict":
+    if not word or word[0].casefold() != label:
         return None
     head, colon, rest = text.partition(":")
-    if not colon or head.rstrip(" \t_").casefold() != "verdict":
+    if not colon or head.rstrip(" \t_").casefold() != label:
         return ""
     return rest.lstrip("_")
 
@@ -166,6 +187,49 @@ def verdict_lines(answer):
         references = list(dict.fromkeys(found))
         lines.setdefault(rest[1].lower(), []).append((value, references))
     return lines, unread
+
+
+def proposal_lines(answer):
+    """Each account's proposals as (action, permission ID, references), and
+    the number of proposal lines that could not be read."""
+    lines, unread = {}, 0
+    for line in answer.splitlines():
+        text = after_label(line, "proposal")
+        if text is None:
+            continue
+        found = PROPOSAL.fullmatch(text)
+        # The folding before it drops marks and folds compatibility forms, so
+        # 2*3 or a superscript would read as another number. The ID is kept
+        # only where the line holds it as written, in ASCII digits.
+        if not found or not re.search(rf"(?<![0-9]){found[3]}(?![0-9])", line):
+            unread += 1
+            continue
+        references = REFERENCE.findall(found[4])
+        lines.setdefault(found[1].lower(), []).append(
+            (
+                found[2].lower(),
+                int(found[3]),
+                list(dict.fromkeys(r.lower() for r in references)),
+            )
+        )
+    return lines, unread
+
+
+def proposal_rows(answer):
+    """The proposals in the comparison's form, sorted by account, and the
+    number of lines that could not be read."""
+    lines, unread = proposal_lines(answer)
+    rows = [
+        {
+            "account": name,
+            "action": action,
+            "permission": permission,
+            "references": references,
+        }
+        for name in sorted(lines)
+        for action, permission, references in lines[name]
+    ]
+    return rows, unread
 
 
 def judge(configured, observed, found):
@@ -216,11 +280,14 @@ def compare(job, checks, answer):
     ]
     if unread:
         reasons.append(f"verdict lines that could not be read: {unread}")
+    proposals, unread_proposals = proposal_rows(answer)
     return {
         "job": job,
         "outcome": "stop" if reasons else "match",
         "reasons": reasons,
         "accounts": rows,
+        "proposals": proposals,
+        "unread_proposals": unread_proposals,
     }
 
 
@@ -260,11 +327,14 @@ def main(argv):
     try:
         checks = load_checks(VERDICTS, job)
     except Stop as stop:
+        proposals, unread_proposals = proposal_rows(answer)
         comparison = {
             "job": job,
             "outcome": "stop",
             "reasons": [str(stop)],
             "accounts": [],
+            "proposals": proposals,
+            "unread_proposals": unread_proposals,
         }
     else:
         comparison = compare(job, checks, answer)

@@ -241,4 +241,4 @@ Each gets a decision record before the milestone that depends on it.
 - The platform identity can create a public IP resource in its own group, which the NAT gateway needs, and cannot attach it to a machine ([worklog](worklogs/0002-platform-compute.md#public-address-policy)).
 - The orchestrator's way out is filtered by hostname, not by content, and TLS is not inspected (T40).
 - With the edge VM or the router down, the way in is Azure run command, which needs the Owner account (T03).
-- The [threat model](security/threat-model.md) is a first pass by the designer. Beyond the network, the VMs, and the repository, most controls are written, decided, or planned.
+- The [threat model](security/threat-model.md) is the designer's, with no outside review. Controls for milestone 5 and later are planned or open.

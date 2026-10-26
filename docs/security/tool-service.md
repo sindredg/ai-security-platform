@@ -1,6 +1,6 @@
 # Tool service and job identity
 
-Status: **tested** in CI on 2026-10-14 with `python -m pytest -q`: 160 tests passed, on the image the service is built from. Deployed on the orchestrator and **tested** on the live system on 2026-10-15: the [deployment checks](../validation/tool-service.md) and one round trip from the worker ([worklog](../worklogs/0003-toolchain-integration.md#the-deployment-on-the-orchestrator)). Since 2026-10-21 the dispatch step registers and revokes a job for each workflow, and the worker's calls with its token are allowed and logged ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows), [ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md)). Since 2026-10-25 it stores NetBox's evidence per job, and jobs on the live system have read it ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#evidence-per-job)). See the [roadmap](../roadmap.md#3-toolchain-integration) for milestone status.
+Status: deployed on the orchestrator. Its refusals are tested in the pipeline on every pull request, and on the live system by the [tool service checks](../validation/tool-service.md) and the runs under [validation evidence](#validation-evidence). Milestone status is in the [roadmap](../roadmap.md).
 
 The tool service authorizes tool calls from the AI worker, on the orchestrator. This page explains how it identifies a job, rejects unauthorized requests, and records decisions. The decisions are in ADRs [0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), and [0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md). The code is in `tool-service/`, and its policy is in `policies/tool-service.json`.
 
@@ -38,7 +38,7 @@ A request passes two stages. Before the Model Context Protocol (MCP) SDK parses 
 | Handler | The result is within the size limit | An error result |
 | Handler | The job has not expired or been revoked while the tool ran. A late result is discarded | An error result |
 
-The two tool rows are Verified on the live system on 2026-10-25. A job under a name with no collection got `nothing by that reference` on each call. A document with an injected field got `evidence does not match its schema`, and its text reached no model ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-collection-and-the-jobs)). Before that the tool read `<target>/<reference>.json` and returned the file as it was. Status is in the [roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation).
+The two tool rows are Verified on the live system. A job under a name with no collection got `nothing by that reference` on each call. A document with an injected field got `evidence does not match its schema`, and its text reached no model ([record](../evidence/2026-10-25-1208-first-netbox-jobs.md)).
 
 ![Where a job's NetBox evidence goes: the collect command on the orchestrator, as root, reads the configured permissions from NetBox with its own token, and each account's reads through the observer account on the lab VM, which uses each account's own token. It keeps the verdicts and both reports in the job's directory, which the job never reads. It writes the verdicts into a config map that only the workflow's comparison step reads, with its own job's key and no credential, and only facts into another config map. The tool service mounts that one and hands the AI worker only the job's own documents, in the fields their schemas name](../diagrams/evidence-per-job.svg)
 
@@ -66,7 +66,7 @@ One JSON object per decision, on standard output. Standard output carries nothin
 | `reason` | Why, for a refusal |
 | `result_bytes` | The size of an allowed tool result. The result itself is not logged |
 
-The pod runs the image its manifest names (`T.2`). Since 2026-10-25 that is the build from commit `91bace4`, with evidence per job ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-collection-and-the-jobs)). From 2026-10-22 it was the build from `96f91ba`, on the [fixed base image](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base).
+The pod runs the image its manifest names (`T.2`): the build from commit `91bace4`, with evidence per job ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-collection-and-the-jobs)).
 
 The service writes to standard output and opens no log file. A host service, `aisec-audit-copy`, appends them to a file that no pod mounts. It runs on the orchestrator since 2026-10-16. Storage and who can change it are on the [audit log](audit-log.md) page.
 
