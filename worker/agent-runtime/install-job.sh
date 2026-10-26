@@ -42,7 +42,7 @@ profile=/usr/share/pam-configs/aisec-light-session-$account
 } > "$profile"
 echo 'XDG_SESSION_CLASS DEFAULT=background-light' > /etc/security/aisec-light-session.conf
 chmod 0644 "$profile" /etc/security/aisec-light-session.conf
-pam-auth-update --enable "aisec-light-session-$account"
+DEBIAN_FRONTEND=noninteractive pam-auth-update --enable "aisec-light-session-$account"
 
 install -m 0755 -o root -g root "$here/job/aisec_job_runner.py" /usr/local/sbin/aisec-job-runner
 install -d -m 0755 -o root -g root /usr/local/lib/aisec/job
