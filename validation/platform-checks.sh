@@ -885,7 +885,7 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # Each pull is a login. A login that starts the account's user service
   # manager logs about 67 lines, which the next pull copies (issue 164).
   # Without a pull in the last 20 minutes this reads no-logins.
-  check J.10 "The export account's logins start no user service manager" 0 "$(value export_manager)"
+  check J.11 "The export account's logins start no user service manager" 0 "$(value export_manager)"
   # The same shape for the feed key (ADR 0026).
   check E.9 "The feed key is restricted to the orchestrator and the feed command" \
     "1 root root 644 from=\"$ORCH_IP\",restrict,command=\"/usr/local/sbin/aisec-feed-receive\"" "$(value feed_key)"
