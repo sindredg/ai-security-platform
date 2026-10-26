@@ -146,6 +146,16 @@ COLLECTOR_CODE=$(cat "$here/../collectors/netbox/netbox_access.py")
 SEEDED_VERDICTS="inventory-reader:excess inventory-reader-control:within"
 # What the orchestrator collects a job's evidence with (ADR 0040): the
 # collector, the collect command, and the contract, in install order.
+# The change commands on the orchestrator (ADR 0043 to 0046), in the order
+# install-change.sh installs them, and the commit key's public half, which the
+# approval key must not be.
+CHANGE_SHA=$(cd "$here/.." && cat platform/change/propose.py platform/change/deliver.py \
+  platform/change/policy.py platform/change/rehearse.py platform/change/netbox_change.py \
+  collectors/netbox/collect_evidence.py | sha256sum | cut -d " " -f 1)
+COMMIT_KEY=$(grep -v "^#" "$here/../.github/allowed_signers" | cut -d " " -f 3,4)
+# The rehearsal copy's reset command (ADR 0044).
+RESET_SHA=$(sha256sum "$here/../platform/change/aisec-rehearsal-reset" | cut -d " " -f 1)
+COPY=/etc/aisec/netbox-rehearsal
 COLLECT_SHAS="$(sha256sum "$here/../collectors/netbox/netbox_access.py" \
   "$here/../collectors/netbox/collect_evidence.py" "$CONTRACT" "$here/../collectors/netbox/cases.json" \
   2>/dev/null | cut -d " " -f 1 | tr "\n" " " | sed "s/ $//")"
@@ -377,6 +387,22 @@ observe=/etc/aisec/netbox/observe
 echo "netbox_observe_key=$(stat -c "%U %a" $observe $observe/id_ed25519 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 lab_pin=$(grep "^'"$LAB_IP"' " /etc/aisec/target-update/known_hosts 2>/dev/null)
 echo "netbox_observe_pin=$(wc -l <$observe/known_hosts 2>/dev/null) $([ -n "$lab_pin" ] && [ "$(cat $observe/known_hosts 2>/dev/null)" = "$lab_pin" ] && echo same || echo differ)"
+# Delivery (ADR 0046): the one approval signer, the installed commands, the
+# state, the delivery token, and the remote of the mirror.
+approvers=/etc/aisec/delivery/approvers
+echo "approvers=$(grep -cv "^#" $approvers 2>/dev/null) $(grep -v "^#" $approvers 2>/dev/null | cut -d " " -f 1,2)"
+echo "approver_key=$(grep -v "^#" $approvers 2>/dev/null | cut -d " " -f 3,4)"
+echo "change_commands=$(cat /usr/local/sbin/propose-netbox-fix /usr/local/sbin/deliver-netbox-change \
+  /usr/local/lib/aisec/policy.py /usr/local/lib/aisec/rehearse.py /usr/local/lib/aisec/netbox_change.py \
+  /usr/local/lib/aisec/collect_evidence.py 2>/dev/null | sha256sum | cut -d " " -f 1)"
+echo "change_state=$(stat -c "%U %a" /var/lib/aisec/proposals /var/lib/aisec/delivery 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+deliver=/etc/aisec/netbox/tokens/aisec-deliver
+deliver_code() {
+  curl -s -o /dev/null -w "%{http_code}" --noproxy "*" --max-time 8 --cacert /etc/aisec/netbox/tls.crt \
+    -H @<(printf "Authorization: Bearer %s\n" "$(cat $deliver 2>/dev/null)") "https://'"$NETBOX_IP:$NETBOX_PORT"'$1"
+}
+echo "deliver_token=$(stat -c "%U %a" $deliver 2>/dev/null) $(deliver_code "/api/users/permissions/?limit=1") $(deliver_code "/api/dcim/devices/?limit=1")"
+echo "delivery_remote=$(git -C /var/lib/aisec/delivery/targets.git remote get-url origin 2>/dev/null)"
 # Exit status 2 is the feed command refusing. 255 would be SSH failing, and 0
 # that the key ran a command it should not.
 sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec-feed@aisec-worker id >/dev/null 2>&1
@@ -706,6 +732,24 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
     "$COLLECT_SHAS" "$(value netbox_collect)"
   check N.19 "The observer key is root's and closed to others, and pins the lab VM's host key the update run pins" \
     "root 700 root 600 1 same" "$(value netbox_observe_key) $(value netbox_observe_pin)"
+  # Delivery accepts one approval signer, and never the key every commit is
+  # signed with, which the coding agent holds (ADR 0046).
+  approver_key=$(value approver_key)
+  if [ -n "$approver_key" ] && [ "$approver_key" != "$COMMIT_KEY" ]; then
+    approver_other=other
+  else
+    approver_other="the commit key or none"
+  fi
+  check D.1 "The approval signer file names one key, for aisec-approver, and not the commit key" \
+    '1 aisec-approver namespaces="git" other' "$(value approvers) $approver_other"
+  check D.2 "The orchestrator runs the change commands and libraries in this checkout" "$CHANGE_SHA" "$(value change_commands)"
+  check D.3 "The proposals and the delivery state are root's alone" "root 700 root 700" "$(value change_state)"
+  # The delivery token changes permission assignments. It reads them, and
+  # NetBox refuses it the inventory.
+  check D.4 "The delivery token is root's, reads permissions, and is refused the inventory" \
+    "root 600 200 403" "$(value deliver_token)"
+  check D.5 "Delivery fetches from the targets repository" \
+    "https://github.com/sindredg/ai-security-platform-test.git" "$(value delivery_remote)"
   # Kept for each target's .6, which reads the key the target accepts.
   TARGET_UPDATE_KEY=$(value target_update_key | cut -d " " -f 3,4)
   check P.12 "Squid is not installed on the orchestrator" 0 "$(value squid_installed)"
@@ -1152,6 +1196,50 @@ except (ValueError, KeyError, TypeError):
     print("not a report")')
 check N.23 "From the orchestrator, the observer account runs the observed half and nothing else" \
   "$SEEDED_VERDICTS" "$observer_run"
+
+# The rehearsal copy, a second NetBox on the lab VM's second interface
+# (ADR 0044). The orchestrator reaches it with its own pin and tokens, and
+# resets it through one forced command. Between rehearsals it holds the seed,
+# so its checks give the seed's verdicts.
+echo
+echo "== The rehearsal copy ($LAB, 10.50.1.4)"
+probe=$($SSH "$ORCH" 'sudo bash -s' 2>/dev/null <<<'
+code() { curl -s -o /dev/null -w "%{http_code}" --noproxy "*" --max-time 8 "$@"; }
+echo "copy_tls=$(code --cacert '"$COPY"'/tls.crt --resolve netbox.aisec.internal:'"$NETBOX_PORT"':10.50.1.4 https://netbox.aisec.internal:'"$NETBOX_PORT"'/login/) $(code http://10.50.1.4:'"$NETBOX_PORT"'/login/)"
+echo "copy_configured=$(env AISEC_NETBOX_URL=https://10.50.1.4:'"$NETBOX_PORT"' AISEC_NETBOX_CERT='"$COPY"'/tls.crt AISEC_NETBOX_TOKENS='"$COPY"'/tokens python3 -I /usr/local/lib/aisec/netbox_access.py configured --summary </etc/aisec/netbox/contract.json 2>/dev/null)"
+echo "copy_recorded=$(cat '"$COPY"'/reset/seed.sha256 2>/dev/null)"
+')
+copy_observed=$($SSH "$ORCH" "sudo ssh -F none -i /etc/aisec/netbox/observe/id_ed25519 -o IdentitiesOnly=yes \
+  -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/aisec/netbox/observe/known_hosts \
+  -T aisec-observe@$LAB_IP rehearsal" <"$CONTRACT" 2>/dev/null | python3 -I -c 'import json, sys
+try:
+    accounts = json.load(sys.stdin)["accounts"]
+    print(" ".join(a + ":" + v["verdict"] for a, v in accounts.items()))
+except (ValueError, KeyError, TypeError):
+    print("not a report")')
+check Q.1 "The copy answers over TLS with the certificate the orchestrator pins, and not in plain HTTP" "200 000" "$(value copy_tls)"
+copy_configured=$(value copy_configured)
+recorded=$(value copy_recorded)
+probe=$($SSH "$LAB" 'sudo bash -s' 2>/dev/null <<<'
+echo "copy_images=$(podman inspect --format "{{.Image}}" netbox netbox-worker 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+echo "rehearse=$(sshd -T -C user=aisec-rehearse,host=orchestrator,addr='"$ORCH_IP"' 2>/dev/null |
+  grep -E "^(authorizedkeysfile|allowtcpforwarding|permittty|forcecommand) " | sort | tr "\n" ";")"
+keys=/etc/ssh/aisec-rehearse-keys
+echo "rehearse_keys=$(stat -c "%U %a" $keys 2>/dev/null) $(wc -l <$keys 2>/dev/null) $(cut -d " " -f 1 $keys 2>/dev/null)"
+echo "rehearse_sudo=$(grep -v -e "^#" -e "^$" /etc/sudoers.d/92-aisec-rehearse 2>/dev/null | tr "\n" ";")"
+echo "reset_command=$(sha256sum /usr/local/sbin/aisec-rehearsal-reset 2>/dev/null | cut -d " " -f 1)"
+echo "dump=$(sha256sum /var/lib/aisec/rehearsal/seed.dump 2>/dev/null | cut -d " " -f 1) $(stat -c "%U %a" /var/lib/aisec/rehearsal /var/lib/aisec/rehearsal/seed.dump 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+')
+check Q.2 "Both of the copy's containers run the image the targets checkout pins" "$NETBOX_IMAGE_ID $NETBOX_IMAGE_ID" "$(value copy_images)"
+check Q.3 "The copy's checks give the seed's verdicts, configured and observed" \
+  "$SEEDED_VERDICTS / $SEEDED_VERDICTS" "${copy_configured:-not read} / ${copy_observed:-not read}"
+check Q.4 "The reset account takes one key from root's file, limited to the orchestrator, with no forwarding, no TTY, and one command" \
+  "allowtcpforwarding no;authorizedkeysfile /etc/ssh/aisec-rehearse-keys;forcecommand sudo -n /usr/local/sbin/aisec-rehearsal-reset;permittty no; root 644 1 from=\"$ORCH_IP\",restrict aisec-rehearse ALL=(root) NOPASSWD: /usr/local/sbin/aisec-rehearsal-reset \"\";" \
+  "$(value rehearse) $(value rehearse_keys) $(value rehearse_sudo)"
+# The reset restores the dump the orchestrator recorded when the copy was
+# seeded. A dump taken again, or edited, differs from the record.
+check Q.5 "The reset command is this checkout's, and its dump is root's and the one the orchestrator recorded" \
+  "$RESET_SHA ${recorded:-no record on the orchestrator} root 700 root 600" "$(value reset_command) $(value dump)"
 
 if [ "$workstation" = 1 ]; then
   echo

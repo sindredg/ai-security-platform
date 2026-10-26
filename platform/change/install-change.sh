@@ -38,6 +38,15 @@ fi
 
 install -d -m 0700 -o root -g root /var/lib/aisec/proposals /var/lib/aisec/delivery \
   /var/lib/aisec/delivery/results
+# Delivery's mirror of the targets repository. Its first fetch fills it, during
+# a fetch window. The remote is set here, so a check reads where it fetches.
+mirror=/var/lib/aisec/delivery/targets.git
+remote=https://github.com/sindredg/ai-security-platform-test.git
+if [ ! -d "$mirror" ]; then
+  git init -q --bare "$mirror"
+  git -C "$mirror" remote add origin "$remote"
+fi
+git -C "$mirror" remote set-url origin "$remote"
 
 install -d -m 0700 -o root -g root "$reset"
 if [ ! -e "$reset/id_ed25519" ]; then
