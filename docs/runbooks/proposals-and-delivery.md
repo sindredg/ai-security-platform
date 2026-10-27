@@ -4,11 +4,11 @@ Status: Implemented on 2026-10-27. Run once, on the live system, from scripts wi
 
 Step 5's rerun is new since "Approved commit" became required on 2026-10-27. A rerun was seen to read a tag pushed after the first run, with a test tag whose signature fails ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#fixes-after-the-close)).
 
-This takes a NetBox job whose comparison matched from its proposal to a delivered fix: the policy check and a rehearsal on the copy on the orchestrator host, a pull request from the operator's machine, an approval tag signed with the approval key, and delivery with a token made for it ([ADR 0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md)). It ends with the rollback and with the copy brought to the merged seed.
+This takes a NetBox job that passed the verification gate from its remediation proposal to a delivered fix: the policy check and a staging test on the copy, on the orchestrator host, a pull request from the operator's machine, an approval tag signed with the approval key, and delivery with a token made for it ([ADR 0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md)). It ends with the rollback and with the copy brought to the merged seed.
 
 Before this:
 
-- The rehearsal copy runs on the lab VM, and the change commands are installed with the approvers file: the [rehearsal copy runbook](rehearsal-copy.md), steps 1 to 22.
+- The staging copy runs on the lab VM, and the change commands are installed with the approvers file: the [staging copy runbook](rehearsal-copy.md), steps 1 to 22.
 - A NetBox job ran and matched: the [evidence collection runbook](evidence-collection.md), steps 11 and 12.
 - The approval key exists on the operator's machine, with a passphrase, and its public half is `APPROVERS` in the targets repository.
 
@@ -21,17 +21,17 @@ Before this:
 | A checkout of this repository | Run from its root, for `platform/change/edit_seed.py` |
 | A checkout of the targets repository | `REPLACE_WITH_TARGETS_CHECKOUT`, with `main` fetched |
 | The approval key | `REPLACE_WITH_APPROVAL_KEY`, the private half, used only by `git tag -s` and never added to an agent |
-| The job | `REPLACE_WITH_JOB`, a NetBox job whose comparison matched |
+| The job | `REPLACE_WITH_JOB`, a NetBox job that passed the verification gate |
 
 ## Propose
 
-1. Run the policy check and the rehearsal for the job.
+1. Run the policy check and the staging test for the job.
 
    ```bash
    REPLACE_WITH_SSH aisec-orchestrator 'sudo propose-netbox-fix REPLACE_WITH_JOB'
    ```
 
-   Expected: `policy: allowed`, `rehearsal: passed`, each contract account `within/within`, and the bundle's path. A refused or failed proposal prints its reasons and exits 1, and its bundle has no `pr-body.md`. A job is proposed once.
+   Expected: `policy: allowed`, `rehearsal: passed`, each account in the access specification `within/within`, and the bundle's path. A refused or failed proposal prints its reasons and exits 1, and its bundle has no `pr-body.md`. A job is proposed once.
 
 ## Publish, from the operator's machine
 
@@ -44,7 +44,7 @@ Before this:
    done
    ```
 
-   Expected: both files. `pr-body.md` exists only for an allowed fix that passed its rehearsal.
+   Expected: both files. `pr-body.md` exists only for an allowed fix that passed its staging test.
 
 3. A worktree on a new branch from `main`'s head, and the seed edit.
 
@@ -87,7 +87,7 @@ Before this:
 
 ## Deliver
 
-6. Open a fetch window, so the orchestrator can fetch the targets repository.
+6. Open a just-in-time (JIT) egress window, so the orchestrator can fetch the targets repository.
 
    ```bash
    REPLACE_WITH_SSH aisec-edge 'sudo aisec-fetch-window open 20'
@@ -103,7 +103,7 @@ Before this:
      REPLACE_WITH_SSH aisec-orchestrator 'sudo deliver-netbox-change approve/netbox/REPLACE_WITH_JOB'
    ```
 
-   Expected: `fix COMMIT, read back: True`, each changed permission with its users, each contract account `within/within`, then `passed`. The same tag again prints `refused: approve/netbox/REPLACE_WITH_JOB: this approval was used already`, and nothing changes. Without a token on standard input the command exits 2 before it fetches.
+   Expected: `fix COMMIT, read back: True`, each changed permission with its users, each account in the access specification `within/within`, then `passed`. The same tag again prints `refused: approve/netbox/REPLACE_WITH_JOB: this approval was used already`, and nothing changes. Without a token on standard input the command exits 2 before it fetches.
 
 8. Close the window.
 
@@ -115,13 +115,13 @@ Before this:
 
 9. Merge the pull request, only after step 7 printed `passed` and only when its head is the commit delivered, which step 7 printed. Then fetch `main` in the targets checkout, so the checks read the merged seed.
 
-   Expected: GitHub merges only once "Approved commit" has passed on the head. `N.14` and `N.17` pass with both accounts within.
+   Expected: GitHub merges only once "Approved commit" has passed on the head. `N.14` and `N.17` pass with both accounts `within`.
 
 ## Roll back
 
 10. Sign a tag on `main`'s head, and deliver it as in steps 6 to 8. A rollback needs its own approval.
 
-    Expected: `restore MAIN, read back: True`, the seed's assignments back, and the checks' verdicts as `main`'s seed gives them, then `passed`. A restore passes when it reads back: the seed's own weakness comes back with it.
+    Expected: `restore MAIN, read back: True`, the seed's assignments back, and the deterministic checks' verdicts as `main`'s seed gives them, then `passed`. A restore passes when it reads back: the seed's own weakness comes back with it.
 
 ## Bring the copy to the merged seed
 

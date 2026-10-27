@@ -1,6 +1,6 @@
 # Cluster
 
-K3s on the orchestrator, one server. Its workloads are checked on their own pages: the [tool service](tool-service.md) and [Argo with its workflows](workflows.md). The design is [ADR 0001](../decisions/0001-k3s-for-initial-orchestration.md). These checks hold the benchmark fixes in place and prove the cluster came back after a restart.
+K3s on the orchestrator, one server. Its workloads are checked on their own pages: the [tool service (an MCP server)](tool-service.md) and [Argo with its workflows](workflows.md). The design is [ADR 0001](../decisions/0001-k3s-for-initial-orchestration.md). These checks hold the benchmark fixes in place and prove the cluster came back after a restart.
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |

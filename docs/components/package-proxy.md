@@ -1,6 +1,6 @@
 # Package proxy
 
-The platform's one way to the internet for the orchestrator and the worker. Squid on the edge VM forwards package downloads to the Ubuntu mirrors, and, while the operator holds a fetch window open, tunnels from the orchestrator to the build and deploy hosts. A second port serves the targets' packages, which the orchestrator forwards to a target during an update run ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)). It refuses everything else.
+The platform's one way to the internet for the orchestrator and the worker. Squid on the edge VM forwards package downloads to the Ubuntu mirrors, and, while the operator holds a just-in-time (JIT) egress window open, tunnels from the orchestrator to the build and deploy hosts. A second port serves the targets' packages, which the orchestrator forwards to a target during an update run ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)). It refuses everything else.
 
 | | |
 | --- | --- |
@@ -10,7 +10,7 @@ The platform's one way to the internet for the orchestrator and the worker. Squi
 | Version | Not pinned. The archive drops superseded versions, and a pin would hold back security fixes |
 | Listens on | `10.45.0.4:3128`, and `10.45.0.4:3129` for the targets' packages. Nothing else |
 | Configuration | `/etc/squid/squid.conf`, the fetch host list from `edge/fetch-hosts`, and a systemd sandbox, all from cloud-init (`infra/platform/cloud-init/edge.yaml.tftpl`) |
-| Decisions | [0011](../decisions/0011-package-proxy-for-the-worker.md) for the worker's rules, [0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) for the edge VM, the orchestrator's rules, and the fetch window, [0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md) for the targets' port |
+| Decisions | [0011](../decisions/0011-package-proxy-for-the-worker.md) for the worker's rules, [0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) for the edge VM, the orchestrator's rules, and the JIT egress window, [0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md) for the targets' port |
 
 ![How a package reaches the worker: from apt on the worker to Squid on the edge VM over TCP 3128, through the edge network's NAT gateway to two Ubuntu package hosts, with every other request refused](../diagrams/update-path.svg)
 
@@ -22,8 +22,8 @@ The diagram source is [`diagrams/update-path.html`](../diagrams/update-path.html
 | --- | --- | --- |
 | `GET` or `HEAD` on port 80 to `archive.ubuntu.com` or `security.ubuntu.com` | The worker subnet | Forwarded |
 | `GET` or `HEAD` on port 80 to `azure.archive.ubuntu.com` | The orchestrator, `10.40.0.4` | Forwarded |
-| `CONNECT` on port 443 to a host in `edge/fetch-hosts` | The orchestrator, while a fetch window is open | Tunnelled |
-| `GET` or `HEAD` on port 80 to `azure.archive.ubuntu.com`, on port 3129 | The orchestrator, for a target during an update run | Forwarded. A fetch window does not change this port's answers |
+| `CONNECT` on port 443 to a host in `edge/fetch-hosts` | The orchestrator, while a JIT egress window is open | Tunnelled |
+| `GET` or `HEAD` on port 80 to `azure.archive.ubuntu.com`, on port 3129 | The orchestrator, for a target during an update run | Forwarded. A JIT egress window does not change this port's answers |
 | Anything else on port 3129 | Either | 403 |
 | Any other host, port, or method, and any other `CONNECT` | Either | 403 |
 | Anything | Any other address, the edge itself included | 403 |
@@ -32,7 +32,7 @@ It caches nothing. Package integrity over HTTP relies on `apt` verifying package
 
 Squid resolves every name. Neither client needs DNS, and both are denied Azure DNS.
 
-## The fetch window
+## The JIT egress window
 
 Builds and deploys fetch from GitHub, the two container registries, Hugging Face, and PyPI. All of them accept uploads from anyone with an account, so none of them is on a standing list. The operator opens them for one build or deploy:
 
@@ -48,7 +48,7 @@ sudo aisec-fetch-window close
 - **Logged.** Every open and close goes to the edge's journal under `aisec-fetch-window`, with the operator's name. Every request goes to Squid's access log.
 - **A reboot closes it.** The window is one line in a file under `/run`, which Squid includes.
 
-The host list, `edge/fetch-hosts`, holds the names the orchestrator fetches from and the hosts they redirect to, as read from Squid's log on 2026-10-17. A host missing from it shows as `TCP_DENIED` in the log during a window. The [edge runbook](../runbooks/edge-vm.md#open-a-fetch-window) has the procedure.
+The host list, `edge/fetch-hosts`, holds the names the orchestrator fetches from and the hosts they redirect to, as read from Squid's log on 2026-10-17. A host missing from it shows as `TCP_DENIED` in the log during a window. The [edge runbook](../runbooks/edge-vm.md#open-a-jit-egress-window) has the procedure.
 
 ## The clients' side
 

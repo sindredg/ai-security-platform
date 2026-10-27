@@ -1,10 +1,10 @@
-# The rehearsal copy on the lab VM: operator procedure
+# The staging copy on the lab VM: operator procedure
 
 Status: Implemented on 2026-10-26. Run once, on the live system, 20:04 to 20:37 UTC, from four scripts with the same commands ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-rehearsal-copy)). The first install stopped at step 16 on a fault of its own output helper, and a second script ran steps 16 to 21.
 
 Step 14 has since gained `AISEC_NETBOX_COPY=yes` ([ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md)), and the undo and the steps after a rebuild were not run.
 
-This gives the lab VM a second interface in the rehearsal subnet, installs a second NetBox on it as the rehearsal copy, seeds the copy, and gives the orchestrator a reset of it through one forced command ([ADR 0044](../decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)). The copy is target side: a passed rehearsal is evidence, and the check after delivery is the proof.
+This gives the lab VM a second interface in the `rehearsal` subnet, installs a second NetBox on it as the staging copy, seeds the copy, and gives the orchestrator a reset of it through one forced command ([ADR 0044](../decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)). The copy is target side: a passed staging test is evidence, and the check after delivery is the proof.
 
 Before this:
 
@@ -32,7 +32,7 @@ Before this:
    terraform plan -out=REPLACE_WITH_PLAN
    ```
 
-   Expected: `Plan: 1 to add, 2 to change, 0 to destroy.` The lab VM is updated in place, with its second interface in `network_interface_ids`, and the rehearsal group gains `allow-netbox-from-orchestrator`. A plan that replaces the lab VM is a stop: a rebuilt lab VM loses the observer account, the consumer tokens, and its pinned host key.
+   Expected: `Plan: 1 to add, 2 to change, 0 to destroy.` The lab VM is updated in place, with its second interface in `network_interface_ids`, and the `rehearsal` group gains `allow-netbox-from-orchestrator`. A plan that replaces the lab VM is a stop: a rebuilt lab VM loses the observer account, the consumer tokens, and its pinned host key.
 
 2. Apply the plan.
 
@@ -249,7 +249,7 @@ Before this:
 
     Expected: the forced command runs instead, and its last line is the SHA-256 step 17 recorded, after about a minute.
 
-21. Rehearse the seed's fix once with the installed library.
+21. Run a staging test of the seed's fix once with the installed library.
 
     ```bash
     REPLACE_WITH_SSH aisec-orchestrator "sudo python3 -I -c 'import json, sys
@@ -270,7 +270,7 @@ Before this:
     validation/platform-checks.sh
     ```
 
-    Expected: `Q.1` to `Q.5` pass, with `C.3`, `Z.25`, `Z.29`, and `Z.30` ([targets](../validation/targets.md#the-rehearsal-copy)).
+    Expected: `Q.1` to `Q.5` pass, with `C.3`, `Z.25`, `Z.29`, and `Z.30` ([targets](../validation/targets.md#the-staging-copy)).
 
 ## Undo
 

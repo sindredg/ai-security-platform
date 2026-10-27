@@ -60,7 +60,7 @@ Provision the orchestrator and AI worker VMs. Install K3s. Set up the mesh VPN, 
 
 Deploy Argo Workflows, the agent runtime, and the model server. Prove the round trip from a workflow to the worker and back, on synthetic evidence only. This is where the design is most likely to be wrong, so it comes before any target exists.
 
-**Depends on:** the dispatch, job identity, and tool service decisions, in ADRs [0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), [0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), [0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), [0029](decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), and [0030](decisions/0030-how-a-job-reaches-the-worker.md).
+**Depends on:** the dispatch, job identity, and tool service (an MCP server) decisions, in ADRs [0012](decisions/0012-dispatch-over-ssh-with-a-forced-command.md), [0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), [0014](decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), [0029](decisions/0029-argo-workflows-in-its-own-namespace-and-the-ui-on-the-operators-machine.md), and [0030](decisions/0030-how-a-job-reaches-the-worker.md).
 
 **Completion criteria:**
 
@@ -110,16 +110,16 @@ Move the platform's way out and its mesh VPN node off the orchestrator, and send
 
 ## 4. NetBox target and exercise 1 investigation
 
-Define the consumer contract. Deploy NetBox, synthetic inventory, and the consumer. Seed the excess-permission finding and investigate it.
+Define the access specification. Deploy NetBox, synthetic inventory, and the consumer. Seed the over-privilege finding and investigate it.
 
 **Depends on:** ADRs [0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md) to [0042](decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md). Cloud identity for cluster workloads stays open, because no collector in exercise 1 reads from Azure ([ADR 0013](decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md)).
 
 **Completion criteria:**
 
-- The consumer contract lists endpoints, fields, permitted records, and expected denials.
+- The access specification, each consumer's least privilege, lists endpoints, fields, permitted records, and expected denials.
 - Deterministic checks confirm the finding and a known unaffected case.
 - Evidence is collected per job. The tool service refuses a job's call for another job's evidence on the same target ([#45](https://github.com/sindredg/ai-security-platform/issues/45)), and hands the model only the fields its schema names ([#152](https://github.com/sindredg/ai-security-platform/issues/152)).
-- The investigation is scored as a dispatched job, through the workflow, on held-out cases. The hash of the case file is committed before the first scored run.
+- The investigation is scored as a dispatched job, through the workflow, on held-out cases. The hash of the case file is committed before the first evaluation (eval) run.
 - The AI investigation cites tool evidence for each conclusion, and says so when evidence disagrees. Conclusions without tool evidence are counted.
 - The workflow compares the model's verdict with the deterministic checks. A mismatch, an inconclusive verdict, or a failed job stops the workflow for the operator. A match and a stop are each shown, with evidence from that job only.
 - A baseline without AI, using the same tools, is recorded for comparison. A usefulness rubric, written before the runs, scores both, and operator effort and elapsed time are measured for both. The result is recorded whichever way it falls, and is not a pass gate.
@@ -127,13 +127,13 @@ Define the consumer contract. Deploy NetBox, synthetic inventory, and the consum
 
 ## 5. Remediation, pull requests, and delivery
 
-Rehearse a proposed fix on the rehearsal copy, publish it as a pull request, and deliver it after approval.
+Test a proposed fix on the staging copy, publish it as a pull request, and deliver it after approval.
 
-**Depends on:** ADRs [0043](decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [0047](decisions/0047-a-delivery-token-for-each-delivery.md), decided, and the inline steps of [0048](decisions/0048-the-workflows-steps-are-inline-so-no-workflow-runs-one-alone.md), so that no workflow skips the comparison.
+**Depends on:** ADRs [0043](decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [0047](decisions/0047-a-delivery-token-for-each-delivery.md), decided, and the inline steps of [0048](decisions/0048-the-workflows-steps-are-inline-so-no-workflow-runs-one-alone.md), so that no workflow skips the verification gate.
 
 **Completion criteria:**
 
-- A proposal becomes a pull request with evidence, and the worker never holds repository credentials.
+- A remediation proposal becomes a pull request with evidence, and the worker never holds repository credentials.
 - An investigation that stopped for the operator opens no pull request.
 - A deliberately unsafe patch is rejected even though its functional tests pass.
 - Delivery applies only the approved commit to the approved target. A changed commit voids the approval.
@@ -157,7 +157,7 @@ Break the finished workflow on purpose.
 - An audit daemon and file integrity monitoring on both VMs, with a drill that shows each one catching something.
 - A rebuild of each VM from the current templates, with every manual step recorded.
 - Operator sessions to the targets in the audit log (T04). Carried over from milestone 4.
-- The slot erase after a job that timed out ([#199](https://github.com/sindredg/ai-security-platform/issues/199)). Carried over from milestone 4.
+- The KV-cache clear after a job that timed out ([#199](https://github.com/sindredg/ai-security-platform/issues/199)). Carried over from milestone 4.
 
 Every threat rated high in the threat model maps to one of these drills or to a stated accepted risk. A high threat with neither is a gap, and the milestone stays open.
 
@@ -169,7 +169,7 @@ Same workflow, different change surface. Seed a target network rule that lets th
 
 - Probes from both viewpoints, before and after.
 - The change touches only allowlisted target network fields.
-- The consumer contract and the exercise 1 denials still hold.
+- The access specification and the exercise 1 denials still hold.
 - Outer containment is unchanged.
 - The threat model is rechecked for the new change surface.
 
@@ -180,7 +180,7 @@ Pick a real advisory, an affected pinned artifact, and a reviewed fix before see
 **Completion criteria:**
 
 - An applicability record for the specific artifact, backed by its SBOM. A version-string match is not enough.
-- The update is rehearsed with database migration and a tested recovery procedure.
+- The update gets a staging test, with database migration and a tested recovery procedure.
 - The specific finding is reassessed after delivery. A clean generic scan is not enough.
 - Results from exercises 1 and 2 still hold.
 - The threat model is rechecked for the new change surface.

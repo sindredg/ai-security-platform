@@ -1,6 +1,6 @@
 # Tool service: operator procedure
 
-Status: Implemented on 2026-10-15. Deployed once, on an orchestrator built before the node port setting and the pod egress rule were in its first-boot template. Every step below was run during that deployment, except that steps 5 and 6 were applied by hand there instead of read back. A deployment on an orchestrator built from the current template, and a certificate rotation, have not been run. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#the-deployment-on-the-orchestrator). Steps 2 and 4 ran again on 2026-10-22 for a new image, with the pull in a fetch window that step 4 has named since then ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base)).
+Status: Implemented on 2026-10-15. Deployed once, on an orchestrator built before the node port setting and the pod egress rule were in its first-boot template. Every step below was run during that deployment, except that steps 5 and 6 were applied by hand there instead of read back. A deployment on an orchestrator built from the current template, and a certificate rotation, have not been run. Results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#the-deployment-on-the-orchestrator). Steps 2 and 4 ran again on 2026-10-22 for a new image, with the pull in a just-in-time (JIT) egress window that step 4 has named since then ([worklog](../worklogs/0003-toolchain-integration.md#installed-the-images-on-the-fixed-base)).
 
 Run these steps to put the tool service in K3s on the orchestrator and prove one round trip from the worker: open the port, make the certificate, deploy, give the worker the certificate and the name, run the checks, then register a job, call a tool with its token, and revoke it. The evidence is synthetic.
 
@@ -54,7 +54,7 @@ The dispatch step registers and revokes each workflow's job since 2026-10-21 ([w
 
    Expected: the subject `CN=tool-service.aisec.internal`, an end date 90 days out, the three DNS names, `CA:FALSE`, and a SHA-256 fingerprint. Record the fingerprint for step 8. The script refuses to replace a certificate that exists. See [Rotate the certificate](#rotate-the-certificate).
 
-4. Pull the image in a fetch window, then deploy. The orchestrator reaches the registry only while a window is open ([edge runbook](edge-vm.md#open-a-fetch-window)). Run this when no workflow is running: jobs live in the service's memory, and the restart ends them.
+4. Pull the image in a JIT egress window, then deploy. The orchestrator reaches the registry only while a window is open ([edge runbook](edge-vm.md#open-a-jit-egress-window)). Run this when no workflow is running: jobs live in the service's memory, and the restart ends them.
 
    ```bash
    IMAGE=$(grep -oE 'ghcr\.io/[^ ]+@sha256:[0-9a-f]{64}' platform/tool-service/tool-service.yaml)

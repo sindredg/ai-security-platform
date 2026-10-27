@@ -17,7 +17,7 @@ No VM has a public address. The only way in is the mesh VPN to the router, then 
 | `A.12` | The router is reachable over the mesh VPN with the operator certificate | It is the way in. When it is down, administration goes through Azure run command (T03) | An SSH login from the workstation to the router's mesh name |
 | `A.13` | No plain key is authorized for the administrator on the router | As `A.5` | No line in the same file on the router |
 | `A.14` | The administrator on the router forwards nothing | Routed sessions pass through the router at the IP layer. An SSH forward would be a second path, around the security groups' view of it | `sshd -T` on the router shows `no` and `any`, as `A.10` |
-| `A.15` | The edge is reachable through the router with the operator certificate | Administration of the edge, and the fetch window | An SSH login from the workstation to `10.45.0.4` |
+| `A.15` | The edge is reachable through the router with the operator certificate | Administration of the edge, and the just-in-time (JIT) egress window | An SSH login from the workstation to `10.45.0.4` |
 | `A.16` | No plain key is authorized for the administrator on the edge | As `A.5` | No line in the same file on the edge |
 | `A.17` | The administrator on the edge forwards nothing | The edge's proxy is the only service it offers | `sshd -T` on the edge shows `no` and `any`, as `A.10` |
 | `A.18` | The edge is not on the mesh VPN | [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md) keeps the mesh node on the router alone | The package's status, from `dpkg-query`, does not end in `ok installed` |
@@ -30,7 +30,7 @@ No VM has a public address. The only way in is the mesh VPN to the router, then 
 | `M.5` | The mesh policy drops the tool port | The tool port is for the worker | A TCP connection to the orchestrator's private address on port 30443 times out. Not seen to fail: changing the mesh policy is not a read-only step. Port 22 on the same address is `open`, so the probe can see a connection |
 | `M.6` | The mesh policy allows SSH to the router | Administration of the router | A TCP connection to port 22 on the router's mesh name |
 | `M.7` | The mesh policy drops another port on the router | The grant to the router is one port | A TCP connection to port 80 times out. Nothing listens there, so `refused` would mean the policy let the packet in |
-| `M.8` | The mesh policy allows SSH to the edge | Administration of the edge, and the fetch window | A TCP connection to `10.45.0.4:22` |
+| `M.8` | The mesh policy allows SSH to the edge | Administration of the edge, and the JIT egress window | A TCP connection to `10.45.0.4:22` |
 
 ## The router
 

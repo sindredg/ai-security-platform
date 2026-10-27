@@ -19,7 +19,7 @@ One outbound path for the whole system: a NAT gateway on the edge network, used 
 
 ## Rules on the platform side
 
-![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the orchestrator also reaches port 3129 on the edge for the targets' packages, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service on port 30443, the orchestrator reaches the worker and the targets on port 22 and NetBox on port 8443, and everything else drawn is denied. The orchestrator, the worker, and the targets have no DNS. Not drawn: the log agents' port 443 to the monitoring private endpoint, the router's port 22 to the edge VM, and the consumer subnet's port 8443 to NetBox](../diagrams/network-flows.svg)
+![Network flows: the operator reaches the router on port 22, the router reaches the orchestrator, the worker, and the targets on port 22, the orchestrator and the worker reach the edge VM's proxy on port 3128 and nothing on the internet, the orchestrator also reaches port 3129 on the edge for the targets' packages, the edge and the router leave through the one NAT gateway, the worker also reaches the tool service (an MCP server) on port 30443, the orchestrator reaches the worker and the targets on port 22 and NetBox on port 8443, and everything else drawn is denied. The orchestrator, the worker, and the targets have no DNS. Not drawn: the log agents' port 443 to the monitoring private endpoint, the router's port 22 to the edge VM, and the consumer subnet's port 8443 to NetBox](../diagrams/network-flows.svg)
 
 The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.html). The table below names the rule behind each path. NetBox's port, TCP 8443 from the orchestrator and from the consumer subnet, is in the tables and not in the diagram.
 
@@ -69,7 +69,7 @@ Each of the four target subnets has its own security group. All four have the sa
 | Outbound | Deny | The internet, Azure DNS | `deny-to-internet`, `deny-to-azure-dns` |
 | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
 
-The table is read from that file on 2026-10-24, with NetBox's port. `Z.25` reads each group's inbound allows. `Z.27` and `Z.28` compare the effective rules on the NetBox VM's and the lab VM's interfaces with their groups, since 2026-10-24. The unintended and rehearsal subnets have no VM, so their effective rules are not read.
+The table is read from that file on 2026-10-24, with NetBox's port. `Z.25` reads each group's inbound allows. `Z.27` and `Z.28` compare the effective rules on the NetBox VM's and the lab VM's interfaces with their groups, since 2026-10-24. The `unintended` and `rehearsal` subnets have no VM, so their effective rules are not read.
 
 ## Validation
 

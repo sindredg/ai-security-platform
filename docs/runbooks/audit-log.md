@@ -2,7 +2,7 @@
 
 Status: Implemented on 2026-10-16. Steps 1 to 10 were run that day on the live VMs, from commit `4218b0a`, and the results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies). The archive steps have not been run. A first boot from the current templates, which runs the same installs, has not been run either.
 
-Run these steps to copy the tool service's audit lines into an append-only file on the orchestrator, deploy the tool service so that its lines are numbered, and pull the worker's journal into a second append-only file. The design is [ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md). Storage and who can change it are on the [audit log page](../security/audit-log.md).
+Run these steps to copy the tool service (an MCP server)'s audit lines into an append-only file on the orchestrator, deploy the tool service so that its lines are numbered, and pull the worker's journal into a second append-only file. The design is [ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md). Storage and who can change it are on the [audit log page](../security/audit-log.md).
 
 ## Inputs and access
 

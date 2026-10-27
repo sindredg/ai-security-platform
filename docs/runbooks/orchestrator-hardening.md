@@ -9,7 +9,7 @@ Run these steps on an orchestrator built before this change, to add two things f
 | Input | Notes |
 | --- | --- |
 | SSH to the orchestrator over the mesh VPN | `REPLACE_WITH_SSH` below stands for the operator's `ssh` command with its options, for example `ssh -F <config>` |
-| The tool service, deployed | The probe pod runs its image, which is already on the node. The [tool service runbook](tool-service.md) |
+| The tool service (an MCP server), deployed | The probe pod runs its image, which is already on the node. The [tool service runbook](tool-service.md) |
 | A checkout of this repository on the workstation, at the commit to apply | The template is `infra/platform/cloud-init/orchestrator.yaml.tftpl`. The commands below carry the same file contents |
 | No job active | Step 6 restarts K3s and the system deployments |
 
