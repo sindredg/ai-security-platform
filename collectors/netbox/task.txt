@@ -13,3 +13,6 @@ Cite the evidence each conclusion rests on, and say where the evidence disagrees
 End the answer with one line per account, as plain text with no bold, list marks, or other formatting. Write the word Verdict only at the start of those lines. Each line starts with Verdict and a colon, then the account's name as ev-0001 gives it, its verdict, and the evidence the verdict rests on. These two lines are examples for accounts that do not exist:
 Verdict: some-account excess ev-0002 ev-0003
 Verdict: other-account within ev-0003
+
+For each account whose verdict is excess, propose the one change that removes the excess: the permission to take from that account. Only a permission that ev-0002 lists for that account may be named. After the Verdict lines, end with one line per such account, as plain text: the word Proposal and a colon, the account's name, the word remove, the permission's id from ev-0002, and the evidence the change rests on. Write the word Proposal only at the start of those lines. This line is an example for an account that does not exist:
+Proposal: some-account remove 12 ev-0002 ev-0003

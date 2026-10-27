@@ -627,6 +627,17 @@ class TheNetboxTask(unittest.TestCase):
         for found in lines.values():
             self.assertIn(found[0][0], compare.VALUES)
 
+    def test_the_netbox_task_asks_for_the_proposal_lines_the_comparison_reads(self):
+        text = TASK.read_text(encoding="utf-8")
+        self.assertIn("Proposal:", text)
+        # Its example is a line the comparison reads, for an account no
+        # contract has, so a copied example is a proposal the policy refuses.
+        proposals, unread = compare.proposal_lines(text)
+        self.assertEqual(unread, 0)
+        self.assertEqual(
+            proposals, {"some-account": [("remove", 12, ["ev-0002", "ev-0003"])]}
+        )
+
     def test_the_netbox_task_passes_the_workers_refusals(self):
         spec = importlib.util.spec_from_file_location("agent_job", JOB_PROGRAM)
         agent_job = importlib.util.module_from_spec(spec)
