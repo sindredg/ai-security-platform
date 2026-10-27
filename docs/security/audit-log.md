@@ -1,6 +1,6 @@
 # Audit log
 
-Where the tool service's audit lines are stored, and who can change them. What a line holds is on the [tool service](tool-service.md#the-audit-line) page. The design is ADRs [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) and [0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md).
+Where the tool service (an MCP server)'s audit lines are stored, and who can change them. What a line holds is on the [tool service](tool-service.md#the-audit-line) page. The design is ADRs [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md) and [0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md).
 
 State: **Verified** on 2026-10-16. The copier, its unit, and its install script are in `platform/logs/` and the orchestrator's first-boot template. It runs on the orchestrator, and each check was seen to fail, on a broken condition or before the install ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). The checks are `L.1` to `L.7` on [validation](../validation/audit-log.md).
 
