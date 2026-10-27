@@ -45,11 +45,11 @@ In `infra/platform/alerts.tf`, on the workspace. Each fires once when its condit
 | `copy-marker` | A marker line in the audit copy or the journal copy | 1 | 5 min, 15 min |
 | `journal-missing` | No row from the worker's journal copy | 2 | 5 min, 15 min |
 | `squid-refused-orchestrator` | Squid refused a request from the orchestrator | 1 | 5 min, 15 min |
-| `fetch-window-opened` | A fetch window opened on the edge | 3 | 5 min, 15 min |
+| `fetch-window-opened` | A just-in-time (JIT) egress window opened on the edge | 3 | 5 min, 15 min |
 | `denied-flow-to-internet` | A denied flow from the orchestrator or worker subnet to a public address | 1 | 10 min, 30 min |
 | `ssh-login-accepted` | An SSH login was accepted | 3 | 5 min, 15 min |
 | `ssh-login-failed` | An SSH login failed, or a certificate was refused | 2 | 5 min, 15 min |
-| `tool-refusal-burst` | More than 20 tool service refusals in one 5-minute bin | 2 | 5 min, 15 min |
+| `tool-refusal-burst` | More than 20 tool service (an MCP server) refusals in one 5-minute bin | 2 | 5 min, 15 min |
 | `daily-cap` | The daily cap was reached | 1 | 15 min, 15 min |
 | `disk-or-memory` | `/`, `/boot`, or `/boot/efi` over 85 percent, or memory over 90 percent | 2 | 15 min, 15 min |
 | `failed-unit` | A systemd unit failed | 2 | 5 min, 15 min |
