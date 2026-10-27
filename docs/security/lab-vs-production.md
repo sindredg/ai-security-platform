@@ -23,7 +23,7 @@ These controls are part of the design. Their current implementation and evidence
 | Every tool call authorized on the server, from a scope the caller cannot widen | Verified on the live system for a tool outside the job's scope and a revoked or expired token: [worklog](../worklogs/0003-toolchain-integration.md#the-round-trip). See [tool service](tool-service.md) |
 | Read-only tools. A separate trusted runner applies approved changes | Verified: the worker's one tool reads evidence, and delivery, a root command on the orchestrator host, applied an approved fix ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end)) |
 | Downloaded artifacts are pinned by digest and verified before use | Built, per artifact on the [supply chain](supply-chain.md) page |
-| A target change requires an approved pull request | Verified: delivery took a tag signed with the approval key, refused it when used again, and the pull request merged after ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end)) |
+| A target change requires an approved pull request | Verified: delivery took an approval tag once, refused it again, and the merge followed ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end)). A seed change merges only with an approved head ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#fixes-after-the-close)) |
 | Threats documented before implementation, with validation tied to each control | Decided in [ADR 0010](../decisions/0010-threat-model-and-security-checks-per-milestone.md) |
 
 ## Lab limitations
@@ -57,7 +57,7 @@ The risk column describes what an attacker could do, or what could fail, because
 | The tool service runs in a container on the orchestrator | The lab has one trusted machine | A service vulnerability could expose the machine that holds the credentials (T22) | A sandboxed runtime or separate machine, plus independent code review |
 | Credentials stored as files on the orchestrator and as Kubernetes Secrets, such as the dispatch key since 2026-10-21 | K3s secret encryption is enabled. One operator has root access | Root on the orchestrator can read them (T36) | A managed secret store, hardware-backed keys, and short-lived credentials |
 | A stop fails the workflow, and the next try is a new job ([ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)) | One worker. A workflow suspended for the operator would hold its lock, and every other job would wait | A right verdict in a form the comparison cannot read costs a whole job | A suspend the operator resumes or ends, with more than one worker, so that a stopped job holds none |
-| A small model, built on the worker from the publisher's weights | It fits in 8 GiB and keeps inference local | On six held-out cases, 13 of 18 verdicts were the checks' ([evidence](../evidence/2026-10-25-2308-scored-cases.md)). A wrong one stops the workflow (A3) | A model selected through evaluation, with request logging and appropriate data controls |
+| A small model, built on the worker from the publisher's weights | It fits in 8 GiB and keeps inference local | On six held-out cases, 13 of 18 verdicts were the checks' ([evidence](../evidence/2026-10-25-2308-scored-cases.md)). A wrong one stops the workflow (A3) | A model selected through evaluation, on a GPU worker inside the platform, with request logging and appropriate data controls |
 
 ### Tool service and job identity
 

@@ -12,7 +12,7 @@ Each criterion was tested on the live system, and a row names any part tested in
 | A proposal becomes a pull request with evidence, and the worker never holds repository credentials | **Tested**: targets [#15](https://github.com/sindredg/ai-security-platform-test/pull/15), opened from a job's bundle on the operator's machine. A search of the orchestrator and the worker found no repository credential ([the review](#the-review-for-the-close)) |
 | An investigation that stopped for the operator opens no pull request | **Tested**: `propose-netbox-fix` refused a scored job that stopped, and a comparison run without the model ([the review](#the-review-for-the-close), [#203](#an-unsafe-patch-and-a-skipped-comparison)) |
 | A deliberately unsafe patch is rejected even though its functional tests pass | **Tested**: the right fix with a change to the delivery account passed its rehearsal, and the policy refused it ([unsafe patch](#an-unsafe-patch-and-a-skipped-comparison)) |
-| Delivery applies only the approved commit to the approved target. A changed commit voids the approval | **Tested**: the tagged commit delivered, and its tag refused when used again. A commit that changes more, or another file: pipeline tests only ([one fix](#one-fix-end-to-end)) |
+| Delivery applies only the approved commit to the approved target. A changed commit voids the approval | **Tested**: the tagged commit delivered, its tag refused when used again, and an approval moved to another commit refused. A wider fix: pipeline tests only ([one fix](#one-fix-end-to-end), [fixes](#fixes-after-the-close)) |
 | After delivery, the consumer gets its required records, forbidden records stay hidden, and writes stay denied | **Tested**: tenant A's six records and no others, and each expected denial, a write among them, refused ([one fix](#one-fix-end-to-end)) |
 | One supported rollback is demonstrated, along with what it cannot repair | **Tested**: a restore with its own tag brought the seed back. It cannot take back what the consumer read while exposed ([one fix](#one-fix-end-to-end)) |
 | The threat model covers the pull request and delivery path, including the repository credentials | **Tested** by reading: T11, T12, T26, T27, and T56 to T60, and A5, each with its evidence ([threat model](../security/threat-model.md)) |
@@ -276,3 +276,40 @@ Date: 2026-10-27, 16:40 to 17:18 UTC. An independent review read the milestone's
 The credential search can fail: on a directory with a planted token of each shape and a credential file, it found all three. The review's own check run failed `P.6` once, on a fetch from the Ubuntu mirror that aborted after eight seconds, and `P.6` passed in the runs before and after it.
 
 Every check after the fix, from `8d5501a`, ending at 17:18 UTC: 423 passed, 3 failed. `U.1`, `U.9`, and `U.13` failed on a `libbrotli1` security update published that day, which the next unattended run installs.
+
+## Fixes after the close
+
+Date: 2026-10-27, from 17:55 UTC. A review of the close found a criterion tested in the pipeline only, a skipped comparison refused only at the proposal, and no link between an approval and the merge. Each finding was fixed in the code and shown on the live system before the merge.
+
+| Finding | Fix | Result |
+| --- | --- | --- |
+| A changed commit voiding the approval: tests covered another key, a used tag, and a commit that changes more, not an approval moved to another commit | A test that moves one (`e354d45`) | **Tested** live, 19:48 UTC: a copy of the used tag pointed at main's head, its signature kept, refused with `the signature is not the approval key's` |
+| A workflow that named `dispatch` as its entrypoint still skipped the comparison ([#203](https://github.com/sindredg/ai-security-platform/issues/203)) | Inline steps ([0048](../decisions/0048-the-workflows-steps-are-inline-so-no-workflow-runs-one-alone.md)), and a pipeline step that lints a workflow per entrypoint | **Tested**: refused at submission by the Argo CLI, 19:47 UTC. Created with `kubectl`, 20:15 UTC: failed by the controller, `invalid spec: template reference investigate.compare not found`, no pod |
+| Nothing kept a seed change that was never approved from being merged | "Approved commit", a check on the targets repository ([0050](../decisions/0050-a-guarded-change-merges-only-with-an-approval-on-its-head.md)) | **Tested** on GitHub: a seed change with no approval failed it ([#17](https://github.com/sindredg/ai-security-platform-test/pull/17)), and the approved commit passed ([#18](https://github.com/sindredg/ai-security-platform-test/pull/18)) |
+| 6 of 12 scored jobs stopped on a missing or unreadable verdict line ([#215](https://github.com/sindredg/ai-security-platform/issues/215)) | A NetBox job answers through Goose's final output, checked against a schema ([0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)) | **Running** from 20:15 UTC: twelve scored jobs on the seed after the fix, recorded when they end |
+| [#164](https://github.com/sindredg/ai-security-platform/issues/164) was closed before the journal's volume was read | A read of the workspace | **Tested**, read-only: the export account's user manager wrote about 603 rows an hour until 2026-10-26 19:00 UTC, and none from 20:00 UTC |
+| `U.1`, `U.9`, and `U.13` failed on a `libbrotli1` security update | The hosts' unattended upgrade, run early | **Tested** live, 19:24 UTC, on the edge, the orchestrator, and the router: pending before, installed, none pending after |
+
+The job program, the template, the change commands, and the case file were installed from `dd75b6a` between 19:46 and 19:48 UTC, each with the same SHA-256 as the checkout. The template's two steps run inline on the dispatch image the pipeline pushed from `main` at `3fd555b`, which names the job's target in the line the worker reads.
+
+Both workflows created with `kubectl` ended `Failed`, where `Error` had been written down before the run. The message and the absence of a pod were as expected.
+
+"Approved commit" has been required since 20:09 UTC. Reopened, the seed change showed as blocked with only that check failing, and the approved commit as clean. A rerun reads a tag pushed after the first run: a copy of a used tag, moved onto #17's head, appeared in the rerun's log and failed its signature.
+
+The volume read, hour by hour, from `AisecWorkerJournal_CL`:
+
+```text
+AisecWorkerJournal_CL
+| where TimeGenerated between (datetime(2026-10-26T12:00:00Z) .. datetime(2026-10-27T20:00:00Z))
+| extend unit = tostring(parse_json(RawData)._SYSTEMD_UNIT)
+| summarize all_rows = count(), manager_rows = countif(unit == "user@999.service"),
+    billable_mb = round(sum(_BilledSize) / 1000000.0, 3) by hour = bin(TimeGenerated, 1h)
+```
+
+From 12:00 to 18:00 UTC on 2026-10-26, each hour held 602 to 609 manager rows and 1.58 to 1.60 MB. From 20:00 UTC on, every hour held none. In the hours with no job on 2026-10-27, the table took 0.46 to 0.50 MB an hour.
+
+### The held-out cases after the fix
+
+The delivered fix changed what the cases' checks give. Both halves of the checks ran on each case's contract at 19:42 UTC, outside any job: `inventory-reader` now gets the control's verdicts in every case, and `policy.implied_fix` finds no fix for any account. The case file and [the rules](../validation/investigation.md#the-cases) hold these since `dd75b6a`, committed before the run.
+
+Delivery cannot bring the old seed back for a run: restore mode applies main's seed, which holds the fix. So the run after the fix is a new baseline. Its stops on a verdict line compare with milestone 5's run, and its match rate and proposals do not.

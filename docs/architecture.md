@@ -145,12 +145,12 @@ The easy way to pass a security check is to break the service. So a fix that loc
 2. Deterministic checks establish configured access, observed reachability, and candidate findings.
 3. A workflow fixes the job scope: target, evidence, tools, time and output limits.
 4. An AI worker investigates and asks for more evidence through tool services.
-5. The worker's answer proposes a fix in a fixed line form: one permission to remove from one account ([ADR 0043](decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md)).
+5. The model answers through a final output checked against a schema, and the worker writes from it the lines the comparison reads. A proposed fix removes one permission from one account ([ADR 0043](decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md), [ADR 0049](decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)).
 6. On the orchestrator host, a policy check decides whether the fix is allowed, and a rehearsal applies it to the rehearsal copy and runs both checks there ([ADR 0044](decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)).
 7. The operator's machine opens a pull request in the targets repository from the checked fields, never the answer's text. The platform holds no repository credential ([ADR 0045](decisions/0045-the-operator-publishes-a-checked-proposal.md)).
 8. The operator approves the pull request's head with a tag signed by a separate approval key, for one delivery within a day ([ADR 0046](decisions/0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md)).
 9. Delivery, a root command on the orchestrator, verifies the tag, applies the change with a token made for that delivery, and runs both checks after it ([ADR 0047](decisions/0047-a-delivery-token-for-each-delivery.md)).
-10. The pull request merges only after those checks pass. A rollback delivers `main`'s head again, with its own approval.
+10. The pull request merges only after those checks pass, and a required check refuses it unless its head carries an approval ([ADR 0050](decisions/0050-a-guarded-change-merges-only-with-an-approval-on-its-head.md)). A rollback delivers `main`'s head again, with its own approval.
 
 ![A fix's way from a match to NetBox: the orchestrator host checks the policy and rehearses on the copy, the operator's machine opens the pull request and signs the approval tag, delivery takes a token made for it, verifies the tag, applies the change, and runs both checks, and the pull request merges only when both say within](diagrams/change-path.svg)
 
@@ -183,7 +183,7 @@ Each practice lands with the milestone that builds what it checks ([ADR 0010](de
 | Practice | State |
 | --- | --- |
 | Threat model | Written, and revised with each milestone ([threat model](security/threat-model.md)) |
-| Repository protection | Verified: a required check refuses a commit the operator's key did not sign, in both repositories ([pipeline](components/pipeline.md#repository-settings)). Push protection: configured, not tested |
+| Repository protection | Verified: required checks refuse commits the operator's key did not sign, in both repositories, and unapproved seed changes in the targets one ([pipeline](components/pipeline.md#repository-settings)). Push protection: configured, not tested |
 | Static checks on pull requests | Built, with no cloud credentials ([pipeline](components/pipeline.md#checks-on-every-pull-request)). Trivy fails SSH from any source, and the network module refuses it at plan |
 | Dependency updates | Verified for the tool service's packages: Dependabot's [#190](https://github.com/sindredg/ai-security-platform/pull/190) failed the [signature check](components/pipeline.md#the-signature-check) as designed, and was redone signed in [#193](https://github.com/sindredg/ai-security-platform/pull/193). None yet for an action or a provider |
 | Hardening baselines | kube-bench and Lynis on the platform VMs, findings triaged ([hardening](security/hardening.md#benchmarks)), one unexplained ([#127](https://github.com/sindredg/ai-security-platform/issues/127)). Lynis not run on the targets. No CIS profile for Ubuntu 26.04: accepted |
