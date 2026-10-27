@@ -31,8 +31,8 @@ The script changes nothing. It opens connections that should fail, reads setting
 | Page | Checks | What it covers |
 | --- | --- | --- |
 | [Access](access.md) | `A`, `M`, `R` | Who can get in, and through what |
-| [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.28` | What the worker and the orchestrator cannot reach, and what they can |
-| [Targets](targets.md) | `VN`, `VL`, `N`, `U.14`, `U.15` | The NetBox and lab VMs: the operator's login, the update account, the update runs, and no way out. NetBox: its image, its port, and its secrets |
+| [Containment](containment.md) | `C`, `E`, `Z.4` to `Z.9`, `Z.13` to `Z.30` | What the worker and the orchestrator cannot reach, and what they can |
+| [Targets](targets.md) | `VN`, `VL`, `N`, `Q`, `D`, `U.14`, `U.15` | The NetBox and lab VMs: the operator's login, the update account, the update runs, and no way out. NetBox: its image, its port, and its secrets. The rehearsal copy, and delivery |
 | [Package proxy](package-proxy.md) | `P`, `U` | Squid on the edge, the one path out for the orchestrator and the worker, the fetch window, and whether updates arrive |
 | [Model server](model-server.md) | `S` | The server runs, listens on loopback only, keeps its sandbox, and loads the file the build made |
 | [Agent runtime](agent-runtime.md) | `G` | The Goose binary and the fixture are the pinned ones, and no finished job leaves its unit or its files |

@@ -19,7 +19,7 @@ The script reports how each connection attempt ended, not just that it failed.
 
 Network security groups and the mesh policy drop without answering. So a check that says a rule blocks a path expects `timeout`. `refused` on that path is a failure: the packet got through.
 
-A timeout proves a drop only when something listens at the far end. That holds for every check below except `C.3`.
+A timeout proves a drop only when something listens at the far end. That holds for every check below.
 
 ## From the worker
 
@@ -28,7 +28,7 @@ A timeout proves a drop only when something listens at the far end. That holds f
 | `C.1` | No connection to the internet | A compromised worker cannot connect out or download a payload | TCP to `1.1.1.1:443` times out |
 | `C.2`, `C.11` | No connection to the NetBox VM or the lab VM | The worker investigates through tool services, never directly | TCP to `10.50.0.4:22` and `10.50.0.36:22` times out. Both listen: the orchestrator reaches them (`E.15`). Until 2026-10-24 no machine was there, and `C.2` proved nothing about the rule |
 | `C.12` | No connection to NetBox's port | The same, for the API. Its own allow rules come from the orchestrator and the consumer subnet only | TCP to `10.50.0.4:8443` times out. The port listens: the orchestrator reaches it (`N.1` on [targets](targets.md#netbox)) |
-| `C.3` | No connection to the rehearsal subnet | The same | TCP to `10.50.1.4:22` times out. No machine is there, so this would time out without the rule too. `Z.6` names the rule |
+| `C.3` | No connection to the rehearsal copy's port | The same, for the copy | TCP to `10.50.1.4:8443` times out. The copy listens there, and the orchestrator reaches it (`Q.1`), so the timeout is a drop |
 | `C.4` | No connection to the platform resolver | DNS is a way to pass data out, and a deny-all rule does not cover it | TCP to `168.63.129.16:53` times out |
 | `C.5` | A public name does not resolve | The same, tested end to end | `getent hosts example.com` has to fail |
 | `C.6` | No connection to the orchestrator on 22 | The worker never administers the trusted side | TCP times out. The port listens: `E.2` and `M.1` reach it |
@@ -42,7 +42,7 @@ A timeout proves a packet was dropped. It does not say which rule dropped it. Th
 
 | ID | Claim | How it is checked |
 | --- | --- | --- |
-| `Z.4`, `Z.5`, `Z.16`, `Z.20`, `Z.27`, `Z.28` | The effective rules on each network interface, the orchestrator's, the worker's, the router's, the edge's, the NetBox VM's, and the lab VM's, equal the configured rules. A target's group is its subnet's: `nsg-aisec-targets-netbox` and `nsg-aisec-targets-consumer` | `az network nic list-effective-nsg` against `az network nsg show`, compared rule by rule. See below |
+| `Z.4`, `Z.5`, `Z.16`, `Z.20`, `Z.27` to `Z.29` | The effective rules on each network interface, the orchestrator's, the worker's, the router's, the edge's, the NetBox VM's, and the lab VM's two, equal the configured rules. A target's group is its subnet's: `nsg-aisec-targets-netbox`, `nsg-aisec-targets-consumer`, and for the lab VM's second interface `nsg-aisec-targets-rehearsal` | `az network nic list-effective-nsg` against `az network nsg show`, compared rule by rule. See below |
 | `Z.6` | Worker to the target network is denied by `deny-to-targets` | IP flow verify |
 | `Z.7` | Worker to the internet is denied by `deny-to-internet` | IP flow verify |
 | `Z.8` | Worker to the proxy on the edge is allowed by `allow-package-proxy-to-edge` | IP flow verify |
@@ -53,12 +53,13 @@ A timeout proves a packet was dropped. It does not say which rule dropped it. Th
 | `Z.17` | Nothing is allowed into the router | Inbound allow rules among the router's effective rules, counted once `Z.16` got an answer. `0`. Its tunnel is opened outbound, so no subnet needs a way in ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)) |
 | `Z.18` | Both halves of the platform and edge peering are connected | As `Z.15` |
 | `Z.24` | Both halves of the edge and target peering are connected | As `Z.15`. The router's sessions to the targets cross it |
-| `Z.25` | Only SSH from the orchestrator and the router, and NetBox's port from the orchestrator and the consumer, is allowed into the target subnets | The configured inbound allows of each target group, by name, source, and port. Since 2026-10-24 the NetBox group also allows TCP 8443 from `10.40.0.4/32` and from the consumer subnet `10.50.0.32/27` ([ADR 0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md)). On the live system, the check failed that day until its expected value named the two rules. `Z.27` and `Z.28` compare the effective rules of the two groups with a VM. The unintended and rehearsal subnets have none, so only their configured rules are read |
+| `Z.25` | Only SSH from the orchestrator and the router, and NetBox's ports from the orchestrator and the consumer, are allowed into the target subnets | The configured inbound allows of each target group, by name, source, and port. Since 2026-10-24 the NetBox group also allows TCP 8443 from `10.40.0.4/32` and from the consumer subnet `10.50.0.32/27` ([ADR 0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md)). On the live system, the check failed that day until its expected value named the two rules. Since 2026-10-26 the rehearsal group allows TCP 8443 from `10.40.0.4/32` to the copy at `10.50.1.4` ([ADR 0044](../decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)). The check, changed first, failed until the apply made that rule. `Z.27` to `Z.29` compare the effective rules of the three groups with an interface. The unintended subnet has none, so only its configured rules are read |
 | `Z.19` | The edge network is in Denmark East | The network's location. The group is in Sweden Central |
 | `Z.21` | Only the proxy ports and SSH from the router are allowed into the edge | The inbound allow rules among the edge's effective rules, by name and port, counted once `Z.20` got an answer: `allow-proxy-from-orchestrator` and `allow-proxy-from-worker` on 3128, `allow-target-packages-from-orchestrator` on 3129, `allow-ssh-from-router` on 22 |
 | `Z.22` | Orchestrator to the internet is denied by `deny-to-internet` | IP flow verify from the orchestrator. Before 2026-10-17 it named `allow-https-to-internet` |
 | `Z.23` | Orchestrator to the proxy on the edge is allowed by `allow-proxy-to-edge` | IP flow verify from the orchestrator |
 | `Z.26` | Orchestrator to the target port on the edge is allowed by `allow-target-packages-to-edge` | IP flow verify from the orchestrator to `10.45.0.4:3129` ([ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)) |
+| `Z.30` | Orchestrator to the rehearsal copy's port is allowed by `allow-rehearsal-copy-to-targets` | IP flow verify from the orchestrator to `10.50.1.4:8443` ([ADR 0044](../decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)) |
 
 ### What `Z.4` and `Z.5` compare
 

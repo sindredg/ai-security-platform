@@ -21,6 +21,8 @@ Status: **tested** on the live system on 2026-10-16: every check below passes. `
 
 Status: **tested** on the live system on 2026-10-16: every check below passes. `J.1`, `J.2`, `J.3`, `J.5`, `J.7`, `J.8`, and `J.9` failed when their condition was broken, and all nine before the install ([worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies)). `J.5` was wrong on its first run and is fixed in commit `0c1eba2`. `J.4` and `J.6` were not broken on purpose: `J.4` fails on a marker line, which the puller's tests cover, and the other side of `J.6`, an answer to a cursor, was seen. `J.10` was added later: it passed on the live system, and failed with one line added to the timer in the checkout.
 
+`J.11` failed on the live system on 2026-10-26, with 250 lines from the export account's user manager in 20 minutes. It passes since the change for [#164](https://github.com/sindredg/ai-security-platform/issues/164) that day ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-workers-own-logins)).
+
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
 | `J.1` | The pull timer is active and starts at boot | No timer, no copy | `systemctl is-active` and `is-enabled` on `aisec-journal-pull.timer` |
@@ -30,6 +32,7 @@ Status: **tested** on the live system on 2026-10-16: every check below passes. `
 | `J.5` | The puller pins the worker's host key | Otherwise the first answer on the worker's address is trusted | The pinned key equals the key `ssh-keyscan` gets from the worker now. A missing pin is a failure |
 | `J.6` | The export key runs nothing but the export | The key lives on the trusted machine and logs in to the untrusted one. It must not give a shell either way | An SSH command `id` with the key, as the puller's account, ends with status 2, the export's refusal. 255 is SSH failing, 0 a command that ran |
 | `J.10` | The journal puller installed is the one in this checkout | As for `L.8` | The SHA-256 of the installed program, unit, and timer equals the same files in this checkout |
+| `J.11` | The export account's logins start no user service manager | Each pull is a login. A login that starts the account's user manager logs about 67 lines, which the next pull copies: a third of the workspace's daily volume ([#164](https://github.com/sindredg/ai-security-platform/issues/164)) | The account's user manager's lines in the worker's journal in the last 20 minutes, and `journalctl`'s exit status: `0 0`. With no pull accepted in that time, `no-logins` |
 
 On the worker:
 
