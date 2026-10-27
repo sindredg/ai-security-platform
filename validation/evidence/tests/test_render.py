@@ -232,6 +232,31 @@ class TheCallTable(unittest.TestCase):
         self.assertIn('`{"name":"netbox"}`', text)
 
 
+class TheIndex(unittest.TestCase):
+    def test_one_chart_per_milestone_whose_run_sets_reached_the_comparison(self):
+        # A chart holds eight bars at most, so each milestone has its own.
+        steps = [
+            {"step": "dispatch", "phase": "Succeeded", "message": ""},
+            {"step": "compare", "phase": "Succeeded", "message": ""},
+        ]
+        compared = job("nb-1", steps=steps)
+        sets = [
+            ("a", {**RUN_SET, "milestone": 3, "jobs": [job("syn-1")]}),
+            ("b", {**RUN_SET, "milestone": 5, "jobs": [compared]}),
+            ("c", {**RUN_SET, "milestone": 4, "jobs": [compared]}),
+            ("d", {**RUN_SET, "milestone": 5, "jobs": [compared]}),
+        ]
+        charts = [
+            line
+            for line in render.index_page(sets).splitlines()
+            if "../diagrams/test-outcomes" in line
+        ]
+        self.assertEqual(len(charts), 2)
+        self.assertIn("milestone 4", charts[0])
+        self.assertTrue(charts[0].endswith("(../diagrams/test-outcomes-4.svg)"))
+        self.assertTrue(charts[1].endswith("(../diagrams/test-outcomes-5.svg)"))
+
+
 class Unpublishable(unittest.TestCase):
     def test_each_kind_is_found(self):
         for text, label in [

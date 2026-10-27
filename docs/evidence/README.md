@@ -4,7 +4,9 @@
 
 Each run set is a batch of agent jobs, or model calls, that tested one thing. Its page gives each job's answer, its verdicts beside the checks', why it stopped, and its tool calls in order. [Lessons](lessons.md) says what the runs showed and what changed because of them.
 
-![NetBox jobs at the comparison, per run set: matches, stops by their cause, and failures](../diagrams/test-outcomes.svg)
+![NetBox jobs at the comparison in milestone 4, per run set: matches, stops by their cause, and failures](../diagrams/test-outcomes-4.svg)
+
+![NetBox jobs at the comparison in milestone 5, per run set: matches, stops by their cause, and failures](../diagrams/test-outcomes-5.svg)
 
 | Run set | Date | Tested | Jobs | Outcomes |
 | --- | --- | --- | --- | --- |

@@ -74,7 +74,7 @@ This turns a run set's jobs into records under [`docs/evidence/records/`](../evi
 
    Expected: synthetic data only, and no address outside the private ranges.
 
-8. Add a row to `docs/evidence/records/lessons.json` for what the run set taught, with the jobs that show it, then run step 6 again. Add the run set's bar to [`test-outcomes.html`](../diagrams/test-outcomes.html) and export its SVG.
+8. Add a row to `docs/evidence/records/lessons.json` for what the run set taught, with the jobs that show it, then run step 6 again. Add the run set's bar to its milestone's chart, `test-outcomes-N.html` with N the milestone, as in [`test-outcomes-5.html`](../diagrams/test-outcomes-5.html), and export its SVG. A chart holds eight bars at most.
 
    Expected: the lesson on the [lessons page](../evidence/lessons.md), with a link to each job.
 
