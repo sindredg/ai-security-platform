@@ -181,6 +181,12 @@ def proposal_record(bundle):
     return {
         "source": bundle["source"],
         "changes": bundle["policy"]["changes"],
+        # What was proposed, the model's lines or the operator's file, as the
+        # comparison read them: checked fields only.
+        "proposed": [
+            {k: p[k] for k in ("account", "action", "permission", "references")}
+            for p in bundle["comparison"]["proposals"]
+        ],
         "policy": {
             "allowed": bundle["policy"]["allowed"],
             "reasons": bundle["policy"]["reasons"],

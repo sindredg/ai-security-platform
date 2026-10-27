@@ -289,6 +289,7 @@ class Loop(unittest.TestCase):
             {
                 "source": "model",
                 "changes": BUNDLE["policy"]["changes"],
+                "proposed": PROPOSALS,
                 "policy": {"allowed": True, "reasons": []},
                 "rehearsal": {
                     "passed": True,

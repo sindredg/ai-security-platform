@@ -310,15 +310,21 @@ def proposal_section(proposal):
     else:
         decided = "The policy refused it: " + "; ".join(policy["reasons"]) + "."
     out = [f"**Proposal.** Proposed by {who}. {decided}", ""]
+    proposed = proposal.get("proposed") or []
     if proposal["changes"]:
         rows = [
             [f"`{c['account']}`", f"`{c['permission']}`", c["permission_id"]]
             for c in proposal["changes"]
         ]
         out += [table(["Account", "Permission", "ID"], rows), ""]
+    elif proposed:
+        rows = [[f"`{p['account']}`", p["action"], p["permission"]] for p in proposed]
+        out += [table(["Account", "Action", "Permission ID"], rows), ""]
     rehearsal = proposal["rehearsal"]
     if rehearsal["passed"]:
         out += ["The rehearsal on the copy passed: every account within by both.", ""]
+    elif not proposal["changes"] and not proposed:
+        out += ["Nothing was proposed, so nothing was rehearsed.", ""]
     elif rehearsal.get("reason"):
         out += [f"The rehearsal on the copy failed: `{rehearsal['reason']}`.", ""]
     else:
@@ -443,8 +449,12 @@ def jobs_body(run_set):
 def fix_row(job, label):
     proposal = job.get("proposal") or {}
     changes = proposal.get("changes") or []
+    proposed = proposal.get("proposed") or []
     what = "; ".join(
         f"remove `{c['permission']}` from `{c['account']}`" for c in changes
+    ) or "; ".join(
+        f"{p['action']} permission {p['permission']} from `{p['account']}`"
+        for p in proposed
     )
     if proposal:
         who = "the model" if proposal["source"] == "model" else "the operator"
@@ -452,7 +462,10 @@ def fix_row(job, label):
     policy = proposal.get("policy")
     decided = ("allowed" if policy["allowed"] else "refused") if policy else "none"
     rehearsal = proposal.get("rehearsal")
-    rehearsed = ("passed" if rehearsal["passed"] else "failed") if rehearsal else "none"
+    if not rehearsal or not (rehearsal["passed"] or changes or proposed):
+        rehearsed = "none"
+    else:
+        rehearsed = "passed" if rehearsal["passed"] else "failed"
     delivered = ", ".join(
         f"{d['mode']}, {'passed' if d['passed'] else 'stopped'}"
         + (f", #{d['pr']}" if d.get("pr") else "")

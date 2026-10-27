@@ -380,6 +380,64 @@ class Loop(unittest.TestCase):
         self.assertIn("| Job | Proposal | Policy | Rehearsal | Delivery |", page)
         self.assertEqual(render.page_problems("set", page), [])
 
+    def refused(self, proposed, reasons, rehearsal):
+        found = looped("nb-8")
+        found["deliveries"] = []
+        found["proposal"] = {
+            "source": "model",
+            "changes": [],
+            "proposed": proposed,
+            "policy": {"allowed": False, "reasons": reasons},
+            "rehearsal": rehearsal,
+        }
+        return found
+
+    def test_a_refused_proposal_shows_what_was_proposed(self):
+        missing = {"configured": "missing", "observed": "missing"}
+        found = self.refused(
+            [
+                {
+                    "account": "inventory-reader",
+                    "action": "remove",
+                    "permission": 2,
+                    "references": ["ev-0002"],
+                }
+            ],
+            ["inventory-reader: without permission 2 it is missing, not within"],
+            {
+                "passed": False,
+                "reason": None,
+                "verdicts": {"inventory-reader": missing},
+            },
+        )
+        row = render.fix_row(found, "nb-8")
+        self.assertEqual(
+            row[1:4],
+            [
+                "remove permission 2 from `inventory-reader`, by the model",
+                "refused",
+                "failed",
+            ],
+        )
+        text = "\n".join(render.job_section(found, "nb-8"))
+        self.assertIn("The policy refused it", text)
+        self.assertIn("| `inventory-reader` | remove | 2 |", text)
+        self.assertEqual(render.page_problems("job", text), [])
+
+    def test_no_proposal_rehearses_nothing(self):
+        found = self.refused(
+            [],
+            ["no account the checks call excess"],
+            {"passed": False, "reason": "no proposal to rehearse", "verdicts": {}},
+        )
+        self.assertEqual(
+            render.fix_row(found, "nb-8")[1:4],
+            ["none, by the model", "refused", "none"],
+        )
+        text = "\n".join(render.job_section(found, "nb-8"))
+        self.assertIn("Nothing was proposed, so nothing was rehearsed.", text)
+        self.assertNotIn("rehearsal on the copy failed", text)
+
     def test_old_records_render_as_before(self):
         self.assertNotIn("## Fixes", render.set_page("x", RUN_SET, None, None))
         repo = Path(__file__).resolve().parent.parent.parent.parent
