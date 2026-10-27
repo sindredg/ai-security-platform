@@ -1,6 +1,6 @@
 # Package proxy
 
-The orchestrator's and the worker's only outbound access: Squid on the edge VM, which forwards package downloads, and tunnels for the orchestrator during a fetch window. A second port serves the targets' packages. The design is [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) for the worker, [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) for the edge and the orchestrator, and [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md) for the targets' port. It is the exception to T05 and T17, so it gets its own checks.
+The orchestrator's and the worker's only outbound access: Squid on the edge VM, which forwards package downloads, and tunnels for the orchestrator during a just-in-time (JIT) egress window. A second port serves the targets' packages. The design is [ADR 0011](../decisions/0011-package-proxy-for-the-worker.md) for the worker, [ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) for the edge and the orchestrator, and [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md) for the targets' port. It is the exception to T05 and T17, so it gets its own checks.
 
 ## On the edge
 
@@ -17,7 +17,7 @@ The orchestrator's and the worker's only outbound access: Squid on the edge VM, 
 | `P.19` | Squid's configuration is root's and the edge template's | An `http_access allow` added on the edge alone would pass every other check while no window is open | Owner and mode `root 644`, and the SHA-256 of `/etc/squid/squid.conf` equals that of the file `infra/platform/cloud-init/edge.yaml.tftpl` writes, rendered by Terraform (`.github/scripts/render-cloud-init-file.sh`) with the edge, orchestrator, and worker addresses the check script holds. The script's addresses are constants, not read from Terraform, so a change to the network fails this check until they move with it. The check needs `terraform` on the workstation, and fails without it |
 | `P.20` | Squid runs with the default configuration file | `P.19` reads `/etc/squid/squid.conf`. A unit changed to start Squid with `-f` and another file would pass it ([#114](https://github.com/sindredg/ai-security-platform/issues/114)) | The running main process's command line, from `/proc`, is `/usr/sbin/squid --foreground -sYC`, the Ubuntu package's own. A package update that changes it fails this check and needs a look |
 | `P.21` | Squid's only unit drop-in is the edge template's | The drop-in is Squid's sandbox (`P.3` reads one setting of it), and a second drop-in could change the command line or the sandbox | `DropInPaths` of the unit is `/etc/systemd/system/squid.service.d/10-aisec.conf` alone, and its SHA-256 equals the rendering of that file from the edge template |
-| `P.22` | Squid loaded its configuration after the files last changed | Squid keeps the configuration it read. A configuration edited, reloaded, and put back passes `P.19` while Squid runs the edited one. So does a fetch window file emptied without a reload, which passes `P.16` with the window still open | The time of the last `Processing Configuration File: /etc/squid/squid.conf` line in Squid's journal for this boot is later than the newest change time of `squid.conf`, the fetch host list, and the window file. Both carry fractions of a second. On 2026-10-18 Squid read the files 66 ms after the window command wrote one |
+| `P.22` | Squid loaded its configuration after the files last changed | Squid keeps the configuration it read. A configuration edited, reloaded, and put back passes `P.19` while Squid runs the edited one. So does a JIT egress window file emptied without a reload, which passes `P.16` with the window still open | The time of the last `Processing Configuration File: /etc/squid/squid.conf` line in Squid's journal for this boot is later than the newest change time of `squid.conf`, the fetch host list, and the window file. Both carry fractions of a second. On 2026-10-18 Squid read the files 66 ms after the window command wrote one |
 
 ## From the worker
 
@@ -50,7 +50,7 @@ An update run forwards port 3129 from a target's loopback address, so the target
 | `P.24` | The target port refuses another host | A target reaches one mirror and nothing else | A release file from `archive.ubuntu.com` returns 403 |
 | `P.25` | The target port refuses an upload | As `P.9` | A `POST` to the mirror returns 403 |
 | `P.26` | The target port refuses another port | As `P.10` | Port 8080 on the mirror returns 403 |
-| `P.27` | The target port refuses a tunnel | A target is assumed compromised. A tunnel from it would reach the fetch hosts during a window | `CONNECT` to `github.com:443` returns 403. The port's rules come before the fetch window's, so this holds during a window too. The checks do not open one: the [edge runbook](../runbooks/edge-vm.md#the-targets-package-port) step does |
+| `P.27` | The target port refuses a tunnel | A target is assumed compromised. A tunnel from it would reach the fetch hosts during a window | `CONNECT` to `github.com:443` returns 403. The port's rules come before the JIT egress window's, so this holds during a window too. The checks do not open one: the [edge runbook](../runbooks/edge-vm.md#the-targets-package-port) step does |
 
 ## Updates
 
@@ -76,7 +76,7 @@ An update run forwards port 3129 from a target's loopback address, so the target
 ## Limits of these checks
 
 - `P.22` reads Squid's journal. Root on the edge can change the journal and the change times, as it can change anything these checks read. A journal that has lost Squid's start lines fails the check.
-- `P.15` and `P.16` cannot show that a window opens, or that a close ends its tunnels. `P.27` cannot show that a window leaves the target port closed. Opening one changes state, and the checks only read. The [edge runbook](../runbooks/edge-vm.md#open-a-fetch-window) has that step.
+- `P.15` and `P.16` cannot show that a window opens, or that a close ends its tunnels. `P.27` cannot show that a window leaves the target port closed. Opening one changes state, and the checks only read. The [edge runbook](../runbooks/edge-vm.md#open-a-jit-egress-window) has that step.
 - `U.1`, `U.5`, `U.9`, and `U.13` failed on 2026-10-26 with `0 100` each, in a copy of the script that asked apt for a command that does not exist. Before the change for #173, all four passed on it ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-counting-checks-fail-on-a-broken-command)).
 - `U.1` and `U.5` read the package lists on the machine. If the daily refresh has stopped, the lists are stale and the check still passes. Nothing alerts on a refresh that stopped.
 - `U.2` is also a gap: a held package gets no security fixes until someone moves the pin. `U.7` catches that for the mesh agent. Nothing catches it for the pinned K3s release.

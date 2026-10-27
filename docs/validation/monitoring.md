@@ -33,7 +33,7 @@ A failed Azure call prints nothing, and nothing equals no expected value here. `
 
 ## Not checked
 
-- **That the audit lines arrive.** Audit lines come only from tool calls, and nothing calls the tool service between exercises. The runbook makes one call and finds its line.
+- **That the audit lines arrive.** Audit lines come only from tool calls, and nothing calls the tool service (an MCP server) between exercises. The runbook makes one call and finds its line.
 - **That Squid's log arrives.** The runbook requests a host off the list and finds the refusal.
 - **That a pod cannot reach the instance metadata service.** A procedure step in the runbook, like the egress probe in [ADR 0018](../decisions/0018-a-host-rule-keeps-pods-off-the-internet.md).
 - **That the agent sends nothing over the internet.** The orchestrator has no route there ([containment](containment.md)), so there it holds by construction. The edge and the router have outbound TCP 443, and nothing checks that their agents use only the private endpoint.
