@@ -27,9 +27,9 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 
 | | |
 | --- | --- |
-| Milestone | 4, NetBox target and exercise 1 investigation, done on 2026-10-26. Next: 5, remediation, pull requests, and delivery ([roadmap](docs/roadmap.md#status)) |
-| Works since 2026-10-26 | The agent reads a NetBox job's own evidence. The workflow stops unless each verdict matches two deterministic checks. On held-out cases, 13 of 18 verdicts matched ([evidence](docs/evidence/2026-10-25-2308-scored-cases.md)) |
-| Not yet | A fix: rehearsed on a copy of the target, proposed as a pull request, and delivered after approval |
+| Milestone | 5, remediation, pull requests, and delivery, done on 2026-10-27. Next: 6, operational and containment drills ([roadmap](docs/roadmap.md#status)) |
+| Works since 2026-10-27 | A fix the checks imply goes from the model's proposal through a policy check, a rehearsal, a pull request, and a signed approval to delivery, with a rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md)) |
+| Not yet | Drills that break the workflow on purpose, and exercises 2 and 3: excess network access and a vulnerable image |
 
 ## Why it looks like this
 

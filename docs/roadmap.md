@@ -13,9 +13,9 @@ Security work has no milestone of its own. Each practice is part of the criteria
 | 2. Platform compute | Done | Accepted gap: no tool has a CIS profile for Ubuntu 26.04. Configured, not tested: push protection, and an update pull request for a provider or an action | [Worklog](worklogs/0002-platform-compute.md) |
 | 3. Toolchain integration | Done | Accepted gap: every job on `synthetic` reads one fixed file. Root on the orchestrator, trusted by design, can edit the audit file before the log agent sends it | [Worklog](worklogs/0003-toolchain-integration.md) |
 | 3a. Edge network and monitoring | Done | Configured, not tested: a connection from the router to an operator device. The mesh policy's own tests refuse one | [Worklog](worklogs/0004-edge-network-and-monitoring.md) |
-| 4. NetBox target and exercise 1 investigation | Done | Accepted gap: no case whose documents disagree ([#205](https://github.com/sindredg/ai-security-platform/issues/205)), and a job that skips the comparison ([#203](https://github.com/sindredg/ai-security-platform/issues/203)). An inconclusive verdict stopped a workflow in tests only | [Worklog](worklogs/0005-netbox-target-and-exercise-1.md), [evidence](evidence/README.md) |
-| 5. Remediation, pull requests, and delivery | Next | | |
-| 6. Operational and containment drills | Planned | | |
+| 4. NetBox target and exercise 1 investigation | Done | Accepted gap: no case whose documents disagree ([#205](https://github.com/sindredg/ai-security-platform/issues/205)). An inconclusive verdict stopped a workflow in tests only. A skipped comparison is refused at the proposal ([#203](https://github.com/sindredg/ai-security-platform/issues/203)) | [Worklog](worklogs/0005-netbox-target-and-exercise-1.md), [evidence](evidence/README.md) |
+| 5. Remediation, pull requests, and delivery | Done | Accepted gap: 10 of 18 verdicts right with the proposal task ([#215](https://github.com/sindredg/ai-security-platform/issues/215)). Pipeline tests only: a changed commit refused. Configured, not tested: the copy's routing at first boot | [Worklog](worklogs/0006-remediation-pull-requests-and-delivery.md), [evidence](evidence/README.md) |
+| 6. Operational and containment drills | Next | | |
 | 7. Exercise 2: excess network access | Planned | | |
 | 8. Exercise 3: vulnerable image or dependency | Planned | | |
 
@@ -129,7 +129,7 @@ Define the consumer contract. Deploy NetBox, synthetic inventory, and the consum
 
 Rehearse a proposed fix on the rehearsal copy, publish it as a pull request, and deliver it after approval.
 
-**Depends on:** ADRs [0043](decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [0046](decisions/0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md), decided, and a fix for [#203](https://github.com/sindredg/ai-security-platform/issues/203), so that no job skips the comparison.
+**Depends on:** ADRs [0043](decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [0047](decisions/0047-a-delivery-token-for-each-delivery.md), decided, and a fix for [#203](https://github.com/sindredg/ai-security-platform/issues/203), so that no job skips the comparison.
 
 **Completion criteria:**
 

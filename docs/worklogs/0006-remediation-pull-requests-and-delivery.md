@@ -5,14 +5,14 @@ Milestone: 5, remediation, pull requests, and delivery
 
 ## Summary
 
-Every criterion was tested on the live system, and the close waits for an independent review of these claims ([roadmap](../roadmap.md#5-remediation-pull-requests-and-delivery)). The decisions are ADRs [0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [0047](../decisions/0047-a-delivery-token-for-each-delivery.md). One fix went from a model's proposal to a merged pull request and back through a rollback, each delivery with its own approval and its own token.
+Each criterion was tested on the live system, and a row names any part tested in the pipeline only, after an independent review of these claims ([the review](#the-review-for-the-close)). The decisions are ADRs [0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [0047](../decisions/0047-a-delivery-token-for-each-delivery.md). One fix went from a model's proposal to a merged pull request and back through a rollback, each delivery with its own approval and its own token.
 
 | Gate | Result |
 | --- | --- |
-| A proposal becomes a pull request with evidence, and the worker never holds repository credentials | **Tested**: targets [#15](https://github.com/sindredg/ai-security-platform-test/pull/15), opened from a job's bundle on the operator's machine. No platform host holds a repository credential ([one fix](#one-fix-end-to-end)) |
-| An investigation that stopped for the operator opens no pull request | **Tested**: none of the eight scored jobs that stopped got a bundle, and a comparison run without the model was refused ([scored](#the-scored-proposals), [#203](#an-unsafe-patch-and-a-skipped-comparison)) |
+| A proposal becomes a pull request with evidence, and the worker never holds repository credentials | **Tested**: targets [#15](https://github.com/sindredg/ai-security-platform-test/pull/15), opened from a job's bundle on the operator's machine. A search of the orchestrator and the worker found no repository credential ([the review](#the-review-for-the-close)) |
+| An investigation that stopped for the operator opens no pull request | **Tested**: `propose-netbox-fix` refused a scored job that stopped, and a comparison run without the model ([the review](#the-review-for-the-close), [#203](#an-unsafe-patch-and-a-skipped-comparison)) |
 | A deliberately unsafe patch is rejected even though its functional tests pass | **Tested**: the right fix with a change to the delivery account passed its rehearsal, and the policy refused it ([unsafe patch](#an-unsafe-patch-and-a-skipped-comparison)) |
-| Delivery applies only the approved commit to the approved target. A changed commit voids the approval | **Tested**: the tagged commit delivered, its tag refused when used again. Another commit or file: pipeline tests only ([one fix](#one-fix-end-to-end)) |
+| Delivery applies only the approved commit to the approved target. A changed commit voids the approval | **Tested**: the tagged commit delivered, and its tag refused when used again. A commit that changes more, or another file: pipeline tests only ([one fix](#one-fix-end-to-end)) |
 | After delivery, the consumer gets its required records, forbidden records stay hidden, and writes stay denied | **Tested**: tenant A's six records and no others, and each expected denial, a write among them, refused ([one fix](#one-fix-end-to-end)) |
 | One supported rollback is demonstrated, along with what it cannot repair | **Tested**: a restore with its own tag brought the seed back. It cannot take back what the consumer read while exposed ([one fix](#one-fix-end-to-end)) |
 | The threat model covers the pull request and delivery path, including the repository credentials | **Tested** by reading: T11, T12, T26, T27, and T56 to T60, and A5, each with its evidence ([threat model](../security/threat-model.md)) |
@@ -34,7 +34,7 @@ Since `artifacts.tsv` changed, the [accepted risks](../security/accepted-risks.m
 
 Python 3.15.2 is released with no official image yet: the newer `3.15-alpine3.24` image is a rebuild of 3.15.1. The newest Ubuntu image that `az vm image list` names in both regions, `26.04.202610240`, is not served there, so the image pins wait for a rebuild as before.
 
-The open issues that fit the milestone: #203, #23, #164, #175, #187, #191, #36, #204 for the changed probe, and #211. #151 stays open: the task's change does not touch the synthetic fixture's system text.
+The open issues that fit the milestone: [#203](https://github.com/sindredg/ai-security-platform/issues/203), [#23](https://github.com/sindredg/ai-security-platform/issues/23), [#164](https://github.com/sindredg/ai-security-platform/issues/164), [#175](https://github.com/sindredg/ai-security-platform/issues/175), [#187](https://github.com/sindredg/ai-security-platform/issues/187), [#191](https://github.com/sindredg/ai-security-platform/issues/191), [#36](https://github.com/sindredg/ai-security-platform/issues/36), [#204](https://github.com/sindredg/ai-security-platform/issues/204) for the changed probe, and [#211](https://github.com/sindredg/ai-security-platform/issues/211). #151 stays open: the task's change does not touch the synthetic fixture's system text.
 
 ## The worker's own logins
 
@@ -77,7 +77,7 @@ On 2026-10-27, after the targets change's review, the operator decided [0047](..
 
 ## The rehearsal copy
 
-Date: 2026-10-26, 20:0x to 20:37 UTC, on the live system, from four scripts with the same commands as the [runbook](../runbooks/rehearsal-copy.md).
+Date: 2026-10-26, about 20:04 to 20:37 UTC, on the live system, from four scripts with the same commands as the [runbook](../runbooks/rehearsal-copy.md).
 
 ### The interface and its rule
 
@@ -223,9 +223,9 @@ Date: 2026-10-27 ([record](../evidence/2026-10-27-0653-scored-proposals.md)). Th
 | `change` | Stop, twice: no verdict line, then the control called within | None, then remove 1 | 4 of 4 |
 | `two-of-three` | Stop, twice: no verdict line, and the checks disagree | None, twice | 2 of 4 |
 
-Accounts right: 17 of 20. Jobs with every account right and no unread line: 7 of 12, and three jobs had unread proposal lines. The one fix the policy allowed is the fix the checks imply, and its rehearsal passed.
+Under the rules as written, which score each matched job, the four matches got 6 of 6 accounts right. Counting the stopped jobs too, a reading made at scoring time, 17 of 20 accounts were right, 7 of 12 jobs fully, and three jobs had unread proposal lines. The one fix the policy allowed is the fix the checks imply, and its rehearsal passed.
 
-`change-2` proposed removing permission 1, the consumer's scoped permission, which would have broken the consumer. The comparison stopped on its wrong verdict first, and the policy refuses a permission the checks do not call excess. Under the rules a proposal in a stopped job counts as refused, since the policy refuses every proposal of a comparison that is not a match.
+`change-2` proposed removing permission 1, the consumer's scoped permission, which would have broken the consumer. The comparison stopped on its wrong verdict first, and the policy refuses a permission the checks do not call excess. That reading counts a proposal in a stopped job as refused, since the policy refuses every proposal of a comparison that is not a match.
 
 The verdicts were right for 10 of the 18 accounts whose checks agree, against 13 of 18 in milestone 4's [scored run](../evidence/2026-10-25-2308-scored-cases.md) with the shorter task. Four answers held no verdict line in the line form. The task's proposal paragraph may cost verdict lines: the cases cannot be used to tune it, so it waits for the next task change ([#215](https://github.com/sindredg/ai-security-platform/issues/215)).
 
@@ -260,3 +260,19 @@ Delivery ran in one fetch window, each delivery with its own token from `make-ne
 After the last delivery, `inventory-reader` read tenant A's three devices and three addresses, and none of the other four of each it read before. Each expected denial, among them a write to devices, still answered 403. The delivery ledger holds the three tag objects, in order.
 
 The operator merged #15 at 16:21 UTC, after the checks of its delivery passed. A rollback cannot take back what the consumer read while exposed, or anything it copied. Then the copy got the merged seed and a new dump, `ed6c9128...`, with the one before kept beside it.
+
+## The review for the close
+
+Date: 2026-10-27, 16:40 to 17:18 UTC. An independent review read the milestone's claims against the code and the running system. Each of its findings was checked, then fixed before the close or opened as an issue.
+
+| Finding | What was done |
+| --- | --- |
+| Two criteria rows rested on what the scripts chose to run | `propose-netbox-fix` refused a scored job that stopped, with no bundle. On the orchestrator and the worker: no credential file, no token-shaped string, no repository secret |
+| Fix mode took a seed change beyond users lists, which would reach `main` without reaching NetBox | Refused since `8d5501a`, with a test that failed first. Installed, the six files equal to the checkout |
+| Pages that milestone 5 made stale | A1 to A3, T26, T36, T45, the architecture, accepted risks, hardening, and the validation pages updated |
+| The score of the stopped jobs | Both readings stated: 6 of 6 under the rules as written, and 17 of 20 with the stopped jobs |
+| Failures halfway through delivery or a rehearsal, and the copy's own checks | [#216](https://github.com/sindredg/ai-security-platform/issues/216) opened, and [#186](https://github.com/sindredg/ai-security-platform/issues/186) extended. Neither happened in the runs |
+
+The credential search can fail: on a directory with a planted token of each shape and a credential file, it found all three. The review's own check run failed `P.6` once, on a fetch from the Ubuntu mirror that aborted after eight seconds, and `P.6` passed in the runs before and after it.
+
+Every check after the fix, from `8d5501a`, ending at 17:18 UTC: 423 passed, 3 failed. `U.1`, `U.9`, and `U.13` failed on a `libbrotli1` security update published that day, which the next unattended run installs.
