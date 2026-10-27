@@ -47,7 +47,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 
 ## Last run
 
-From the branch `feat/m5-remediation` at `8d5501a`, ending at 17:18 UTC on 2026-10-27: 423 of 426 passed. `U.1`, `U.9`, and `U.13` failed on a `libbrotli1` security update published that day, which the next unattended run installs ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-review-for-the-close)).
+From `main` at `fe4a34b`, ending at 23:18 UTC on 2026-10-27, after the eval run with a structured output: 426 of 426 passed ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-eval-run-after-the-fix)).
 
 Each earlier run is in the worklog of its milestone, with what it was run for: [0002](../worklogs/0002-platform-compute.md), [0003](../worklogs/0003-toolchain-integration.md), [0004](../worklogs/0004-edge-network-and-monitoring.md), [0005](../worklogs/0005-netbox-target-and-exercise-1.md), and [0006](../worklogs/0006-remediation-pull-requests-and-delivery.md).
 

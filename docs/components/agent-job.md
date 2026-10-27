@@ -4,7 +4,7 @@ What the agent reads, what it may call, how it works through a job, and every ch
 
 | | |
 | --- | --- |
-| State | Built. A NetBox job returns structured output since 2026-10-27 ([evidence](../evidence/2026-10-27-1948-final-output-answers.md)) |
+| State | Verified. A NetBox job returns structured output since 2026-10-27, and each of twelve eval jobs answered through it ([evidence](../evidence/2026-10-27-2016-structured-output-eval.md)) |
 | Runs on | The AI worker, in a sandboxed unit started for each job ([AI worker](ai-worker.md#the-agent-runtime)) |
 | System prompt | [`worker/agent-runtime/system.txt`](../../worker/agent-runtime/system.txt), the same for every job |
 | Task | [`collectors/netbox/task.txt`](../../collectors/netbox/task.txt) for a NetBox job, passed as the workflow's `task` parameter |

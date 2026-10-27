@@ -31,7 +31,9 @@ SSH from the orchestrator subnet, and nothing else. The administrator account ta
 
 ## The model server
 
-llama.cpp v0.7.0, build `b11669`, serves Qwen3.5-4B, quantized to `Q4_K_M`, on `127.0.0.1:8080`. Nothing outside the worker can reach it. The model was kept after an evaluation against two others ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)), and on exercise 1's held-out cases 13 of 18 of its verdicts were the deterministic checks' ([evidence](../evidence/2026-10-25-2308-scored-cases.md)).
+llama.cpp v0.7.0, build `b11669`, serves Qwen3.5-4B, quantized to `Q4_K_M`, on `127.0.0.1:8080`. Nothing outside the worker can reach it. The model was kept after an evaluation against two others ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)).
+
+On exercise 1's held-out cases, two eval runs before the seed's fix got 13 and 10 of its 18 verdicts right. One run on the easier seed after it, with a structured output, got 16 of 16 ([evidence](../evidence/README.md)).
 
 | | |
 | --- | --- |

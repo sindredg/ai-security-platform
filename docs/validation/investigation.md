@@ -6,6 +6,8 @@ Status: **tested** on 2026-10-26. Twelve evaluation (eval) jobs ran on the live 
 
 The remediation proposals were scored on 2026-10-27 by [the proposal rules](#the-proposal-rules), again two jobs per case. Under the rules as written, the four matched jobs got 6 of 6 accounts right, and 17 of 20 counting the stopped jobs ([record](../evidence/2026-10-27-0653-scored-proposals.md), [worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-scored-proposals)).
 
+On the seed after the fix, with the agent's output as a structured output, twelve more eval jobs ran on 2026-10-27. None stopped on a line the verification gate could not read, and all 16 verdicts the deterministic checks agree on were theirs. By the proposal rules, the ten matched jobs got 16 of 16 accounts right, and 20 of 20 counting the stopped jobs ([record](../evidence/2026-10-27-2016-structured-output-eval.md), [worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-eval-run-after-the-fix)).
+
 ## The cases
 
 [`collectors/netbox/cases.json`](../../collectors/netbox/cases.json) holds the eval set: six variants of the access specification, the least privilege each consumer account needs, each with the verdicts the deterministic checks give on NetBox's seed as it is. Since the fix was delivered on 2026-10-27 ([targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)), `inventory-reader` holds the tenant-scoped permission alone, as the control does. The two get the same verdicts in every case.
