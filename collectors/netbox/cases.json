@@ -169,8 +169,8 @@
       },
       "expected": {
         "inventory-reader": {
-          "configured": "excess",
-          "observed": "excess"
+          "configured": "within",
+          "observed": "within"
         }
       }
     },
@@ -270,8 +270,8 @@
       },
       "expected": {
         "inventory-reader": {
-          "configured": "excess",
-          "observed": "excess"
+          "configured": "missing",
+          "observed": "missing"
         },
         "inventory-reader-control": {
           "configured": "missing",
@@ -445,8 +445,8 @@
       },
       "expected": {
         "inventory-reader": {
-          "configured": "excess",
-          "observed": "excess"
+          "configured": "missing",
+          "observed": "missing"
         },
         "inventory-reader-control": {
           "configured": "missing",
@@ -536,7 +536,7 @@
       },
       "expected": {
         "inventory-reader": {
-          "configured": "excess",
+          "configured": "within",
           "observed": "excess"
         },
         "inventory-reader-control": {

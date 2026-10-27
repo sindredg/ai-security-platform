@@ -8,18 +8,20 @@ The proposals were scored on 2026-10-27 by [the proposal rules](#the-proposal-ru
 
 ## The cases
 
-[`collectors/netbox/cases.json`](../../collectors/netbox/cases.json) holds six variants of the consumer contract, each with the verdicts the checks are expected to give. Every case is collected against NetBox's seed as it is: `inventory-reader` holds the tenant-scoped permission and an unscoped copy, and its token returns all seven devices and addresses. The control holds the scoped permission alone. The NetBox task was tuned on the seed's contract, which is not among them.
+[`collectors/netbox/cases.json`](../../collectors/netbox/cases.json) holds six variants of the consumer contract, each with the verdicts the checks give on NetBox's seed as it is. Since the fix was delivered on 2026-10-27 ([targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)), `inventory-reader` holds the tenant-scoped permission alone, as the control does. The two get the same verdicts in every case.
 
-| Case | What the contract changes | Expected, configured/observed | What it tests |
-| --- | --- | --- | --- |
-| `control-only` | Names the control alone | Control `within/within` | A `within` verdict. In the model comparison of 2026-10-21, all three models called a token whose grants equal its contract confirmed |
-| `consumer-only` | Names `inventory-reader` alone | `excess/excess` | The seeded finding, and no line for an account the contract does not name |
-| `sites` | Grants and reads sites, and no longer expects them denied | `inventory-reader` `excess/excess`, control `missing/missing` | `missing`: no permission grants a read the contract needs, and the read is refused |
-| `devices-only` | Grants and reads devices only, and expects the address list denied | Both `excess/excess` | `excess` for the control too: a permission the contract does not grant, and a denied read that answers |
-| `change` | Adds `change` on devices, and a device that does not exist | `inventory-reader` `excess/excess`, control `missing/missing` | `missing` by a grant and by a record |
-| `two-of-three` | Lists two of tenant A's three devices | `inventory-reader` `excess/excess`, control `within/excess` | Checks that disagree: the workflow stops whatever the model says, and the answer is scored on whether it names the disagreement |
+The scored runs before the fix collected against the seed as it was then: `inventory-reader` also held an unscoped copy, and its token returned all seven devices and addresses. The NetBox task was tuned on the seed's contract, which is not among the cases.
 
-The expected verdicts were worked out with the collector's own functions against a stand-in for the seed. Each job's collection gives the real ones, which the comparison uses.
+| Case | What the contract changes | Before the fix | After the fix | What it tests |
+| --- | --- | --- | --- | --- |
+| `control-only` | Names the control alone | Control `within/within` | The same | A `within` verdict. In the model comparison of 2026-10-21, all three models called a token whose grants equal its contract confirmed |
+| `consumer-only` | Names `inventory-reader` alone | `excess/excess` | `within/within` | The seeded finding, and no line for an account the contract does not name |
+| `sites` | Grants and reads sites, and no longer expects them denied | `inventory-reader` `excess/excess`, control `missing/missing` | Both `missing/missing` | `missing`: no permission grants a read the contract needs, and the read is refused |
+| `devices-only` | Grants and reads devices only, and expects the address list denied | Both `excess/excess` | The same | `excess` for the control too: a permission the contract does not grant, and a denied read that answers |
+| `change` | Adds `change` on devices, and a device that does not exist | `inventory-reader` `excess/excess`, control `missing/missing` | Both `missing/missing` | `missing` by a grant and by a record |
+| `two-of-three` | Lists two of tenant A's three devices | `inventory-reader` `excess/excess`, control `within/excess` | Both `within/excess` | Checks that disagree: the workflow stops whatever the model says, and the answer is scored on whether it names the disagreement |
+
+Verdicts are configured/observed. Before the fix, they were worked out with the collector's own functions against a stand-in for the seed. After the fix, both halves of the checks ran on each case's contract on the live system on 2026-10-27, outside any job; each job's collection gives the real ones, which the comparison uses.
 
 ## How a scored job runs
 
@@ -49,7 +51,7 @@ The baseline, per case: the checks' verdicts, right by construction, the collect
 
 Milestone 5 scores each matched job's proposal lines on the same six cases, two jobs each ([ADR 0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md)). These rules and the expected fixes were committed before the first scored proposal run.
 
-The expected fix is the policy's implied fix: the permissions the checks call excess whose removal leaves the account within its contract. It was computed with `policy.implied_fix` from the seed's configured report on the live NetBox, where `inventory-reader` holds permission 1, scoped to tenant A, and 2, its unscoped copy. The control holds 3, scoped.
+The expected fix is the policy's implied fix: the permissions the checks call excess whose removal leaves the account within its contract. Before the fix, it was computed with `policy.implied_fix` from the seed's configured report on the live NetBox, where `inventory-reader` held permission 1, scoped to tenant A, and 2, its unscoped copy. The control holds 3, scoped.
 
 | Case | `inventory-reader` | `inventory-reader-control` | Where a fix can go on |
 | --- | --- | --- | --- |
@@ -59,6 +61,8 @@ The expected fix is the policy's implied fix: the permissions the checks call ex
 | `devices-only` | No fix: its scoped permission grants addresses too | No fix: the same | Nowhere |
 | `change` | No fix: no permission grants change on devices | No proposal: missing | Nowhere |
 | `two-of-three` | Remove 2 | No proposal | Nowhere: the checks disagree on the control, so the comparison stops first |
+
+After the fix, each account holds one permission scoped to tenant A. `policy.implied_fix` on the live configured reports of 2026-10-27 gives no fix for any account in any case: an account is within, or removing its one permission leaves it missing. Right is no proposal everywhere, or a proposal the policy refuses.
 
 | Rule | Read from | Scored |
 | --- | --- | --- |
@@ -72,6 +76,7 @@ The expected fix is the policy's implied fix: the permissions the checks call ex
 
 - **Twelve jobs.** They show whether the investigation works at all, not a rate.
 - **One configuration.** Every case reads the same permissions and records. The cases test reading a contract against evidence, not finding a different misconfiguration.
+- **The seed after the fix is an easier test.** Both accounts hold the same grants, so a model cannot be wrong by mixing them up, and no case has a fix to propose. Scores on it are a new baseline, not comparable with the runs before the fix.
 - **One author wrote the cases and tuned the task.** The task was tuned on the seed's contract only, and no change to its wording targets a case. The separation is by data.
 - **The rule for the disagreement is read, not computed.**
 - **Found in the runs: no case has documents that disagree in the task's sense.** The task calls `ev-0002` and `ev-0003` disagreeing a reason for `inconclusive`. In `two-of-three` those two agree, and the checks disagree because the contract grants a device its record list leaves out ([#205](https://github.com/sindredg/ai-security-platform/issues/205)).
