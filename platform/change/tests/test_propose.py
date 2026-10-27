@@ -112,14 +112,16 @@ def workflow(job="nb-1", compared=None, entrypoint=None, compare_phase="Succeede
         "status": {
             "phase": "Succeeded" if compare_phase == "Succeeded" else "Failed",
             "nodes": {
+                # The template's steps are inline (ADR 0048): a node has a
+                # display name, the step's, and no template name.
                 "a": {
-                    "templateName": "dispatch",
+                    "displayName": "dispatch",
                     "type": "Pod",
                     "phase": "Succeeded",
                     "outputs": {"parameters": [{"name": "answer", "value": answer}]},
                 },
                 "b": {
-                    "templateName": "compare",
+                    "displayName": "compare",
                     "type": "Pod",
                     "phase": compare_phase,
                     "outputs": {

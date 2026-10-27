@@ -69,10 +69,13 @@ def workflow_checked(workflow, job):
         raise Refused(f"not a run of the {TEMPLATE} template")
     if spec.get("entrypoint", TEMPLATE) != TEMPLATE:
         raise Refused(f"run from the entrypoint {spec['entrypoint']}, not {TEMPLATE}")
+    # The steps are inline (ADR 0048), so a node carries the step's name as
+    # its display name, and no template name. The template above names the
+    # steps, not the submitter.
     nodes = [
         node
         for node in status.get("nodes", {}).values()
-        if node.get("templateName") == "compare" and node.get("type") == "Pod"
+        if node.get("displayName") == "compare" and node.get("type") == "Pod"
     ]
     if len(nodes) != 1:
         raise Refused(f"{len(nodes)} comparisons, one expected")

@@ -51,6 +51,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0045](0045-the-operator-publishes-a-checked-proposal.md) | No repository credential on the platform: it prepares a proposal of checked fields, and the operator's machine commits and opens it | Accepted |
 | [0046](0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md) | A tag signed with a separate approval key approves one commit once, delivery checks the target after applying it, and the merge comes last | Accepted |
 | [0047](0047-a-delivery-token-for-each-delivery.md) | Each delivery gets its own token, made on the NetBox VM and piped into the delivery, and none is kept on the orchestrator | Accepted |
+| [0048](0048-the-workflows-steps-are-inline-so-no-workflow-runs-one-alone.md) | The workflow's dispatch and comparison are inline steps, so a workflow can name neither as its entrypoint and run it alone | Accepted |
 
 ## Format
 
