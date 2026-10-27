@@ -5,6 +5,8 @@ Date: 2026-10-26
 
 The delivery token is made for each delivery: [0047](0047-a-delivery-token-for-each-delivery.md).
 
+What a merge of a change to the seed needs: [0050](0050-a-guarded-change-merges-only-with-an-approval-on-its-head.md).
+
 ## Context
 
 Milestone 5's criteria: delivery applies only the approved commit to the approved target, and a changed commit voids the approval. After delivery the consumer still gets its records, forbidden records stay hidden, and writes stay denied. One rollback is shown, with what it cannot repair ([roadmap](../roadmap.md#5-remediation-pull-requests-and-delivery)).
