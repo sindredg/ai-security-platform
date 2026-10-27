@@ -2,7 +2,7 @@
 
 How the system is built now. Status per milestone is in the [roadmap](roadmap.md#status), the reasons in the [decision records](decisions/README.md), and what each test run showed in the [evidence](evidence/README.md).
 
-A workflow on the orchestrator hands each investigation to the AI worker over SSH. The agent reads evidence only through the tool service on the orchestrator, with a token for that one job. Its answer comes back to the workflow, which stops unless the model's verdicts match the deterministic checks.
+A workflow on the orchestrator hands each investigation to the AI worker over SSH. The agent reads evidence only through the tool service (an MCP server) on the orchestrator, with a token for that one job. Its output comes back to the workflow, which stops unless the model's verdicts match the deterministic checks.
 
 ## Purpose
 
@@ -26,7 +26,7 @@ The cost is quality and speed. A small model on 2 vCPUs proves the integration, 
 
 ![Architecture: a trusted orchestrator VM holds the secrets and has no direct internet access. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](diagrams/target-architecture.svg)
 
-The worker cannot reach the target region. Everything it knows about the target, a tool service on the orchestrator handed it. The diagram draws the design, delivery and the rehearsal copy included since milestone 5.
+The worker cannot reach the target region. Everything it knows about the target, a tool service on the orchestrator handed it. The diagram draws the design, delivery and the staging copy included since milestone 5.
 
 ## Platform and target separation
 
@@ -69,7 +69,7 @@ Every subnet has its own network security group and no default outbound access.
 | `10.50.0.0/27` | Poland Central | NetBox subnet |
 | `10.50.0.32/27` | Poland Central | Authorized consumer viewpoint |
 | `10.50.0.64/27` | Poland Central | Unintended viewpoint (exercise 2) |
-| `10.50.1.0/27` | Poland Central | Rehearsal copy |
+| `10.50.1.0/27` | Poland Central | Staging copy |
 | `10.42.0.0/16`, `10.43.0.0/16` | In cluster | K3s pod and service ranges, never routed between networks |
 
 ### Connectivity
@@ -90,7 +90,7 @@ The administrator account on every VM takes only an SSH certificate that expires
 
 The one way out is a NAT gateway in the edge network, used by the router and the edge VM. The orchestrator, the worker, and the targets each have three outbound controls, because any one alone leaves a path open: no outbound method, explicit deny rules, and Azure Policy assigned outside both roots.
 
-The worker gets two Ubuntu package hosts through Squid on the edge VM ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)). The orchestrator gets its package mirror, and the build and deploy hosts only during an operator's fetch window. The targets get no path: the orchestrator brings what they need ([egress and policy](components/egress-and-policy.md), [package proxy](components/package-proxy.md)).
+The worker gets two Ubuntu package hosts through Squid on the edge VM ([ADR 0020](decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)). The orchestrator gets its package mirror, and the build and deploy hosts only during an operator's just-in-time (JIT) egress window. The targets get no path: the orchestrator brings what they need ([egress and policy](components/egress-and-policy.md), [package proxy](components/package-proxy.md)).
 
 ## Platform
 
@@ -100,7 +100,7 @@ One K3s server on one VM runs everything that is trusted. It has no way out of i
 
 ### AI worker
 
-The model server and the agent runtime run on a second VM outside the cluster. The worker reads advisories, target evidence, and tool output, and any of those can carry malicious instructions. So the design assumes it can be compromised:
+The model server and the agent runtime run on a second VM outside the cluster. The worker reads advisories, target evidence, and tool output, and any of those can carry malicious instructions. So the design assumes breach, and treats the worker as compromised:
 
 - No delivery credentials, no repository credentials, no privileged cloud identity.
 - One scoped session per job: one target, one evidence set, bounded time and output.
@@ -110,7 +110,7 @@ The cost is dispatch: a workflow step opens SSH to the worker with a key that ca
 
 ### What a job does today
 
-A job reads evidence through one tool, `get_evidence`, on `synthetic`, a fixed file, or `netbox`, whose evidence is collected for that job alone ([ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)). What each job answered is in the [evidence](evidence/README.md), and every part and pin in [components](components/README.md).
+A job reads evidence through one tool, `get_evidence`, on `synthetic`, a fixed file, or `netbox`, whose evidence is collected for that job alone ([ADR 0040](decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)). What each job returned is in the [evidence](evidence/README.md), and every part and pin in [components](components/README.md).
 
 ## Targets
 
@@ -121,42 +121,42 @@ The first target is NetBox with synthetic inventory ([ADR 0004](decisions/0004-n
 | NetBox VM | NetBox from one image pinned by digest, under Podman, with PostgreSQL and Valkey from Ubuntu ([ADR 0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md), [ADR 0039](decisions/0039-netbox-takes-a-clients-address-from-the-connection.md)) |
 | Authorized consumer | Reads one tenant's devices and addresses with a read-only token limited to its address. Two accounts on the lab VM: the consumer and a control ([ADR 0037](decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)) |
 | Unintended viewpoint | A source that policy says must not reach NetBox. Comes with exercise 2 |
-| Rehearsal copy | A second NetBox on the lab VM, with its own interface and credentials, reset from a dump. Only the orchestrator reaches it over the network ([ADR 0044](decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)) |
+| Staging copy | A second NetBox on the lab VM, with its own interface and credentials, reset from a dump. Only the orchestrator reaches it over the network ([ADR 0044](decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)) |
 
-The viewpoints and the rehearsal copy share one lab VM, one network interface per viewpoint subnet, because of [capacity](#capacity). Neither target VM reaches anything, and packages arrive only during an update run from the orchestrator ([ADR 0036](decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)).
+The viewpoints and the staging copy share one lab VM, one network interface per viewpoint subnet, because of [capacity](#capacity). Neither target VM reaches anything, and packages arrive only during an update run from the orchestrator ([ADR 0036](decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)).
 
 ### Exercises
 
-Three exercises, in order, on the same service and consumer contract.
+Three exercises, in order, on the same service and access specification.
 
 | Order | Finding | Correct outcome | Change surface |
 | --- | --- | --- | --- |
 | 1 | The consumer can read inventory outside its approved scope | Required reads still work, other records are gone | NetBox permission configuration |
 | 2 | NetBox is reachable from the unintended viewpoint | The consumer keeps access, the unintended source is blocked | Target network rules |
-| 3 | A pinned image or dependency is affected by a real public advisory | A vetted update removes the condition and keeps data and the consumer contract intact | Pinned image definition and update procedure |
+| 3 | A pinned image or dependency is affected by a real public advisory | A vetted update removes the condition and keeps data and the access specification intact | Pinned image definition and update procedure |
 
 The easy way to pass a security check is to break the service. So a fix that locks out the legitimate consumer fails, and validation checks the inventory the consumer gets back, not a health endpoint.
 
 ## Workflow
 
-![Investigation to delivery: trusted orchestrator steps, one untrusted AI worker step, a comparison of its verdict with the deterministic checks that stops for the operator on anything but a match, and one operator approval. A failed job stops before the comparison](diagrams/workflow.svg)
+![Investigation to delivery: trusted orchestrator steps, one untrusted AI worker step, a verification gate that compares its verdict with the deterministic checks and stops for the operator on anything but a match, and one operator approval. A failed job stops before the verification gate](diagrams/workflow.svg)
 
 1. Collection runs on a schedule or on request and produces validated evidence snapshots.
 2. Deterministic checks establish configured access, observed reachability, and candidate findings.
 3. A workflow fixes the job scope: target, evidence, tools, time and output limits.
 4. An AI worker investigates and asks for more evidence through tool services.
-5. The model answers through a final output checked against a schema, and the worker writes from it the lines the comparison reads. A proposed fix removes one permission from one account ([ADR 0043](decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md), [ADR 0049](decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)).
-6. On the orchestrator host, a policy check decides whether the fix is allowed, and a rehearsal applies it to the rehearsal copy and runs both checks there ([ADR 0044](decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)).
-7. The operator's machine opens a pull request in the targets repository from the checked fields, never the answer's text. The platform holds no repository credential ([ADR 0045](decisions/0045-the-operator-publishes-a-checked-proposal.md)).
-8. The operator approves the pull request's head with a tag signed by a separate approval key, for one delivery within a day ([ADR 0046](decisions/0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md)).
-9. Delivery, a root command on the orchestrator, verifies the tag, applies the change with a token made for that delivery, and runs both checks after it ([ADR 0047](decisions/0047-a-delivery-token-for-each-delivery.md)).
+5. The model returns structured output checked against a schema, and the worker writes from it the lines the verification gate reads. A proposed fix removes one permission from one account ([ADR 0043](decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md), [ADR 0049](decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)).
+6. On the orchestrator host, a policy check, policy as code in `platform/change/policy.py`, decides whether the fix is allowed, and a staging test applies it to the staging copy and runs both deterministic checks there ([ADR 0044](decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)).
+7. The operator's machine opens a pull request in the targets repository from the checked fields, never the model's output. The platform holds no repository credential ([ADR 0045](decisions/0045-the-operator-publishes-a-checked-proposal.md)).
+8. The operator approves the pull request's head, the human-in-the-loop approval, with a tag signed by a separate approval key, for one delivery within a day ([ADR 0046](decisions/0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md)).
+9. Delivery, a root command on the orchestrator, verifies the tag, applies the change with a token made for that delivery, and runs both deterministic checks after it ([ADR 0047](decisions/0047-a-delivery-token-for-each-delivery.md)).
 10. The pull request merges only after those checks pass, and a required check refuses it unless its head carries an approval ([ADR 0050](decisions/0050-a-guarded-change-merges-only-with-an-approval-on-its-head.md)). A rollback delivers `main`'s head again, with its own approval.
 
-![A fix's way from a match to NetBox: the orchestrator host checks the policy and rehearses on the copy, the operator's machine opens the pull request and signs the approval tag, delivery takes a token made for it, verifies the tag, applies the change, and runs both checks, and the pull request merges only when both say within](diagrams/change-path.svg)
+![A fix's way from a match to NetBox: the orchestrator host checks the policy and runs a staging test on the copy, the operator's machine opens the pull request and signs the approval tag, delivery takes a token made for it, verifies the tag, applies the change, and runs both deterministic checks, and the pull request merges only when both find the accounts within their spec](diagrams/change-path.svg)
 
 Models explain and propose. Tools establish facts. A confident model does not authorize a change, and neither does a green test.
 
-A proposal goes ahead only when the model's verdict agrees with the deterministic checks ([ADR 0041](decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)). Anything else stops the workflow, so a wrong verdict costs the operator a look instead of a wrong pull request. All ten steps are built, with collection, the proposal, publishing, approval, and delivery each on the operator's request.
+A remediation proposal goes ahead only when the model's verdict agrees with the deterministic checks ([ADR 0041](decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)). Anything else stops the workflow: the verification gate fails closed, so a wrong verdict costs the operator a look instead of a wrong pull request. All ten steps are built, with collection, the proposal, publishing, approval, and delivery each on the operator's request.
 
 ## Trust boundaries
 
@@ -173,7 +173,7 @@ What follows from that:
 - Every tool call is authorized on the server: caller, job scope, target, operation, arguments. Hiding a tool from the model is not access control.
 - Target evidence is compared with what the repository, the cloud API, and the network say. A disagreement is recorded, and the model does not pick a winner.
 - Approval binds to a commit and a target. Change the proposal and the approval is void.
-- Workflow parameters and logs carry references, except a job's answer and transcript, kept in the workflow for 24 hours ([accepted risks](security/accepted-risks.md)).
+- Workflow parameters and logs carry references, except a job's output and transcript, kept in the workflow for 24 hours ([accepted risks](security/accepted-risks.md)).
 - The repository is public. Pull requests carry synthetic data and sanitized summaries, never state, raw plans, or secrets.
 
 ## Security practices
@@ -236,7 +236,7 @@ Each gets a decision record before the milestone that depends on it.
 ## Limitations
 
 - One K3s node and single VMs. A VM failure stops that part of the system.
-- Investigations are slow: a completed scored job took 4.8 to 13.6 minutes in the workflow ([evidence](evidence/2026-10-25-2308-scored-cases.md)).
+- Investigations are slow: a completed evaluation (eval) job took 4.8 to 13.6 minutes in the workflow ([evidence](evidence/2026-10-25-2308-scored-cases.md)).
 - One operator. Automated checks are the only second reader of a change.
 - A separate VM limits what a compromised worker can reach, and does nothing against a compromised host or provider.
 - Both roots use the same network module, so a change to it reaches both sides.
