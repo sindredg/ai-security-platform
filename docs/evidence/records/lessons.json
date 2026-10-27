@@ -51,7 +51,8 @@
       "runs": [
         "2026-10-25-1922-one-document-at-a-time#nb-10251922-a1",
         "2026-10-25-2211-thinking-on-and-off#nb-10252211-off1",
-        "2026-10-25-2308-scored-cases#control-only-2"
+        "2026-10-25-2308-scored-cases#control-only-2",
+        "2026-10-26-2214-proposal-lines#nb-10262214-p1"
       ],
       "change": "Two task sentences made it rarer, not gone. The stop stays, because a contradicting line it cannot read would otherwise let a match through."
     },
@@ -91,6 +92,14 @@
         "2026-10-26-0608-erase-after-a-timeout#syn-10260607"
       ],
       "change": "Nothing yet ([#207](https://github.com/sindredg/ai-security-platform/issues/207))."
+    },
+    {
+      "finding": "Thinking on and off proposed the right fix in all four jobs. Off, the model wrote its reasoning into the answer and took as long.",
+      "runs": [
+        "2026-10-27-0542-thinking-with-a-proposal#nb-10270542-on1",
+        "2026-10-27-0542-thinking-with-a-proposal#nb-10270542-off2"
+      ],
+      "change": "Thinking stays off ([#36](https://github.com/sindredg/ai-security-platform/issues/36))."
     }
   ]
 }
