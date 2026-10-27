@@ -466,11 +466,13 @@ def fix_row(job, label):
         rehearsed = "none"
     else:
         rehearsed = "passed" if rehearsal["passed"] else "failed"
-    delivered = ", ".join(
-        f"{d['mode']}, {'passed' if d['passed'] else 'stopped'}"
-        + (f", #{d['pr']}" if d.get("pr") else "")
-        for d in job.get("deliveries") or []
+    deliveries = job.get("deliveries") or []
+    delivered = "; ".join(
+        f"{d['mode']}, {'passed' if d['passed'] else 'stopped'}" for d in deliveries
     )
+    pulls = sorted({d["pr"] for d in deliveries if d.get("pr")})
+    if pulls:
+        delivered += " (" + ", ".join(f"#{n}" for n in pulls) + ")"
     return [
         f"[{label}](#{anchor(label)})",
         what or "none",

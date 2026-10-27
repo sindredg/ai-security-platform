@@ -438,6 +438,17 @@ class Loop(unittest.TestCase):
         self.assertIn("Nothing was proposed, so nothing was rehearsed.", text)
         self.assertNotIn("rehearsal on the copy failed", text)
 
+    def test_deliveries_read_in_order_with_their_pull_request_once(self):
+        found = looped("nb-9")
+        fix = found["deliveries"][0]
+        restore = dict(fix, mode="restore", tag="approve/netbox/restore-1")
+        restore.pop("pr")
+        found["deliveries"] = [fix, restore, dict(fix, tag="approve/netbox/nb-9-again")]
+        self.assertEqual(
+            render.fix_row(found, "nb-9")[4],
+            "fix, passed; restore, passed; fix, passed (#15)",
+        )
+
     def test_old_records_render_as_before(self):
         self.assertNotIn("## Fixes", render.set_page("x", RUN_SET, None, None))
         repo = Path(__file__).resolve().parent.parent.parent.parent
