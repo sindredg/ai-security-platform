@@ -111,7 +111,7 @@
         <text x="504" y="113" fill="#f08a59" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">GATE</text>
         <text x="568" y="140" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Edge VM</text>
         <text x="568" y="156" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Squid · 10.45.0.4</text>
-        <text x="568" y="170" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">fetch window, 60 min max</text>
+        <text x="568" y="170" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">JIT egress window, 60 min max</text>
         <rect x="776" y="96" width="144" height="88" rx="6" fill="#2d3142"/>
         <rect x="776" y="96" width="144" height="88" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
         <rect x="784" y="104" width="28" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="0.8"/>
@@ -145,7 +145,7 @@
         <rect x="768" y="352" width="40" height="12" rx="2" fill="none" stroke="#f5f5f5" stroke-opacity="0.40" stroke-width="0.8"/>
         <text x="788" y="361" fill="#f5f5f5" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.08em">TARGET</text>
         <text x="840" y="388" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">NetBox and lab VMs</text>
-        <text x="840" y="404" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">consumer · rehearsal</text>
+        <text x="840" y="404" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">consumer · staging copy</text>
         <text x="840" y="418" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10.50.0.0/20</text>
         <!-- Legend strip -->
         <line x1="40" y1="576" x2="920" y2="576" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
