@@ -141,9 +141,21 @@ NETBOX_PORT=8443
 # installed there.
 CONTRACT=${AISEC_TARGETS:-/nonexistent}/netbox/contract.json
 COLLECTOR_CODE=$(cat "$here/../collectors/netbox/netbox_access.py")
-# What the seed in the targets checkout gives: the consumer's unscoped copy of
-# its permission is excess, and the control account stays within the contract.
-SEEDED_VERDICTS="inventory-reader:excess inventory-reader-control:within"
+# What the seed in the targets checkout gives, by the configured check's own
+# rule: each contract account's verdict from the seed's permissions. The seed
+# holds the consumer's unscoped copy of its permission until a fix removes it.
+SEEDED_VERDICTS=$(python3 -I -c '
+import json, sys
+sys.path.insert(0, sys.argv[1])
+import netbox_access as n
+seed, contract = json.load(open(sys.argv[2])), json.load(open(sys.argv[3]))
+items = next(g["items"] for g in seed["objects"] if g["path"] == "/api/users/permissions/")
+found = []
+for account in contract["accounts"]:
+    mine = [dict(p, id=i) for i, p in enumerate(items) if account in p["users"] and p.get("enabled", True)]
+    found.append(account + ":" + n.verdict(n.judge_configured(mine, contract)))
+print(" ".join(found))' "$here/../collectors/netbox" "${AISEC_TARGETS:-/nonexistent}/netbox/seed.json" "$CONTRACT" \
+  2>/dev/null || echo "the seed not read")
 # What the orchestrator collects a job's evidence with (ADR 0040): the
 # collector, the collect command, and the contract, in install order.
 # The change commands on the orchestrator (ADR 0043 to 0046), in the order
@@ -723,7 +735,7 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # is limited to this address (ADR 0037).
   configured=$($SSH "$ORCH" "sudo python3 -I -c $(printf %q "$COLLECTOR_CODE") configured --summary" \
     <"$CONTRACT" 2>/dev/null)
-  check N.14 "The configured permissions give the seeded excess and an unaffected control" \
+  check N.14 "The configured permissions give the verdicts of the seed in the targets checkout" \
     "$SEEDED_VERDICTS" "${configured:-not read}"
   check N.18 "The orchestrator's collector, collect command, contract, and cases are the ones in the two checkouts" \
     "$COLLECT_SHAS" "$(value netbox_collect)"
@@ -1170,7 +1182,7 @@ check N.16 "The lab VM's copy of NetBox's certificate is the one the orchestrato
 # same verdicts as N.14: the two methods agree.
 observed=$($SSH "$LAB" "sudo python3 -I -c $(printf %q "$COLLECTOR_CODE") observed --summary" \
   <"$CONTRACT" 2>/dev/null)
-check N.17 "The records each token returns give the seeded excess and an unaffected control" \
+check N.17 "The records each token returns give the verdicts of the seed in the targets checkout" \
   "$SEEDED_VERDICTS" "${observed:-not read}"
 check N.20 "The lab VM's observer account takes its key from root's file, with no forwarding, no TTY, and one command" \
   "allowtcpforwarding no;authorizedkeysfile /etc/ssh/aisec-observe-keys;forcecommand /usr/local/sbin/aisec-observe;permittty no;" \
