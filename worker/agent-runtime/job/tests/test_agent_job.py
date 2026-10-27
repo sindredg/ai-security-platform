@@ -37,15 +37,17 @@ JOB = {
 # does. FAKE_MODE changes what it does. It records its arguments and the
 # recipe it was given, so the tests can read them. It logs the request it
 # would send the model where Goose 1.56.0 does, with the tools it offers: the
-# recipe's one, and Goose's own load_skill (#139).
+# recipe's one, and Goose's own load_skill (#139). In final-output mode, for a
+# recipe with a response schema, it also offers Goose's final output tool,
+# calls it with FINAL, and ends with the output as JSON text, as Goose does.
 FAKE_GOOSE = textwrap.dedent(
     """\
     #!{python}
     import json, os, sys, time
     mode = os.environ.get("FAKE_MODE", "{mode}")
-    recipe = sys.argv[sys.argv.index("--recipe") + 1]
+    recipe = json.load(open(sys.argv[sys.argv.index("--recipe") + 1]))
     with open(os.path.join(os.environ["HOME"], "seen.json"), "w") as f:
-        json.dump({{"argv": sys.argv[1:], "recipe": json.load(open(recipe)),
+        json.dump({{"argv": sys.argv[1:], "recipe": recipe,
                    "env": dict(os.environ)}}, f)
     if mode == "sleep":
         time.sleep(60)
@@ -57,6 +59,9 @@ FAKE_GOOSE = textwrap.dedent(
         tools.append("developer__shell")
     if mode == "no-tools":
         tools = []
+    final = mode == "final-output" and "response" in recipe
+    if final:
+        tools.append("recipe__final_output")
     if mode != "no-log":
         logs = os.path.join(os.environ["GOOSE_PATH_ROOT"], "state", "logs")
         os.makedirs(logs)
@@ -67,7 +72,7 @@ FAKE_GOOSE = textwrap.dedent(
             }}}}), file=f)
             print(json.dumps({{"data": {{}}, "usage": None}}), file=f)
     print("warning: token {token} in a log line", file=sys.stderr)
-    print(json.dumps({{"messages": [
+    messages = [
         {{"role": "user", "content": [{{"type": "text", "text": "task"}}]}},
         {{"role": "assistant", "content": [{{"type": "toolRequest",
             "toolCall": {{"value": {{"name": "tools__get_evidence"}}}}}}]}},
@@ -75,8 +80,23 @@ FAKE_GOOSE = textwrap.dedent(
             "toolResult": {{"status": "success", "value": {{"content": [
                 {{"type": "text", "text": "F-0001 evidence, token {token}"}}],
                 "isError": False}}}}}}]}},
-        {{"role": "assistant", "content": [{{"type": "text", "text": "Confirmed."}}]}},
-    ], "metadata": {{"status": "completed", "input_tokens": 700, "output_tokens": 40}}}}))
+    ]
+    last = "Confirmed."
+    if final:
+        output = json.loads({final})
+        messages += [
+            {{"role": "assistant", "content": [{{"type": "toolRequest", "id": "call_1",
+                "toolCall": {{"status": "success", "value": {{
+                    "name": "recipe__final_output", "arguments": output}}}}}}]}},
+            {{"role": "user", "content": [{{"type": "toolResponse", "id": "call_1",
+                "toolResult": {{"status": "success", "value": {{"content": [
+                    {{"type": "text", "text": "Final output successfully collected."}}],
+                    "isError": False}}}}}}]}},
+        ]
+        last = json.dumps(output)
+    messages.append({{"role": "assistant", "content": [{{"type": "text", "text": last}}]}})
+    print(json.dumps({{"messages": messages,
+        "metadata": {{"status": "completed", "input_tokens": 700, "output_tokens": 40}}}}))
     """
 )
 
@@ -113,7 +133,12 @@ class Base(unittest.TestCase):
     def fake_goose(self, mode="ok"):
         path = self.tmp / "goose"
         path.write_text(
-            FAKE_GOOSE.format(python=sys.executable, mode=mode, token=TOKEN)
+            FAKE_GOOSE.format(
+                python=sys.executable,
+                mode=mode,
+                token=TOKEN,
+                final=repr(json.dumps(FINAL)),
+            )
         )
         path.chmod(0o755)
         return path
@@ -283,6 +308,41 @@ class AWholeJob(Base):
         self.assertEqual(result["answer"], "Confirmed.")
         self.assertEqual(result["input_tokens"], 700)
         self.assertIs(result["slot_erased"], True)
+
+    def test_a_netbox_job_answers_with_the_lines_of_its_final_output(self):
+        # ADR 0049 end to end: the job line's target puts the schema in the
+        # recipe, Goose offers the final output and accepts a call, and the
+        # answer is the lines written from it, not Goose's last text.
+        line = json.dumps({**JOB, "target": "netbox"}).encode() + b"\n"
+        code, data = self.run_job(line, mode="final-output")
+        self.assertEqual(code, 0)
+        result = json.loads(data)
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["answer"], agent_job.answer_lines(FINAL))
+        self.assertEqual((result["tool_calls"], result["tool_errors"]), (1, 0))
+        self.assertTrue(
+            result["stderr_tail"].endswith(
+                "the answer is the final output, after 1 calls"
+            )
+        )
+        self.assertEqual(
+            self.seen()["recipe"]["response"], {"json_schema": agent_job.VERDICTS}
+        )
+        self.assertIn(
+            b'"offered": ["load_skill", "recipe__final_output", "tools__get_evidence"]',
+            self.stderr,
+        )
+
+    def test_a_job_line_without_a_target_gets_no_schema_and_no_final_output(self):
+        # A line from a dispatch image before #217 runs as before.
+        code, data = self.run_job(json.dumps(JOB).encode() + b"\n", mode="final-output")
+        self.assertEqual(code, 0)
+        result = json.loads(data)
+        self.assertEqual(
+            (result["status"], result["answer"]), ("completed", "Confirmed.")
+        )
+        self.assertNotIn("response", self.seen()["recipe"])
+        self.assertNotIn("final output", result["stderr_tail"])
 
     def test_goose_gets_the_recipe_and_no_token_on_its_command_line(self):
         self.run_job(json.dumps(JOB).encode() + b"\n")
