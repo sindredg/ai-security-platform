@@ -1,6 +1,8 @@
 # The rehearsal copy on the lab VM: operator procedure
 
-Status: Implemented on 2026-10-26. Run once, on the live system, 20:04 to 20:37 UTC, from four scripts with the same commands ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-rehearsal-copy)). The first install stopped at step 16 on a fault of its own output helper, and a second script ran steps 16 to 21. Step 14 has since gained `AISEC_NETBOX_COPY=yes` ([ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md)), and the undo and the steps after a rebuild were not run.
+Status: Implemented on 2026-10-26. Run once, on the live system, 20:04 to 20:37 UTC, from four scripts with the same commands ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-rehearsal-copy)). The first install stopped at step 16 on a fault of its own output helper, and a second script ran steps 16 to 21.
+
+Step 14 has since gained `AISEC_NETBOX_COPY=yes` ([ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md)), and the undo and the steps after a rebuild were not run.
 
 This gives the lab VM a second interface in the rehearsal subnet, installs a second NetBox on it as the rehearsal copy, seeds the copy, and gives the orchestrator a reset of it through one forced command ([ADR 0044](../decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)). The copy is target side: a passed rehearsal is evidence, and the check after delivery is the proof.
 
@@ -272,8 +274,12 @@ Before this:
 
 ## Undo
 
-Not run. On the lab VM: `systemctl disable --now netbox netbox-worker`, remove the two units from `/etc/containers/systemd`, `runuser -u postgres -- dropdb netbox`, remove the six `netbox_*` Podman secrets, `/etc/aisec/netbox-rehearsal`, `/var/lib/aisec/rehearsal`, the netplan file, and the `aisec-rehearse` account with its key file, sudo line, and sshd drop-in. On the orchestrator: remove `/etc/aisec/netbox-rehearsal`. Then revert the two roots' changes and apply them.
+Not run.
+
+On the lab VM: `systemctl disable --now netbox netbox-worker`, remove the two units from `/etc/containers/systemd`, `runuser -u postgres -- dropdb netbox`, remove the six `netbox_*` Podman secrets, `/etc/aisec/netbox-rehearsal`, `/var/lib/aisec/rehearsal`, the netplan file, and the `aisec-rehearse` account with its key file, sudo line, and sshd drop-in. On the orchestrator: remove `/etc/aisec/netbox-rehearsal`. Then revert the two roots' changes and apply them.
 
 ## After a rebuild of the lab VM
 
-Not run. A rebuilt lab VM gets the netplan file and the packages from its first boot, but cloud-init writes the file after it has set up the network, so nothing applies it until a reboot. Run steps 5 to 21 again: step 5 writes the same file and applies it. Run them after the evidence collection runbook's steps 3 to 6 for the observer.
+Not run.
+
+A rebuilt lab VM gets the netplan file and the packages from its first boot, but cloud-init writes the file after it has set up the network, so nothing applies it until a reboot. Run steps 5 to 21 again: step 5 writes the same file and applies it. Run them after the evidence collection runbook's steps 3 to 6 for the observer.

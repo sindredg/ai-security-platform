@@ -9,7 +9,9 @@ Replaces the delivery token of [0046](0046-a-signed-tag-approves-and-delivery-ch
 
 [0046](0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md) gave the delivery account `aisec-deliver` a write token, kept on the orchestrator, readable by root only and limited to the orchestrator's address. It also said the account can change any permission.
 
-A review of the targets change found what that means. View and change on permissions, with no constraint, covers every field of every permission, the account's own included. NetBox has no field-level permissions, and a constraint cannot stop an account adding itself to a permission it may change. So whoever holds the token can give the account any object type and action, or make a token for a superuser. This was read from NetBox's source, not tried.
+A review of the targets change found what that means. View and change on permissions, with no constraint, covers every field of every permission, the account's own included.
+
+NetBox has no field-level permissions, and a constraint cannot stop an account adding itself to a permission it may change. So whoever holds the token can give the account any object type and action, or make a token for a superuser. This was read from NetBox's source, not tried.
 
 What else holds:
 
