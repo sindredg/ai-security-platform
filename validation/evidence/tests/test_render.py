@@ -198,6 +198,65 @@ class Counts(unittest.TestCase):
         )
 
 
+class TheCallTable(unittest.TestCase):
+    def test_the_final_output_is_named_with_its_size_and_not_written_out(self):
+        # Its argument is the whole answer (ADR 0049), which the page quotes
+        # below the table, as the lines the job program wrote from it.
+        argument = json.dumps(
+            {"analysis": "ev-0002 grants it " * 30, "verdicts": [], "proposals": []}
+        )
+        final = {
+            "at": None,
+            "tool": "recipe__final_output",
+            "argument": argument,
+            "decision": "goose",
+            "reason": None,
+            "bytes": None,
+        }
+        text = "\n".join(render.call_table({"calls": [final]}))
+        self.assertIn("`recipe__final_output`", text)
+        self.assertIn(f"{len(argument.encode()):,} bytes", text)
+        self.assertNotIn("grants it", text)
+        self.assertEqual(render.page_problems("x.md", text), [])
+
+    def test_any_other_argument_is_shown_whole(self):
+        skill = {
+            "at": None,
+            "tool": "load_skill",
+            "argument": '{"name":"netbox"}',
+            "decision": "goose",
+            "reason": None,
+            "bytes": None,
+        }
+        text = "\n".join(render.call_table({"calls": [skill]}))
+        self.assertIn('`{"name":"netbox"}`', text)
+
+
+class TheIndex(unittest.TestCase):
+    def test_one_chart_per_milestone_whose_run_sets_reached_the_comparison(self):
+        # A chart holds eight bars at most, so each milestone has its own.
+        steps = [
+            {"step": "dispatch", "phase": "Succeeded", "message": ""},
+            {"step": "compare", "phase": "Succeeded", "message": ""},
+        ]
+        compared = job("nb-1", steps=steps)
+        sets = [
+            ("a", {**RUN_SET, "milestone": 3, "jobs": [job("syn-1")]}),
+            ("b", {**RUN_SET, "milestone": 5, "jobs": [compared]}),
+            ("c", {**RUN_SET, "milestone": 4, "jobs": [compared]}),
+            ("d", {**RUN_SET, "milestone": 5, "jobs": [compared]}),
+        ]
+        charts = [
+            line
+            for line in render.index_page(sets).splitlines()
+            if "../diagrams/test-outcomes" in line
+        ]
+        self.assertEqual(len(charts), 2)
+        self.assertIn("milestone 4", charts[0])
+        self.assertTrue(charts[0].endswith("(../diagrams/test-outcomes-4.svg)"))
+        self.assertTrue(charts[1].endswith("(../diagrams/test-outcomes-5.svg)"))
+
+
 class Unpublishable(unittest.TestCase):
     def test_each_kind_is_found(self):
         for text, label in [
@@ -281,6 +340,179 @@ class Rules(unittest.TestCase):
 
     def test_no_page_is_a_usage_error(self):
         self.assertEqual(self.run_rules()[0], 2)
+
+
+def looped(name):
+    """A matched job whose fix was proposed, allowed, rehearsed, and delivered."""
+    rows = [
+        {
+            "account": a,
+            "model": c,
+            "references": ["ev-0003"],
+            "configured": c,
+            "observed": o,
+            "outcome": "match",
+        }
+        for a, (c, o) in {
+            "inventory-reader": ("excess", "excess"),
+            "inventory-reader-control": ("within", "within"),
+        }.items()
+    ]
+    within = {"configured": "within", "observed": "within"}
+    return job(
+        name,
+        checks={
+            "inventory-reader": ["excess", "excess"],
+            "inventory-reader-control": ["within", "within"],
+        },
+        comparison={
+            "outcome": "match",
+            "reasons": [],
+            "accounts": rows,
+            "proposals": [
+                {
+                    "account": "inventory-reader",
+                    "action": "remove",
+                    "permission": 2,
+                    "references": ["ev-0002"],
+                }
+            ],
+            "unread_proposals": 0,
+        },
+        proposal={
+            "source": "model",
+            "changes": [
+                {
+                    "account": "inventory-reader",
+                    "permission_id": 2,
+                    "permission": "inventory-reader: inventory",
+                }
+            ],
+            "policy": {"allowed": True, "reasons": []},
+            "rehearsal": {
+                "passed": True,
+                "reason": None,
+                "verdicts": {
+                    "inventory-reader": within,
+                    "inventory-reader-control": within,
+                },
+            },
+        },
+        deliveries=[
+            {
+                "tag": "approve/netbox/nb-9",
+                "commit": "0123456789ab",
+                "mode": "fix",
+                "approved_at": "2026-10-27T11:58:00Z",
+                "applied": [{"permission": "inventory-reader: inventory", "users": []}],
+                "verdicts": {
+                    "inventory-reader": within,
+                    "inventory-reader-control": within,
+                },
+                "passed": True,
+                "pr": 15,
+            }
+        ],
+    )
+
+
+class Loop(unittest.TestCase):
+    def test_a_job_with_a_proposal_shows_policy_and_rehearsal(self):
+        text = "\n".join(render.job_section(looped("nb-9"), "nb-9"))
+        self.assertIn("inventory-reader: inventory", text)
+        self.assertIn("The policy allowed it", text)
+        self.assertIn("The rehearsal on the copy passed", text)
+        self.assertEqual(render.page_problems("job", text), [])
+
+    def test_a_delivered_fix_shows_its_tag_mode_and_checks(self):
+        text = "\n".join(render.job_section(looped("nb-9"), "nb-9"))
+        self.assertIn("`approve/netbox/nb-9`", text)
+        self.assertIn("`0123456789ab`", text)
+        self.assertIn("every account within by both", text)
+        self.assertIn("#15", text)
+
+    def test_a_run_set_with_a_fix_has_a_fixes_table(self):
+        run_set = copy.deepcopy(RUN_SET)
+        run_set["jobs"].append(looped("nb-9"))
+        page = render.set_page("2026-10-27-1200-a-fix", run_set, None, None)
+        self.assertIn("## Fixes", page)
+        self.assertIn("| Job | Proposal | Policy | Rehearsal | Delivery |", page)
+        self.assertEqual(render.page_problems("set", page), [])
+
+    def refused(self, proposed, reasons, rehearsal):
+        found = looped("nb-8")
+        found["deliveries"] = []
+        found["proposal"] = {
+            "source": "model",
+            "changes": [],
+            "proposed": proposed,
+            "policy": {"allowed": False, "reasons": reasons},
+            "rehearsal": rehearsal,
+        }
+        return found
+
+    def test_a_refused_proposal_shows_what_was_proposed(self):
+        missing = {"configured": "missing", "observed": "missing"}
+        found = self.refused(
+            [
+                {
+                    "account": "inventory-reader",
+                    "action": "remove",
+                    "permission": 2,
+                    "references": ["ev-0002"],
+                }
+            ],
+            ["inventory-reader: without permission 2 it is missing, not within"],
+            {
+                "passed": False,
+                "reason": None,
+                "verdicts": {"inventory-reader": missing},
+            },
+        )
+        row = render.fix_row(found, "nb-8")
+        self.assertEqual(
+            row[1:4],
+            [
+                "remove permission 2 from `inventory-reader`, by the model",
+                "refused",
+                "failed",
+            ],
+        )
+        text = "\n".join(render.job_section(found, "nb-8"))
+        self.assertIn("The policy refused it", text)
+        self.assertIn("| `inventory-reader` | remove | 2 |", text)
+        self.assertEqual(render.page_problems("job", text), [])
+
+    def test_no_proposal_rehearses_nothing(self):
+        found = self.refused(
+            [],
+            ["no account the checks call excess"],
+            {"passed": False, "reason": "no proposal to rehearse", "verdicts": {}},
+        )
+        self.assertEqual(
+            render.fix_row(found, "nb-8")[1:4],
+            ["none, by the model", "refused", "none"],
+        )
+        text = "\n".join(render.job_section(found, "nb-8"))
+        self.assertIn("Nothing was proposed, so nothing was rehearsed.", text)
+        self.assertNotIn("rehearsal on the copy failed", text)
+
+    def test_deliveries_read_in_order_with_their_pull_request_once(self):
+        found = looped("nb-9")
+        fix = found["deliveries"][0]
+        restore = dict(fix, mode="restore", tag="approve/netbox/restore-1")
+        restore.pop("pr")
+        found["deliveries"] = [fix, restore, dict(fix, tag="approve/netbox/nb-9-again")]
+        self.assertEqual(
+            render.fix_row(found, "nb-9")[4],
+            "fix, passed; restore, passed; fix, passed (#15)",
+        )
+
+    def test_old_records_render_as_before(self):
+        self.assertNotIn("## Fixes", render.set_page("x", RUN_SET, None, None))
+        repo = Path(__file__).resolve().parent.parent.parent.parent
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(render.main(["render.py", "--check"], repo), 0)
 
 
 class Main(unittest.TestCase):

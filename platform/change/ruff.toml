@@ -1,0 +1,12 @@
+# The change commands read a job's proposals, which the model wrote, and
+# NetBox's answers, which a compromised target shapes, as root on the trusted
+# machine. So they get the collector's rules: bugbear, the security rules, and
+# import order.
+extend = "../../ruff.toml"
+
+[lint]
+extend-select = ["B", "S", "I", "UP"]
+
+[lint.per-file-ignores]
+# Tests assert, and they hold made-up tokens.
+"tests/*" = ["S101", "S105", "S106"]

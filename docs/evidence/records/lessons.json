@@ -51,7 +51,10 @@
       "runs": [
         "2026-10-25-1922-one-document-at-a-time#nb-10251922-a1",
         "2026-10-25-2211-thinking-on-and-off#nb-10252211-off1",
-        "2026-10-25-2308-scored-cases#control-only-2"
+        "2026-10-25-2308-scored-cases#control-only-2",
+        "2026-10-26-2214-proposal-lines#nb-10262214-p1",
+        "2026-10-27-0653-scored-proposals#consumer-only-2",
+        "2026-10-27-0653-scored-proposals#change-1"
       ],
       "change": "Two task sentences made it rarer, not gone. The stop stays, because a contradicting line it cannot read would otherwise let a match through."
     },
@@ -91,6 +94,35 @@
         "2026-10-26-0608-erase-after-a-timeout#syn-10260607"
       ],
       "change": "Nothing yet ([#207](https://github.com/sindredg/ai-security-platform/issues/207))."
+    },
+    {
+      "finding": "Thinking on and off proposed the right fix in all four jobs. Off, the model wrote its reasoning into the answer and took as long.",
+      "runs": [
+        "2026-10-27-0542-thinking-with-a-proposal#nb-10270542-on1",
+        "2026-10-27-0542-thinking-with-a-proposal#nb-10270542-off2"
+      ],
+      "change": "Thinking stays off ([#36](https://github.com/sindredg/ai-security-platform/issues/36))."
+    },
+    {
+      "finding": "The rehearsal passed a patch with a change to the delivery account, because it tests the contract's accounts only. The policy refused it.",
+      "runs": [
+        "2026-10-27-1556-unsafe-patch#nb-10271606-unsafe"
+      ],
+      "change": "None: the policy names the accounts a fix may touch, and the rehearsal is evidence, not proof ([ADR 0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md))."
+    },
+    {
+      "finding": "One answer proposed removing the consumer's own scoped permission. The comparison stopped it on a wrong verdict, and the policy refuses a permission the checks do not call excess.",
+      "runs": [
+        "2026-10-27-0653-scored-proposals#change-2"
+      ],
+      "change": "None: two controls blocked it."
+    },
+    {
+      "finding": "A workflow started at the compare step matched an answer the operator wrote, with no model. The proposal command refused it.",
+      "runs": [
+        "2026-10-27-1556-unsafe-patch#nb-10271617-skip"
+      ],
+      "change": "The proposal command checks the workflow's entrypoint and its one comparison ([#203](https://github.com/sindredg/ai-security-platform/issues/203))."
     }
   ]
 }

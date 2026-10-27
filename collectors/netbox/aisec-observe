@@ -1,0 +1,10 @@
+#!/bin/sh
+# The observer key's forced command on the lab VM (ADR 0040). It runs as the
+# observer account and passes on one word: rehearsal, for the rehearsal copy's
+# observed half (ADR 0044). Any other command the client sent runs the live
+# NetBox's observed half, as before the copy existed. sudo allows the two
+# commands below and nothing else.
+if [ "${SSH_ORIGINAL_COMMAND:-}" = rehearsal ]; then
+  exec /usr/bin/sudo -n /usr/local/sbin/aisec-observe-netbox rehearsal
+fi
+exec /usr/bin/sudo -n /usr/local/sbin/aisec-observe-netbox

@@ -18,6 +18,10 @@
 # token on success, failure, and stop. One job at a time: the mutex waits for
 # the one before. No step is retried.
 #
+# A workflow may set its own entrypoint. The only templates it can name are
+# investigate and the exit handler, which revokes the workflow's own token
+# (ADR 0048, platform/argo/tests/lint-entrypoints.sh).
+#
 # Deadlines, shortest first: the dispatch step's, 180 seconds past the job's
 # own limit, then the token's, 300 past it, then the worker unit's 1800. The
 # comparison step gets 120 seconds of its own.
@@ -69,148 +73,152 @@ spec:
         name: tool-service-cert
   templates:
     - name: investigate
+      # Both steps are inline, so they are not templates a workflow can name
+      # as its entrypoint: dispatch alone would end with no comparison, and
+      # the comparison alone would read an answer the submitter wrote (#203,
+      # ADR 0048). Their nodes have no template name.
       steps:
         - - name: dispatch
-            template: dispatch
+            inline:
+              # The label the network policies give a way to the worker's SSH
+              # port and the tool service's registration port.
+              metadata:
+                labels:
+                  app.kubernetes.io/name: dispatch
+              activeDeadlineSeconds: "{{=asInt(workflow.parameters.seconds) + 180}}"
+              # On this step only, so the revoke pod's spec does not name the
+              # key.
+              volumes:
+                # The key and the worker's host key. Readable by the step's
+                # group only.
+                - name: dispatch-ssh
+                  secret:
+                    secretName: dispatch-ssh
+                    defaultMode: 0440
+                - name: work
+                  emptyDir:
+                    medium: Memory
+                    sizeLimit: 1Mi
+                - name: tmp
+                  emptyDir:
+                    sizeLimit: 1Mi
+              container:
+                image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:c9df710df64d554ef0e8e6c74763fb96843b5984928fcdfaba180721b5b36704
+                # The executor needs the command: it cannot read the image's
+                # entry point from a registry it has no way to reach.
+                command: [python, /opt/dispatch/dispatch.py]
+                args:
+                  - dispatch
+                  - "{{workflow.name}}"
+                  - "{{workflow.parameters.target}}"
+                  - "{{workflow.parameters.max-turns}}"
+                  - "{{workflow.parameters.seconds}}"
+                  - "{{workflow.parameters.task}}"
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 32Mi
+                  limits:
+                    memory: 128Mi
+                securityContext:
+                  runAsUser: 65532
+                  runAsGroup: 65532
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities:
+                    drop: [ALL]
+                volumeMounts:
+                  - name: caller-token
+                    mountPath: /var/run/secrets/aisec
+                    readOnly: true
+                  - name: tool-cert
+                    mountPath: /etc/aisec
+                    readOnly: true
+                  - name: dispatch-ssh
+                    mountPath: /etc/dispatch
+                    readOnly: true
+                  - name: work
+                    mountPath: /run/dispatch
+                  - name: tmp
+                    mountPath: /tmp
+              outputs:
+                parameters:
+                  - name: result
+                    valueFrom:
+                      path: /tmp/result.json
+                      default: "{}"
+                  # The comparison's input: written only for an answer of at
+                  # most 8 KiB with no template syntax, which Argo would render.
+                  - name: answer
+                    valueFrom:
+                      path: /tmp/answer.txt
+                      default: ""
         - - name: compare
-            template: compare
             when: "'{{workflow.parameters.target}}' == 'netbox'"
             arguments:
               parameters:
                 - name: answer
                   value: "{{steps.dispatch.outputs.parameters.answer}}"
-    - name: dispatch
-      # The label the network policies give a way to the worker's SSH port
-      # and the tool service's registration port.
-      metadata:
-        labels:
-          app.kubernetes.io/name: dispatch
-      activeDeadlineSeconds: "{{=asInt(workflow.parameters.seconds) + 180}}"
-      # On this template only, so the revoke pod's spec does not name the key.
-      volumes:
-        # The key and the worker's host key. Readable by the step's group only.
-        - name: dispatch-ssh
-          secret:
-            secretName: dispatch-ssh
-            defaultMode: 0440
-        - name: work
-          emptyDir:
-            medium: Memory
-            sizeLimit: 1Mi
-        - name: tmp
-          emptyDir:
-            sizeLimit: 1Mi
-      container:
-        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:39967b73d899cfe3e381d0f6874c1fad650b3a9998bd9c6ef7976dddd3ff7763
-        # The executor needs the command: it cannot read the image's entry
-        # point from a registry it has no way to reach.
-        command: [python, /opt/dispatch/dispatch.py]
-        args:
-          - dispatch
-          - "{{workflow.name}}"
-          - "{{workflow.parameters.target}}"
-          - "{{workflow.parameters.max-turns}}"
-          - "{{workflow.parameters.seconds}}"
-          - "{{workflow.parameters.task}}"
-        resources:
-          requests:
-            cpu: 10m
-            memory: 32Mi
-          limits:
-            memory: 128Mi
-        securityContext:
-          runAsUser: 65532
-          runAsGroup: 65532
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop: [ALL]
-        volumeMounts:
-          - name: caller-token
-            mountPath: /var/run/secrets/aisec
-            readOnly: true
-          - name: tool-cert
-            mountPath: /etc/aisec
-            readOnly: true
-          - name: dispatch-ssh
-            mountPath: /etc/dispatch
-            readOnly: true
-          - name: work
-            mountPath: /run/dispatch
-          - name: tmp
-            mountPath: /tmp
-      outputs:
-        parameters:
-          - name: result
-            valueFrom:
-              path: /tmp/result.json
-              default: "{}"
-          # The comparison's input: written only for an answer of at most
-          # 8 KiB with no template syntax, which Argo would render.
-          - name: answer
-            valueFrom:
-              path: /tmp/answer.txt
-              default: ""
-    # No credential and a label no policy names: it reaches the API server
-    # for its executor, and nothing else.
-    - name: compare
-      metadata:
-        labels:
-          app.kubernetes.io/name: compare
-      activeDeadlineSeconds: 120
-      inputs:
-        parameters:
-          - name: answer
-      volumes:
-        # This job's verdicts and no other job's. Optional, so that a job
-        # with none still reaches the step, which stops on it.
-        - name: verdicts
-          configMap:
-            name: netbox-verdicts
-            optional: true
-            items:
-              - key: "{{workflow.name}}.json"
-                path: verdicts.json
-        - name: tmp
-          emptyDir:
-            sizeLimit: 1Mi
-      container:
-        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:39967b73d899cfe3e381d0f6874c1fad650b3a9998bd9c6ef7976dddd3ff7763
-        command: [python, /opt/dispatch/compare.py]
-        args:
-          - "{{workflow.name}}"
-          - "{{inputs.parameters.answer}}"
-        resources:
-          requests:
-            cpu: 10m
-            memory: 32Mi
-          limits:
-            memory: 128Mi
-        securityContext:
-          runAsUser: 65532
-          runAsGroup: 65532
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop: [ALL]
-        volumeMounts:
-          - name: verdicts
-            mountPath: /etc/aisec/verdicts
-            readOnly: true
-          - name: tmp
-            mountPath: /tmp
-      outputs:
-        parameters:
-          - name: comparison
-            valueFrom:
-              path: /tmp/comparison.json
-              default: "{}"
+            # No credential and a label no policy names: it reaches the API
+            # server for its executor, and nothing else.
+            inline:
+              metadata:
+                labels:
+                  app.kubernetes.io/name: compare
+              activeDeadlineSeconds: 120
+              inputs:
+                parameters:
+                  - name: answer
+              volumes:
+                # This job's verdicts and no other job's. Optional, so that a
+                # job with none still reaches the step, which stops on it.
+                - name: verdicts
+                  configMap:
+                    name: netbox-verdicts
+                    optional: true
+                    items:
+                      - key: "{{workflow.name}}.json"
+                        path: verdicts.json
+                - name: tmp
+                  emptyDir:
+                    sizeLimit: 1Mi
+              container:
+                image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:c9df710df64d554ef0e8e6c74763fb96843b5984928fcdfaba180721b5b36704
+                command: [python, /opt/dispatch/compare.py]
+                args:
+                  - "{{workflow.name}}"
+                  - "{{inputs.parameters.answer}}"
+                resources:
+                  requests:
+                    cpu: 10m
+                    memory: 32Mi
+                  limits:
+                    memory: 128Mi
+                securityContext:
+                  runAsUser: 65532
+                  runAsGroup: 65532
+                  allowPrivilegeEscalation: false
+                  readOnlyRootFilesystem: true
+                  capabilities:
+                    drop: [ALL]
+                volumeMounts:
+                  - name: verdicts
+                    mountPath: /etc/aisec/verdicts
+                    readOnly: true
+                  - name: tmp
+                    mountPath: /tmp
+              outputs:
+                parameters:
+                  - name: comparison
+                    valueFrom:
+                      path: /tmp/comparison.json
+                      default: "{}"
     - name: revoke
       metadata:
         labels:
           app.kubernetes.io/name: dispatch
       container:
-        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:39967b73d899cfe3e381d0f6874c1fad650b3a9998bd9c6ef7976dddd3ff7763
+        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:c9df710df64d554ef0e8e6c74763fb96843b5984928fcdfaba180721b5b36704
         command: [python, /opt/dispatch/dispatch.py]
         args: [revoke, "{{workflow.name}}"]
         resources:

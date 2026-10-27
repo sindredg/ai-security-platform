@@ -28,6 +28,22 @@ getent passwd "$account" > /dev/null ||
   useradd --system --user-group --no-create-home --home-dir "/home/$account" --shell /bin/bash "$account"
 install -d -m 0755 -o root -g root "/home/$account" "/home/$account/.ssh"
 
+# Each login used to start and stop a user service manager for the account,
+# whose lines the journal pull then copied: a third of the workspace's daily
+# volume for the pull's own logins (issue 164). A session of the light class is
+# still registered with logind, and starts no user manager. The profile gives
+# the class to this account's sessions only, ahead of pam_systemd.
+profile=/usr/share/pam-configs/aisec-light-session-$account
+{
+  printf 'Name: Sessions of %s without a user service manager\n' "$account"
+  printf 'Default: yes\nPriority: 64\nSession-Interactive-Only: yes\nSession-Type: Additional\nSession:\n'
+  printf '\t[success=1 default=ignore]\tpam_succeed_if.so quiet user != %s\n' "$account"
+  printf '\toptional\tpam_env.so readenv=0 user_readenv=0 conffile=/etc/security/aisec-light-session.conf\n'
+} > "$profile"
+echo 'XDG_SESSION_CLASS DEFAULT=background-light' > /etc/security/aisec-light-session.conf
+chmod 0644 "$profile" /etc/security/aisec-light-session.conf
+DEBIAN_FRONTEND=noninteractive pam-auth-update --enable "aisec-light-session-$account"
+
 install -m 0755 -o root -g root "$here/job/aisec_job_runner.py" /usr/local/sbin/aisec-job-runner
 install -d -m 0755 -o root -g root /usr/local/lib/aisec/job
 install -m 0644 -o root -g root "$here/job/agent_job.py" "$here/system.txt" /usr/local/lib/aisec/job/

@@ -3,6 +3,8 @@
 Status: Accepted
 Date: 2026-10-16
 
+The broker's app was not made: [0045](0045-the-operator-publishes-a-checked-proposal.md) decides milestone 5's pull requests without one.
+
 Extends [0002](0002-separate-platform-and-target-infrastructure.md) to the repository. 0002 separates the two sides at every layer the project controls, and the repository is a layer it did not name.
 
 ## Context

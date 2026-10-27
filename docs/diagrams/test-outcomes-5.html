@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NetBox jobs at the comparison in milestone 5, by outcome</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #2d3142;   /* deep warm charcoal */
+      --color-ink:     #f5f5f5;   /* warm off-white */
+      --color-muted:   #bfc0c0;
+      --color-accent:  #f08a59;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1200px; width: 100%; }
+    /* The SVG holds its readable width (min-width == the viewBox width, so the
+       type ramp is never silently scaled down). This wrapper lets a narrow
+       screen scroll the diagram instead of the whole page. */
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    svg { width: 100%; min-width: 960px; display: block; }
+    /* Paper has no scrollbar, so the local scroller would clip instead of
+       scroll. Let the diagram scale down to the sheet: smaller but whole
+       beats sharp but cut off. Must come after the svg rule above - a media
+       query adds no specificity, so a later plain rule would win. */
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Bar chart · Test evidence</p>
+    <h1>NetBox jobs at the comparison in milestone 5, by outcome</h1>
+    <div class="diagram-container">
+      <svg viewBox="0 0 960 480" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="test-outcomes-5-title test-outcomes-5-desc">
+        <title id="test-outcomes-5-title">NetBox jobs at the comparison in milestone 5, by outcome</title>
+        <desc id="test-outcomes-5-desc">Stacked bar chart of the NetBox jobs in each of milestone 5's run sets that ran the comparison step: matches, stops by their cause, and failures.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#739fdf"/></marker>
+
+          <!-- OPTIONAL: dot-pattern background. Uncomment and add <rect fill="url(#dots)"/> after the paper rect to enable. -->
+          <!--
+          <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="rgba(245,245,245,0.08)"/>
+          </pattern>
+          -->
+        </defs>
+
+        <rect width="100%" height="100%" fill="#2d3142"/>
+
+        <!-- Gridlines and the axis -->
+        <line x1="296" y1="64" x2="296" y2="352" stroke="rgba(245,245,245,0.20)" stroke-width="1"/>
+        <text x="296" y="368" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">0</text>
+        <line x1="392" y1="64" x2="392" y2="352" stroke="rgba(245,245,245,0.08)" stroke-width="0.8"/>
+        <text x="392" y="368" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">2</text>
+        <line x1="488" y1="64" x2="488" y2="352" stroke="rgba(245,245,245,0.08)" stroke-width="0.8"/>
+        <text x="488" y="368" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">4</text>
+        <line x1="584" y1="64" x2="584" y2="352" stroke="rgba(245,245,245,0.08)" stroke-width="0.8"/>
+        <text x="584" y="368" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">6</text>
+        <line x1="680" y1="64" x2="680" y2="352" stroke="rgba(245,245,245,0.08)" stroke-width="0.8"/>
+        <text x="680" y="368" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">8</text>
+        <line x1="776" y1="64" x2="776" y2="352" stroke="rgba(245,245,245,0.08)" stroke-width="0.8"/>
+        <text x="776" y="368" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10</text>
+        <line x1="872" y1="64" x2="872" y2="352" stroke="rgba(245,245,245,0.08)" stroke-width="0.8"/>
+        <text x="872" y="368" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">12</text>
+        <text x="584" y="384" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">NETBOX JOBS</text>
+        <!-- One bar per run set -->
+        <text x="280" y="92" fill="#f5f5f5" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="end">Proposal lines</text>
+        <text x="280" y="105" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">2026-10-26 22:14</text>
+        <rect x="296" y="80" width="48" height="28" fill="#2d3142"/>
+        <rect x="296" y="80" width="48" height="28" fill="rgba(240,138,89,0.45)" stroke="#f08a59" stroke-width="1"/>
+        <text x="320" y="97" fill="#f08a59" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="344" y="80" width="48" height="28" fill="#2d3142"/>
+        <rect x="344" y="80" width="48" height="28" fill="rgba(130,160,192,0.22)" stroke="#82a0c0" stroke-width="1"/>
+        <text x="368" y="97" fill="#82a0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <text x="400" y="97" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace">2</text>
+        <text x="280" y="148" fill="#f5f5f5" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="end">Thinking and proposals</text>
+        <text x="280" y="161" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">2026-10-27 05:42</text>
+        <rect x="296" y="136" width="144" height="28" fill="#2d3142"/>
+        <rect x="296" y="136" width="144" height="28" fill="rgba(240,138,89,0.45)" stroke="#f08a59" stroke-width="1"/>
+        <text x="368" y="153" fill="#f08a59" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">3</text>
+        <rect x="440" y="136" width="48" height="28" fill="#2d3142"/>
+        <rect x="440" y="136" width="48" height="28" fill="rgba(211,173,122,0.22)" stroke="#d3ad7a" stroke-width="1"/>
+        <text x="464" y="153" fill="#d3ad7a" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <text x="496" y="153" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace">4</text>
+        <text x="280" y="204" fill="#f5f5f5" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="end">Scored proposals</text>
+        <text x="280" y="217" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">2026-10-27 06:53</text>
+        <rect x="296" y="192" width="192" height="28" fill="#2d3142"/>
+        <rect x="296" y="192" width="192" height="28" fill="rgba(240,138,89,0.45)" stroke="#f08a59" stroke-width="1"/>
+        <text x="392" y="209" fill="#f08a59" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">4</text>
+        <rect x="488" y="192" width="48" height="28" fill="#2d3142"/>
+        <rect x="488" y="192" width="48" height="28" fill="rgba(130,160,192,0.22)" stroke="#82a0c0" stroke-width="1"/>
+        <text x="512" y="209" fill="#82a0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <rect x="536" y="192" width="240" height="28" fill="#2d3142"/>
+        <rect x="536" y="192" width="240" height="28" fill="rgba(211,173,122,0.22)" stroke="#d3ad7a" stroke-width="1"/>
+        <text x="656" y="209" fill="#d3ad7a" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">5</text>
+        <rect x="776" y="192" width="96" height="28" fill="#2d3142"/>
+        <rect x="776" y="192" width="96" height="28" fill="rgba(141,130,152,0.22)" stroke="#8d8298" stroke-width="1"/>
+        <text x="824" y="209" fill="#8d8298" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">2</text>
+        <text x="880" y="209" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace">12</text>
+        <text x="280" y="260" fill="#f5f5f5" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="end">Unsafe patch</text>
+        <text x="280" y="273" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">2026-10-27 15:56</text>
+        <rect x="296" y="248" width="96" height="28" fill="#2d3142"/>
+        <rect x="296" y="248" width="96" height="28" fill="rgba(240,138,89,0.45)" stroke="#f08a59" stroke-width="1"/>
+        <text x="344" y="265" fill="#f08a59" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">2</text>
+        <rect x="392" y="248" width="48" height="28" fill="#2d3142"/>
+        <rect x="392" y="248" width="48" height="28" fill="rgba(130,160,192,0.22)" stroke="#82a0c0" stroke-width="1"/>
+        <text x="416" y="265" fill="#82a0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <text x="448" y="265" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace">3</text>
+        <text x="280" y="316" fill="#f5f5f5" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="end">Final output answers</text>
+        <text x="280" y="329" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">2026-10-27 19:48</text>
+        <rect x="296" y="304" width="96" height="28" fill="#2d3142"/>
+        <rect x="296" y="304" width="96" height="28" fill="rgba(240,138,89,0.45)" stroke="#f08a59" stroke-width="1"/>
+        <text x="344" y="321" fill="#f08a59" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">2</text>
+        <text x="400" y="321" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace">2</text>
+        <!-- Legend -->
+        <line x1="40" y1="408" x2="920" y2="408" stroke="rgba(245,245,245,0.10)" stroke-width="0.8"/>
+        <text x="40" y="424" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="40" y="440" width="14" height="10" rx="2" fill="rgba(240,138,89,0.45)" stroke="#f08a59" stroke-width="1"/>
+        <text x="60" y="448" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Match</text>
+        <rect x="336" y="440" width="14" height="10" rx="2" fill="rgba(130,160,192,0.22)" stroke="#82a0c0" stroke-width="1"/>
+        <text x="356" y="448" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: verdicts right, a line unreadable</text>
+        <rect x="632" y="440" width="14" height="10" rx="2" fill="rgba(211,173,122,0.22)" stroke="#d3ad7a" stroke-width="1"/>
+        <text x="652" y="448" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: a wrong or missing verdict</text>
+        <rect x="40" y="460" width="14" height="10" rx="2" fill="rgba(141,130,152,0.22)" stroke="#8d8298" stroke-width="1"/>
+        <text x="60" y="468" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: the checks disagree or are missing</text>
+        <rect x="336" y="460" width="14" height="10" rx="2" fill="rgba(184,134,112,0.22)" stroke="#b88670" stroke-width="1"/>
+        <text x="356" y="468" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Failed: time limit</text>
+
+      </svg>
+    </div>
+  </div>
+</body>
+</html>

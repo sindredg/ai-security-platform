@@ -2,7 +2,7 @@
 
 # A synthetic job after the timeout
 
-Milestone 4, 2026-10-26. [All run sets](README.md), [previous: Scored cases](2026-10-25-2308-scored-cases.md).
+Milestone 4, 2026-10-26. [All run sets](README.md), [previous: Scored cases](2026-10-25-2308-scored-cases.md), [next: Proposal lines](2026-10-26-2214-proposal-lines.md).
 
 **Tested:** Whether the slot is erased again after the job that timed out, so the check on the last job's erase passes.
 

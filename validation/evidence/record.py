@@ -1,11 +1,14 @@
 """Add one job's record to a run set's file, from what the live system kept.
 
-    record.py SET WORKFLOW AUDIT [COLLECTED]
+    record.py SET WORKFLOW AUDIT [COLLECTED] [--proposal FILE] [--delivery FILE]... [--pr N]
 
 SET is a run set's file under `docs/evidence/records/`. WORKFLOW is the job's
 workflow as `argo get -o json` prints it. AUDIT holds lines of the tool
 service's audit log, and only the job's own are read. COLLECTED, for a NetBox
-job, is what `collect-netbox-evidence` printed.
+job, is what `collect-netbox-evidence` printed. For a job whose fix was
+proposed, --proposal is the bundle `propose-netbox-fix` wrote, each
+--delivery a result `deliver-netbox-change` wrote, and --pr the number of
+the fix's pull request in the targets repository.
 
 The record keeps what the evidence pages show and nothing else: the job's
 limits but not its task, the workflow's phase and message, each step's
@@ -31,6 +34,7 @@ import hashlib
 import json
 import re
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 RESULT_FIELDS = (
@@ -170,7 +174,51 @@ def collected(text):
     return case, checks
 
 
-def build(workflow, audit_lines, collection=""):
+def proposal_record(bundle):
+    """What a fix's bundle shows: who proposed it, the changes the policy
+    named, its decision, and the rehearsal's verdicts. No answer text."""
+    rehearsal = bundle["rehearsal"]
+    return {
+        "source": bundle["source"],
+        "changes": bundle["policy"]["changes"],
+        # What was proposed, the model's lines or the operator's file, as the
+        # comparison read them: checked fields only.
+        "proposed": [
+            {k: p[k] for k in ("account", "action", "permission", "references")}
+            for p in bundle["comparison"]["proposals"]
+        ],
+        "policy": {
+            "allowed": bundle["policy"]["allowed"],
+            "reasons": bundle["policy"]["reasons"],
+        },
+        "rehearsal": {
+            "passed": rehearsal.get("passed") is True,
+            "verdicts": rehearsal.get("verdicts") or {},
+            "reason": rehearsal.get("reason"),
+        },
+    }
+
+
+def delivery_record(result, pr):
+    """A delivery's tag, its commit shortened, its mode, when the approval was
+    signed, what changed, and the checks after it."""
+    signed = datetime.fromtimestamp(result["tagged_at"], UTC)
+    return {
+        "tag": result["tag"],
+        "commit": result["commit"][:12],
+        "mode": result["mode"],
+        "approved_at": signed.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "applied": [
+            {"permission": c["permission"], "users": c["users"]}
+            for c in result["applied"]
+        ],
+        "verdicts": result["verdicts"],
+        "passed": result["passed"],
+        "pr": pr,
+    }
+
+
+def build(workflow, audit_lines, collection="", proposal=None, deliveries=(), pr=None):
     name = workflow["metadata"]["name"]
     params = {
         p["name"]: p.get("value")
@@ -192,29 +240,47 @@ def build(workflow, audit_lines, collection=""):
         answer = result.get("answer", out.get("answer")) or ""
     else:
         answer = out.get("answer")
-    return {
-        "job": name,
-        "target": params.get("target"),
-        "case": case,
-        "limits": {
-            "seconds": int(params["seconds"]) if params.get("seconds") else None,
-            "turns": int(params["max-turns"]) if params.get("max-turns") else None,
-        },
-        "started": workflow["status"].get("startedAt"),
-        "finished": workflow["status"].get("finishedAt"),
-        "phase": workflow["status"].get("phase"),
-        "message": workflow["status"].get("message") or "",
-        "steps": steps(workflow),
-        "result": {k: result.get(k) for k in RESULT_FIELDS} if result else None,
-        "checks": checks or None,
-        "comparison": (
-            {k: comparison[k] for k in ("outcome", "reasons", "accounts")}
-            if comparison
-            else None
-        ),
-        "calls": calls(name, audit_lines, requests(result)),
-        "answer": answer,
-    }
+    return (
+        {
+            "job": name,
+            "target": params.get("target"),
+            "case": case,
+            "limits": {
+                "seconds": int(params["seconds"]) if params.get("seconds") else None,
+                "turns": int(params["max-turns"]) if params.get("max-turns") else None,
+            },
+            "started": workflow["status"].get("startedAt"),
+            "finished": workflow["status"].get("finishedAt"),
+            "phase": workflow["status"].get("phase"),
+            "message": workflow["status"].get("message") or "",
+            "steps": steps(workflow),
+            "result": {k: result.get(k) for k in RESULT_FIELDS} if result else None,
+            "checks": checks or None,
+            "comparison": (
+                {
+                    k: comparison[k]
+                    for k in (
+                        "outcome",
+                        "reasons",
+                        "accounts",
+                        "proposals",
+                        "unread_proposals",
+                    )
+                    if k in comparison
+                }
+                if comparison
+                else None
+            ),
+            "calls": calls(name, audit_lines, requests(result)),
+            "answer": answer,
+        }
+        | ({"proposal": proposal_record(proposal)} if proposal else {})
+        | (
+            {"deliveries": [delivery_record(d, pr) for d in deliveries]}
+            if deliveries
+            else {}
+        )
+    )
 
 
 def add(run_set, record):
@@ -229,17 +295,44 @@ def add(run_set, record):
     }
 
 
+def arguments(argv):
+    """The positional arguments, and the options' values."""
+    positional, options = [], {"--proposal": [], "--delivery": [], "--pr": []}
+    args = iter(argv[1:])
+    for arg in args:
+        if arg in options:
+            options[arg].append(next(args, None))
+        else:
+            positional.append(arg)
+    if None in [v for values in options.values() for v in values]:
+        return None
+    if len(options["--proposal"]) > 1 or len(options["--pr"]) > 1:
+        return None
+    if not 3 <= len(positional) <= 4:
+        return None
+    return positional, options
+
+
 def main(argv):
-    if len(argv) not in (4, 5):
+    parsed = arguments(argv)
+    if parsed is None:
         print(__doc__.split("\n\n")[1], file=sys.stderr)
         return 2
-    set_path = Path(argv[1])
+    positional, options = parsed
+    set_path = Path(positional[0])
     run_set = json.loads(set_path.read_text())
-    workflow = json.loads(Path(argv[2]).read_text())
-    audit = Path(argv[3]).read_text().splitlines()
-    collection = Path(argv[4]).read_text() if len(argv) == 5 else ""
+    workflow = json.loads(Path(positional[1]).read_text())
+    audit = Path(positional[2]).read_text().splitlines()
+    collection = Path(positional[3]).read_text() if len(positional) == 4 else ""
+    proposal = (
+        json.loads(Path(options["--proposal"][0]).read_text())
+        if options["--proposal"]
+        else None
+    )
+    deliveries = [json.loads(Path(f).read_text()) for f in options["--delivery"]]
+    pr = int(options["--pr"][0]) if options["--pr"] else None
     try:
-        record = build(workflow, audit, collection)
+        record = build(workflow, audit, collection, proposal, deliveries, pr)
     except ValueError as error:
         print(f"not written: {error}", file=sys.stderr)
         return 1

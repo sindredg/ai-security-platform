@@ -1,0 +1,17 @@
+# A workflow that runs the dispatch step alone, which ends with no comparison
+# (#203). lint-entrypoints.sh expects Argo to refuse it.
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: nb-entrypoint-dispatch
+  namespace: orchestration
+spec:
+  entrypoint: dispatch
+  workflowTemplateRef:
+    name: investigate
+  arguments:
+    parameters:
+      - name: task
+        value: The NetBox task.
+      - name: target
+        value: netbox

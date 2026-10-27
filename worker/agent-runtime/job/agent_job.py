@@ -7,8 +7,10 @@ session from the dispatch step on the orchestrator.
 Reads one JSON line, the job. Writes the agent's recipe with the job's token
 into the unit's private /tmp, runs Goose against the model server and the tool
 service, and writes one JSON line back, the result, with the agent's
-transcript in it. The transcript goes only to the socket, never to the
-journal, which leaves the worker for the workspace. An end of input before
+transcript in it. A NetBox job's answer is written from the final output
+Goose checked against the answer's schema (ADR 0049). The transcript goes
+only to the socket, never to the journal, which leaves the worker for the
+workspace. An end of input before
 Goose ends is a cancel: Goose is stopped, and nothing is written back.
 
 The model server's slot is erased before the job, and the job is refused when
@@ -48,7 +50,7 @@ SECONDS = range(60, 1201)
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 TOKEN = re.compile(r"[0-9a-f]{64}")
 FIELDS = {"job", "token", "task", "max_turns", "seconds"}
-# The job's target, which the dispatch step names since #215. A line from a
+# The job's target, which the dispatch step names since #217. A line from a
 # dispatch image before it has none. The tool service's targets.
 OPTIONAL = {"target"}
 TARGETS = ("synthetic", "netbox")
@@ -80,6 +82,81 @@ ERASE_SECONDS = 90
 # crates/goose/src/agents/state_machine_builder.rs for load_skill. A job
 # offered any other tool fails.
 OFFERED = frozenset({"tools__get_evidence", "load_skill"})
+# A NetBox job answers with a structured final output (ADR 0049). A recipe
+# with a response schema makes Goose offer the model a tool of its own for
+# the answer, check each call to it against the schema, hand the errors back,
+# and ask for the call when a turn ends without one. The tool reaches nothing.
+# Read in Goose 1.56.0's source: crates/goose/src/agents/final_output_tool.rs
+# and crates/goose/src/agents/state_machine/ops_recipe.rs. The job program
+# checks the accepted output against the same schema, and writes from it the
+# verdict and proposal lines the comparison reads (ADR 0041, ADR 0043).
+FINAL_OUTPUT = "recipe__final_output"
+FINAL_OUTPUT_ACCEPTED = "Final output successfully collected."
+# The answer the comparison reads is at most 8 KiB (dispatch.py). The lines
+# after the analysis take far less.
+ANALYSIS_CHARS = 2000
+ACCOUNT_NAME = {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"}
+REFERENCES = {
+    "type": "array",
+    "minItems": 1,
+    "maxItems": 8,
+    "items": {"type": "string", "pattern": "^ev-[0-9]{4}$"},
+}
+VERDICTS = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["analysis", "verdicts", "proposals"],
+    "properties": {
+        "analysis": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": ANALYSIS_CHARS,
+            "description": "What the evidence shows for each account, citing "
+            "it, and where it disagrees",
+        },
+        "verdicts": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "description": "One for each account in the contract",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["account", "verdict", "evidence"],
+                "properties": {
+                    "account": ACCOUNT_NAME,
+                    "verdict": {
+                        "enum": ["excess", "missing", "within", "inconclusive"]
+                    },
+                    "evidence": REFERENCES,
+                },
+            },
+        },
+        "proposals": {
+            "type": "array",
+            "maxItems": 20,
+            "description": "One for each account whose verdict is excess",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["account", "permission", "evidence"],
+                "properties": {
+                    "account": ACCOUNT_NAME,
+                    "permission": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 999999999,
+                        "description": "The id in ev-0002 of the permission to "
+                        "take from the account",
+                    },
+                    "evidence": REFERENCES,
+                },
+            },
+        },
+    },
+}
+# The targets whose jobs answer in a schema, and the schema.
+ANSWER_SCHEMAS = {"netbox": VERDICTS}
 
 
 class Refused(Exception):
@@ -137,7 +214,8 @@ def parse_job(line):
 
 
 def write_recipe(job, system, path):
-    """The agent's recipe: the system text, the task, and one extension."""
+    """The agent's recipe: the system text, the task, one extension, and for
+    a target that answers in a schema, the schema."""
     recipe = {
         "version": "1.0.0",
         "title": "aisec job",
@@ -155,9 +233,14 @@ def write_recipe(job, system, path):
             }
         ],
     }
+    schema = ANSWER_SCHEMAS.get(job.get("target"))
+    if schema:
+        recipe["response"] = {"json_schema": schema}
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w") as f:
-        json.dump(recipe, f)
+        # Indented, so that no two braces meet: Goose renders the file as a
+        # template, in which {{ and }} are its own.
+        json.dump(recipe, f, indent=1)
 
 
 def goose_env(work):
@@ -241,26 +324,45 @@ def offered_tools(work):
     return names if read else None
 
 
-def tools_problem(offered):
+def allowed_tools(job):
+    """The tools a job may be offered: the final output's too, for a target
+    that answers in a schema."""
+    if job.get("target") in ANSWER_SCHEMAS:
+        return OFFERED | {FINAL_OUTPUT}
+    return OFFERED
+
+
+def tools_problem(offered, allowed=OFFERED):
     """Why the tools Goose offered fail the job, or None."""
     if offered is None:
         return "no request to the model could be read, so the offered tools are unknown"
-    extra = sorted(offered - OFFERED)
+    extra = sorted(offered - allowed)
     if extra:
         return "the model was offered tools outside the recipe: " + ", ".join(extra)
     return None
 
 
+def tool_name(part):
+    return ((part.get("toolCall") or {}).get("value") or {}).get("name")
+
+
 def summarize(transcript):
-    """Counts and the last answer from Goose's JSON output."""
-    calls, errors, answer = 0, 0, ""
+    """Counts and the last answer from Goose's JSON output. The counts leave
+    out the final output's calls, which reach no service: they count the
+    calls to the tool service and its errors."""
+    calls, errors, answer, finals = 0, 0, "", set()
     for message in transcript.get("messages", []):
         texts = []
         for part in message.get("content", []):
             kind = part.get("type")
             if kind == "toolRequest":
-                calls += 1
+                if tool_name(part) != FINAL_OUTPUT:
+                    calls += 1
+                elif part.get("id") is not None:
+                    finals.add(part["id"])
             elif kind == "toolResponse":
+                if part.get("id") in finals:
+                    continue
                 result = part.get("toolResult") or {}
                 value = result.get("value") or {}
                 if result.get("status") != "success" or value.get("isError"):
@@ -270,6 +372,100 @@ def summarize(transcript):
         if message.get("role") == "assistant":
             answer = "\n".join(texts)
     return calls, errors, answer
+
+
+def accepted_output(transcript):
+    """The arguments of the last final output Goose accepted, found as Goose
+    finds them: the call whose response says it was collected. None when no
+    call was accepted. Also the number of final output calls."""
+    accepted, calls = set(), []
+    for message in transcript.get("messages", []):
+        for part in message.get("content", []):
+            if part.get("type") == "toolRequest" and tool_name(part) == FINAL_OUTPUT:
+                calls.append(
+                    (part.get("id"), part["toolCall"]["value"].get("arguments"))
+                )
+            elif part.get("type") == "toolResponse":
+                result = part.get("toolResult") or {}
+                value = result.get("value") or {}
+                texts = [
+                    c.get("text")
+                    for c in value.get("content") or []
+                    if isinstance(c, dict)
+                ]
+                if (
+                    result.get("status") == "success"
+                    and value.get("isError") is not True
+                    and FINAL_OUTPUT_ACCEPTED in texts
+                ):
+                    accepted.add(part.get("id"))
+    for call_id, arguments in reversed(calls):
+        if call_id is not None and call_id in accepted:
+            return arguments, len(calls)
+    return None, len(calls)
+
+
+def fits(value, schema):
+    """Whether value fits schema, for the keywords VERDICTS uses. Goose
+    checked it first. This keeps the lines written from it to what the schema
+    allows, whatever Goose's checker passed."""
+    if "enum" in schema and value not in schema["enum"]:
+        return False
+    kind = schema.get("type")
+    if kind == "object":
+        properties = schema.get("properties", {})
+        return (
+            isinstance(value, dict)
+            and (
+                schema.get("additionalProperties", True)
+                or set(value) <= set(properties)
+            )
+            and set(schema.get("required", [])) <= set(value)
+            and all(fits(value[k], properties[k]) for k in value if k in properties)
+        )
+    if kind == "array":
+        return (
+            isinstance(value, list)
+            and schema.get("minItems", 0)
+            <= len(value)
+            <= schema.get("maxItems", len(value))
+            and all(fits(item, schema["items"]) for item in value)
+        )
+    if kind == "string":
+        # The schema's patterns are anchored with ^ and $, which Goose's
+        # checker reads as the whole text. Python's $ also matches before a
+        # last newline, so fullmatch takes the pattern without them.
+        pattern = schema.get("pattern")
+        return (
+            isinstance(value, str)
+            and schema.get("minLength", 0)
+            <= len(value)
+            <= schema.get("maxLength", len(value))
+            and (pattern is None or re.fullmatch(pattern[1:-1], value) is not None)
+        )
+    if kind == "integer":
+        return type(value) is int and schema.get(
+            "minimum", value
+        ) <= value <= schema.get("maximum", value)
+    return kind is None
+
+
+def answer_lines(final):
+    """The answer the comparison reads, from a final output that fits the
+    schema: the analysis as one line, then a verdict line for each account
+    and a proposal line for each proposal, in the model's order. The analysis
+    line starts with a word the comparison does not read."""
+    analysis = " ".join(final["analysis"].split())
+    lines = [f"Analysis: {analysis}", ""]
+    lines += [
+        f"Verdict: {v['account']} {v['verdict']} {' '.join(v['evidence'])}"
+        for v in final["verdicts"]
+    ]
+    lines += [
+        f"Proposal: {p['account']} remove {p['permission']} {' '.join(p['evidence'])}"
+        for p in final["proposals"]
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def cut(text, size):
@@ -359,13 +555,17 @@ def log_erase(job, step, erased):
 def result_line(job, system, outcome, code, started, out, err, erased, offered):
     """The token is taken out of each text before it is cut, so no part of it
     is left at a cut. A job Goose completed fails when it was offered a tool
-    outside OFFERED, or when its answer had to be cut to fit the result, with
-    each reason at the end of the stderr tail."""
+    its target does not allow, or when its answer had to be cut to fit the
+    result, with each reason at the end of the stderr tail. For a target that
+    answers in a schema, the answer is written from the final output Goose
+    accepted, when it fits the schema. Otherwise it is the model's last text,
+    as for any other job, and the stderr tail says so."""
     token = job["token"]
     # Goose writes its transcript when it ends. Without one, as after a
     # timeout, its calls are unknown here, and the result says so with no
     # count (#200). The tool service's audit log holds them.
     calls, errors, answer, agent_status, tokens = None, None, "", None, {}
+    final, final_calls = None, 0
     transcript, parts = {}, flatten({}, system)
     try:
         transcript = json.loads(Path(out).read_text())
@@ -373,6 +573,7 @@ def result_line(job, system, outcome, code, started, out, err, erased, offered):
         metadata = transcript.get("metadata") or {}
         agent_status = metadata.get("status")
         tokens = {k: metadata.get(k) for k in ("input_tokens", "output_tokens")}
+        final, final_calls = accepted_output(transcript)
     except (OSError, ValueError, AttributeError, TypeError):
         pass
     try:
@@ -380,8 +581,17 @@ def result_line(job, system, outcome, code, started, out, err, erased, offered):
     except (AttributeError, TypeError):
         pass
     stderr = Path(err).read_text(errors="replace").replace(token, "[token]")
+    schema = ANSWER_SCHEMAS.get(job.get("target"))
+    if schema and final is not None and fits(final, schema):
+        answer = answer_lines(final)
+        stderr += f"\nthe answer is the final output, after {final_calls} calls"
+    elif schema:
+        stderr += (
+            f"\nno final output fits the answer's schema, of {final_calls} calls:"
+            " the answer is the model's last text"
+        )
     completed = outcome == "ended" and code == 0 and agent_status == "completed"
-    problem = tools_problem(offered)
+    problem = tools_problem(offered, allowed_tools(job))
     if completed and problem:
         completed = False
         stderr += "\n" + problem

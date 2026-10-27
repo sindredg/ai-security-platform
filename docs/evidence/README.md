@@ -4,7 +4,9 @@
 
 Each run set is a batch of agent jobs, or model calls, that tested one thing. Its page gives each job's answer, its verdicts beside the checks', why it stopped, and its tool calls in order. [Lessons](lessons.md) says what the runs showed and what changed because of them.
 
-![NetBox jobs at the comparison, per run set: matches, stops by their cause, and failures](../diagrams/test-outcomes.svg)
+![NetBox jobs at the comparison in milestone 4, per run set: matches, stops by their cause, and failures](../diagrams/test-outcomes-4.svg)
+
+![NetBox jobs at the comparison in milestone 5, per run set: matches, stops by their cause, and failures](../diagrams/test-outcomes-5.svg)
 
 | Run set | Date | Tested | Jobs | Outcomes |
 | --- | --- | --- | --- | --- |
@@ -26,5 +28,10 @@ Each run set is a batch of agent jobs, or model calls, that tested one thing. It
 | [The word Verdict only at the start of a line](2026-10-25-2251-verdict-only-at-line-start.md) | 2026-10-25 | Whether one more task sentence keeps the word Verdict out of the analysis, so every verdict line can be read. | 2 | 1 match, 1 stop |
 | [Scored investigation on six held-out cases](2026-10-25-2308-scored-cases.md) | 2026-10-25 | Whether the agent gives the checks' verdicts on six contracts the task was not tuned on, two jobs per case, scored by rules written first. | 12 | 4 match, 7 stop, 1 failed |
 | [A synthetic job after the timeout](2026-10-26-0608-erase-after-a-timeout.md) | 2026-10-26 | Whether the slot is erased again after the job that timed out, so the check on the last job's erase passes. | 1 | 1 completed |
+| [A proposal line after the verdicts](2026-10-26-2214-proposal-lines.md) | 2026-10-26 | Whether the task's new paragraph gets readable proposal lines, and whether a matched job's fix passes the policy, the rehearsal, and delivery with a rollback. | 2 | 1 stop, 1 match |
+| [Thinking on and off, with a proposal](2026-10-27-0542-thinking-with-a-proposal.md) | 2026-10-27 | Whether thinking on gives better verdicts or proposals than thinking off within the job limit, now that the answer ends with a proposal. | 4 | 3 match, 1 stop |
+| [Scored proposals on the held-out cases](2026-10-27-0653-scored-proposals.md) | 2026-10-27 | Whether each job's proposal is the fix the checks imply, by the rules committed before the runs, on the six held-out cases, two jobs each. | 12 | 8 stop, 4 match |
+| [An unsafe patch, and a comparison without the model](2026-10-27-1556-unsafe-patch.md) | 2026-10-27 | Whether the policy refuses a patch whose rehearsal passes, and whether a workflow that ran only the comparison, on a written answer, can be proposed. | 3 | 1 stop, 2 match |
+| [A NetBox answer as a final output](2026-10-27-1948-final-output-answers.md) | 2026-10-27 | Whether a NetBox job answers through Goose's final output, and whether the comparison reads the lines the job program writes from it. | 2 | 2 match |
 
 Each run set has one record in [`records/`](records/), built from each workflow and the tool service's audit log by [`record.py`](../../validation/evidence/record.py). The pages are generated from the records, and the pipeline fails when a page and its record differ. How a run set is recorded is in the [runbook](../runbooks/test-evidence.md).

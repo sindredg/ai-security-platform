@@ -54,7 +54,7 @@ Read from the GitHub API on 2026-10-17 at 07:10 UTC, after the changes for [0024
 - Secret scanning with push protection is on.
 - The ruleset `protect-main`, on the default branch, refuses deletion and force pushes, requires signed commits, and requires a pull request with every check above except the converter dependency scan. Each required check names GitHub Actions as its source, so a status with the same name from anything else does not count. The only merge method it allows is squash. No one can bypass it.
 - A second ruleset, on every branch, requires signed commits and nothing else. No one can bypass it.
-- In the repository settings, squash is the only merge method. Merge commits and rebase merges are off. On `main`, the ruleset allows squash only as well.
+- In the repository settings, squash is the only merge method. Merge commits and rebase merges are off, and GitHub deletes a pull request's branch when it merges. On `main`, the ruleset allows squash only as well.
 
 Read again on 2026-10-18 at 12:52 UTC, after "Squid configuration" was made required: the same, with that check in the list, twelve checks, each from GitHub Actions.
 
@@ -70,11 +70,11 @@ The [repository settings runbook](../runbooks/repository-settings.md) sets these
 
 ## The targets repository
 
-The [targets repository](https://github.com/sindredg/ai-security-platform-test) holds the target root ([0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) and has a pipeline of its own, at the same pins: Terraform format and validate, Checkov, Trivy, the secret scan, ShellCheck on the signature script and on the scripts the target VMs run as root, Quadlet's own dry run on NetBox's units, Ruff and a JSON parse on NetBox's Python and JSON files, and "Commit signatures", a copy of this repository's check with the same allowed signer. The two scanners fetch the shared module first, because the rules are arguments to it, and a step fails each job when the module is missing.
+The [targets repository](https://github.com/sindredg/ai-security-platform-test) holds the target root ([0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)) and has a pipeline of its own, at the same pins: Terraform format and validate, Checkov, Trivy, the secret scan, ShellCheck on the signature script and on the scripts the target VMs run as root, Quadlet's own dry run on NetBox's units, Ruff and a JSON parse on NetBox's Python and JSON files, "Commit signatures", a copy of this repository's check with the same allowed signer, and "Approved commit". That check fails a pull request that changes NetBox's seed, `APPROVERS`, or the check itself, unless its head carries a signed approval tag ([0050](../decisions/0050-a-guarded-change-merges-only-with-an-approval-on-its-head.md)). The two scanners fetch the shared module first, because the rules are arguments to it, and a step fails each job when the module is missing.
 
 Its settings were set through the API with the runbook on 2026-10-17 and read back at 08:05 UTC: squash merges only, secret scanning with push protection, `protect-main` with six checks required, each from GitHub Actions (all of the above except Quadlet's dry run and Ruff, which came later with NetBox), and a second ruleset that requires signed commits on every branch. Neither ruleset can be bypassed. The fail side was repeated there ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-in-poland-central)).
 
-Read again on 2026-10-25 at 07:42 UTC, after "Quadlet units" and "Ruff" were made required: eight checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. Configured, not tested: no pull request has been seen blocked by either of the two.
+Read again on 2026-10-27 at 20:09 UTC, after "Approved commit" was made required: nine checks, each from GitHub Actions, and every other rule of `protect-main` unchanged. Tested: a seed change with no approval showed as blocked with only that check failing, and the approved commit showed as clean ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#fixes-after-the-close)). Configured, not tested: no pull request has been seen blocked by "Quadlet units" or "Ruff".
 
 ## Limits
 

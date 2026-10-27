@@ -320,13 +320,14 @@ jobs:
       # Every manifest against the schemas of the cluster's Kubernetes release,
       # strictly: a field the schema does not name is an error. The schemas
       # are downloaded from the kubeconform project at run time. Argo's
-      # workflow templates have no schema there, and are linted below.
+      # workflow templates have no schema there, and are linted below, as are
+      # the workflows the entrypoint check submits to the linter.
       - name: Validate the manifests
         run: |
           mapfile -t manifests < <(find platform -name '*.yaml' | sort)
           [ "${#manifests[@]}" -gt 0 ]
           docker run --rm --volume "${PWD}:/src:ro" --workdir /src "${KUBECONFORM_IMAGE}" \
-            -strict -summary -skip WorkflowTemplate -kubernetes-version "${KUBERNETES_VERSION}" "${manifests[@]}"
+            -strict -summary -skip WorkflowTemplate,Workflow -kubernetes-version "${KUBERNETES_VERSION}" "${manifests[@]}"
 
       # Argo's own linter, offline and strict: an unknown field, or a template
       # that names one that does not exist, fails.
@@ -336,6 +337,14 @@ jobs:
           [ "${#templates[@]}" -gt 0 ]
           docker run --rm --volume "${PWD}:/src:ro" --workdir /src "${ARGOCLI_IMAGE}" \
             lint --offline --no-color --kinds=workflowtemplates "${templates[@]}"
+
+      # A workflow from the template may name its own entrypoint (#203). The
+      # same linter takes one that names investigate, and refuses one that
+      # names a step, dispatch or compare, as a template it cannot find.
+      - name: Check the entrypoints a workflow can name
+        run: >
+          platform/argo/tests/lint-entrypoints.sh
+          docker run --rm --volume "${PWD}:/src:ro" --workdir /src "${ARGOCLI_IMAGE}"
 
       # Every image line names a digest. A tag alone fails, and so does the
       # placeholder of zeros the manifest held before the first image existed.
@@ -413,6 +422,13 @@ jobs:
           cd collectors/netbox
           PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
 
+      # The change commands run beside the collector on the orchestrator, and
+      # import it (ADR 0043). The required check keeps its name.
+      - name: Test the change commands
+        run: |
+          cd platform/change
+          PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
+
   dispatch-tests:
     name: Dispatch tests
     runs-on: ubuntu-26.04
@@ -472,7 +488,8 @@ jobs:
         run: |
           PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S validation/evidence/render.py \
             --rules README.md docs/architecture.md docs/roadmap.md \
-            docs/security/threat-model.md docs/security/ai-threats.md
+            docs/security/threat-model.md docs/security/ai-threats.md \
+            docs/validation/README.md
 
   tool-service-image:
     name: Tool service image

@@ -1,0 +1,19 @@
+# A workflow that runs the comparison alone, on an answer the submitter wrote
+# (#203). lint-entrypoints.sh expects Argo to refuse it.
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: nb-entrypoint-compare
+  namespace: orchestration
+spec:
+  entrypoint: compare
+  workflowTemplateRef:
+    name: investigate
+  arguments:
+    parameters:
+      - name: task
+        value: The NetBox task.
+      - name: target
+        value: netbox
+      - name: answer
+        value: "Verdict: inventory-reader within ev-0001"

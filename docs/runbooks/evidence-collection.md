@@ -207,6 +207,8 @@ Before this:
 
     The comparison's output and log have one row per account: the model's verdict and references, both checks' verdicts, and the outcome. Which of the two comes is the model's doing: the procedure is right either way. A workflow under another name than the collection's finds no evidence, each call refused with `nothing by that reference`, and stops at the comparison with `no checks' verdicts for this job`.
 
+    The output also keeps the answer's proposal lines, read in the same exact form, and a count of those it could not read. They never change the outcome.
+
 13. Read the job's audit lines.
 
     ```bash

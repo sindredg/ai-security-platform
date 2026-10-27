@@ -8,8 +8,6 @@ Give each account in the contract one verdict.
 - within: the account gets what the contract allows, and nothing more.
 - inconclusive: the evidence does not settle it, or ev-0002 and ev-0003 disagree.
 
-Cite the evidence each conclusion rests on, and say where the evidence disagrees.
+For each account whose verdict is excess, find the one change that removes the excess: the permission to take from that account. Only a permission that ev-0002 lists for that account may be named.
 
-End the answer with one line per account, as plain text with no bold, list marks, or other formatting. Write the word Verdict only at the start of those lines. Each line starts with Verdict and a colon, then the account's name as ev-0001 gives it, its verdict, and the evidence the verdict rests on. These two lines are examples for accounts that do not exist:
-Verdict: some-account excess ev-0002 ev-0003
-Verdict: other-account within ev-0003
+When you have read the three documents, give the answer by calling the final_output tool, on its own. In the analysis, cite the evidence each conclusion rests on, and say where the evidence disagrees. Give one verdict for each account in the contract, with the account's name as ev-0001 gives it and the evidence the verdict rests on, and one proposal for each account whose verdict is excess, with the permission's id from ev-0002.

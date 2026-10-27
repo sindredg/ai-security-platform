@@ -10,6 +10,8 @@ locals {
   router_prefix       = cidrsubnet(var.edge_address_space, 3, 1) # 10.45.0.32/27
   # NetBox's VM, as the target root places it: the first subnet, host 4.
   netbox_ip = cidrhost(cidrsubnet(var.targets_address_space, 7, 0), 4) # 10.50.0.4
+  # The rehearsal copy, on the lab VM's second interface (ADR 0044).
+  rehearsal_ip = cidrhost(cidrsubnet(var.targets_address_space, 7, 8), 4) # 10.50.1.4
 
   # Operator sessions arrive from the router, which translates them to its own
   # address (ADR 0025). Every VM takes SSH from that subnet.
@@ -161,6 +163,17 @@ module "network" {
           destination_address_prefix = "${local.netbox_ip}/32"
           destination_port_range     = "8443"
           description                = "NetBox's API, for the seed and the collectors (ADR 0035)."
+        },
+        {
+          name                       = "allow-rehearsal-copy-to-targets"
+          priority                   = 1060
+          direction                  = "Outbound"
+          access                     = "Allow"
+          protocol                   = "Tcp"
+          source_address_prefix      = "${local.orchestrator_ip}/32"
+          destination_address_prefix = "${local.rehearsal_ip}/32"
+          destination_port_range     = "8443"
+          description                = "The rehearsal copy's API, for the seed, the rehearsal, and its checks (ADR 0044)."
         },
         local.allow_monitoring_out,
       ]

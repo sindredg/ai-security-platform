@@ -1,0 +1,17 @@
+# The job as the operator submits it: the template's own entrypoint. lint-entrypoints.sh
+# expects Argo to take it.
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  name: nb-entrypoint-investigate
+  namespace: orchestration
+spec:
+  entrypoint: investigate
+  workflowTemplateRef:
+    name: investigate
+  arguments:
+    parameters:
+      - name: task
+        value: The NetBox task.
+      - name: target
+        value: netbox

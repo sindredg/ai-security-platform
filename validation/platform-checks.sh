@@ -141,15 +141,40 @@ NETBOX_PORT=8443
 # installed there.
 CONTRACT=${AISEC_TARGETS:-/nonexistent}/netbox/contract.json
 COLLECTOR_CODE=$(cat "$here/../collectors/netbox/netbox_access.py")
-# What the seed in the targets checkout gives: the consumer's unscoped copy of
-# its permission is excess, and the control account stays within the contract.
-SEEDED_VERDICTS="inventory-reader:excess inventory-reader-control:within"
+# What the seed in the targets checkout gives, by the configured check's own
+# rule: each contract account's verdict from the seed's permissions. The seed
+# holds the consumer's unscoped copy of its permission until a fix removes it.
+SEEDED_VERDICTS=$(python3 -I -c '
+import json, sys
+sys.path.insert(0, sys.argv[1])
+import netbox_access as n
+seed, contract = json.load(open(sys.argv[2])), json.load(open(sys.argv[3]))
+items = next(g["items"] for g in seed["objects"] if g["path"] == "/api/users/permissions/")
+found = []
+for account in contract["accounts"]:
+    mine = [dict(p, id=i) for i, p in enumerate(items) if account in p["users"] and p.get("enabled", True)]
+    found.append(account + ":" + n.verdict(n.judge_configured(mine, contract)))
+print(" ".join(found))' "$here/../collectors/netbox" "${AISEC_TARGETS:-/nonexistent}/netbox/seed.json" "$CONTRACT" \
+  2>/dev/null || echo "the seed not read")
 # What the orchestrator collects a job's evidence with (ADR 0040): the
 # collector, the collect command, and the contract, in install order.
+# The change commands on the orchestrator (ADR 0043 to 0046), in the order
+# install-change.sh installs them, and the commit key's public half, which the
+# approval key must not be.
+CHANGE_SHA=$(cd "$here/.." && cat platform/change/propose.py platform/change/deliver.py \
+  platform/change/policy.py platform/change/rehearse.py platform/change/netbox_change.py \
+  collectors/netbox/collect_evidence.py | sha256sum | cut -d " " -f 1)
+COMMIT_KEY=$(grep -v "^#" "$here/../.github/allowed_signers" | cut -d " " -f 3,4)
+# The rehearsal copy's reset command (ADR 0044).
+RESET_SHA=$(sha256sum "$here/../platform/change/aisec-rehearsal-reset" | cut -d " " -f 1)
+COPY=/etc/aisec/netbox-rehearsal
 COLLECT_SHAS="$(sha256sum "$here/../collectors/netbox/netbox_access.py" \
   "$here/../collectors/netbox/collect_evidence.py" "$CONTRACT" "$here/../collectors/netbox/cases.json" \
   2>/dev/null | cut -d " " -f 1 | tr "\n" " " | sed "s/ $//")"
-COLLECTOR_SHA=$(sha256sum "$here/../collectors/netbox/netbox_access.py" | cut -d " " -f 1)
+# The lab VM's copy of the collector and the observer's two commands, in
+# that order (ADR 0040, ADR 0044).
+OBSERVER_SHA=$(cd "$here/../collectors/netbox" && cat netbox_access.py aisec-observe aisec-observe-netbox |
+  sha256sum | cut -d " " -f 1)
 RG=rg-aisec-platform
 RG_TARGETS=rg-aisec-targets
 
@@ -374,6 +399,19 @@ observe=/etc/aisec/netbox/observe
 echo "netbox_observe_key=$(stat -c "%U %a" $observe $observe/id_ed25519 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 lab_pin=$(grep "^'"$LAB_IP"' " /etc/aisec/target-update/known_hosts 2>/dev/null)
 echo "netbox_observe_pin=$(wc -l <$observe/known_hosts 2>/dev/null) $([ -n "$lab_pin" ] && [ "$(cat $observe/known_hosts 2>/dev/null)" = "$lab_pin" ] && echo same || echo differ)"
+# Delivery (ADR 0046): the one approval signer, the installed commands, the
+# state, the delivery token, and the remote of the mirror.
+approvers=/etc/aisec/delivery/approvers
+echo "approvers=$(grep -cv "^#" $approvers 2>/dev/null) $(grep -v "^#" $approvers 2>/dev/null | cut -d " " -f 1,2)"
+echo "approver_key=$(grep -v "^#" $approvers 2>/dev/null | cut -d " " -f 3,4)"
+echo "change_commands=$(cat /usr/local/sbin/propose-netbox-fix /usr/local/sbin/deliver-netbox-change \
+  /usr/local/lib/aisec/policy.py /usr/local/lib/aisec/rehearse.py /usr/local/lib/aisec/netbox_change.py \
+  /usr/local/lib/aisec/collect_evidence.py 2>/dev/null | sha256sum | cut -d " " -f 1)"
+echo "change_state=$(stat -c "%U %a" /var/lib/aisec/proposals /var/lib/aisec/delivery 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+# Each delivery gets its own token on standard input (ADR 0047), so the live
+# NetBox directory holds no delivery token. The copy keeps its own.
+echo "token_files=$(ls -A /etc/aisec/netbox/tokens 2>/dev/null | tr "\n" " " | sed "s/ $//"); $(ls -A /etc/aisec/netbox-rehearsal/tokens 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+echo "delivery_remote=$(git -C /var/lib/aisec/delivery/targets.git remote get-url origin 2>/dev/null)"
 # Exit status 2 is the feed command refusing. 255 would be SSH failing, and 0
 # that the key ran a command it should not.
 sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec-feed@aisec-worker id >/dev/null 2>&1
@@ -475,7 +513,7 @@ code() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 "$@"; }
 echo "internet=$(tcp 1.1.1.1 443)"
 echo "targets_netbox=$(tcp 10.50.0.4 22)"
 echo "targets_netbox_api=$(tcp 10.50.0.4 '"$NETBOX_PORT"')"
-echo "targets_rehearsal=$(tcp 10.50.1.4 22)"
+echo "targets_rehearsal=$(tcp 10.50.1.4 '"$NETBOX_PORT"')"
 echo "targets_consumer=$(tcp '"$LAB_IP"' 22)"
 echo "azure_dns=$(tcp 168.63.129.16 53)"
 echo "azure_dns_udp=$(udp_dns)"
@@ -512,6 +550,7 @@ keys=/home/aisec-logexport/.ssh/authorized_keys
 echo "export_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
 echo "export_groups=$(id -nG aisec-logexport 2>/dev/null)"
 echo "export_command=$(sha256sum /usr/local/sbin/aisec-journal-export 2>/dev/null | cut -d " " -f 1)"
+echo "export_manager=$(u=$(id -u aisec-logexport 2>/dev/null); n=$(journalctl --no-pager -o cat --since -20min -u ssh.service 2>/dev/null | grep -c "Accepted publickey for aisec-logexport "); if [ -n "$u" ] && [ "$n" -gt 0 ]; then count -c "" -- journalctl --no-pager -o cat --since -20min _SYSTEMD_UNIT=user@$u.service; else echo no-logins; fi)"
 keys=/home/aisec-feed/.ssh/authorized_keys
 echo "feed_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
 echo "feed_account=$(id -nG aisec-feed 2>/dev/null) $(sudo -n -l -U aisec-feed 2>/dev/null | grep -c "may run") $(stat -c %U /home/aisec-feed 2>/dev/null)"
@@ -523,6 +562,7 @@ echo "agent_job_tmp=$(ls -d /tmp/systemd-private-*-aisec-agent-job.service-* /va
 keys=/home/aisec-job/.ssh/authorized_keys
 echo "job_key=$(wc -l < $keys 2>/dev/null) $(stat -c "%U %G %a" $keys 2>/dev/null) $(sed "s/ ssh-ed25519 .*//" $keys 2>/dev/null)"
 echo "job_account=$(id -nG aisec-job 2>/dev/null) $(sudo -n -l -U aisec-job 2>/dev/null | grep -c "may run") $(stat -c %U /home/aisec-job 2>/dev/null)"
+echo "job_session=$(grep -c "pam_succeed_if.so quiet user != aisec-job$" /etc/pam.d/common-session 2>/dev/null) $(cat /etc/security/aisec-light-session.conf 2>/dev/null)"
 echo "job_socket=$(systemctl is-active aisec-agent-job.socket 2>/dev/null) $(stat -c "%U %G %a" /run/aisec-job/agent.sock 2>/dev/null)"
 echo "job_programs=$(cat /usr/local/sbin/aisec-job-runner /usr/local/lib/aisec/job/agent_job.py /usr/local/lib/aisec/job/system.txt /etc/systemd/system/aisec-agent-job.socket /etc/systemd/system/aisec-agent-job@.service 2>/dev/null | sha256sum | cut -d " " -f 1)"
 echo "job_instances=$(systemctl list-units --all --no-legend "aisec-agent-job@*" 2>/dev/null | wc -l)"
@@ -695,12 +735,30 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # is limited to this address (ADR 0037).
   configured=$($SSH "$ORCH" "sudo python3 -I -c $(printf %q "$COLLECTOR_CODE") configured --summary" \
     <"$CONTRACT" 2>/dev/null)
-  check N.14 "The configured permissions give the seeded excess and an unaffected control" \
+  check N.14 "The configured permissions give the verdicts of the seed in the targets checkout" \
     "$SEEDED_VERDICTS" "${configured:-not read}"
   check N.18 "The orchestrator's collector, collect command, contract, and cases are the ones in the two checkouts" \
     "$COLLECT_SHAS" "$(value netbox_collect)"
   check N.19 "The observer key is root's and closed to others, and pins the lab VM's host key the update run pins" \
     "root 700 root 600 1 same" "$(value netbox_observe_key) $(value netbox_observe_pin)"
+  # Delivery accepts one approval signer, and never the key every commit is
+  # signed with, which the coding agent holds (ADR 0046).
+  approver_key=$(value approver_key)
+  if [ -n "$approver_key" ] && [ "$approver_key" != "$COMMIT_KEY" ]; then
+    approver_other=other
+  else
+    approver_other="the commit key or none"
+  fi
+  check D.1 "The approval signer file names one key, for aisec-approver, and not the commit key" \
+    '1 aisec-approver namespaces="git" other' "$(value approvers) $approver_other"
+  check D.2 "The orchestrator runs the change commands and libraries in this checkout" "$CHANGE_SHA" "$(value change_commands)"
+  check D.3 "The proposals and the delivery state are root's alone" "root 700 root 700" "$(value change_state)"
+  # The delivery token changes permission assignments. It reads them, and
+  # NetBox refuses it the inventory.
+  check D.4 "No delivery token is kept for the live NetBox: the token directories hold only the tokens they name" \
+    "aisec-address-probe aisec-collector; aisec-collector aisec-deliver" "$(value token_files)"
+  check D.5 "Delivery fetches from the targets repository" \
+    "https://github.com/sindredg/ai-security-platform-test.git" "$(value delivery_remote)"
   # Kept for each target's .6, which reads the key the target accepts.
   TARGET_UPDATE_KEY=$(value target_update_key | cut -d " " -f 3,4)
   check P.12 "Squid is not installed on the orchestrator" 0 "$(value squid_installed)"
@@ -824,14 +882,14 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check A.10 "The administrator forwards nothing on the worker" "no any" "$(value sshd_admin_forwarding)"
   # C.1 and C.4 aim at ports that are known to listen, so a timeout is a drop.
   check C.1 "No connection to the internet" timeout "$(value internet)"
-  # The NetBox and lab VMs listen on 22 (E.15), so a timeout is a drop. No
-  # machine is in the rehearsal subnet, so C.3 times out with or without the
-  # deny rule. Z.6 names the rule.
+  # The NetBox and lab VMs listen on 22 (E.15), so a timeout is a drop. The
+  # rehearsal copy listens on its port on the lab VM's second interface (Q.1),
+  # so C.3's timeout is a drop too. Z.6 names the rule.
   check C.2 "No connection to the NetBox subnet" timeout "$(value targets_netbox)"
   check C.11 "No connection to the consumer subnet" timeout "$(value targets_consumer)"
   # NetBox listens on its port (N.1), so a timeout is a drop.
   check C.12 "No connection to NetBox's port" timeout "$(value targets_netbox_api)"
-  check C.3 "No connection to the rehearsal subnet" timeout "$(value targets_rehearsal)"
+  check C.3 "No connection to the rehearsal copy's port" timeout "$(value targets_rehearsal)"
   check C.4 "No connection to the platform resolver" timeout "$(value azure_dns)"
   # The same query from the edge gets an answer, so a timeout here is the
   # worker's rule and not the resolver.
@@ -880,6 +938,10 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # The export command is the boundary on the worker. It has to be the
   # reviewed one.
   check J.9 "The worker runs the export command in this checkout" "$EXPORT_SHA" "$(value export_command)"
+  # Each pull is a login. A login that starts the account's user service
+  # manager logs about 67 lines, which the next pull copies (issue 164).
+  # Without a pull in the last 20 minutes this reads no-logins.
+  check J.11 "The export account's logins start no user service manager" "0 0" "$(value export_manager)"
   # The same shape for the feed key (ADR 0026).
   check E.9 "The feed key is restricted to the orchestrator and the feed command" \
     "1 root root 644 from=\"$ORCH_IP\",restrict,command=\"/usr/local/sbin/aisec-feed-receive\"" "$(value feed_key)"
@@ -905,6 +967,10 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # fails this.
   slot_erased=$(value slot_erased)
   check G.10 "The last job erased the model server's slot" true "${slot_erased:-no job outcome in the journal}"
+  # The job account gets the export account's light session (issue 164). It
+  # logs in only during a job, so this reads the PAM configuration.
+  check G.11 "The job account's sessions start no user service manager" \
+    "1 XDG_SESSION_CLASS DEFAULT=background-light" "$(value job_session)"
   # The dispatch secret, read in the orchestrator's section, holds the key and
   # the worker's host key, and that host key is this worker's.
   check W.10 "The dispatch secret pins this worker's host key" \
@@ -1107,7 +1173,7 @@ echo "observer=$(sshd -T -C user=aisec-observe,host=orchestrator,addr='"$ORCH_IP
 keys=/etc/ssh/aisec-observe-keys
 echo "observer_keys=$(stat -c "%U %a" $keys 2>/dev/null) $(wc -l <$keys 2>/dev/null) $(cut -d " " -f 1 $keys 2>/dev/null)"
 echo "observer_sudo=$(grep -v -e "^#" -e "^$" /etc/sudoers.d/91-aisec-observe 2>/dev/null | tr "\n" ";")"
-echo "observer_collector=$(sha256sum /usr/local/lib/aisec/netbox_access.py 2>/dev/null | cut -d " " -f 1)"
+echo "observer_collector=$(cat /usr/local/lib/aisec/netbox_access.py /usr/local/sbin/aisec-observe /usr/local/sbin/aisec-observe-netbox 2>/dev/null | sha256sum | cut -d " " -f 1)"
 ')
 check N.15 "The lab VM's NetBox tokens are root's and closed to others" "root 700 root 600 root 600" "$(value tokens)"
 check N.16 "The lab VM's copy of NetBox's certificate is the one the orchestrator pins" \
@@ -1116,15 +1182,16 @@ check N.16 "The lab VM's copy of NetBox's certificate is the one the orchestrato
 # same verdicts as N.14: the two methods agree.
 observed=$($SSH "$LAB" "sudo python3 -I -c $(printf %q "$COLLECTOR_CODE") observed --summary" \
   <"$CONTRACT" 2>/dev/null)
-check N.17 "The records each token returns give the seeded excess and an unaffected control" \
+check N.17 "The records each token returns give the verdicts of the seed in the targets checkout" \
   "$SEEDED_VERDICTS" "${observed:-not read}"
 check N.20 "The lab VM's observer account takes its key from root's file, with no forwarding, no TTY, and one command" \
-  "allowtcpforwarding no;authorizedkeysfile /etc/ssh/aisec-observe-keys;forcecommand sudo -n /usr/local/sbin/aisec-observe-netbox;permittty no;" \
+  "allowtcpforwarding no;authorizedkeysfile /etc/ssh/aisec-observe-keys;forcecommand /usr/local/sbin/aisec-observe;permittty no;" \
   "$(value observer)"
-check N.21 "The observer's key file holds one key, limited to the orchestrator, and sudo allows it one command" \
-  "root 644 1 from=\"$ORCH_IP\",restrict aisec-observe ALL=(root) NOPASSWD: /usr/local/sbin/aisec-observe-netbox \"\";" \
+check N.21 "The observer's key file holds one key, limited to the orchestrator, and sudo allows it one command, for NetBox or the copy" \
+  "root 644 1 from=\"$ORCH_IP\",restrict aisec-observe ALL=(root) NOPASSWD: /usr/local/sbin/aisec-observe-netbox \"\", /usr/local/sbin/aisec-observe-netbox rehearsal;" \
   "$(value observer_keys) $(value observer_sudo)"
-check N.22 "The lab VM's copy of the collector is the one in this checkout" "$COLLECTOR_SHA" "$(value observer_collector)"
+check N.22 "The lab VM's copy of the collector, and the observer's commands, are the ones in this checkout" \
+  "$OBSERVER_SHA" "$(value observer_collector)"
 # The collect command's own path to the observed half. The command it asks
 # for, id, is not what runs: the forced command is, with the contract on its
 # standard input, and its verdicts are N.17's.
@@ -1138,6 +1205,50 @@ except (ValueError, KeyError, TypeError):
     print("not a report")')
 check N.23 "From the orchestrator, the observer account runs the observed half and nothing else" \
   "$SEEDED_VERDICTS" "$observer_run"
+
+# The rehearsal copy, a second NetBox on the lab VM's second interface
+# (ADR 0044). The orchestrator reaches it with its own pin and tokens, and
+# resets it through one forced command. Between rehearsals it holds the seed,
+# so its checks give the seed's verdicts.
+echo
+echo "== The rehearsal copy ($LAB, 10.50.1.4)"
+probe=$($SSH "$ORCH" 'sudo bash -s' 2>/dev/null <<<'
+code() { curl -s -o /dev/null -w "%{http_code}" --noproxy "*" --max-time 8 "$@"; }
+echo "copy_tls=$(code --cacert '"$COPY"'/tls.crt --resolve netbox.aisec.internal:'"$NETBOX_PORT"':10.50.1.4 https://netbox.aisec.internal:'"$NETBOX_PORT"'/login/) $(code http://10.50.1.4:'"$NETBOX_PORT"'/login/)"
+echo "copy_configured=$(env AISEC_NETBOX_URL=https://10.50.1.4:'"$NETBOX_PORT"' AISEC_NETBOX_CERT='"$COPY"'/tls.crt AISEC_NETBOX_TOKENS='"$COPY"'/tokens python3 -I /usr/local/lib/aisec/netbox_access.py configured --summary </etc/aisec/netbox/contract.json 2>/dev/null)"
+echo "copy_recorded=$(cat '"$COPY"'/reset/seed.sha256 2>/dev/null)"
+')
+copy_observed=$($SSH "$ORCH" "sudo ssh -F none -i /etc/aisec/netbox/observe/id_ed25519 -o IdentitiesOnly=yes \
+  -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/aisec/netbox/observe/known_hosts \
+  -T aisec-observe@$LAB_IP rehearsal" <"$CONTRACT" 2>/dev/null | python3 -I -c 'import json, sys
+try:
+    accounts = json.load(sys.stdin)["accounts"]
+    print(" ".join(a + ":" + v["verdict"] for a, v in accounts.items()))
+except (ValueError, KeyError, TypeError):
+    print("not a report")')
+check Q.1 "The copy answers over TLS with the certificate the orchestrator pins, and not in plain HTTP" "200 000" "$(value copy_tls)"
+copy_configured=$(value copy_configured)
+recorded=$(value copy_recorded)
+probe=$($SSH "$LAB" 'sudo bash -s' 2>/dev/null <<<'
+echo "copy_images=$(podman inspect --format "{{.Image}}" netbox netbox-worker 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+echo "rehearse=$(sshd -T -C user=aisec-rehearse,host=orchestrator,addr='"$ORCH_IP"' 2>/dev/null |
+  grep -E "^(authorizedkeysfile|allowtcpforwarding|permittty|forcecommand) " | sort | tr "\n" ";")"
+keys=/etc/ssh/aisec-rehearse-keys
+echo "rehearse_keys=$(stat -c "%U %a" $keys 2>/dev/null) $(wc -l <$keys 2>/dev/null) $(cut -d " " -f 1 $keys 2>/dev/null)"
+echo "rehearse_sudo=$(grep -v -e "^#" -e "^$" /etc/sudoers.d/92-aisec-rehearse 2>/dev/null | tr "\n" ";")"
+echo "reset_command=$(sha256sum /usr/local/sbin/aisec-rehearsal-reset 2>/dev/null | cut -d " " -f 1)"
+echo "dump=$(sha256sum /var/lib/aisec/rehearsal/seed.dump 2>/dev/null | cut -d " " -f 1) $(stat -c "%U %a" /var/lib/aisec/rehearsal /var/lib/aisec/rehearsal/seed.dump 2>/dev/null | tr "\n" " " | sed "s/ $//")"
+')
+check Q.2 "Both of the copy's containers run the image the targets checkout pins" "$NETBOX_IMAGE_ID $NETBOX_IMAGE_ID" "$(value copy_images)"
+check Q.3 "The copy's checks give the seed's verdicts, configured and observed" \
+  "$SEEDED_VERDICTS / $SEEDED_VERDICTS" "${copy_configured:-not read} / ${copy_observed:-not read}"
+check Q.4 "The reset account takes one key from root's file, limited to the orchestrator, with no forwarding, no TTY, and one command" \
+  "allowtcpforwarding no;authorizedkeysfile /etc/ssh/aisec-rehearse-keys;forcecommand sudo -n /usr/local/sbin/aisec-rehearsal-reset;permittty no; root 644 1 from=\"$ORCH_IP\",restrict aisec-rehearse ALL=(root) NOPASSWD: /usr/local/sbin/aisec-rehearsal-reset \"\";" \
+  "$(value rehearse) $(value rehearse_keys) $(value rehearse_sudo)"
+# The reset restores the dump the orchestrator recorded when the copy was
+# seeded. A dump taken again, or edited, differs from the record.
+check Q.5 "The reset command is this checkout's, and its dump is root's and the one the orchestrator recorded" \
+  "$RESET_SHA ${recorded:-no record on the orchestrator} root 700 root 600" "$(value reset_command) $(value dump)"
 
 if [ "$workstation" = 1 ]; then
   echo
@@ -1249,7 +1360,8 @@ print("\n".join(sorted(lines)))
   # target VM's group is its subnet's.
   for row in Z.4:orchestrator:nsg-aisec-platform-orchestrator:$RG Z.5:worker:nsg-aisec-platform-worker:$RG \
     Z.16:router:nsg-aisec-edge-router:$RG Z.20:edge:nsg-aisec-edge-edge:$RG \
-    Z.27:netbox:nsg-aisec-targets-netbox:$RG_TARGETS Z.28:lab:nsg-aisec-targets-consumer:$RG_TARGETS; do
+    Z.27:netbox:nsg-aisec-targets-netbox:$RG_TARGETS Z.28:lab:nsg-aisec-targets-consumer:$RG_TARGETS \
+    Z.29:lab-rehearsal:nsg-aisec-targets-rehearsal:$RG_TARGETS; do
     IFS=: read -r id vm nsg group <<<"$row"
     claim="Effective rules on the $vm interface equal the configured rules"
     : >"$az_err"
@@ -1303,6 +1415,7 @@ print("\n".join(sorted(lines)))
   check Z.22 "Orchestrator to the internet is denied by its own rule" "Deny deny-to-internet" "$(flow 1.1.1.1:443 orchestrator $ORCH_IP)"
   check Z.23 "Orchestrator to the proxy on the edge is allowed by its own rule" "Allow allow-proxy-to-edge" "$(flow $EDGE_IP:3128 orchestrator $ORCH_IP)"
   check Z.26 "Orchestrator to the target port on the edge is allowed by its own rule" "Allow allow-target-packages-to-edge" "$(flow $EDGE_IP:3129 orchestrator $ORCH_IP)"
+  check Z.30 "Orchestrator to the rehearsal copy's port is allowed by its own rule" "Allow allow-rehearsal-copy-to-targets" "$(flow 10.50.1.4:$NETBOX_PORT orchestrator $ORCH_IP)"
 
   # A network interface with a public address, validated and never deployed.
   sub=$(az account show --query id -o tsv 2>/dev/null)
@@ -1347,21 +1460,23 @@ EOF
     "$(az network vnet peering show -g $RG --vnet-name vnet-aisec-edge -n peer-edge-to-targets \
       --query peeringState -o tsv 2>/dev/null) $(az network vnet peering show -g $RG_TARGETS \
       --vnet-name vnet-aisec-targets -n peer-targets-to-edge --query peeringState -o tsv 2>/dev/null)"
-  # The configured inbound allows of each target group. The NetBox and lab
-  # groups' effective rules are Z.27 and Z.28. No VM is in the other two
-  # subnets, so there is no interface to read their effective rules from.
-  # NetBox's port is allowed into its subnet from the orchestrator's address
-  # and the consumer subnet (ADR 0035).
+  # The configured inbound allows of each target group. The NetBox, lab, and
+  # rehearsal groups' effective rules are Z.27 to Z.29. No VM is in the
+  # unintended subnet, so there is no interface to read its effective rules
+  # from. NetBox's port is allowed into its subnet from the orchestrator's
+  # address and the consumer subnet (ADR 0035), and the rehearsal copy's from
+  # the orchestrator's address alone (ADR 0044).
   want="" got=""
   for g in netbox consumer unintended rehearsal; do
     want="$want$g: "
     [ "$g" = netbox ] && want="${want}allow-netbox-from-consumer 10.50.0.32/27 $NETBOX_PORT, allow-netbox-from-orchestrator $ORCH_IP/32 $NETBOX_PORT, "
+    [ "$g" = rehearsal ] && want="${want}allow-netbox-from-orchestrator $ORCH_IP/32 $NETBOX_PORT, "
     want="${want}allow-ssh-from-orchestrator 10.40.0.0/27 22, allow-ssh-from-router 10.45.0.32/27 22; "
     got="$got$g: $(az network nsg rule list -g $RG_TARGETS --nsg-name "nsg-aisec-targets-$g" \
       --query "[?direction=='Inbound' && access=='Allow'].[name, sourceAddressPrefix, destinationPortRange]" \
       -o tsv 2>/dev/null | sort | tr '\t' ' ' | paste -sd ',' - | sed 's/,/, /g'); "
   done
-  check Z.25 "Only SSH from the orchestrator and the router, and NetBox's port from the orchestrator and the consumer, is allowed into the target subnets" \
+  check Z.25 "Only SSH from the orchestrator and the router, and NetBox's ports from the orchestrator and the consumer, are allowed into the target subnets" \
     "$want" "$got"
   check Z.19 "The edge network is in Denmark East" denmarkeast \
     "$(az network vnet show -g $RG -n vnet-aisec-edge --query location -o tsv 2>/dev/null)"

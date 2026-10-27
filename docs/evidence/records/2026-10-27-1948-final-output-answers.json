@@ -1,0 +1,284 @@
+{
+  "title": "A NetBox answer as a final output",
+  "short": "Final output answers",
+  "milestone": 5,
+  "tested": "Whether a NetBox job answers through Goose's final output, and whether the comparison reads the lines the job program writes from it.",
+  "changed": "A NetBox job's recipe carries a response schema since `ac29afb`, and the job program writes the comparison's lines from the output Goose accepted. The dispatch step names the job's target since `3fd555b`. The seed holds the fix of targets #15, so both accounts are within.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.56.0"
+    ],
+    [
+      "Task",
+      "`collectors/netbox/task.txt` at `ac29afb`"
+    ],
+    [
+      "Limits",
+      "1200 seconds and 8 turns"
+    ]
+  ],
+  "source": "Live system, 2026-10-27 19:48 to 20:14 UTC. Development jobs on the seed's contract, not scored. Each workflow as Argo returned it at the job's end, and the tool service's audit lines.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0006-remediation-pull-requests-and-delivery.md#fixes-after-the-close"
+    ],
+    [
+      "ADR 0049",
+      "../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "nb-10271948-p1",
+      "target": "netbox",
+      "case": null,
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T19:49:44Z",
+      "finished": "2026-10-27T20:02:06Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T19:49:44Z",
+          "finished": "2026-10-27T20:01:36Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T20:01:46Z",
+          "finished": "2026-10-27T20:01:51Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T20:01:56Z",
+          "finished": "2026-10-27T20:02:01Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 707.3,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 17758,
+        "output_tokens": 1237,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "within",
+          "within"
+        ],
+        "inventory-reader-control": [
+          "within",
+          "within"
+        ]
+      },
+      "comparison": {
+        "outcome": "match",
+        "reasons": [],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "within",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "within",
+            "observed": "within",
+            "outcome": "match"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": "within",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "within",
+            "observed": "within",
+            "outcome": "match"
+          }
+        ],
+        "proposals": [],
+        "unread_proposals": 0
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T19:54:34Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1483
+        },
+        {
+          "at": "2026-10-27T19:56:33Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 838
+        },
+        {
+          "at": "2026-10-27T19:57:37Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1666
+        },
+        {
+          "at": null,
+          "tool": "recipe__final_output",
+          "argument": "{\"analysis\":\"The evidence shows both accounts (inventory-reader and inventory-reader-control) receive exactly what the contract allows. Both have permission id 1/3 granting view on dcim.device and ipam.ipaddress with tenant__slug=\\\"tenant-a\\\". Both deny the four requests the contract expects (GET /api/dcim/sites/, GET /api/tenancy/tenants/, GET /api/users/permissions/, POST /api/dcim/devices/). Both return exactly the records listed: dcim/devices/ returns a-fw-01, a-sw-01, a-sw-02 and ipam/ip-addresses/ returns 172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24. The evidence between ev-0002, ev-0003, and the contract (ev-0001) is consistent with no disagreements.\",\"proposals\":[],\"verdicts\":[{\"account\":\"inventory-reader\",\"evidence\":[\"ev-0001\",\"ev-0002\",\"ev-0003\"],\"verdict\":\"within\"},{\"account\":\"inventory-reader-control\",\"evidence\":[\"ev-0001\",\"ev-0002\",\"ev-0003\"],\"verdict\":\"within\"}]}",
+          "decision": "goose",
+          "reason": null,
+          "bytes": null
+        }
+      ],
+      "answer": "Analysis: The evidence shows both accounts (inventory-reader and inventory-reader-control) receive exactly what the contract allows. Both have permission id 1/3 granting view on dcim.device and ipam.ipaddress with tenant__slug=\"tenant-a\". Both deny the four requests the contract expects (GET /api/dcim/sites/, GET /api/tenancy/tenants/, GET /api/users/permissions/, POST /api/dcim/devices/). Both return exactly the records listed: dcim/devices/ returns a-fw-01, a-sw-01, a-sw-02 and ipam/ip-addresses/ returns 172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24. The evidence between ev-0002, ev-0003, and the contract (ev-0001) is consistent with no disagreements.\n\nVerdict: inventory-reader within ev-0001 ev-0002 ev-0003\nVerdict: inventory-reader-control within ev-0001 ev-0002 ev-0003\n"
+    },
+    {
+      "job": "nb-10271948-p2",
+      "target": "netbox",
+      "case": null,
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T20:02:38Z",
+      "finished": "2026-10-27T20:14:46Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T20:02:38Z",
+          "finished": "2026-10-27T20:14:16Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T20:14:26Z",
+          "finished": "2026-10-27T20:14:31Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T20:14:36Z",
+          "finished": "2026-10-27T20:14:41Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 693.3,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 17584,
+        "output_tokens": 1178,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "within",
+          "within"
+        ],
+        "inventory-reader-control": [
+          "within",
+          "within"
+        ]
+      },
+      "comparison": {
+        "outcome": "match",
+        "reasons": [],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "within",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "within",
+            "observed": "within",
+            "outcome": "match"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": "within",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "within",
+            "observed": "within",
+            "outcome": "match"
+          }
+        ],
+        "proposals": [],
+        "unread_proposals": 0
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T20:07:27Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1483
+        },
+        {
+          "at": "2026-10-27T20:09:13Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 838
+        },
+        {
+          "at": "2026-10-27T20:10:12Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1666
+        },
+        {
+          "at": null,
+          "tool": "recipe__final_output",
+          "argument": "{\"analysis\":\"Both accounts receive exactly what the contract allows. ev-0001 specifies denials for GET /api/dcim/sites/, GET /api/tenancy/tenants/, GET /api/users/permissions/, POST /api/dcim/devices/ (all 403), and grants view on dcim.device and ipam.ipaddress with tenant__slug=tenant-a. It specifies reads returning 3 devices and 3 IP addresses. ev-0002 shows both accounts have permissions id 1 and 3 respectively granting view on dcim.device and ipam.ipaddress with tenant__slug=tenant-a. ev-0003 shows both accounts deny exactly what ev-0001 expects (all 4 requests denied 403) and return exactly the 3 records listed for each read. All three documents are consistent. There is no excess permission, no unauthorized records, and no unexpected denials.\",\"proposals\":[],\"verdicts\":[{\"account\":\"inventory-reader\",\"evidence\":[\"ev-0001\",\"ev-0002\",\"ev-0003\"],\"verdict\":\"within\"},{\"account\":\"inventory-reader-control\",\"evidence\":[\"ev-0001\",\"ev-0002\",\"ev-0003\"],\"verdict\":\"within\"}]}",
+          "decision": "goose",
+          "reason": null,
+          "bytes": null
+        }
+      ],
+      "answer": "Analysis: Both accounts receive exactly what the contract allows. ev-0001 specifies denials for GET /api/dcim/sites/, GET /api/tenancy/tenants/, GET /api/users/permissions/, POST /api/dcim/devices/ (all 403), and grants view on dcim.device and ipam.ipaddress with tenant__slug=tenant-a. It specifies reads returning 3 devices and 3 IP addresses. ev-0002 shows both accounts have permissions id 1 and 3 respectively granting view on dcim.device and ipam.ipaddress with tenant__slug=tenant-a. ev-0003 shows both accounts deny exactly what ev-0001 expects (all 4 requests denied 403) and return exactly the 3 records listed for each read. All three documents are consistent. There is no excess permission, no unauthorized records, and no unexpected denials.\n\nVerdict: inventory-reader within ev-0001 ev-0002 ev-0003\nVerdict: inventory-reader-control within ev-0001 ev-0002 ev-0003\n"
+    }
+  ]
+}

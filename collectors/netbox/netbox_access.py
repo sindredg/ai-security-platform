@@ -34,9 +34,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-URL = "https://10.50.0.4:8443"
-CERT = "/etc/aisec/netbox/tls.crt"
-TOKEN_DIR = "/etc/aisec/netbox/tokens"  # noqa: S105 - a directory's path
+# The live NetBox's, unless the environment names the rehearsal copy's on the
+# lab VM (platform ADR 0044).
+URL = os.environ.get("AISEC_NETBOX_URL", "https://10.50.0.4:8443")
+CERT = os.environ.get("AISEC_NETBOX_CERT", "/etc/aisec/netbox/tls.crt")
+TOKEN_DIR = os.environ.get("AISEC_NETBOX_TOKENS", "/etc/aisec/netbox/tokens")
 COLLECTOR = "aisec-collector"
 PAGE = 1000
 # NetBox is target side, so neither the size of an answer nor the length of
@@ -54,8 +56,11 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class NetBox:
-    def __init__(self, token):
-        context = ssl.create_default_context(cafile=CERT)
+    def __init__(self, token, url=None, cert=None):
+        # The live NetBox's, or the copy's the environment names, unless the
+        # caller names another: the rehearsal and delivery talk to both.
+        self.url = url or URL
+        context = ssl.create_default_context(cafile=cert or CERT)
         # The orchestrator's proxy settings name Squid on the edge. NetBox is
         # reached directly, so the proxy handler has no proxies.
         self.opener = urllib.request.build_opener(
@@ -75,7 +80,7 @@ class NetBox:
         # The URL is NetBox's fixed address and a path from this script or the
         # contract, never one from an answer.
         request = urllib.request.Request(  # noqa: S310
-            URL + path, data=data, method=method, headers=self.headers
+            self.url + path, data=data, method=method, headers=self.headers
         )
         try:
             with self.opener.open(request, timeout=30) as answer:
@@ -139,11 +144,52 @@ def scope(constraints):
     return None if any(not f for f in filters) else filters
 
 
-def configured(contract):
-    netbox = NetBox(read_token(COLLECTOR))
+def judge_configured(permissions, contract):
+    """The configured check's reasons for one account's enabled permissions,
+    each with the IDs of the permissions it rests on. The configured check
+    reports the reasons without the IDs. The policy on a proposed fix reads
+    them (platform ADR 0043)."""
     wanted = {
         (g["object_type"], g["action"]): g["constraints"] for g in contract["grants"]
     }
+    granted, reasons = {}, []
+    for p in permissions:
+        for object_type in p["object_types"]:
+            for action in p["actions"]:
+                granted.setdefault((object_type, action), []).append(p)
+    for (object_type, action), grants in sorted(granted.items()):
+        names = ", ".join(p["name"] for p in grants)
+        if (object_type, action) not in wanted:
+            why = f"{action} on {object_type}, which the contract does not grant"
+            ids = [p["id"] for p in grants]
+            reasons.append(
+                {"kind": "excess", "why": f"{why} ({names})", "permissions": ids}
+            )
+            continue
+        want = scope(wanted[(object_type, action)])
+        for p in grants:
+            have = scope(p["constraints"])
+            if have is None:
+                why = f"{action} on {object_type} without a constraint ({p['name']})"
+                reasons.append({"kind": "excess", "why": why, "permissions": [p["id"]]})
+            elif have != want:
+                why = f"{action} on {object_type} with {have}, not the contract's"
+                reasons.append(
+                    {
+                        "kind": "unknown",
+                        "why": f"{why} ({p['name']})",
+                        "permissions": [p["id"]],
+                    }
+                )
+    for object_type, action in wanted:
+        if (object_type, action) not in granted:
+            why = f"no permission grants {action} on {object_type}"
+            reasons.append({"kind": "missing", "why": why, "permissions": []})
+    return reasons
+
+
+def configured(contract):
+    netbox = NetBox(read_token(COLLECTOR))
     accounts = {}
     for account in contract["accounts"]:
         reasons, permissions = [], {}
@@ -166,30 +212,10 @@ def configured(contract):
                 for p in found:
                     if p.get("enabled"):
                         permissions.setdefault(p["id"], dict(p, via=via))
-        granted = {}
-        for p in permissions.values():
-            for object_type in p["object_types"]:
-                for action in p["actions"]:
-                    granted.setdefault((object_type, action), []).append(p)
-        for (object_type, action), grants in sorted(granted.items()):
-            names = ", ".join(p["name"] for p in grants)
-            if (object_type, action) not in wanted:
-                why = f"{action} on {object_type}, which the contract does not grant"
-                reasons.append({"kind": "excess", "why": f"{why} ({names})"})
-                continue
-            want = scope(wanted[(object_type, action)])
-            for p in grants:
-                have = scope(p["constraints"])
-                if have is None:
-                    why = f"{action} on {object_type} without a constraint"
-                    reasons.append({"kind": "excess", "why": f"{why} ({p['name']})"})
-                elif have != want:
-                    why = f"{action} on {object_type} with {have}, not the contract's"
-                    reasons.append({"kind": "unknown", "why": f"{why} ({p['name']})"})
-        for object_type, action in wanted:
-            if (object_type, action) not in granted:
-                why = f"no permission grants {action} on {object_type}"
-                reasons.append({"kind": "missing", "why": why})
+        reasons += [
+            {"kind": r["kind"], "why": r["why"]}
+            for r in judge_configured(list(permissions.values()), contract)
+        ]
         evidence = [
             {
                 k: p.get(k)

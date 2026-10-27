@@ -2,7 +2,13 @@
 
 An AI agent on a self-hosted model investigates security findings on a target service it cannot reach directly, and proposes fixes that are tested before review. No change reaches the target service without human approval of that exact change.
 
-Tools establish facts. The agent proposes changes. Neither approves anything.
+## How a fix gets made
+
+1. Collectors on the trusted orchestrator gather a job's evidence, and deterministic checks give their own verdicts.
+2. The agent, on its own VM with no credentials, reads the evidence through one tool and answers in a fixed form: a verdict per account, and the permission to remove where one is in excess ([the agent's job](docs/components/agent-job.md)).
+3. The workflow compares each verdict with the checks, and stops for the operator on any difference.
+4. A policy check and a rehearsal on a copy of the target test the fix. The pull request carries checked fields only, never the model's text.
+5. A tag signed with a separate approval key approves that exact commit, once. Delivery applies it and checks the target again before the merge.
 
 ## Architecture
 
@@ -27,9 +33,9 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 
 | | |
 | --- | --- |
-| Milestone | 4, NetBox target and exercise 1 investigation, done on 2026-10-26. Next: 5, remediation, pull requests, and delivery ([roadmap](docs/roadmap.md#status)) |
-| Works since 2026-10-26 | The agent reads a NetBox job's own evidence. The workflow stops unless each verdict matches two deterministic checks. On held-out cases, 13 of 18 verdicts matched ([evidence](docs/evidence/2026-10-25-2308-scored-cases.md)) |
-| Not yet | A fix: rehearsed on a copy of the target, proposed as a pull request, and delivered after approval |
+| Milestone | 5, remediation, pull requests, and delivery, done. Next: 6, operational and containment drills ([roadmap](docs/roadmap.md#status)) |
+| Works | A fix the checks imply goes from the model's proposal through a policy check, a rehearsal, a pull request, and a signed approval to delivery, with a rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md)) |
+| Not yet | Drills that break the workflow on purpose, and exercises 2 and 3: excess network access and a vulnerable image |
 
 ## Why it looks like this
 
@@ -47,7 +53,7 @@ Three regions, because each allows only 4 vCPUs ([0003](docs/decisions/0003-regi
 ## What can go wrong
 
 - **The model is wrong.** The fix clears the finding and breaks the service.
-- **The evidence lies.** A compromised target or an advisory carries false data or instructions.
+- **The evidence lies.** A compromised target or an advisory carries false data or instructions. Every model tried here followed injected instructions ([A1](docs/security/ai-threats.md)).
 - **A job dies halfway.** The change is half applied, or applied twice.
 
 So the agent gets narrow tools and no cloud, repository, or delivery credentials, every proposal is rehearsed against the service's real consumer before review, and each result is compared with the same run without the agent.
