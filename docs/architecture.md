@@ -26,7 +26,7 @@ The cost is quality and speed. A small model on 2 vCPUs proves the integration, 
 
 ![Architecture: a trusted orchestrator VM holds the secrets and has no direct internet access. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](diagrams/target-architecture.svg)
 
-The worker cannot reach the target region. Everything it knows about the target, a tool service on the orchestrator handed it. The diagram draws the design: delivery and the rehearsal copy come with milestone 5.
+The worker cannot reach the target region. Everything it knows about the target, a tool service on the orchestrator handed it. The diagram draws the design, delivery and the rehearsal copy included since milestone 5.
 
 ## Platform and target separation
 
@@ -243,4 +243,4 @@ Each gets a decision record before the milestone that depends on it.
 - The platform identity can create a public IP resource in its own group, which the NAT gateway needs, and cannot attach it to a machine ([worklog](worklogs/0002-platform-compute.md#public-address-policy)).
 - The orchestrator's way out is filtered by hostname, not by content, and TLS is not inspected (T40).
 - With the edge VM or the router down, the way in is Azure run command, which needs the Owner account (T03).
-- The [threat model](security/threat-model.md) is the designer's, with no outside review. Controls for milestone 5 and later are planned or open.
+- The [threat model](security/threat-model.md) is the designer's, with no outside review. Controls for milestone 6 and later are planned or open.

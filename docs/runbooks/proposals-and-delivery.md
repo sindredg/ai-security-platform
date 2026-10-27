@@ -108,7 +108,7 @@ Before this:
 
    Expected: `closed`.
 
-9. Merge the pull request, only after step 7 printed `passed`. Then fetch `main` in the targets checkout, so the checks read the merged seed.
+9. Merge the pull request, only after step 7 printed `passed` and only when its head is the commit delivered, which step 7 printed. Then fetch `main` in the targets checkout, so the checks read the merged seed.
 
    Expected: `N.14` and `N.17` pass with both accounts within.
 

@@ -4,6 +4,8 @@ How the investigation is scored: as dispatched jobs, through the workflow, on he
 
 Status: **tested** on 2026-10-26. Twelve scored jobs ran on the live system, two per case, and were scored by these rules ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-scored-runs), [each job](../evidence/2026-10-25-2308-scored-cases.md)). The case file and these rules were committed and pushed before the first of them.
 
+The proposals were scored on 2026-10-27 by [the proposal rules](#the-proposal-rules), again two jobs per case. Under the rules as written, the four matched jobs got 6 of 6 accounts right, and 17 of 20 counting the stopped jobs ([record](../evidence/2026-10-27-0653-scored-proposals.md), [worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-scored-proposals)).
+
 ## The cases
 
 [`collectors/netbox/cases.json`](../../collectors/netbox/cases.json) holds six variants of the consumer contract, each with the verdicts the checks are expected to give. Every case is collected against NetBox's seed as it is: `inventory-reader` holds the tenant-scoped permission and an unscoped copy, and its token returns all seven devices and addresses. The control holds the scoped permission alone. The NetBox task was tuned on the seed's contract, which is not among them.
