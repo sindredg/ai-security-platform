@@ -192,6 +192,23 @@ class TheJobLine(unittest.TestCase):
             with self.subTest(name), self.assertRaises(agent_job.Refused):
                 agent_job.parse_job(line)
 
+    def test_a_target_the_tool_service_does_not_list_is_refused(self):
+        for target in ("lab", "NetBox", ["netbox"], None):
+            with (
+                self.subTest(target),
+                self.assertRaisesRegex(agent_job.Refused, "target is not known"),
+            ):
+                agent_job.parse_job(json.dumps({**JOB, "target": target}))
+
+    def test_a_job_line_with_a_target_passes(self):
+        for target in ("synthetic", "netbox"):
+            with self.subTest(target):
+                job = {**JOB, "target": target}
+                self.assertEqual(agent_job.parse_job(json.dumps(job)), job)
+
+    def test_a_job_line_from_a_dispatch_image_without_targets_passes(self):
+        self.assertNotIn("target", agent_job.parse_job(json.dumps(JOB)))
+
     def test_a_command_after_any_white_space_rust_strips_is_refused(self):
         # The White_Space property in Unicode's PropList.txt, which Rust's
         # trim_start uses.

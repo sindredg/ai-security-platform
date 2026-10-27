@@ -50,6 +50,10 @@ SECONDS = range(60, 1201)
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 TOKEN = re.compile(r"[0-9a-f]{64}")
 FIELDS = {"job", "token", "task", "max_turns", "seconds"}
+# The job's target, which the dispatch step names since #215. A line from a
+# dispatch image before it has none. The tool service's targets.
+OPTIONAL = {"target"}
+TARGETS = ("synthetic", "netbox")
 # Goose renders the recipe file as a MiniJinja template before it parses
 # it, so template syntax in the task would run, and its output could replace
 # the recipe. It also runs a first message that starts with "!" as a shell
@@ -188,8 +192,10 @@ def parse_job(line):
         job = json.loads(line)
     except ValueError as error:
         raise Refused("job line is not JSON") from error
-    if not isinstance(job, dict) or set(job) != FIELDS:
+    if not isinstance(job, dict) or not FIELDS <= set(job) <= FIELDS | OPTIONAL:
         raise Refused("job line has the wrong fields")
+    if "target" in job and job["target"] not in TARGETS:
+        raise Refused("target is not known")
     if not isinstance(job["job"], str) or not JOB_ID.fullmatch(job["job"]):
         raise Refused("job ID is not valid")
     if not isinstance(job["token"], str) or not TOKEN.fullmatch(job["token"]):
