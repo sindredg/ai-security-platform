@@ -50,7 +50,7 @@ SECONDS = range(60, 1201)
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 TOKEN = re.compile(r"[0-9a-f]{64}")
 FIELDS = {"job", "token", "task", "max_turns", "seconds"}
-# The job's target, which the dispatch step names since #215. A line from a
+# The job's target, which the dispatch step names since #217. A line from a
 # dispatch image before it has none. The tool service's targets.
 OPTIONAL = {"target"}
 TARGETS = ("synthetic", "netbox")
