@@ -50,6 +50,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0044](0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md) | The rehearsal copy is a second NetBox on the lab VM, with its own interface in the rehearsal subnet, reset from a dump before each rehearsal | Accepted |
 | [0045](0045-the-operator-publishes-a-checked-proposal.md) | No repository credential on the platform: it prepares a proposal of checked fields, and the operator's machine commits and opens it | Accepted |
 | [0046](0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md) | A tag signed with a separate approval key approves one commit once, delivery checks the target after applying it, and the merge comes last | Accepted |
+| [0047](0047-a-delivery-token-for-each-delivery.md) | Each delivery gets its own token, made on the NetBox VM and piped into the delivery, and none is kept on the orchestrator | Accepted |
 
 ## Format
 
