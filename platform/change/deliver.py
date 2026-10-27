@@ -9,8 +9,8 @@ approve/netbox/NAME tag, only when the approval key signed it, its message
 names NetBox as the target, it is at most a day old and not from the future,
 and it was never used before. The tagged commit decides the mode:
 
-- fix: a child of main's head that changes only the seed, and in it removes
-  at least one account from a permission and adds none. NetBox's assignments
+- fix: a child of main's head that changes only the seed's users lists, and
+  in them removes at least one account from a permission and adds none. NetBox's assignments
   must equal main's seed first, or nothing changes and the difference is
   printed.
 - restore: main's head, the rollback.
@@ -135,6 +135,18 @@ def seed_at(repo, commit):
     return json.loads(git(repo, "show", f"{commit}:{SEED}").stdout)
 
 
+def without_users(seed):
+    """The seed with each permission's users left out: what a fix may not
+    change. Delivery applies users lists alone, so a change anywhere else
+    would reach main without reaching NetBox."""
+    stripped = json.loads(json.dumps(seed))
+    for group in stripped["objects"]:
+        if group["path"] == netbox_change.PERMISSIONS:
+            for item in group["items"]:
+                item.pop("users", None)
+    return stripped
+
+
 def mode(repo, commit):
     """fix, restore, or a refusal."""
     main = git(repo, "rev-parse", "refs/remotes/origin/main").stdout.strip()
@@ -146,8 +158,11 @@ def mode(repo, commit):
     changed = git(repo, "diff", "--name-only", main, commit).stdout.split()
     if changed != [SEED]:
         raise Refused(f"the commit changes more than the seed: {', '.join(changed)}")
-    old = netbox_change.seed_assignments(seed_at(repo, main))
-    new = netbox_change.seed_assignments(seed_at(repo, commit))
+    before, after = seed_at(repo, main), seed_at(repo, commit)
+    if without_users(before) != without_users(after):
+        raise Refused("the seed change touches more than users lists")
+    old = netbox_change.seed_assignments(before)
+    new = netbox_change.seed_assignments(after)
     if old == new or not netbox_change.remove_only(old, new):
         raise Refused("the seed change removes nobody, or adds someone")
     return "fix"

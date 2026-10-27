@@ -283,6 +283,24 @@ class Deliver(unittest.TestCase):
             deliver.deliver(tag, TOKEN)
         self.assertEqual(self.live.patches, [])
 
+    def test_a_fix_that_changes_more_of_the_seed_than_users_is_refused(self):
+        for change in ("actions", "constraints", "token"):
+            with self.subTest(change=change):
+                seed = json.loads(json.dumps(SEED))
+                seed["objects"][0]["items"][1]["users"] = []
+                if change == "actions":
+                    seed["objects"][0]["items"][0]["actions"] = ["view", "change"]
+                elif change == "constraints":
+                    seed["objects"][0]["items"][0]["constraints"] = None
+                else:
+                    seed["tokens"] = [{"user": "reader", "write_enabled": True}]
+                tag = self.tag(
+                    f"approve/netbox/nb-{change}", self.fix_branch(seed=seed)
+                )
+                with self.assertRaisesRegex(deliver.Refused, "more than users"):
+                    deliver.deliver(tag, TOKEN)
+        self.assertEqual(self.live.patches, [])
+
     def test_drift_is_refused_and_nothing_applied(self):
         self.live.permissions[13]["users"] = [2, 3]
         tag = self.tag("approve/netbox/nb-1", self.fix_branch())
