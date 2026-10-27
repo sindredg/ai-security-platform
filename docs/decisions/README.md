@@ -52,6 +52,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0046](0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md) | A tag signed with a separate approval key approves one commit once, delivery checks the target after applying it, and the merge comes last | Accepted |
 | [0047](0047-a-delivery-token-for-each-delivery.md) | Each delivery gets its own token, made on the NetBox VM and piped into the delivery, and none is kept on the orchestrator | Accepted |
 | [0048](0048-the-workflows-steps-are-inline-so-no-workflow-runs-one-alone.md) | The workflow's dispatch and comparison are inline steps, so a workflow can name neither as its entrypoint and run it alone | Accepted |
+| [0049](0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md) | A NetBox job answers through Goose's final output, checked against a schema, and the job program writes the lines the comparison reads | Accepted |
 | [0050](0050-a-guarded-change-merges-only-with-an-approval-on-its-head.md) | A pull request that changes NetBox's seed or the approvers merges only with an approval tag on its head commit, checked from the default branch | Accepted |
 
 ## Format

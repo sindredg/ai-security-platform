@@ -5,6 +5,8 @@ Date: 2026-10-25
 
 How the template keeps a workflow from running either step alone: [0048](0048-the-workflows-steps-are-inline-so-no-workflow-runs-one-alone.md).
 
+How the answer gets its verdict lines: [0049](0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md).
+
 ## Context
 
 The architecture lets a proposal go ahead only when the model's verdict agrees with the deterministic checks. A disagreement, an inconclusive verdict, or a failed job stops the workflow for the operator ([architecture](../architecture.md#workflow)). Milestone 4 has to show both outcomes, a match and a stop, each with evidence from that job only ([roadmap](../roadmap.md#4-netbox-target-and-exercise-1-investigation)).

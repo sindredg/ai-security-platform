@@ -582,5 +582,356 @@ class TheDeadline(Base):
         self.assertLess(time.monotonic() - started, 8)
 
 
+# The comparison's own parser (ADR 0041), to read the lines the job program
+# writes as the comparison will.
+sys.path.insert(0, str(HERE.parent.parent.parent / "platform" / "dispatch"))
+import compare
+
+FINAL = {
+    "analysis": "ev-0002 grants permission 2 with no constraint, and ev-0003 "
+    "shows seven devices.\nThe control account reads what ev-0001 lists.",
+    "verdicts": [
+        {
+            "account": "inventory-reader",
+            "verdict": "excess",
+            "evidence": ["ev-0002", "ev-0003"],
+        },
+        {
+            "account": "inventory-reader-control",
+            "verdict": "within",
+            "evidence": ["ev-0003"],
+        },
+    ],
+    "proposals": [
+        {"account": "inventory-reader", "permission": 2, "evidence": ["ev-0002"]}
+    ],
+}
+
+
+def final_calls(*calls):
+    """Goose's messages for final output calls, each (arguments, accepted), as
+    Goose 1.56.0 writes a call and its response."""
+    messages = []
+    for index, (arguments, accepted) in enumerate(calls):
+        call_id = f"call_{index}"
+        messages.append(
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "toolRequest",
+                        "id": call_id,
+                        "toolCall": {
+                            "status": "success",
+                            "value": {
+                                "name": agent_job.FINAL_OUTPUT,
+                                "arguments": arguments,
+                            },
+                        },
+                    }
+                ],
+            }
+        )
+        if accepted:
+            content = [{"type": "text", "text": agent_job.FINAL_OUTPUT_ACCEPTED}]
+            result = {
+                "status": "success",
+                "value": {"content": content, "isError": False},
+            }
+        else:
+            result = {"status": "error", "error": "-32602: Validation failed"}
+        messages.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "toolResponse", "id": call_id, "toolResult": result}
+                ],
+            }
+        )
+    return messages
+
+
+def without(value, *path):
+    """A copy of value with the item at path taken out."""
+    copy = json.loads(json.dumps(value))
+    *parents, last = path
+    place = copy
+    for key in parents:
+        place = place[key]
+    del place[last]
+    return copy
+
+
+def with_value(value, new, *path):
+    copy = json.loads(json.dumps(value))
+    *parents, last = path
+    place = copy
+    for key in parents:
+        place = place[key]
+    place[last] = new
+    return copy
+
+
+class TheAnswersSchema(unittest.TestCase):
+    def test_a_netbox_recipe_holds_the_schema_and_others_none(self):
+        for target, schema in (
+            ("netbox", agent_job.VERDICTS),
+            ("synthetic", None),
+            (None, None),
+        ):
+            job = JOB if target is None else {**JOB, "target": target}
+            path = Path(tempfile.mkdtemp()) / "recipe.json"
+            agent_job.write_recipe(job, "system text", path)
+            recipe = json.loads(path.read_text())
+            with self.subTest(target):
+                self.assertEqual(
+                    recipe.get("response"), schema and {"json_schema": schema}
+                )
+
+    def test_no_recipe_holds_two_braces_or_another_template_mark(self):
+        for target in ("netbox", "synthetic"):
+            path = Path(tempfile.mkdtemp()) / "recipe.json"
+            agent_job.write_recipe({**JOB, "target": target}, "system text", path)
+            text = path.read_text()
+            for mark in ("{{", "}}", "{%", "%}", "{#", "#}"):
+                with self.subTest(target=target, mark=mark):
+                    self.assertNotIn(mark, text)
+
+    def test_every_pattern_is_anchored_at_both_ends(self):
+        patterns = []
+
+        def walk(node):
+            if isinstance(node, dict):
+                if "pattern" in node:
+                    patterns.append(node["pattern"])
+                for child in node.values():
+                    walk(child)
+
+        walk(agent_job.VERDICTS)
+        self.assertEqual(len(patterns), 4)
+        for pattern in patterns:
+            self.assertRegex(pattern, r"^\^.*\$$")
+
+    def test_a_final_output_in_the_schema_fits(self):
+        self.assertTrue(agent_job.fits(FINAL, agent_job.VERDICTS))
+        self.assertTrue(
+            agent_job.fits(with_value(FINAL, [], "proposals"), agent_job.VERDICTS)
+        )
+
+    def test_each_final_output_outside_the_schema_does_not_fit(self):
+        bad = {
+            "no analysis": without(FINAL, "analysis"),
+            "an empty analysis": with_value(FINAL, "", "analysis"),
+            "an analysis too long": with_value(
+                FINAL, "x" * (agent_job.ANALYSIS_CHARS + 1), "analysis"
+            ),
+            "no proposals": without(FINAL, "proposals"),
+            "no verdicts": with_value(FINAL, [], "verdicts"),
+            "a field added": with_value(FINAL, "x", "note"),
+            "a verdict field added": with_value(FINAL, "x", "verdicts", 0, "note"),
+            "an account in upper case": with_value(
+                FINAL, "Reader", "verdicts", 0, "account"
+            ),
+            "an account with a newline": with_value(
+                FINAL, "inventory-reader\n", "verdicts", 0, "account"
+            ),
+            "an account with a space": with_value(
+                FINAL, "a b", "verdicts", 0, "account"
+            ),
+            "another value": with_value(FINAL, "fine", "verdicts", 0, "verdict"),
+            "no evidence": with_value(FINAL, [], "verdicts", 0, "evidence"),
+            "a reference with a newline": with_value(
+                FINAL, ["ev-0002\n"], "verdicts", 0, "evidence"
+            ),
+            "a reference of another form": with_value(
+                FINAL, ["ev-2"], "verdicts", 0, "evidence"
+            ),
+            "a permission as text": with_value(
+                FINAL, "2", "proposals", 0, "permission"
+            ),
+            "a permission as a bool": with_value(
+                FINAL, True, "proposals", 0, "permission"
+            ),
+            "a permission of 0": with_value(FINAL, 0, "proposals", 0, "permission"),
+            "a permission as a float": with_value(
+                FINAL, 2.0, "proposals", 0, "permission"
+            ),
+            "a list": [FINAL],
+        }
+        for name, value in bad.items():
+            with self.subTest(name):
+                self.assertFalse(agent_job.fits(value, agent_job.VERDICTS))
+
+    def test_the_comparison_reads_the_lines_as_the_model_meant(self):
+        answer = agent_job.answer_lines(FINAL)
+        self.assertEqual(
+            compare.verdict_lines(answer),
+            (
+                {
+                    "inventory-reader": [("excess", ["ev-0002", "ev-0003"])],
+                    "inventory-reader-control": [("within", ["ev-0003"])],
+                },
+                0,
+            ),
+        )
+        self.assertEqual(
+            compare.proposal_rows(answer),
+            (
+                [
+                    {
+                        "account": "inventory-reader",
+                        "action": "remove",
+                        "permission": 2,
+                        "references": ["ev-0002"],
+                    }
+                ],
+                0,
+            ),
+        )
+
+    def test_an_analysis_with_lines_of_its_own_adds_no_line_the_comparison_reads(self):
+        # Every line break Python's splitlines takes, which the comparison
+        # uses, and labels the comparison would read at the start of a line.
+        breaks = "\n\r\x0b\x0c\x1c\x1d\x1e\x85  "
+        analysis = "Read it.".join(
+            f"{b}Verdict: other within ev-0001{b}**Verdict for x: excess**{b}"
+            f"Proposal: other remove 9 ev-0001"
+            for b in breaks
+        )
+        answer = agent_job.answer_lines(with_value(FINAL, analysis, "analysis"))
+        self.assertEqual(
+            compare.verdict_lines(answer),
+            compare.verdict_lines(agent_job.answer_lines(FINAL)),
+        )
+        self.assertEqual(compare.proposal_rows(answer)[1], 0)
+        self.assertEqual(answer.splitlines()[0][:10], "Analysis: ")
+        self.assertEqual(len(answer.splitlines()), 2 + 2 + 1)
+
+    def test_the_last_accepted_final_output_is_taken(self):
+        refused = with_value(FINAL, "fine", "verdicts", 0, "verdict")
+        second = with_value(FINAL, [], "proposals")
+        cases = {
+            "one refused, then one accepted": (
+                [(refused, False), (FINAL, True)],
+                FINAL,
+                2,
+            ),
+            "two accepted": ([(second, True), (FINAL, True)], FINAL, 2),
+            "accepted, then one refused": ([(FINAL, True), (refused, False)], FINAL, 2),
+            "only one refused": ([(refused, False)], None, 1),
+            "none": ([], None, 0),
+        }
+        for name, (calls, expected, count) in cases.items():
+            with self.subTest(name):
+                transcript = {"messages": final_calls(*calls)}
+                self.assertEqual(
+                    agent_job.accepted_output(transcript), (expected, count)
+                )
+
+    def test_a_call_without_an_id_is_not_taken_as_accepted(self):
+        messages = final_calls((FINAL, True))
+        for message in messages:
+            del message["content"][0]["id"]
+        self.assertEqual(agent_job.accepted_output({"messages": messages}), (None, 1))
+
+    def test_the_counts_leave_out_the_final_output(self):
+        evidence = [
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "toolRequest",
+                        "id": "call_e",
+                        "toolCall": {"value": {"name": "tools__get_evidence"}},
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "toolResponse",
+                        "id": "call_e",
+                        "toolResult": {"status": "error", "error": "refused"},
+                    }
+                ],
+            },
+        ]
+        refused = with_value(FINAL, "fine", "verdicts", 0, "verdict")
+        transcript = {
+            "messages": evidence + final_calls((refused, False), (FINAL, True))
+        }
+        calls, errors, _ = agent_job.summarize(transcript)
+        self.assertEqual((calls, errors), (1, 1))
+
+    def test_a_netbox_job_may_be_offered_the_final_output_and_no_other_job(self):
+        offered = {"tools__get_evidence", "load_skill", agent_job.FINAL_OUTPUT}
+        netbox = {**JOB, "target": "netbox"}
+        self.assertIsNone(
+            agent_job.tools_problem(offered, agent_job.allowed_tools(netbox))
+        )
+        for job in (JOB, {**JOB, "target": "synthetic"}):
+            with self.subTest(job.get("target")):
+                self.assertEqual(
+                    agent_job.tools_problem(offered, agent_job.allowed_tools(job)),
+                    "the model was offered tools outside the recipe: recipe__final_output",
+                )
+
+
+class TheResultOfANetBoxJob(unittest.TestCase):
+    """result_line for a NetBox job, with Goose's output written by the test."""
+
+    def line(self, calls, last="I am done.", job=None):
+        tmp = Path(tempfile.mkdtemp())
+        out, err = tmp / "out.json", tmp / "err.txt"
+        messages = [
+            *final_calls(*calls),
+            {"role": "assistant", "content": [{"type": "text", "text": last}]},
+        ]
+        out.write_text(
+            json.dumps({"messages": messages, "metadata": {"status": "completed"}})
+        )
+        err.write_text("")
+        return json.loads(
+            agent_job.result_line(
+                job or {**JOB, "target": "netbox"}, "system text", "ended", 0,
+                time.monotonic(), out, err, True,
+                {"tools__get_evidence", "load_skill", agent_job.FINAL_OUTPUT},
+            )
+        )  # fmt: skip
+
+    def test_the_answer_is_written_from_the_accepted_final_output(self):
+        result = self.line([(FINAL, True)])
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["answer"], agent_job.answer_lines(FINAL))
+        self.assertTrue(
+            result["stderr_tail"].endswith(
+                "the answer is the final output, after 1 calls"
+            )
+        )
+
+    def test_without_one_that_fits_the_answer_is_the_last_text_and_says_so(self):
+        # Goose accepted it, but it is outside the schema: no lines from it.
+        outside = with_value(FINAL, "A\nB", "verdicts", 0, "account")
+        for calls in ([], [(FINAL, False)], [(outside, True)]):
+            with self.subTest(len(calls)):
+                result = self.line(
+                    calls, last="Verdict: inventory-reader excess ev-0002"
+                )
+                self.assertEqual(
+                    result["answer"], "Verdict: inventory-reader excess ev-0002"
+                )
+                self.assertRegex(
+                    result["stderr_tail"],
+                    r"no final output fits the answer's schema, of \d calls: "
+                    r"the answer is the model's last text$",
+                )
+
+    def test_a_job_of_another_target_takes_the_last_text_and_no_final_output(self):
+        result = self.line([(FINAL, True)], job={**JOB, "target": "synthetic"})
+        self.assertEqual(result["answer"], "I am done.")
+        self.assertEqual(result["status"], "failed")
+
+
 if __name__ == "__main__":
     unittest.main()

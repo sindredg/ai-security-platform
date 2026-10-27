@@ -614,29 +614,18 @@ class TheStep(unittest.TestCase):
 class TheNetboxTask(unittest.TestCase):
     """The task the operator sends with a NetBox job, collectors/netbox/task.txt."""
 
-    def test_the_netbox_task_asks_for_the_lines_the_comparison_reads(self):
+    def test_the_netbox_task_asks_for_the_final_output_and_names_each_value(self):
+        # The job program writes the lines the comparison reads from the
+        # final output (ADR 0049).
         text = TASK.read_text(encoding="utf-8")
-        self.assertIn("Verdict:", text)
+        self.assertIn("final_output", text)
         for value in compare.VALUES:
             self.assertIn(value, text)
-        # Its examples are lines the comparison reads, for accounts no
-        # contract has, so an answer that copies one stops.
-        lines, unread = compare.verdict_lines(text)
-        self.assertEqual(unread, 0)
-        self.assertEqual(set(lines), {"some-account", "other-account"})
-        for found in lines.values():
-            self.assertIn(found[0][0], compare.VALUES)
 
-    def test_the_netbox_task_asks_for_the_proposal_lines_the_comparison_reads(self):
+    def test_the_netbox_task_holds_no_line_the_comparison_reads(self):
         text = TASK.read_text(encoding="utf-8")
-        self.assertIn("Proposal:", text)
-        # Its example is a line the comparison reads, for an account no
-        # contract has, so a copied example is a proposal the policy refuses.
-        proposals, unread = compare.proposal_lines(text)
-        self.assertEqual(unread, 0)
-        self.assertEqual(
-            proposals, {"some-account": [("remove", 12, ["ev-0002", "ev-0003"])]}
-        )
+        self.assertEqual(compare.verdict_lines(text), ({}, 0))
+        self.assertEqual(compare.proposal_lines(text), ({}, 0))
 
     def test_the_netbox_task_passes_the_workers_refusals(self):
         spec = importlib.util.spec_from_file_location("agent_job", JOB_PROGRAM)
