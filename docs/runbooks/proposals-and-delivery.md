@@ -2,6 +2,8 @@
 
 Status: Implemented on 2026-10-27. Run once, on the live system, from scripts with the same commands ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end)): step 1 on 2026-10-26 for the job, steps 2 to 5 at 06:08 to 06:09 UTC, and steps 6 to 11 at 16:18 to 16:24 UTC. The merge in step 9 was the operator's, and the undo was not run.
 
+Step 5's rerun is new since "Approved commit" became required on 2026-10-27. A rerun was seen to read a tag pushed after the first run, with a test tag whose signature fails ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#fixes-after-the-close)).
+
 This takes a NetBox job whose comparison matched from its proposal to a delivered fix: the policy check and a rehearsal on the copy on the orchestrator host, a pull request from the operator's machine, an approval tag signed with the approval key, and delivery with a token made for it ([ADR 0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md)). It ends with the rollback and with the copy brought to the merged seed.
 
 Before this:
@@ -65,7 +67,7 @@ Before this:
      gh api -X POST repos/sindredg/ai-security-platform-test/pulls --input - --jq '"\(.number) \(.head.sha)"'
    ```
 
-   Expected: the pull request's number and head, then its eight checks pass.
+   Expected: the pull request's number and head. Eight of its nine checks pass, and "Approved commit" fails with `No approval on REPLACE_WITH_HEAD` until step 5.
 
 ## Approve
 
@@ -76,9 +78,12 @@ Before this:
    git -c gpg.format=ssh -c user.signingkey=REPLACE_WITH_APPROVAL_KEY tag -s approve/netbox/REPLACE_WITH_JOB -m "target: netbox" REPLACE_WITH_HEAD
    git -c gpg.ssh.allowedSignersFile="$PWD/APPROVERS" verify-tag approve/netbox/REPLACE_WITH_JOB
    git push origin refs/tags/approve/netbox/REPLACE_WITH_JOB
+   RUN=$(gh api "repos/sindredg/ai-security-platform-test/actions/runs?head_sha=REPLACE_WITH_HEAD&event=pull_request_target" \
+     --jq '[.workflow_runs[] | select(.name == "approval")] | sort_by(.created_at) | last | .id')
+   gh api -X POST "repos/sindredg/ai-security-platform-test/actions/runs/$RUN/rerun"
    ```
 
-   Expected: a passphrase prompt, then `Good "git" signature for aisec-approver`. Delivery accepts the tag once, within 24 hours of its signature.
+   Expected: a passphrase prompt, then `Good "git" signature for aisec-approver`. Delivery accepts the tag once, within 24 hours of its signature. Pushing a tag does not start "Approved commit", so the last two commands run it again, and it passes with `ok approve/netbox/REPLACE_WITH_JOB approves REPLACE_WITH_HEAD`.
 
 ## Deliver
 
@@ -110,7 +115,7 @@ Before this:
 
 9. Merge the pull request, only after step 7 printed `passed` and only when its head is the commit delivered, which step 7 printed. Then fetch `main` in the targets checkout, so the checks read the merged seed.
 
-   Expected: `N.14` and `N.17` pass with both accounts within.
+   Expected: GitHub merges only once "Approved commit" has passed on the head. `N.14` and `N.17` pass with both accounts within.
 
 ## Roll back
 
