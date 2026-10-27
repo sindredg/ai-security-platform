@@ -4,7 +4,7 @@
 
 Milestone 5, 2026-10-26. [All run sets](README.md), [previous: Erase after a timeout](2026-10-26-0608-erase-after-a-timeout.md), [next: Thinking and proposals](2026-10-27-0542-thinking-with-a-proposal.md).
 
-**Tested:** Whether the task's new paragraph gets one readable proposal line per excess account, and whether a matched job's proposal passes the policy and its rehearsal.
+**Tested:** Whether the task's new paragraph gets readable proposal lines, and whether a matched job's fix passes the policy, the rehearsal, and delivery with a rollback.
 
 **Changed since the run set before:** The task gained a paragraph that asks for a `Proposal:` line per account whose verdict is excess, committed as `a500b59` after these jobs. The comparison ran on the dispatch image `3f8d147b`, which keeps proposal lines.
 
@@ -28,11 +28,11 @@ Verdicts right counts the accounts whose two checks agree. Minutes run from the 
 
 | Job | Proposal | Policy | Rehearsal | Delivery |
 | --- | --- | --- | --- | --- |
-| [nb-10262214-p2](#nb-10262214-p2) | remove `inventory-reader: inventory` from `inventory-reader`, by the model | allowed | passed | none |
+| [nb-10262214-p2](#nb-10262214-p2) | remove `inventory-reader: inventory` from `inventory-reader`, by the model | allowed | passed | fix, passed; restore, passed; fix, passed (#15) |
 
-**Source:** Live system, 2026-10-26 22:14 to 22:37 UTC. Development jobs, not scored. Each workflow as Argo kept it, read at 05:56 UTC the next day, the tool service's audit lines, and the bundle that `propose-netbox-fix` wrote.
+**Source:** Live system: the jobs on 2026-10-26, 22:14 to 22:37 UTC, development jobs, not scored. The fix of `nb-10262214-p2` was delivered on 2026-10-27, 16:18 to 16:19 UTC, then rolled back and delivered again, each with its own approval. Each workflow as Argo kept it, the audit lines, the bundle, and the delivery results.
 
-**Also:** [Worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-proposal-task).
+**Also:** [Worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-proposal-task), [Delivery](../worklogs/0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end).
 
 ## nb-10262214-p1
 
@@ -143,6 +143,14 @@ The rehearsal on the copy passed: every account within by both.
 | --- | --- | --- |
 | `inventory-reader` | `within` | `within` |
 | `inventory-reader-control` | `within` | `within` |
+
+**Delivery.**
+
+| Approval | Mode | Approved (UTC) | Checks after | Pull request |
+| --- | --- | --- | --- | --- |
+| `approve/netbox/nb-10262214-p2` on `5aaa34036f34` | fix | 2026-10-27 06:09 | every account within by both | #15 |
+| `approve/netbox/restore-20261027` on `92d8b9fca86e` | restore | 2026-10-27 06:09 | `inventory-reader` excess/excess, `inventory-reader-control` within/within | none |
+| `approve/netbox/nb-10262214-p2-again` on `5aaa34036f34` | fix | 2026-10-27 06:09 | every account within by both | #15 |
 
 | Call | Time (UTC) | Tool | Argument | Result |
 | --- | --- | --- | --- | --- |

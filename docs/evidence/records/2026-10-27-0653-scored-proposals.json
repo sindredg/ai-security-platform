@@ -1,0 +1,1544 @@
+{
+  "title": "Scored proposals on the held-out cases",
+  "short": "Scored proposals",
+  "milestone": 5,
+  "tested": "Whether each job's proposal is the fix the checks imply, by the rules committed before the runs, on the six held-out cases, two jobs each.",
+  "changed": "The task asks for a proposal line since `a500b59`. After each match, `propose-netbox-fix` ran the policy and a rehearsal on the copy.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.56.0"
+    ],
+    [
+      "Task",
+      "`collectors/netbox/task.txt` at `a500b59`"
+    ],
+    [
+      "Limits",
+      "1200 seconds and 8 turns"
+    ],
+    [
+      "Rules",
+      "[The proposal rules](../validation/investigation.md#the-proposal-rules), committed at `6c2404a` before the first job"
+    ]
+  ],
+  "source": "Live system, 2026-10-27 06:53 to 07:35 and 14:51 to 15:56 UTC. The workstation slept between, while `sites-1` ran: its workflow was read over SSH and its proposal checked at 14:49 UTC. Each workflow as Argo kept it, the tool service's audit lines, and the bundles.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0006-remediation-pull-requests-and-delivery.md#the-scored-proposals"
+    ],
+    [
+      "Rules",
+      "../validation/investigation.md#the-proposal-rules"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "nb-10270652-control-only-1",
+      "target": "netbox",
+      "case": "control-only",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T06:53:24Z",
+      "finished": "2026-10-27T06:59:17Z",
+      "phase": "Failed",
+      "message": "child 'nb-10270652-control-only-1-1272723404' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T06:53:24Z",
+          "finished": "2026-10-27T06:58:47Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: verdict lines that could not be read: 1",
+          "started": "2026-10-27T06:58:57Z",
+          "finished": "2026-10-27T06:59:02Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T06:59:07Z",
+          "finished": "2026-10-27T06:59:12Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 317.8,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 9423,
+        "output_tokens": 682,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader-control": [
+          "within",
+          "within"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "verdict lines that could not be read: 1"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader-control",
+            "model": "within",
+            "references": [
+              "ev-0002",
+              "ev-0003",
+              "ev-0001"
+            ],
+            "configured": "within",
+            "observed": "within",
+            "outcome": "match"
+          }
+        ],
+        "proposals": [],
+        "unread_proposals": 0
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T06:55:13Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1471
+        },
+        {
+          "at": "2026-10-27T06:56:30Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 492
+        },
+        {
+          "at": "2026-10-27T06:57:05Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 906
+        }
+      ],
+      "answer": "I've read all three evidence documents. Let me analyze:\n\n**Contract (ev-0001):**\n- Account: inventory-reader-control\n- Grants: view dcim.device (tenant__slug=tenant-a), view ipam.ipaddress (tenant__slug=tenant-a)\n- Expected denials: GET /api/dcim/sites/, GET /api/tenancy/tenants/, GET /api/users/permissions/, POST /api/dcim/devices/\n- Expected reads: 3 dcim.device records (a-fw-01, a-sw-01, a-sw-02), 3 ipam.ipaddress records (172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24)\n\n**Permissions (ev-0002):**\n- Account inventory-reader-control has permission id=3 granting view on dcim.device and ipam.ipaddress with constraint tenant__slug=tenant-a\n\n**Actual behavior (ev-0003):**\n- Denials match expected denials (403 for all four requests)\n- Reads match expected reads exactly (3 device records, 3 ipaddress records)\n\nThe evidence from ev-0002 and ev-0003 are consistent. The account gets exactly what the contract allows and nothing more. The permissions, grants, actual denials, and actual reads all align.\n\nVerdict for inventory-reader-control: within\n\nThere are no excess permissions to propose since the verdict is within.\n\nVerdict: inventory-reader-control within ev-0002 ev-0003 ev-0001"
+    },
+    {
+      "job": "nb-10270652-control-only-2",
+      "target": "netbox",
+      "case": "control-only",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T07:00:00Z",
+      "finished": "2026-10-27T07:04:51Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T07:00:00Z",
+          "finished": "2026-10-27T07:04:21Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T07:04:31Z",
+          "finished": "2026-10-27T07:04:35Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T07:04:41Z",
+          "finished": "2026-10-27T07:04:45Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 255.3,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 9047,
+        "output_tokens": 337,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader-control": [
+          "within",
+          "within"
+        ]
+      },
+      "comparison": {
+        "outcome": "match",
+        "reasons": [],
+        "accounts": [
+          {
+            "account": "inventory-reader-control",
+            "model": "within",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "within",
+            "observed": "within",
+            "outcome": "match"
+          }
+        ],
+        "proposals": [],
+        "unread_proposals": 0
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T07:01:46Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1471
+        },
+        {
+          "at": "2026-10-27T07:02:41Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 492
+        },
+        {
+          "at": "2026-10-27T07:03:04Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 906
+        }
+      ],
+      "answer": "Verdict: inventory-reader-control within ev-0001 ev-0002 ev-0003\n\nThe account inventory-reader-control gets exactly what the contract specifies:\n- Permissions: ev-0002 shows permission 3 grants view on dcim.device and ipam.ipaddress, both constrained to tenant-a. This matches the grants in ev-0001.\n- Reads: ev-0003 shows the token returned exactly 3 devices (a-fw-01, a-sw-01, a-sw-02) and 3 IP addresses (172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24), matching ev-0001's lists.\n- Denials: ev-0003 shows 403s for sites, tenants, permissions, and POST devices, matching ev-0001's denials.\n\nNo excess permissions, no missing records, no forbidden access.",
+      "proposal": {
+        "source": "model",
+        "changes": [],
+        "proposed": [],
+        "policy": {
+          "allowed": false,
+          "reasons": [
+            "no account the checks call excess"
+          ]
+        },
+        "rehearsal": {
+          "passed": false,
+          "verdicts": {},
+          "reason": "no proposal to rehearse"
+        }
+      }
+    },
+    {
+      "job": "nb-10270652-consumer-only-1",
+      "target": "netbox",
+      "case": "consumer-only",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T07:05:17Z",
+      "finished": "2026-10-27T07:10:45Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T07:05:17Z",
+          "finished": "2026-10-27T07:10:15Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T07:10:25Z",
+          "finished": "2026-10-27T07:10:31Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T07:10:35Z",
+          "finished": "2026-10-27T07:10:40Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 293.3,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 9287,
+        "output_tokens": 435,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ]
+      },
+      "comparison": {
+        "outcome": "match",
+        "reasons": [],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "excess",
+            "references": [
+              "ev-0001",
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "match"
+          }
+        ],
+        "proposals": [
+          {
+            "account": "inventory-reader",
+            "action": "remove",
+            "permission": 2,
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ]
+          }
+        ],
+        "unread_proposals": 0
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T07:07:03Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1464
+        },
+        {
+          "at": "2026-10-27T07:07:58Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 732
+        },
+        {
+          "at": "2026-10-27T07:08:30Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1091
+        }
+      ],
+      "answer": "**Verdict: inventory-reader excess ev-0001 ev-0003**\n\nThe token returned extra records not listed in the contract:\n- Devices: contract lists 3 records (a-fw-01, a-sw-01, a-sw-02), token returned 7 (adds b-fw-01, b-sw-01, c-fw-01, c-sw-01)\n- IP addresses: contract lists 3 records (172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24), token returned 7 (adds 172.16.2.1/24, 172.16.2.2/24, 172.16.3.1/24, 172.16.3.2/24)\n\nThe denials match what the contract expects. Permissions 1 and 2 both have `tenant__slug: tenant-a` constraints, but ev-0003 shows the token returned devices/IPs that don't have that constraint applied.\n\n**Proposal: inventory-reader remove 2 ev-0002 ev-0003**\n\nPermission 2 has no constraint (constraints: null) but ev-0003 shows the token is still returning restricted data. Removing permission 2 would leave only permission 1, which has the tenant-a constraint.",
+      "proposal": {
+        "source": "model",
+        "changes": [
+          {
+            "account": "inventory-reader",
+            "permission_id": 2,
+            "permission": "inventory-reader: inventory"
+          }
+        ],
+        "proposed": [
+          {
+            "account": "inventory-reader",
+            "action": "remove",
+            "permission": 2,
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ]
+          }
+        ],
+        "policy": {
+          "allowed": true,
+          "reasons": []
+        },
+        "rehearsal": {
+          "passed": true,
+          "verdicts": {
+            "inventory-reader": {
+              "configured": "within",
+              "observed": "within"
+            }
+          },
+          "reason": null
+        }
+      }
+    },
+    {
+      "job": "nb-10270652-consumer-only-2",
+      "target": "netbox",
+      "case": "consumer-only",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T07:13:44Z",
+      "finished": "2026-10-27T07:23:49Z",
+      "phase": "Failed",
+      "message": "child 'nb-10270652-consumer-only-2-2633903534' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T07:13:44Z",
+          "finished": "2026-10-27T07:23:19Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: inventory-reader: the answer has no verdict line for it; verdict lines that could not be read: 1",
+          "started": "2026-10-27T07:23:29Z",
+          "finished": "2026-10-27T07:23:34Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T07:23:39Z",
+          "finished": "2026-10-27T07:23:44Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 570.1,
+        "agent_status": "completed",
+        "tool_calls": 4,
+        "tool_errors": 0,
+        "input_tokens": 14667,
+        "output_tokens": 1588,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "inventory-reader: the answer has no verdict line for it",
+          "verdict lines that could not be read: 1"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": null,
+            "references": [],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "no-verdict"
+          }
+        ],
+        "proposals": [],
+        "unread_proposals": 2
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T07:15:37Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1464
+        },
+        {
+          "at": "2026-10-27T07:17:19Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 732
+        },
+        {
+          "at": "2026-10-27T07:18:08Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1091
+        },
+        {
+          "at": "2026-10-27T07:21:16Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1091
+        }
+      ],
+      "answer": "Now I have all the evidence. Let me provide the final verdict and proposal.\n\n**Verdict for inventory-reader: excess**\n\nThe evidence shows:\n- ev-0001 (contract): Grants view to dcim.device and ipam.ipaddress with tenant__slug = \"tenant-a\" constraint\n- ev-0002 (permissions): Permission 2 grants view to ALL dcim.device and ipam.ipaddress without any constraint\n- ev-0003 (actual): Returned 7 devices and 7 IP addresses instead of the 3 records specified in the contract\n\nThe excess comes from:\n1. Permission 2 grants view access without the tenant constraint specified in the contract\n2. Token returned 7 records instead of 3 for both endpoints\n\n**Status: excess**\n**Excess:** permission 2 grants view to all dcim.device and ipam.ipaddress without tenant__slug = \"tenant-a\" constraint, token returned 7 devices instead of 3, token returned 7 IP addresses instead of 3\n\n**Proposal:**\nRemove permission 2 from inventory-reader since it grants unrestricted view access that exceeds the contract's constraints.\n\n**Status: excess**\n\n**Excess:**\n- Permission 2 grants view to dcim.device and ipam.ipaddress without tenant__slug = \"tenant-a\" constraint\n- Token returned 7 devices instead of 3 records\n- Token returned 7 IP addresses instead of 3 records\n\n**Proposal:** remove permission 2 from inventory-reader since it grants view access without the tenant constraint specified in the contract"
+    },
+    {
+      "job": "nb-10270652-sites-1",
+      "target": "netbox",
+      "case": "sites",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T07:24:46Z",
+      "finished": "2026-10-27T07:35:11Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T07:24:46Z",
+          "finished": "2026-10-27T07:34:41Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T07:34:51Z",
+          "finished": "2026-10-27T07:34:56Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T07:35:01Z",
+          "finished": "2026-10-27T07:35:06Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 590.1,
+        "agent_status": "completed",
+        "tool_calls": 4,
+        "tool_errors": 0,
+        "input_tokens": 15067,
+        "output_tokens": 1562,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "missing",
+          "missing"
+        ]
+      },
+      "comparison": {
+        "outcome": "match",
+        "reasons": [],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "excess",
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "match"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": "missing",
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "missing",
+            "observed": "missing",
+            "outcome": "match"
+          }
+        ],
+        "proposals": [
+          {
+            "account": "inventory-reader",
+            "action": "remove",
+            "permission": 2,
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ]
+          }
+        ],
+        "unread_proposals": 0
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T07:26:31Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1703
+        },
+        {
+          "at": "2026-10-27T07:27:33Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1090
+        },
+        {
+          "at": "2026-10-27T07:28:13Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1643
+        },
+        {
+          "at": "2026-10-27T07:33:39Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1090
+        }
+      ],
+      "answer": "Verdict: inventory-reader excess ev-0002 ev-0003\nVerdict: inventory-reader-control missing ev-0002 ev-0003\nProposal: inventory-reader remove 2 ev-0002 ev-0003",
+      "proposal": {
+        "source": "model",
+        "changes": [],
+        "proposed": [
+          {
+            "account": "inventory-reader",
+            "action": "remove",
+            "permission": 2,
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ]
+          }
+        ],
+        "policy": {
+          "allowed": false,
+          "reasons": [
+            "inventory-reader: without permission 2 it is missing, not within"
+          ]
+        },
+        "rehearsal": {
+          "passed": false,
+          "verdicts": {
+            "inventory-reader": {
+              "configured": "missing",
+              "observed": "missing"
+            },
+            "inventory-reader-control": {
+              "configured": "missing",
+              "observed": "missing"
+            }
+          },
+          "reason": null
+        }
+      }
+    },
+    {
+      "job": "nb-10271451-sites-2",
+      "target": "netbox",
+      "case": "sites",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T14:51:44Z",
+      "finished": "2026-10-27T15:03:52Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T14:51:44Z",
+          "finished": "2026-10-27T15:03:22Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:03:32Z",
+          "finished": "2026-10-27T15:03:36Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:03:42Z",
+          "finished": "2026-10-27T15:03:46Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 691.7,
+        "agent_status": "completed",
+        "tool_calls": 4,
+        "tool_errors": 0,
+        "input_tokens": 15558,
+        "output_tokens": 1851,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "missing",
+          "missing"
+        ]
+      },
+      "comparison": {
+        "outcome": "match",
+        "reasons": [],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "excess",
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "match"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": "missing",
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "missing",
+            "observed": "missing",
+            "outcome": "match"
+          }
+        ],
+        "proposals": [
+          {
+            "account": "inventory-reader",
+            "action": "remove",
+            "permission": 2,
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ]
+          }
+        ],
+        "unread_proposals": 0
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T14:53:31Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1703
+        },
+        {
+          "at": "2026-10-27T14:54:46Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1090
+        },
+        {
+          "at": "2026-10-27T14:55:48Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1643
+        },
+        {
+          "at": "2026-10-27T15:00:23Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1703
+        }
+      ],
+      "answer": "Let me reconsider the analysis more carefully:\n\n**inventory-reader:**\n- Contract grants: view on dcim.device (tenant-a), ipam.ipaddress (tenant-a), dcim.site (tenant-a)\n- Permission 2: view on dcim.device, ipam.ipaddress (NO tenant constraint) - this is EXCESS because it grants without the constraint\n- Permission 1: view on dcim.device, ipam.ipaddress (tenant-a) - this matches the constraint\n- Actual reads: returned ALL devices (7) including non-tenant-a, but only did 2 reads (missing dcim/sites)\n- The excess from permission 2 caused extra records to be returned\n- The missing dcim.site permission means the contract's grant for dcim.site is not fulfilled\n\nThe verdict is **excess** because permission 2 grants access without the tenant-a constraint that the contract requires. The evidence ev-0003 shows it returned records outside the contract's constraints (non-tenant-a devices).\n\n**inventory-reader-control:**\n- Contract grants: view on dcim.device (tenant-a), ipam.ipaddress (tenant-a), dcim.site (tenant-a)\n- Permission 3: view on dcim.device, ipam.ipaddress (tenant-a) - this matches the constraint\n- Missing: no permission for dcim.site\n- Actual reads: only did 2 reads (missing dcim/sites)\n- This is **missing** because no permission grants access to dcim.site as required by the contract\n\n**Final verdicts:**\n- inventory-reader: excess ev-0002 ev-0003\n- inventory-reader-control: missing ev-0002 ev-0003\n\nFor inventory-reader, the proposal is to remove permission 2 which has no tenant constraint.\n\nVerdict: inventory-reader excess ev-0002 ev-0003\nVerdict: inventory-reader-control missing ev-0002 ev-0003\n\nProposal: inventory-reader remove 2 ev-0002 ev-0003",
+      "proposal": {
+        "source": "model",
+        "changes": [],
+        "proposed": [
+          {
+            "account": "inventory-reader",
+            "action": "remove",
+            "permission": 2,
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ]
+          }
+        ],
+        "policy": {
+          "allowed": false,
+          "reasons": [
+            "inventory-reader: without permission 2 it is missing, not within"
+          ]
+        },
+        "rehearsal": {
+          "passed": false,
+          "verdicts": {
+            "inventory-reader": {
+              "configured": "missing",
+              "observed": "missing"
+            },
+            "inventory-reader-control": {
+              "configured": "missing",
+              "observed": "missing"
+            }
+          },
+          "reason": null
+        }
+      }
+    },
+    {
+      "job": "nb-10271451-devices-only-1",
+      "target": "netbox",
+      "case": "devices-only",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T15:06:35Z",
+      "finished": "2026-10-27T15:15:32Z",
+      "phase": "Failed",
+      "message": "child 'nb-10271451-devices-only-1-2837661220' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:06:35Z",
+          "finished": "2026-10-27T15:15:02Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: inventory-reader-control: the model says within, the checks say excess",
+          "started": "2026-10-27T15:15:12Z",
+          "finished": "2026-10-27T15:15:17Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:15:22Z",
+          "finished": "2026-10-27T15:15:27Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 502.1,
+        "agent_status": "completed",
+        "tool_calls": 4,
+        "tool_errors": 0,
+        "input_tokens": 13906,
+        "output_tokens": 1259,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "excess",
+          "excess"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "inventory-reader-control: the model says within, the checks say excess"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "excess",
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "match"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": "within",
+            "references": [
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "mismatch"
+          }
+        ],
+        "proposals": [
+          {
+            "account": "inventory-reader",
+            "action": "remove",
+            "permission": 2,
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ]
+          }
+        ],
+        "unread_proposals": 1
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T15:08:21Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1176
+        },
+        {
+          "at": "2026-10-27T15:09:39Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1097
+        },
+        {
+          "at": "2026-10-27T15:10:26Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1740
+        },
+        {
+          "at": "2026-10-27T15:12:58Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1097
+        }
+      ],
+      "answer": "Based on my analysis:\n\n**inventory-reader:**\n- Excess: The token returned 7 records when contract expects only 3 (returned `b-fw-01`, `b-sw-01`, `c-fw-01`, `c-sw-01` which are not in the contract's listed records)\n- Excess: NetBox allowed GET /api/ipam/ip-addresses/ (200) when contract expects denial (403)\n- Excess: Permission id 2 grants `view` on `ipam.ipaddress` without tenant constraint, which exceeds the contract's grant\n- The evidence shows both excess and missing don't fully apply (inventory-reader-control has within, and inventory-reader has excess due to returned extra records and allowed denied request)\n\nWait, let me reconsider. The contract lists reads for `/api/dcim/devices/` with 3 records. ev-0003 shows inventory-reader returned 7 records (excess - returned records contract doesn't list). The contract expects denial of GET /api/ipam/ip-addresses/ but ev-0003 shows 200 (excess - NetBox allowed what contract expects denied). Also, permission 2 in ev-0002 grants viewing ipam.ipaddress without tenant constraint (excess).\n\nFor inventory-reader-control, it has exactly 3 records (within), correct denials (within), and permissions matching (within).\n\nLet me finalize:\n- inventory-reader: excess (returned 7 records when contract lists 3, allowed GET /api/ipam/ip-addresses/ when contract expects denial)\n- inventory-reader-control: within\n\nProposal for inventory-reader: remove permission id 2 (which grants ipam.ipaddress viewing without tenant constraint, causing the excess)\n\n**Final Answer:**\n\nVerdict: inventory-reader excess ev-0002 ev-0003\nVerdict: inventory-reader-control within ev-0003\n\nProposal: inventory-reader remove 2 ev-0002 ev-0003"
+    },
+    {
+      "job": "nb-10271451-devices-only-2",
+      "target": "netbox",
+      "case": "devices-only",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T15:16:42Z",
+      "finished": "2026-10-27T15:21:35Z",
+      "phase": "Failed",
+      "message": "child 'nb-10271451-devices-only-2-3285953727' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:16:42Z",
+          "finished": "2026-10-27T15:21:05Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: inventory-reader-control: the model says within, the checks say excess",
+          "started": "2026-10-27T15:21:15Z",
+          "finished": "2026-10-27T15:21:20Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:21:25Z",
+          "finished": "2026-10-27T15:21:30Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 258.3,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 9279,
+        "output_tokens": 176,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "excess",
+          "excess"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "inventory-reader-control: the model says within, the checks say excess"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "excess",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "match"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": "within",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "mismatch"
+          }
+        ],
+        "proposals": [
+          {
+            "account": "inventory-reader",
+            "action": "remove",
+            "permission": 2,
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ]
+          }
+        ],
+        "unread_proposals": 0
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T15:18:28Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1176
+        },
+        {
+          "at": "2026-10-27T15:19:13Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1097
+        },
+        {
+          "at": "2026-10-27T15:19:52Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1740
+        }
+      ],
+      "answer": "Verdict: inventory-reader excess ev-0001 ev-0002 ev-0003\nVerdict: inventory-reader-control within ev-0001 ev-0002 ev-0003\n\nProposal: inventory-reader remove 2 ev-0002 ev-0003"
+    },
+    {
+      "job": "nb-10271451-change-1",
+      "target": "netbox",
+      "case": "change",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T15:22:31Z",
+      "finished": "2026-10-27T15:30:46Z",
+      "phase": "Failed",
+      "message": "child 'nb-10271451-change-1-1120862984' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:22:31Z",
+          "finished": "2026-10-27T15:30:16Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: inventory-reader: the answer has no verdict line for it; inventory-reader-control: the answer has no verdict line for it",
+          "started": "2026-10-27T15:30:26Z",
+          "finished": "2026-10-27T15:30:31Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:30:36Z",
+          "finished": "2026-10-27T15:30:41Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 460.0,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 10311,
+        "output_tokens": 1094,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "missing",
+          "missing"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "inventory-reader: the answer has no verdict line for it",
+          "inventory-reader-control: the answer has no verdict line for it"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": null,
+            "references": [],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "no-verdict"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": null,
+            "references": [],
+            "configured": "missing",
+            "observed": "missing",
+            "outcome": "no-verdict"
+          }
+        ],
+        "proposals": [],
+        "unread_proposals": 1
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T15:24:20Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1649
+        },
+        {
+          "at": "2026-10-27T15:25:38Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1091
+        },
+        {
+          "at": "2026-10-27T15:26:37Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1864
+        }
+      ],
+      "answer": "Now I have all three documents. Let me analyze each account:\n\n**inventory-reader:**\n- Contract grants: view dcim.device (tenant-a constraint), view ipam.ipaddress (tenant-a constraint), change dcim.device (tenant-a constraint)\n- Contract reads: devices should return 4 records (a-fw-01, a-sw-01, a-sw-02, a-rt-01), ipaddresses should return 3 records\n- Actual token returns: devices returned 7 records (including b- and c- devices), ipaddresses returned 7 records (including 172.16.2.x and 172.16.3.x)\n- Permissions: id 2 grants view on dcim.device and ipam.ipaddress with NO constraints, id 1 grants view with tenant-a constraint\n- Problem: Permission id 2 grants view without constraints on all devices and ipaddresses, but the contract only grants view with tenant-a constraint. This is excess - the permission grants more than the contract allows.\n- Also, the token returned 7 records for devices but contract lists only 4, and 7 records for ipaddresses but contract lists only 3. This is also excess.\n\n**inventory-reader-control:**\n- Contract grants: view dcim.device (tenant-a constraint), view ipam.ipaddress (tenant-a constraint), change dcim.device (tenant-a constraint)\n- Contract reads: devices should return 4 records (a-fw-01, a-sw-01, a-sw-02, a-rt-01), ipaddresses should return 3 records\n- Actual token returns: devices returned 3 records (only a- devices), ipaddresses returned 3 records (correct)\n- Permissions: id 3 grants view on dcim.device and ipam.ipaddress with tenant-a constraint only\n- Problem: The contract grants change permission but inventory-reader-control only has view permission. This is missing - the account doesn't have what the contract grants.\n- Also, the contract lists 4 device records but only 3 were returned (a-rt-01 is missing). This is also missing.\n\nLet me verify the denials match between ev-0001 and ev-0003 - they both show the same 4 denials, so no disagreement there.\n\nVerdicts:\n- inventory-reader: excess - permission id 2 grants view without constraints when contract only grants with tenant-a constraint, and token returned 7 records instead of 4 devices and 7 instead of 3 ipaddresses\n- inventory-reader-control: missing - only has view permission (id 3) but contract grants change permission as well, and token returned only 3 device records instead of 4\n\nNow I need to propose a fix for inventory-reader. The excess is from permission id 2 which grants view without constraints. The contract only grants view with tenant-a constraint. To remove the excess, I should remove permission id 2.\n\nWait, let me reconsider. The contract grants:\n1. view dcim.device with tenant-a constraint\n2. view ipam.ipaddress with tenant-a constraint  \n3. change dcim.device with tenant-a constraint\n\nBut inventory-reader has:\n- id 2: view dcim.device and ipam.ipaddress with NO constraints\n- id 1: view dcim.device and ipam.ipaddress with tenant-a constraint\n\nSo id 1 covers the constrained grants, but id 2 grants unconstrained view which is excess. The token returned more records than the contract specifies, which is also excess.\n\nProposal for inventory-reader: remove permission id 2."
+    },
+    {
+      "job": "nb-10271451-change-2",
+      "target": "netbox",
+      "case": "change",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T15:31:32Z",
+      "finished": "2026-10-27T15:40:51Z",
+      "phase": "Failed",
+      "message": "child 'nb-10271451-change-2-1673478419' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:31:32Z",
+          "finished": "2026-10-27T15:40:21Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: inventory-reader-control: the model says within, the checks say missing",
+          "started": "2026-10-27T15:40:31Z",
+          "finished": "2026-10-27T15:40:36Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:40:41Z",
+          "finished": "2026-10-27T15:40:46Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 524.6,
+        "agent_status": "completed",
+        "tool_calls": 4,
+        "tool_errors": 0,
+        "input_tokens": 14941,
+        "output_tokens": 986,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "missing",
+          "missing"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "inventory-reader-control: the model says within, the checks say missing"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": "excess",
+            "references": [
+              "ev-0001",
+              "ev-0002",
+              "ev-0003"
+            ],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "match"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": "within",
+            "references": [
+              "ev-0003"
+            ],
+            "configured": "missing",
+            "observed": "missing",
+            "outcome": "mismatch"
+          }
+        ],
+        "proposals": [
+          {
+            "account": "inventory-reader",
+            "action": "remove",
+            "permission": 1,
+            "references": [
+              "ev-0002"
+            ]
+          }
+        ],
+        "unread_proposals": 0
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T15:33:18Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1649
+        },
+        {
+          "at": "2026-10-27T15:34:24Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1091
+        },
+        {
+          "at": "2026-10-27T15:35:08Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1864
+        },
+        {
+          "at": "2026-10-27T15:38:45Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1649
+        }
+      ],
+      "answer": "Verdict: inventory-reader excess ev-0001 ev-0002 ev-0003\nVerdict: inventory-reader-control within ev-0003\n\nProposal: inventory-reader remove 1 ev-0002"
+    },
+    {
+      "job": "nb-10271451-two-of-three-1",
+      "target": "netbox",
+      "case": "two-of-three",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T15:41:43Z",
+      "finished": "2026-10-27T15:51:54Z",
+      "phase": "Failed",
+      "message": "child 'nb-10271451-two-of-three-1-584997319' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:41:43Z",
+          "finished": "2026-10-27T15:51:24Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: inventory-reader: the answer has no verdict line for it; inventory-reader-control: the checks disagree, configured within, observed excess",
+          "started": "2026-10-27T15:51:34Z",
+          "finished": "2026-10-27T15:51:40Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:51:44Z",
+          "finished": "2026-10-27T15:51:49Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 576.1,
+        "agent_status": "completed",
+        "tool_calls": 3,
+        "tool_errors": 0,
+        "input_tokens": 10399,
+        "output_tokens": 1746,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "within",
+          "excess"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "inventory-reader: the answer has no verdict line for it",
+          "inventory-reader-control: the checks disagree, configured within, observed excess"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": null,
+            "references": [],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "no-verdict"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": null,
+            "references": [],
+            "configured": "within",
+            "observed": "excess",
+            "outcome": "checks-disagree"
+          }
+        ],
+        "proposals": [],
+        "unread_proposals": 0
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T15:43:29Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1476
+        },
+        {
+          "at": "2026-10-27T15:45:16Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1097
+        },
+        {
+          "at": "2026-10-27T15:46:05Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1870
+        }
+      ],
+      "answer": "Now I have all three documents. Let me analyze each account:\n\n**inventory-reader:**\n- **Contract grants:** view on dcim.device and ipam.ipaddress with tenant__slug = \"tenant-a\"\n- **Contract expects denials:** GET /api/dcim/sites/, GET /api/tenancy/tenants/, GET /api/users/permissions/, POST /api/dcim/devices/\n- **Contract expects reads:**\n  - GET /api/dcim/devices/ → a-fw-01, a-sw-01 (fields: id, name, status, site, tenant, device_type, role)\n  - GET /api/ipam/ip-addresses/ → 172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24 (fields: id, address, status, tenant)\n- **Actual permissions (ev-0002):** \n  - Permission 1: view on dcim.device, ipam.ipaddress with tenant__slug = \"tenant-a\"\n  - Permission 2: view on dcim.device, ipam.ipaddress with no constraints\n- **Actual reads (ev-0003):**\n  - GET /api/dcim/devices/ → returned 7 devices (a-fw-01, a-sw-01, a-sw-02, b-fw-01, b-sw-01, c-fw-01, c-sw-01) but contract only expects a-fw-01, a-sw-01\n  - GET /api/ipam/ip-addresses/ → returned 7 addresses but contract only expects 172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24\n- **Actual denials (ev-0003):** All 4 expected denials were correctly denied\n\n**Analysis for inventory-reader:**\n- The token returned MORE records than the contract lists (7 devices vs 2 expected, 7 addresses vs 3 expected)\n- The contract does not list those extra records\n- This is **excess** - the permission grants view without the contract's tenant constraint\n\n**inventory-reader-control:**\n- **Contract grants:** view on dcim.device and ipam.ipaddress with tenant__slug = \"tenant-a\"\n- **Contract expects denials:** Same 4 requests\n- **Contract expects reads:**\n  - GET /api/dcim/devices/ → a-fw-01, a-sw-01\n  - GET /api/ipam/ip-addresses/ → 172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24\n- **Actual permissions (ev-0002):**\n  - Permission 3: view on dcim.device, ipam.ipaddress with tenant__slug = \"tenant-a\"\n- **Actual reads (ev-0003):**\n  - GET /api/dcim/devices/ → returned a-fw-01, a-sw-01, a-sw-02 (3 devices, but contract only expects a-fw-01, a-sw-01)\n  - GET /api/ipam/ip-addresses/ → returned 172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24 (correct)\n- **Actual denials (ev-0003):** All 4 expected denials were correctly denied\n\n**Analysis for inventory-reader-control:**\n- The token returned MORE devices than the contract lists (3 devices vs 2 expected)\n- a-sw-02 is not in the contract's expected reads\n- This is **excess** - the permission grants view without the contract's constraint\n\nWait, let me reconsider. Both accounts have the same denials and the same extra records returned. But let me check if there's any missing behavior...\n\nActually, looking more carefully:\n- Both accounts returned extra records not listed in the contract\n- The contract specifies exactly what records should be returned, but both accounts returned more\n\nFor inventory-reader-control:\n- Returned a-sw-02 which is not in the contract's expected reads\n- This is excess\n\nFor inventory-reader:\n- Returned extra devices (a-sw-02, b-fw-01, b-sw-01, c-fw-01, c-sw-01) and extra addresses (172.16.2.1/24, 172.16.2.2/24, 172.16.3.1/24, 172.16.3.2/24) not listed in the contract\n- This is excess\n\nBoth accounts have excess because they returned records not listed in the contract.\n\nFor the proposal, I need to remove the permission that grants the excess. Both accounts have permission granting view without the tenant constraint.\n\n- inventory-reader has permissions 1 (with constraint) and 2 (without constraint)\n- inventory-reader-control has permission 3 (with constraint)\n\nThe excess comes from returning records without the tenant constraint. So:\n- For inventory-reader, remove permission 2\n- For inventory-reader-control, remove permission 3\n\n**Verdicts:**\n- inventory-reader: excess (ev-0002, ev-0003) - returned extra records not in contract\n- inventory-reader-control: excess (ev-0002, ev-0003) - returned extra device a-sw-02 not in contract\n\n**Proposals:**\n- inventory-reader remove 2 ev-0002 ev-0003\n- inventory-reader-control remove 3 ev-0002 ev-0003"
+    },
+    {
+      "job": "nb-10271451-two-of-three-2",
+      "target": "netbox",
+      "case": "two-of-three",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T15:52:42Z",
+      "finished": "2026-10-27T15:56:24Z",
+      "phase": "Failed",
+      "message": "child 'nb-10271451-two-of-three-2-734042572' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:52:42Z",
+          "finished": "2026-10-27T15:55:54Z"
+        },
+        {
+          "step": "compare",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1): stop: inventory-reader: the answer has no verdict line for it; inventory-reader-control: the checks disagree, configured within, observed excess",
+          "started": "2026-10-27T15:56:04Z",
+          "finished": "2026-10-27T15:56:09Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T15:56:14Z",
+          "finished": "2026-10-27T15:56:19Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 187.2,
+        "agent_status": "completed",
+        "tool_calls": 1,
+        "tool_errors": 0,
+        "input_tokens": 3778,
+        "output_tokens": 246,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "excess",
+          "excess"
+        ],
+        "inventory-reader-control": [
+          "within",
+          "excess"
+        ]
+      },
+      "comparison": {
+        "outcome": "stop",
+        "reasons": [
+          "inventory-reader: the answer has no verdict line for it",
+          "inventory-reader-control: the checks disagree, configured within, observed excess"
+        ],
+        "accounts": [
+          {
+            "account": "inventory-reader",
+            "model": null,
+            "references": [],
+            "configured": "excess",
+            "observed": "excess",
+            "outcome": "no-verdict"
+          },
+          {
+            "account": "inventory-reader-control",
+            "model": null,
+            "references": [],
+            "configured": "within",
+            "observed": "excess",
+            "outcome": "checks-disagree"
+          }
+        ],
+        "proposals": [],
+        "unread_proposals": 0
+      },
+      "calls": [
+        {
+          "at": "2026-10-27T15:54:27Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1476
+        }
+      ],
+      "answer": "I have read the contract (ev-0001). It defines two accounts: \"inventory-reader\" and \"inventory-reader-control\". The contract specifies that NetBox should deny four requests (GET /api/dcim/sites/, GET /api/tenancy/tenants/, GET /api/users/permissions/, POST /api/dcim/devices/). The contract grants two permissions: view dcim.device with tenant__slug=tenant-a, and view ipam.ipaddress with tenant__slug=tenant-a. The contract lists two reads: one for dcim/devices returning 2 records (a-fw-01, a-sw-01), and one for ipam/ip-addresses returning 3 records (172.16.1.1/24, 172.16.1.2/24, 172.16.1.3/24).\n\nNow I need to read ev-0002, which shows the permissions configured for each account."
+    }
+  ]
+}

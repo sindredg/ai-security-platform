@@ -5,7 +5,17 @@ Milestone: 5, remediation, pull requests, and delivery
 
 ## Summary
 
-In progress. The decisions are ADRs [0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [0046](../decisions/0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md). Milestone status is in the [roadmap](../roadmap.md#5-remediation-pull-requests-and-delivery).
+Every criterion was tested on the live system, and the close waits for an independent review of these claims ([roadmap](../roadmap.md#5-remediation-pull-requests-and-delivery)). The decisions are ADRs [0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [0047](../decisions/0047-a-delivery-token-for-each-delivery.md). One fix went from a model's proposal to a merged pull request and back through a rollback, each delivery with its own approval and its own token.
+
+| Gate | Result |
+| --- | --- |
+| A proposal becomes a pull request with evidence, and the worker never holds repository credentials | **Tested**: targets [#15](https://github.com/sindredg/ai-security-platform-test/pull/15), opened from a job's bundle on the operator's machine. No platform host holds a repository credential ([one fix](#one-fix-end-to-end)) |
+| An investigation that stopped for the operator opens no pull request | **Tested**: none of the eight scored jobs that stopped got a bundle, and a comparison run without the model was refused ([scored](#the-scored-proposals), [#203](#an-unsafe-patch-and-a-skipped-comparison)) |
+| A deliberately unsafe patch is rejected even though its functional tests pass | **Tested**: the right fix with a change to the delivery account passed its rehearsal, and the policy refused it ([unsafe patch](#an-unsafe-patch-and-a-skipped-comparison)) |
+| Delivery applies only the approved commit to the approved target. A changed commit voids the approval | **Tested**: the tagged commit delivered, its tag refused when used again. Another commit or file: pipeline tests only ([one fix](#one-fix-end-to-end)) |
+| After delivery, the consumer gets its required records, forbidden records stay hidden, and writes stay denied | **Tested**: tenant A's six records and no others, and each expected denial, a write among them, refused ([one fix](#one-fix-end-to-end)) |
+| One supported rollback is demonstrated, along with what it cannot repair | **Tested**: a restore with its own tag brought the seed back. It cannot take back what the consumer read while exposed ([one fix](#one-fix-end-to-end)) |
+| The threat model covers the pull request and delivery path, including the repository credentials | **Tested** by reading: T11, T12, T26, T27, and T56 to T60, and A5, each with its evidence ([threat model](../security/threat-model.md)) |
 
 ## The start pass
 
@@ -16,7 +26,9 @@ Date: 2026-10-26. Every pin in the [version table](../components/README.md#versi
 | `filelock` | 4.1.1 | 4.2.4 | Six advisories, one High, fixed in 4.2.1 ([#211](https://github.com/sindredg/ai-security-platform/issues/211)) |
 | `setuptools` | 81.0.0 | 84.2.1 | One advisory, fixed in 84.1.0, and CVE-2026-59890, one of the eight already accepted |
 
-The converter dependency scan on `main` at `054d373` listed 15 advisories, and the [accepted risks](../security/accepted-risks.md#advisories-in-the-converters-packages) cleared eight. The other seven were new since that reading. Both wheels' SHA-256 in `artifacts.tsv` equal PyPI's and a download's. Written before the pipeline ran: the scan on the branch would list the seven that stay, five in `transformers`, one in `protobuf`, one in `torch`. It printed `Total: 7 (UNKNOWN: 0, LOW: 1, MEDIUM: 1, HIGH: 5, CRITICAL: 0)` on #213. The next model build is the first to use the two wheels.
+The converter dependency scan on `main` at `054d373` listed 15 advisories, and the [accepted risks](../security/accepted-risks.md#advisories-in-the-converters-packages) cleared eight. The other seven were new since that reading. Both wheels' SHA-256 in `artifacts.tsv` equal PyPI's and a download's.
+
+Written before the pipeline ran: the scan on the branch would list the seven that stay, five in `transformers`, one in `protobuf`, one in `torch`. It printed `Total: 7 (UNKNOWN: 0, LOW: 1, MEDIUM: 1, HIGH: 5, CRITICAL: 0)` on #213. The next model build is the first to use the two wheels.
 
 Since `artifacts.tsv` changed, the [accepted risks](../security/accepted-risks.md#advisories-in-the-converters-packages)' source search ran again at the converter's pin, `620d2225`. It found 26 `AutoTokenizer.from_pretrained`, one `AutoConfig.from_pretrained` with `trust_remote_code=False`, three `torch.load` with `weights_only=True`, and one `AutoModel` that is a key read from a configuration file, not a call: the same result as on 2026-10-19.
 
@@ -26,7 +38,7 @@ The open issues that fit the milestone: #203, #23, #164, #175, #187, #191, #36, 
 
 ## The worker's own logins
 
-Date: 2026-10-26 ([#164](https://github.com/sindredg/ai-security-platform/issues/164)). Every journal pull logs in to the worker as `aisec-logexport`, and every login started and stopped a systemd user manager for the account. The next pull copied those lines to the workspace: on 2026-10-23, 22.42 MB of the day's 66.99 MB billable. A dispatched job's login as `aisec-job` did the same.
+Date: 2026-10-26 ([#164](https://github.com/sindredg/ai-security-platform/issues/164)). Every journal pull logs in to the worker as `aisec-logexport`, and every login started and stopped a systemd user manager for the account, as a dispatched job's login as `aisec-job` did. The next pull copied those lines to the workspace: on 2026-10-23, 22.42 MB of the day's 66.99 MB billable.
 
 systemd 259 on the worker offers a session class for this, read from `pam_systemd(8)` on the VM: `background-light` registers the session with logind and starts no user manager. Both installers now write a `pam-auth-update` profile that gives their account's sessions that class, between `pam_unix` and `pam_systemd`, and no other account's. Lingering would also stop the lines, with a user manager running for each account all the time.
 
@@ -73,7 +85,7 @@ The targets root, from [targets #14](https://github.com/sindredg/ai-security-pla
 
 | Root | Plan | Apply |
 | --- | --- | --- |
-| Targets | 1 to add, the lab VM's second interface. 2 to change in place: the lab VM's interface list, and the rehearsal group's rule for 8443 from `10.40.0.4/32` to `10.50.1.4/32`. 0 to destroy | `Apply complete! Resources: 1 added, 2 changed, 0 destroyed.` The lab VM was updated in 51 seconds |
+| Targets | 1 to add: the lab VM's second interface. 2 to change in place: the lab VM's interface list, and the rehearsal group's rule for 8443. 0 to destroy | `Apply complete! Resources: 1 added, 2 changed, 0 destroyed.` The lab VM was updated in 51 seconds |
 | Platform | 1 to change: the orchestrator's group gains `allow-rehearsal-copy-to-targets`, 8443 to `10.50.1.4/32` | `Apply complete! Resources: 0 added, 1 changed, 0 destroyed.` |
 
 The lab VM came back with `eth1` at `10.50.1.4/27` by DHCP, from cloud-init's own configuration, and no policy rule. Written before the routing: from the orchestrator, the copy's port times out, since a reply would leave through `eth0` with the copy's address. After it, the port refuses, since the reply comes back and nothing listens yet.
@@ -85,7 +97,9 @@ The lab VM came back with `eth1` at `10.50.1.4/27` by DHCP, from cloud-init's ow
 
 ### Packages and the update runs
 
-The lab VM's package list became `podman postgresql-18 valkey-server`, and its update run installed them: Podman 5.7.0, PostgreSQL 18.6, Valkey 9.0.4, and no reboot needed. The NetBox VM's update run ran with NetBox up ([#187](https://github.com/sindredg/ai-security-platform/issues/187)): both units stayed active with 0 restarts, and the login page answered 200 after the run. One package was upgraded, none of NetBox's. Squid's log for both runs held 83 `TCP_MISS/200` and 2 `TCP_MISS/304`, all `GET` to the Azure mirror, and no refusal.
+The lab VM's package list became `podman postgresql-18 valkey-server`, and its update run installed them: Podman 5.7.0, PostgreSQL 18.6, Valkey 9.0.4, and no reboot needed. Squid's log for both targets' runs held 83 `TCP_MISS/200` and 2 `TCP_MISS/304`, all `GET` to the Azure mirror, and no refusal.
+
+The NetBox VM's update run ran with NetBox up ([#187](https://github.com/sindredg/ai-security-platform/issues/187)): both units stayed active with 0 restarts, and the login page answered 200 after the run. One package was upgraded, none of NetBox's, so a database restart under NetBox is still not seen.
 
 ### NetBox on the lab VM
 
@@ -115,7 +129,7 @@ The observer's forced command now passes on one word, `rehearsal`, to the copy's
 | One reset through `aisec-rehearse`, asked for `id` | The forced command ran instead, and printed the dump's SHA-256 after 59 seconds |
 | The copy's verdicts after the reset | The seed's, by both methods |
 
-Then one rehearsal of the seed's fix, with the library installed on the orchestrator. Written before it: a reset to `cb58ce51...`, one change on the copy by the permission's name, and every contract account within by both methods. It printed `"passed": true`, with the change on the copy's own permission 2, and both accounts `within` by both. A last reset left the copy at the seed.
+Then one rehearsal of the seed's fix, with the library installed on the orchestrator. Written before it: a reset to `cb58ce51...`, one change on the copy by the permission's name, and every contract account within by both methods. It printed `"passed": true`, with the change on the copy's own permission 2, and a last reset left the copy at the seed.
 
 ## The comparison's proposal lines
 
@@ -147,7 +161,7 @@ Date: 2026-10-26. Each new or changed check was seen to fail on the live system 
 | Every check, 20:44 UTC | 424 passed, 2 failed: `D.1` and `D.4` |
 | Every check after the seed run, 21:52 UTC | 425 passed, 1 failed: `D.1` |
 | Four inputs broken, 22:02 UTC | 369 passed, 5 failed: `C.3` with `open`, `N.20`, `N.21`, `N.22`, and `D.1` |
-| Two inputs broken, 2026-10-27 06:38 UTC | 368 passed, 6 failed: `D.1` with the approval key as the commit key, `N.14`, `N.17`, `N.23`, and `Q.3` with a seed without the unscoped copy, and `D.4` with the standing delivery token |
+| Two inputs broken, 2026-10-27 06:38 UTC | 368 passed, 6 failed: `D.1` on the approval key as the commit key, `N.14`, `N.17`, `N.23`, and `Q.3` on a fixed seed, and `D.4` on the standing token |
 | Every check, 06:42 UTC | 426 passed, 0 failed |
 
 The eight inputs covered `Q.1` to `Q.5`, `D.2`, `D.3`, and `D.5`: another certificate, other container names, a missing token directory, another account, another dump, the libraries in another order, another directory, and another remote. `D.1` and `D.4` failed on absence: no approval key, and no delivery token until the seed run. The four inputs: the worker probed the edge's proxy port, which it reaches, instead of the copy's; `N.20` and `N.21` read the reset account's settings and sudo file; and `N.22` read the observer's two commands in the other order.
@@ -168,7 +182,7 @@ Date: 2026-10-26, 22:14 to 22:37 UTC. After the verdict lines, the task now asks
 | 1 | Stop: two verdict lines could not be read | `inventory-reader remove 2`, read, none unread | Nothing: a stop opens no proposal |
 | 2 | Match | `inventory-reader remove 2`, read, none unread | Policy allowed. Rehearsal passed, both accounts within by both checks |
 
-Job 1's stop came from its analysis, where two list items began `Verdict:` with no account. The comparison reads those as lines it cannot read, as milestone 4's rules have it. Both proposals were the fix the checks imply, so the wording stayed. Each job's login made one session of class `background-light`, and the job account's user manager logged nothing.
+Job 1's stop came from its analysis, where two list items began `Verdict:` with no account, which the comparison counts as lines it cannot read. Both proposals were the fix the checks imply, so the wording stayed. Each job's login made one session of class `background-light`, and the job account's user manager logged nothing.
 
 ## Thinking with a proposal
 
@@ -195,3 +209,54 @@ Date: 2026-10-27, 06:37 to 06:52 UTC. The review of targets #14 found that the d
 | Every check | 426 passed, 0 failed |
 
 Written down before the run, and wrong twice: six checks failed on the two broken inputs, not five, because `N.23` compares with the seed's verdicts too. And the first seed run deleted one delivery token, not two, because `make-netbox-token.sh` had deleted the standing token when it made the probe's.
+
+## The scored proposals
+
+Date: 2026-10-27 ([record](../evidence/2026-10-27-0653-scored-proposals.md)). The six held-out cases ran twice each, with the task at `a500b59` and the [rules](../validation/investigation.md#the-proposal-rules) committed at `6c2404a` before the first job. The workstation slept from 07:24 to 14:47 UTC: the fifth job ran on the cluster meanwhile, and its workflow was read over SSH and its proposal checked at 14:49 UTC.
+
+| Case | Comparison | Proposal | Right by the rules |
+| --- | --- | --- | --- |
+| `control-only` | A stop on an unreadable line, then a match | None, twice. At the match the policy refused: no account to fix | 2 of 2 |
+| `consumer-only` | A match, then a stop: no verdict line | Remove 2, allowed and rehearsed. Then two bold lines, unread | 1 of 2 |
+| `sites` | Match, twice | Remove 2, twice. The policy refused: without 2 the account misses sites | 4 of 4 |
+| `devices-only` | Stop, twice: the control called within | Remove 2, twice | 4 of 4 |
+| `change` | Stop, twice: no verdict line, then the control called within | None, then remove 1 | 4 of 4 |
+| `two-of-three` | Stop, twice: no verdict line, and the checks disagree | None, twice | 2 of 4 |
+
+Accounts right: 17 of 20. Jobs with every account right and no unread line: 7 of 12, and three jobs had unread proposal lines. The one fix the policy allowed is the fix the checks imply, and its rehearsal passed.
+
+`change-2` proposed removing permission 1, the consumer's scoped permission, which would have broken the consumer. The comparison stopped on its wrong verdict first, and the policy refuses a permission the checks do not call excess. Under the rules a proposal in a stopped job counts as refused, since the policy refuses every proposal of a comparison that is not a match.
+
+The verdicts were right for 10 of the 18 accounts whose checks agree, against 13 of 18 in milestone 4's [scored run](../evidence/2026-10-25-2308-scored-cases.md) with the shorter task. Four answers held no verdict line in the line form. The task's proposal paragraph may cost verdict lines: the cases cannot be used to tune it, so it waits for the next task change ([#215](https://github.com/sindredg/ai-security-platform/issues/215)).
+
+## An unsafe patch and a skipped comparison
+
+Date: 2026-10-27, 15:56 to 16:18 UTC ([record](../evidence/2026-10-27-1556-unsafe-patch.md)). Criterion 3 asks that a deliberately unsafe patch be rejected even though its functional tests pass. The patch, given to `propose-netbox-fix` as the operator's file, held the right fix and one change more: the delivery account removed from its own permission to read users and groups.
+
+| Step | Result |
+| --- | --- |
+| A job on the seed's contract | A match. A first try on the control-only case stopped at the comparison, so no patch was given for it |
+| The rehearsal | Passed: the copy reset to the dump, both changes applied, both accounts within by both checks, and the copy reset again |
+| The policy | Refused: `aisec-deliver: not an account the checks name`. Exit 1, and no pull request body |
+| The live permission | Unchanged, still with `aisec-deliver` |
+
+The rehearsal tests the contract's accounts, and a change outside them passes it. The policy is what refuses a change to an account the checks do not name.
+
+[#203](https://github.com/sindredg/ai-security-platform/issues/203) was seen live too: a workflow from the template with `--entrypoint compare` and an answer the operator wrote ran the compare step alone, with no model, and matched. `propose-netbox-fix` refused it, `run from the entrypoint compare, not investigate`, and wrote no bundle. A first try at 16:16 UTC was refused at submission for a missing `task` parameter, so it showed nothing about the entrypoint.
+
+## One fix, end to end
+
+Date: 2026-10-27, 16:18 to 16:19 UTC ([record](../evidence/2026-10-26-2214-proposal-lines.md#nb-10262214-p2)). The fix of job `nb-10262214-p2`, allowed and rehearsed on 2026-10-26, was published as targets [#15](https://github.com/sindredg/ai-security-platform-test/pull/15) from the operator's machine at 06:08 UTC. The operator signed three tags with the approval key at 06:09 UTC, and each was refused against the commit key.
+
+Delivery ran in one fetch window, each delivery with its own token from `make-netbox-token.sh deliver`.
+
+| Delivery | Result |
+| --- | --- |
+| The fix, `approve/netbox/nb-10262214-p2` on `5aaa340` | Fix mode, the unscoped permission without `inventory-reader`, read back, both accounts within by both checks |
+| The same tag again | Refused: `this approval was used already`, and nothing changed |
+| The rollback, `approve/netbox/restore-20261027` on `main`'s `92d8b9f` | Restore mode, `inventory-reader` back in the permission, excess again by both checks |
+| The fix again, `approve/netbox/nb-10262214-p2-again` | Fix mode, both accounts within |
+
+After the last delivery, `inventory-reader` read tenant A's three devices and three addresses, and none of the other four of each it read before. Each expected denial, among them a write to devices, still answered 403. The delivery ledger holds the three tag objects, in order.
+
+The operator merged #15 at 16:21 UTC, after the checks of its delivery passed. A rollback cannot take back what the consumer read while exposed, or anything it copied. Then the copy got the merged seed and a new dump, `ed6c9128...`, with the one before kept beside it.

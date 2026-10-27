@@ -2,7 +2,7 @@
   "title": "A proposal line after the verdicts",
   "short": "Proposal lines",
   "milestone": 5,
-  "tested": "Whether the task's new paragraph gets one readable proposal line per excess account, and whether a matched job's proposal passes the policy and its rehearsal.",
+  "tested": "Whether the task's new paragraph gets readable proposal lines, and whether a matched job's fix passes the policy, the rehearsal, and delivery with a rollback.",
   "changed": "The task gained a paragraph that asks for a `Proposal:` line per account whose verdict is excess, committed as `a500b59` after these jobs. The comparison ran on the dispatch image `3f8d147b`, which keeps proposal lines.",
   "setup": [
     [
@@ -22,11 +22,15 @@
       "1200 seconds and 8 turns"
     ]
   ],
-  "source": "Live system, 2026-10-26 22:14 to 22:37 UTC. Development jobs, not scored. Each workflow as Argo kept it, read at 05:56 UTC the next day, the tool service's audit lines, and the bundle that `propose-netbox-fix` wrote.",
+  "source": "Live system: the jobs on 2026-10-26, 22:14 to 22:37 UTC, development jobs, not scored. The fix of `nb-10262214-p2` was delivered on 2026-10-27, 16:18 to 16:19 UTC, then rolled back and delivered again, each with its own approval. Each workflow as Argo kept it, the audit lines, the bundle, and the delivery results.",
   "links": [
     [
       "Worklog",
       "../worklogs/0006-remediation-pull-requests-and-delivery.md#the-proposal-task"
+    ],
+    [
+      "Delivery",
+      "../worklogs/0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end"
     ]
   ],
   "jobs": [
@@ -301,6 +305,17 @@
             "permission": "inventory-reader: inventory"
           }
         ],
+        "proposed": [
+          {
+            "account": "inventory-reader",
+            "action": "remove",
+            "permission": 2,
+            "references": [
+              "ev-0002",
+              "ev-0003"
+            ]
+          }
+        ],
         "policy": {
           "allowed": true,
           "reasons": []
@@ -319,7 +334,82 @@
           },
           "reason": null
         }
-      }
+      },
+      "deliveries": [
+        {
+          "tag": "approve/netbox/nb-10262214-p2",
+          "commit": "5aaa34036f34",
+          "mode": "fix",
+          "approved_at": "2026-10-27T06:09:05Z",
+          "applied": [
+            {
+              "permission": "inventory-reader: inventory",
+              "users": []
+            }
+          ],
+          "verdicts": {
+            "inventory-reader": {
+              "configured": "within",
+              "observed": "within"
+            },
+            "inventory-reader-control": {
+              "configured": "within",
+              "observed": "within"
+            }
+          },
+          "passed": true,
+          "pr": 15
+        },
+        {
+          "tag": "approve/netbox/restore-20261027",
+          "commit": "92d8b9fca86e",
+          "mode": "restore",
+          "approved_at": "2026-10-27T06:09:09Z",
+          "applied": [
+            {
+              "permission": "inventory-reader: inventory",
+              "users": [
+                "inventory-reader"
+              ]
+            }
+          ],
+          "verdicts": {
+            "inventory-reader": {
+              "configured": "excess",
+              "observed": "excess"
+            },
+            "inventory-reader-control": {
+              "configured": "within",
+              "observed": "within"
+            }
+          },
+          "passed": true
+        },
+        {
+          "tag": "approve/netbox/nb-10262214-p2-again",
+          "commit": "5aaa34036f34",
+          "mode": "fix",
+          "approved_at": "2026-10-27T06:09:12Z",
+          "applied": [
+            {
+              "permission": "inventory-reader: inventory",
+              "users": []
+            }
+          ],
+          "verdicts": {
+            "inventory-reader": {
+              "configured": "within",
+              "observed": "within"
+            },
+            "inventory-reader-control": {
+              "configured": "within",
+              "observed": "within"
+            }
+          },
+          "passed": true,
+          "pr": 15
+        }
+      ]
     }
   ]
 }

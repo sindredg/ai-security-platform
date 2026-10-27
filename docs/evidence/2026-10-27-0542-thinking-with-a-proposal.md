@@ -2,7 +2,7 @@
 
 # Thinking on and off, with a proposal
 
-Milestone 5, 2026-10-27. [All run sets](README.md), [previous: Proposal lines](2026-10-26-2214-proposal-lines.md).
+Milestone 5, 2026-10-27. [All run sets](README.md), [previous: Proposal lines](2026-10-26-2214-proposal-lines.md), [next: Scored proposals](2026-10-27-0653-scored-proposals.md).
 
 **Tested:** Whether thinking on gives better verdicts or proposals than thinking off within the job limit, now that the answer ends with a proposal.
 
