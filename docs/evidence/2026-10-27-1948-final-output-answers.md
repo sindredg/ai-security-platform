@@ -2,7 +2,7 @@
 
 # A NetBox answer as a final output
 
-Milestone 5, 2026-10-27. [All run sets](README.md), [previous: Unsafe patch](2026-10-27-1556-unsafe-patch.md).
+Milestone 5, 2026-10-27. [All run sets](README.md), [previous: Unsafe patch](2026-10-27-1556-unsafe-patch.md), [next: Structured output eval](2026-10-27-2016-structured-output-eval.md).
 
 **Tested:** Whether a NetBox job answers through Goose's final output, and whether the comparison reads the lines the job program writes from it.
 
