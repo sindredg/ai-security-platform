@@ -6,6 +6,7 @@ level, and the checks after delivery are replaced. git and ssh-keygen are the
 real ones.
 """
 
+import io
 import json
 import os
 import shutil
@@ -40,6 +41,7 @@ SEED = {
     "tokens": [],
 }
 CONTRACT = {"accounts": ["reader", "control"], "grants": [], "reads": [], "denials": []}
+TOKEN = "nbt_" + "A" * 12 + "." + "b" * 40
 WITHIN = {
     "reader": {"configured": "within", "observed": "within"},
     "control": {"configured": "within", "observed": "within"},
@@ -133,16 +135,21 @@ class Deliver(unittest.TestCase):
             return self.verdicts
 
         self.verdicts = WITHIN
+        self.tokens = []
         for patch in (
             mock.patch.object(deliver, "STATE", self.state),
             mock.patch.object(deliver, "APPROVERS", approvers),
             mock.patch.object(deliver, "REMOTE", str(self.remote)),
             mock.patch.object(deliver, "PROXY", ""),
-            mock.patch.object(netbox_change, "client", lambda *a: self.live),
+            mock.patch.object(netbox_change, "client_for", self.client_for),
             mock.patch.object(deliver, "halves", fake_halves),
         ):
             patch.start()
             self.addCleanup(patch.stop)
+
+    def client_for(self, url, cert, token):
+        self.tokens.append(token)
+        return self.live
 
     def git_env(self, when=None):
         env = {
@@ -220,7 +227,7 @@ class Deliver(unittest.TestCase):
 
     def test_a_fix_is_delivered_and_checked(self):
         tag = self.tag("approve/netbox/nb-1", self.fix_branch())
-        result = deliver.deliver(tag)
+        result = deliver.deliver(tag, TOKEN)
         self.assertEqual(result["mode"], "fix")
         self.assertTrue(result["passed"], result)
         self.assertEqual(
@@ -233,21 +240,21 @@ class Deliver(unittest.TestCase):
     def test_a_tag_signed_by_another_key_is_refused(self):
         tag = self.tag("approve/netbox/nb-1", self.fix_branch(), key="other")
         with self.assertRaisesRegex(deliver.Refused, "not the approval key"):
-            deliver.deliver(tag)
+            deliver.deliver(tag, TOKEN)
         self.assertEqual(self.live.patches, [])
 
     def test_a_used_tag_is_refused(self):
         tag = self.tag("approve/netbox/nb-1", self.fix_branch())
-        deliver.deliver(tag)
+        deliver.deliver(tag, TOKEN)
         with self.assertRaisesRegex(deliver.Refused, "used"):
-            deliver.deliver(tag)
+            deliver.deliver(tag, TOKEN)
 
     def test_a_tag_older_than_a_day_is_refused(self):
         tag = self.tag(
             "approve/netbox/nb-1", self.fix_branch(), when=time.time() - 86400 - 60
         )
         with self.assertRaisesRegex(deliver.Refused, "older than"):
-            deliver.deliver(tag)
+            deliver.deliver(tag, TOKEN)
         self.assertEqual(self.live.patches, [])
 
     def test_a_tag_from_the_future_is_refused(self):
@@ -255,17 +262,17 @@ class Deliver(unittest.TestCase):
             "approve/netbox/nb-1", self.fix_branch(), when=time.time() + 3600
         )
         with self.assertRaisesRegex(deliver.Refused, "ahead"):
-            deliver.deliver(tag)
+            deliver.deliver(tag, TOKEN)
 
     def test_a_tag_for_another_target_is_refused(self):
         tag = self.tag("approve/netbox/nb-1", self.fix_branch(), message="target: lab")
         with self.assertRaisesRegex(deliver.Refused, "target: netbox"):
-            deliver.deliver(tag)
+            deliver.deliver(tag, TOKEN)
 
     def test_a_fix_that_changes_another_file_is_refused(self):
         tag = self.tag("approve/netbox/nb-1", self.fix_branch(extra="README.md"))
         with self.assertRaisesRegex(deliver.Refused, "changes more than the seed"):
-            deliver.deliver(tag)
+            deliver.deliver(tag, TOKEN)
         self.assertEqual(self.live.patches, [])
 
     def test_a_seed_change_that_adds_a_user_is_refused_in_fix_mode(self):
@@ -273,14 +280,14 @@ class Deliver(unittest.TestCase):
         seed["objects"][0]["items"][2]["users"] = ["control", "other"]
         tag = self.tag("approve/netbox/nb-1", self.fix_branch(seed=seed))
         with self.assertRaisesRegex(deliver.Refused, "removes nobody, or adds"):
-            deliver.deliver(tag)
+            deliver.deliver(tag, TOKEN)
         self.assertEqual(self.live.patches, [])
 
     def test_drift_is_refused_and_nothing_applied(self):
         self.live.permissions[13]["users"] = [2, 3]
         tag = self.tag("approve/netbox/nb-1", self.fix_branch())
         with self.assertRaisesRegex(deliver.Refused, "control: tenant-a"):
-            deliver.deliver(tag)
+            deliver.deliver(tag, TOKEN)
         self.assertEqual(self.live.patches, [])
         self.assertFalse((self.state / "used").exists())
 
@@ -290,7 +297,7 @@ class Deliver(unittest.TestCase):
             WITHIN, reader={"configured": "excess", "observed": "excess"}
         )
         tag = self.tag("approve/netbox/restore-20261027-1200", self.main)
-        result = deliver.deliver(tag)
+        result = deliver.deliver(tag, TOKEN)
         self.assertEqual(result["mode"], "restore")
         self.assertEqual(
             self.live.patches, [("PATCH", "/api/users/permissions/12/", {"users": [1]})]
@@ -301,7 +308,7 @@ class Deliver(unittest.TestCase):
 
     def test_the_ledger_is_written_before_the_change(self):
         tag = self.tag("approve/netbox/nb-1", self.fix_branch())
-        deliver.deliver(tag)
+        deliver.deliver(tag, TOKEN)
         self.assertEqual(len(self.live.ledger_at_patch), 1)
         self.assertEqual(len(self.live.ledger_at_patch[0].split()), 1)
 
@@ -310,7 +317,7 @@ class Deliver(unittest.TestCase):
             WITHIN, reader={"configured": "excess", "observed": "within"}
         )
         tag = self.tag("approve/netbox/nb-1", self.fix_branch())
-        result = deliver.deliver(tag)
+        result = deliver.deliver(tag, TOKEN)
         self.assertFalse(result["passed"])
         # No automatic rollback: the one change stays.
         self.assertEqual(len(self.live.patches), 1)
@@ -327,7 +334,56 @@ class Deliver(unittest.TestCase):
         with self.assertRaisesRegex(
             deliver.Refused, "neither main's head nor a child of it"
         ):
-            deliver.deliver(tag)
+            deliver.deliver(tag, TOKEN)
+
+    def test_the_token_comes_from_standard_input(self):
+        tag = self.tag("approve/netbox/nb-1", self.fix_branch())
+        with mock.patch("sys.stdout", new=io.StringIO()):
+            code = deliver.main(["deliver", tag], stdin=io.StringIO(TOKEN + "\n"))
+        self.assertEqual(code, 0)
+        self.assertEqual(self.tokens, [TOKEN])
+
+    def test_no_token_on_standard_input_stops_before_the_fetch(self):
+        tag = self.tag("approve/netbox/nb-1", self.fix_branch())
+        for given in (
+            "",
+            "\n",
+            "not-a-token\n",
+            TOKEN + "x\n",
+            TOKEN + "\n" + TOKEN + "\n",
+        ):
+            with (
+                self.subTest(given=given),
+                mock.patch.object(
+                    deliver, "fetch", side_effect=AssertionError("fetched")
+                ),
+                mock.patch("sys.stderr", new=io.StringIO()),
+            ):
+                self.assertEqual(
+                    deliver.main(["deliver", tag], stdin=io.StringIO(given)), 2
+                )
+        self.assertEqual(self.tokens, [])
+
+    def test_a_terminal_is_not_read_for_a_token(self):
+        class Terminal(io.StringIO):
+            def isatty(self):
+                return True
+
+        with mock.patch("sys.stderr", new=io.StringIO()):
+            code = deliver.main(
+                ["deliver", "approve/netbox/nb-1"], stdin=Terminal(TOKEN)
+            )
+        self.assertEqual(code, 2)
+        self.assertEqual(self.tokens, [])
+
+    def test_the_token_is_written_nowhere(self):
+        tag = self.tag("approve/netbox/nb-1", self.fix_branch())
+        with mock.patch("sys.stdout", new=io.StringIO()):
+            deliver.main(["deliver", tag], stdin=io.StringIO(TOKEN + "\n"))
+        written = [p for p in self.state.rglob("*") if p.is_file()]
+        self.assertTrue(written)
+        for path in written:
+            self.assertNotIn(TOKEN, path.read_text(errors="replace"), path)
 
 
 if __name__ == "__main__":

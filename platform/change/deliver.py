@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -I
-"""Delivers an approved NetBox change (ADR 0046).
+"""Delivers an approved NetBox change (ADR 0046, ADR 0047).
 
-    deliver-netbox-change TAG
+    deliver-netbox-change TAG < TOKEN
 
 Runs as root on the orchestrator, during a fetch window. It fetches the
 targets repository into a mirror of its own, through Squid, and takes TAG, an
@@ -21,9 +21,13 @@ of the collector's methods against NetBox with the commit's contract. A fix
 passes only when every contract account is within by both. A failed check
 stops for the operator: nothing is rolled back by itself.
 
+The delivery token comes on standard input, one line: a token made for this
+delivery by make-netbox-token.sh deliver on the NetBox VM, piped here from the
+operator's session. It is held in memory and written nowhere.
+
 Exits 0 for a fix that passed its checks or a restore that was applied, 1 for
-a refusal or a failure, and 2 for a call without a tag. The result goes to
-/var/lib/aisec/delivery/results/. Standard library only.
+a refusal or a failure, and 2 for a call without a tag or a token. The result
+goes to /var/lib/aisec/delivery/results/. Standard library only.
 """
 
 import json
@@ -47,7 +51,7 @@ STATE = Path(os.environ.get("AISEC_DELIVERY", "/var/lib/aisec/delivery"))
 APPROVERS = Path(os.environ.get("AISEC_APPROVERS", "/etc/aisec/delivery/approvers"))
 REMOTE = "https://github.com/sindredg/ai-security-platform-test.git"
 PROXY = "http://10.45.0.4:3128"
-TOKEN = "/etc/aisec/netbox/tokens/aisec-deliver"  # noqa: S105 - a file's path
+TOKEN_FORM = re.compile(r"nbt_[A-Za-z0-9]{12}\.[A-Za-z0-9]{40}")
 GIT = "/usr/bin/git"
 TAG = re.compile(r"approve/netbox/[a-z0-9][a-z0-9-]{0,62}")
 MAX_AGE = 86400
@@ -171,7 +175,7 @@ def users(assignments):
     return {name: found["users"] for name, found in assignments.items()}
 
 
-def deliver(tag, now=None):
+def deliver(tag, token, now=None):
     if not TAG.fullmatch(tag):
         raise Refused(f"{tag}: not an approval tag")
     repo = fetch()
@@ -180,7 +184,7 @@ def deliver(tag, now=None):
     chosen = mode(repo, commit)
     main = git(repo, "rev-parse", "refs/remotes/origin/main").stdout.strip()
     wanted = netbox_change.seed_assignments(seed_at(repo, commit))
-    netbox = netbox_change.client(netbox_access.URL, netbox_access.CERT, TOKEN)
+    netbox = netbox_change.client_for(netbox_access.URL, netbox_access.CERT, token)
     live = netbox_change.live_assignments(netbox, sorted(wanted))
     if chosen == "fix":
         expected = netbox_change.seed_assignments(seed_at(repo, main))
@@ -229,12 +233,29 @@ def deliver(tag, now=None):
     return result
 
 
-def main(argv):
+def token_from(stdin):
+    """The one line on standard input, when it is a token, or None. A
+    terminal is not read: the token comes through a pipe."""
+    if stdin.isatty():
+        return None
+    token = stdin.read(200).rstrip("\n")
+    return token if TOKEN_FORM.fullmatch(token) else None
+
+
+def main(argv, stdin=None):
     if len(argv) != 2:
         print(__doc__.split("\n\n")[1], file=sys.stderr)
         return 2
+    token = token_from(sys.stdin if stdin is None else stdin)
+    if token is None:
+        print(
+            "no token on standard input: pipe in one from make-netbox-token.sh "
+            "deliver on the NetBox VM",
+            file=sys.stderr,
+        )
+        return 2
     try:
-        result = deliver(argv[1])
+        result = deliver(argv[1], token)
     except (
         Refused,
         netbox_change.Failed,

@@ -396,12 +396,9 @@ echo "change_commands=$(cat /usr/local/sbin/propose-netbox-fix /usr/local/sbin/d
   /usr/local/lib/aisec/policy.py /usr/local/lib/aisec/rehearse.py /usr/local/lib/aisec/netbox_change.py \
   /usr/local/lib/aisec/collect_evidence.py 2>/dev/null | sha256sum | cut -d " " -f 1)"
 echo "change_state=$(stat -c "%U %a" /var/lib/aisec/proposals /var/lib/aisec/delivery 2>/dev/null | tr "\n" " " | sed "s/ $//")"
-deliver=/etc/aisec/netbox/tokens/aisec-deliver
-deliver_code() {
-  curl -s -o /dev/null -w "%{http_code}" --noproxy "*" --max-time 8 --cacert /etc/aisec/netbox/tls.crt \
-    -H @<(printf "Authorization: Bearer %s\n" "$(cat $deliver 2>/dev/null)") "https://'"$NETBOX_IP:$NETBOX_PORT"'$1"
-}
-echo "deliver_token=$(stat -c "%U %a" $deliver 2>/dev/null) $(deliver_code "/api/users/permissions/?limit=1") $(deliver_code "/api/dcim/devices/?limit=1")"
+# Each delivery gets its own token on standard input (ADR 0047), so the live
+# NetBox directory holds no delivery token. The copy keeps its own.
+echo "token_files=$(ls -A /etc/aisec/netbox/tokens 2>/dev/null | tr "\n" " " | sed "s/ $//"); $(ls -A /etc/aisec/netbox-rehearsal/tokens 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 echo "delivery_remote=$(git -C /var/lib/aisec/delivery/targets.git remote get-url origin 2>/dev/null)"
 # Exit status 2 is the feed command refusing. 255 would be SSH failing, and 0
 # that the key ran a command it should not.
@@ -746,8 +743,8 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check D.3 "The proposals and the delivery state are root's alone" "root 700 root 700" "$(value change_state)"
   # The delivery token changes permission assignments. It reads them, and
   # NetBox refuses it the inventory.
-  check D.4 "The delivery token is root's, reads permissions, and is refused the inventory" \
-    "root 600 200 403" "$(value deliver_token)"
+  check D.4 "No delivery token is kept for the live NetBox: the token directories hold only the tokens they name" \
+    "aisec-address-probe aisec-collector; aisec-collector aisec-deliver" "$(value token_files)"
   check D.5 "Delivery fetches from the targets repository" \
     "https://github.com/sindredg/ai-security-platform-test.git" "$(value delivery_remote)"
   # Kept for each target's .6, which reads the key the target accepts.

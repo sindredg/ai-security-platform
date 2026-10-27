@@ -28,6 +28,11 @@ def client(url, cert, token_path):
         return netbox_access.NetBox(file.read().strip(), url=url, cert=cert)
 
 
+def client_for(url, cert, token):
+    """A NetBox client with a token held in memory, never in a file."""
+    return netbox_access.NetBox(token, url=url, cert=cert)
+
+
 def seed_assignments(seed):
     """Each permission's users in a seed, by the permission's name."""
     for group in seed["objects"]:
