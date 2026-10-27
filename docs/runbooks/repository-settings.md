@@ -1,6 +1,6 @@
 # Repository settings and signed commits: operator procedure
 
-Status: Implemented on 2026-10-17. The settings were made in the web interface that day and read back with the command in step 7. On 2026-10-20 two checks were added to `protect-main` with [Add a required check](#add-a-required-check), and read back, on 2026-10-23 one more, on 2026-10-25 one more here and two on the targets repository, and on 2026-10-26 one more here. Steps 8 to 11 were run on 2026-10-17, with the results in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github). On 2026-10-17 steps 4 to 11 were run as written, through the API, on the new [targets repository](https://github.com/sindredg/ai-security-platform-test), with its own list of checks in step 5 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-repositorys-settings)). Steps 1 to 3 were not repeated: the key and the allowed signers file were already in place.
+Status: Implemented on 2026-10-17. The settings were made in the web interface that day and read back with the command in step 7. On 2026-10-20 two checks were added to `protect-main` with [Add a required check](#add-a-required-check), and read back, on 2026-10-23 one more, on 2026-10-25 one more here and two on the targets repository, on 2026-10-26 one more here, and on 2026-10-27 step 4's deletion of merged branches in both repositories, read back with step 7. Steps 8 to 11 were run on 2026-10-17, with the results in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-on-github). On 2026-10-17 steps 4 to 11 were run as written, through the API, on the new [targets repository](https://github.com/sindredg/ai-security-platform-test), with its own list of checks in step 5 ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-targets-repositorys-settings)). Steps 1 to 3 were not repeated: the key and the allowed signers file were already in place.
 
 The repository is the approval channel, so its settings are part of the system ([pipeline](../components/pipeline.md#repository-settings), [ADR 0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)). These steps set up commit signing on the workstation, the allowed signers file, squash-only merges, the two rulesets, and then prove the fail side.
 
@@ -46,15 +46,16 @@ The repository is the approval channel, so its settings are part of the system (
 
 ## Repository settings
 
-4. Allow squash merges only.
+4. Allow squash merges only, and have GitHub delete a pull request's branch when it merges.
 
    ```bash
    gh api -X PATCH repos/REPLACE_WITH_OWNER/REPLACE_WITH_REPO \
      -F allow_squash_merge=true -F allow_merge_commit=false -F allow_rebase_merge=false \
-     --jq '{allow_squash_merge,allow_merge_commit,allow_rebase_merge}'
+     -F delete_branch_on_merge=true \
+     --jq '{allow_squash_merge,allow_merge_commit,allow_rebase_merge,delete_branch_on_merge}'
    ```
 
-   Expected: `{"allow_merge_commit":false,"allow_rebase_merge":false,"allow_squash_merge":true}`. A rebase merge would put commits on `main` that GitHub does not sign.
+   Expected: `{"allow_merge_commit":false,"allow_rebase_merge":false,"allow_squash_merge":true,"delete_branch_on_merge":true}`. A rebase merge would put commits on `main` that GitHub does not sign.
 
 5. Create the ruleset on the default branch. "Commit signatures" can be added only after the job has run once, so open any signed pull request first and let it run.
 
@@ -125,10 +126,10 @@ The repository is the approval channel, so its settings are part of the system (
      gh api $R/rulesets/$id --jq '{name,enforcement,include:.conditions.ref_name.include,bypass:.bypass_actors,rules:[.rules[].type]}'
    done
    gh api $R/rules/branches/main --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[]|"\(.context)@\(.integration_id)"]'
-   gh api $R --jq '{allow_squash_merge,allow_merge_commit,allow_rebase_merge,push_protection:.security_and_analysis.secret_scanning_push_protection.status}'
+   gh api $R --jq '{allow_squash_merge,allow_merge_commit,allow_rebase_merge,delete_branch_on_merge,push_protection:.security_and_analysis.secret_scanning_push_protection.status}'
    ```
 
-   Expected: two rulesets, both `active` with an empty bypass list. `protect-main` on `~DEFAULT_BRANCH` with `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks`, `required_signatures`. The second on `~ALL` with `required_signatures` only. Seventeen checks, each `@15368`, or eight on the targets repository. Squash only, and push protection `enabled`.
+   Expected: two rulesets, both `active` with an empty bypass list. `protect-main` on `~DEFAULT_BRANCH` with `deletion`, `non_fast_forward`, `pull_request`, `required_status_checks`, `required_signatures`. The second on `~ALL` with `required_signatures` only. Seventeen checks, each `@15368`, or eight on the targets repository. Squash only, merged branches deleted, and push protection `enabled`.
 
 ### Add a required check
 
