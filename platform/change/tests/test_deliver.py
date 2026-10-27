@@ -243,6 +243,40 @@ class Deliver(unittest.TestCase):
             deliver.deliver(tag, TOKEN)
         self.assertEqual(self.live.patches, [])
 
+    def test_an_approval_moved_to_a_changed_commit_is_refused(self):
+        # The approval's tag object with its object line pointed at another
+        # commit and its signature kept, under the same name: what anyone who
+        # can push tags can make from an approval. The other commit is a fix
+        # that every other check would take.
+        approved = self.fix_branch()
+        seed = json.loads(json.dumps(SEED))
+        seed["objects"][0]["items"][2]["users"] = []
+        changed = self.fix_branch(seed=seed)
+        tag = self.tag("approve/netbox/nb-1", approved)
+        signed = subprocess.run(  # noqa: S603 - git, the test's arguments
+            ["git", "cat-file", "tag", tag],  # noqa: S607
+            cwd=self.remote,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        moved = signed.replace(f"object {approved}\n", f"object {changed}\n", 1)
+        self.assertNotEqual(moved, signed)
+        self.assertIn("-----BEGIN SSH SIGNATURE-----", moved)
+        made = subprocess.run(
+            ["git", "mktag"],  # noqa: S607
+            input=moved,
+            cwd=self.remote,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        run("git", "update-ref", f"refs/tags/{tag}", made, cwd=self.remote)
+        with self.assertRaisesRegex(deliver.Refused, "not the approval key"):
+            deliver.deliver(tag, TOKEN)
+        self.assertEqual(self.live.patches, [])
+        self.assertFalse((self.state / "used").exists())
+
     def test_a_used_tag_is_refused(self):
         tag = self.tag("approve/netbox/nb-1", self.fix_branch())
         deliver.deliver(tag, TOKEN)
