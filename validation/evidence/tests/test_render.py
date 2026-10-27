@@ -198,6 +198,40 @@ class Counts(unittest.TestCase):
         )
 
 
+class TheCallTable(unittest.TestCase):
+    def test_the_final_output_is_named_with_its_size_and_not_written_out(self):
+        # Its argument is the whole answer (ADR 0049), which the page quotes
+        # below the table, as the lines the job program wrote from it.
+        argument = json.dumps(
+            {"analysis": "ev-0002 grants it " * 30, "verdicts": [], "proposals": []}
+        )
+        final = {
+            "at": None,
+            "tool": "recipe__final_output",
+            "argument": argument,
+            "decision": "goose",
+            "reason": None,
+            "bytes": None,
+        }
+        text = "\n".join(render.call_table({"calls": [final]}))
+        self.assertIn("`recipe__final_output`", text)
+        self.assertIn(f"{len(argument.encode()):,} bytes", text)
+        self.assertNotIn("grants it", text)
+        self.assertEqual(render.page_problems("x.md", text), [])
+
+    def test_any_other_argument_is_shown_whole(self):
+        skill = {
+            "at": None,
+            "tool": "load_skill",
+            "argument": '{"name":"netbox"}',
+            "decision": "goose",
+            "reason": None,
+            "bytes": None,
+        }
+        text = "\n".join(render.call_table({"calls": [skill]}))
+        self.assertIn('`{"name":"netbox"}`', text)
+
+
 class Unpublishable(unittest.TestCase):
     def test_each_kind_is_found(self):
         for text, label in [

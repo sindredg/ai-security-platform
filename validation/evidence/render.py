@@ -258,7 +258,13 @@ def call_table(job):
             "missing": "Not in the audit log",
         }[call["decision"]]
         at = f"{clock(call['at']):%H:%M:%S}" if call["at"] else "Not logged"
-        body.append([n, at, f"`{call['tool']}`", f"`{call['argument']}`", result])
+        # The final output's argument is the whole answer (ADR 0049), and the
+        # page quotes the lines written from it below.
+        if call["tool"] == "recipe__final_output":
+            argument = f"The answer in the schema's form, {len(call['argument'].encode()):,} bytes"
+        else:
+            argument = f"`{call['argument']}`"
+        body.append([n, at, f"`{call['tool']}`", argument, result])
     return [table(["Call", "Time (UTC)", "Tool", "Argument", "Result"], body), ""]
 
 
