@@ -9,7 +9,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
 | Input | Notes |
 | --- | --- |
 | The model server and the agent runtime, with the job socket | The [model server runbook](model-server.md) and the [agent runtime runbook](agent-runtime.md), through step 8. `S`, `G.6` to `G.9` pass |
-| The tool service, deployed | The [tool service runbook](tool-service.md). The `T` checks pass |
+| The tool service (an MCP server), deployed | The [tool service runbook](tool-service.md). The `T` checks pass |
 | SSH to the orchestrator, the worker, and the edge | `REPLACE_WITH_SSH` below stands for the operator's `ssh` command with its options, for example `ssh -F <config>` |
 | The tunnel to the API server | `REPLACE_WITH_SSH -N -L 6443:127.0.0.1:6443 aisec-orchestrator` in its own terminal ([ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md)) |
 | Argo's command line v4.1.6 on the workstation | `argo-linux-<arch>.gz` from the release, checked against the digest the release lists for it |
@@ -47,7 +47,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
 
 ## Argo
 
-3. Copy the manifests and scripts to the orchestrator, open a fetch window, download the release file and pull the images, and close the window.
+3. Copy the manifests and scripts to the orchestrator, open a just-in-time (JIT) egress window, download the release file and pull the images, and close the window.
 
    ```bash
    tar -C platform/argo -cf - . |
@@ -65,7 +65,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
    REPLACE_WITH_SSH aisec-orchestrator 'cd feed/argo && sudo scripts/install.sh stage'
    ```
 
-   Expected: the eight custom resource definition names, `condition met` three times, the namespace and its default account patched, the policies, the controller, the accounts, the executor's token secret, the comparison's config map `netbox-verdicts` ([ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)), and the template `created`, `successfully rolled out`, and one line with the controller pod, `Running`, and the image digest from `argo.yaml`. On the next check run, `W.1` to `W.9` and `W.11` pass.
+   Expected: the eight custom resource definition names, `condition met` three times, the namespace and its default account patched, the policies, the controller, the accounts, the executor's token secret, the comparison step's config map `netbox-verdicts` ([ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)), and the template `created`, `successfully rolled out`, and one line with the controller pod, `Running`, and the image digest from `argo.yaml`. On the next check run, `W.1` to `W.9` and `W.11` pass.
 
 ## The host rule
 
@@ -114,7 +114,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
    probe '{"app.kubernetes.io/name": "dispatch", "workflows.argoproj.io/workflow": "label-probe"}'
    ```
 
-   Expected: for the comparison's pod, `refused` on both ports at 5 and 20 seconds, where its policy holds. For the dispatch pod, `open` on both at 5 and 20 seconds. At 0 seconds either may read otherwise: kube-router writes a pod's policies after the pod starts, and the host rule cannot tell pods apart. That is the residual ADR 0030 names (T47). Record what each reads. On 2026-10-25 the comparison's pod read `worker:open registration:refused` at 0 seconds, and the dispatch pod the same.
+   Expected: for the comparison step's pod, `refused` on both ports at 5 and 20 seconds, where its policy holds. For the dispatch pod, `open` on both at 5 and 20 seconds. At 0 seconds either may read otherwise: kube-router writes a pod's policies after the pod starts, and the host rule cannot tell pods apart. That is the residual ADR 0030 names (T47). Record what each reads. On 2026-10-25 the comparison step's pod read `worker:open registration:refused` at 0 seconds, and the dispatch pod the same.
 
 7. The same start-of-pod probe in `tool-services`, which has never had one ([#65](https://github.com/sindredg/ai-security-platform/issues/65)): a new pod tries `1.1.1.1:443` at 0, 5, and 20 seconds.
 
@@ -146,7 +146,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
 
    Expected: no `open` at any time. `timeout` where the host rule drops, `refused` where kube-router does.
 
-   Then name lookups from a new pod, at 0 and 20 seconds: the cluster's own name, and a public one. In `tool-services`, and in a dispatch pod as the comparison, since that pod may use DNS.
+   Then name lookups from a new pod, at 0 and 20 seconds: the cluster's own name, and a public one. In `tool-services`, and in a dispatch pod as the comparison step, since that pod may use DNS.
 
    ```bash
    LOOKUP='import socket, time
@@ -214,7 +214,7 @@ Run these steps to install Argo Workflows' controller, make the dispatch key, an
     argo logs @latest
     ```
 
-    Expected, after one to three minutes: `Succeeded`, with the dispatch step and the exit handler both green, and the compare step `Skipped`: it runs for NetBox jobs only ([evidence collection runbook](evidence-collection.md), step 12). The result has `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, `"slot_erased": true`, an answer that ends with `Status: confirmed` and `Excess: tenancy.contact, circuits.circuit`, and a `transcript`. The two lines are the model's: on 2026-10-25 one of three synthetic answers ended without them, and one with `Excess: none`. The dispatch step's log shows each part of the transcript under a `-- role type` line, from `-- system instructions` to the `get_evidence` call, the evidence, and `-- answer`. The audit file on the orchestrator has `register`, `call allowed` for `get_evidence`, and `revoke`, each with the workflow's name as the job.
+    Expected, after one to three minutes: `Succeeded`, with the dispatch step and the exit handler both green, and the compare step `Skipped`: it runs for NetBox jobs only ([evidence collection runbook](evidence-collection.md), step 12). The result has `"status": "completed"`, `"tool_calls": 1`, `"tool_errors": 0`, `"slot_erased": true`, an `answer` that ends with `Status: confirmed` and `Excess: tenancy.contact, circuits.circuit`, and a `transcript`. The two lines are the model's: on 2026-10-25 one of three synthetic outputs ended without them, and one with `Excess: none`. The dispatch step's log shows each part of the transcript under a `-- role type` line, from `-- system instructions` to the `get_evidence` call, the evidence, and `-- answer`. The audit file on the orchestrator has `register`, `call allowed` for `get_evidence`, and `revoke`, each with the workflow's name as the job.
 
     This is the first gate criterion of milestone 3: a workflow starts a worker job, the agent calls one authorized tool, and a schema-checked result comes back.
 
@@ -326,7 +326,7 @@ REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n orchestration get pods 
   -o jsonpath='{range .items[*]}{.metadata.name}{range .status.containerStatuses[*]} {.name}={.imageID}{end}{\"\\n\"}{end}'"
 ```
 
-Expected: two pods, each with `main=` on the new dispatch digest and `wait=` on the executor's digest from `argo.yaml`. A NetBox job has a third, the comparison's. In step 16, `W.9` passes. It fails from the merge until step 4, because the template in the cluster differs from the checkout's.
+Expected: two pods, each with `main=` on the new dispatch digest and `wait=` on the executor's digest from `argo.yaml`. A NetBox job has a third, the comparison step's. In step 16, `W.9` passes. It fails from the merge until step 4, because the template in the cluster differs from the checkout's.
 
 ## Remove
 

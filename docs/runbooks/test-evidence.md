@@ -1,6 +1,6 @@
 # Test evidence: operator procedure
 
-Status: Implemented on 2026-10-26, when steps 1 and 2 ran on the live system, read only, for every workflow at once, and step 5 for the twelve scored jobs. The other records came from output saved by earlier runs, through the same builder. Steps 6, 8, and 9 ran on the workstation.
+Status: Implemented on 2026-10-26, when steps 1 and 2 ran on the live system, read only, for every workflow at once, and step 5 for the twelve evaluation (eval) jobs. The other records came from output saved by earlier runs, through the same builder. Steps 6, 8, and 9 ran on the workstation.
 
 This turns a run set's jobs into records under [`docs/evidence/records/`](../evidence/records/) and the pages generated from them ([evidence](../evidence/README.md)). Argo deletes a workflow 24 hours after it ends, so steps 1 to 3 come first.
 
@@ -25,7 +25,7 @@ This turns a run set's jobs into records under [`docs/evidence/records/`](../evi
 
    Expected: a JSON object with `status.phase` and `status.nodes`. `NotFound` means Argo has deleted it, and only output saved some other way can give its record.
 
-2. Read the tool service's audit log.
+2. Read the tool service (an MCP server)'s audit log.
 
    ```bash
    REPLACE_WITH_SSH aisec-orchestrator 'sudo cat /var/log/aisec/tool-audit.jsonl' > REPLACE_WITH_RAW/audit.jsonl
@@ -50,7 +50,7 @@ This turns a run set's jobs into records under [`docs/evidence/records/`](../evi
      REPLACE_WITH_RAW/REPLACE_WITH_JOB.json REPLACE_WITH_RAW/audit.jsonl REPLACE_WITH_RAW/REPLACE_WITH_JOB.collected
    ```
 
-   Expected: `REPLACE_WITH_JOB: Succeeded, 3 calls`, with the job's own phase and count. `not written` with two sets of verdicts means the collection and the comparison disagree: find out why first. Leave out the last argument for a synthetic job.
+   Expected: `REPLACE_WITH_JOB: Succeeded, 3 calls`, with the job's own phase and count. `not written` with two sets of verdicts means the collection and the verification gate disagree: find out why first. Leave out the last argument for a synthetic job.
 
    For a job whose fix was proposed, add the bundle, each delivery's result, and the fix's pull request in the targets repository. Copy them from the orchestrator's `/var/lib/aisec/proposals/` and `/var/lib/aisec/delivery/results/` first.
 
@@ -60,7 +60,7 @@ This turns a run set's jobs into records under [`docs/evidence/records/`](../evi
      --proposal REPLACE_WITH_RAW/proposal.json --delivery REPLACE_WITH_RAW/delivery-1.json --pr REPLACE_WITH_PR
    ```
 
-   Expected: the same line. The page then gets a fixes table, and the job a proposal and a delivery section.
+   Expected: the same line. The page then gets a fixes table, and the job a remediation proposal and a delivery section.
 
 6. Write the pages.
 
@@ -70,7 +70,7 @@ This turns a run set's jobs into records under [`docs/evidence/records/`](../evi
 
    Expected: `wrote N pages`. A problem line names its record and nothing is written: a missing field, something not to publish, a lesson that names a missing job, or a broken page rule.
 
-7. Read each new answer and note before the commit. The check knows a few shapes of secret, not all of them.
+7. Read each new output, the record's `answer`, and each note before the commit. The check knows a few shapes of secret, not all of them.
 
    Expected: synthetic data only, and no address outside the private ranges.
 

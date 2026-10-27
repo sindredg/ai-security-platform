@@ -225,7 +225,7 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
     | A template with a public address, validated in both workload resource groups | `RequestDisallowedByPolicy` |
     | `az vm restart` of the orchestrator | Node `Ready`, the services `active`, pods `Running`, the worker reachable again |
 
-16. Run the Kubernetes benchmark on the orchestrator. Since milestone 3a the orchestrator has no way to the internet outside a fetch window, so download on the workstation, check there, copy, and check again. Remove the tool afterwards. `REPLACE_WITH_SSH` is the operator's `ssh` command with its options, as in the [monitoring runbook](monitoring.md).
+16. Run the Kubernetes benchmark on the orchestrator. Since milestone 3a the orchestrator has no way to the internet outside a just-in-time (JIT) egress window, so download on the workstation, check there, copy, and check again. Remove the tool afterwards. `REPLACE_WITH_SSH` is the operator's `ssh` command with its options, as in the [monitoring runbook](monitoring.md).
 
     ```bash
     d=$(mktemp -d); cd "$d"
@@ -390,7 +390,7 @@ A rebuild destroys everything on the orchestrator:
 
 The worker keeps running, but it has no outbound access and cannot be reached while the orchestrator is gone: the mesh routes and the package proxy both live there. Do this when no job is running.
 
-Since 2026-10-17 the mesh routes are on the router and the package proxy on the edge VM, so the worker keeps both. The new orchestrator's first boot fetches K3s through the edge, and needs a fetch window open before the apply ([edge runbook](edge-vm.md#rebuild-the-orchestrator)).
+Since 2026-10-17 the mesh routes are on the router and the package proxy on the edge VM, so the worker keeps both. The new orchestrator's first boot fetches K3s through the edge, and needs a JIT egress window open before the apply ([edge runbook](edge-vm.md#rebuild-the-orchestrator)).
 
 26. Record a baseline and check the pins. Run `validation/platform-checks.sh`, then steps 1 and 2. Check the K3s and mesh VPN agent versions in `infra/platform/variables.tf` against the releases the publishers serve.
 
@@ -550,7 +550,7 @@ Expected: a different `nodekey:` value from before, an empty `/run/aisec`, and `
 
 First boot puts the release's archive of K3s's system images where K3s imports it, and Docker Hub is not on the edge's list ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)). An orchestrator whose first boot predates that gets the archive with steps 32 and 33. A K3s upgrade needs step 34 first. `REPLACE_WITH_SSH` is the operator's `ssh` command with its options, as in the [monitoring runbook](monitoring.md).
 
-32. Open a fetch window, put the archive on the orchestrator, install the edge's list from the checkout, and restart K3s so it imports the archive as first boot does. Run from the checkout's root.
+32. Open a JIT egress window, put the archive on the orchestrator, install the edge's list from the checkout, and restart K3s so it imports the archive as first boot does. Run from the checkout's root.
 
     ```bash
     version=$(sed -n '/variable "k3s_version"/,/}/s/^ *default *= *"\(.*\)"/\1/p' infra/platform/variables.tf)

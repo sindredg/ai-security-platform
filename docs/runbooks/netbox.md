@@ -54,7 +54,7 @@ The NetBox VM must exist and have had one update run, which installs Podman, Pos
 
    Expected: the same SHA-256 twice.
 
-4. Open a fetch window, and note the time for step 6.
+4. Open a just-in-time (JIT) egress window, and note the time for step 6.
 
    ```bash
    since=$(date +%s)
@@ -210,7 +210,7 @@ The NetBox VM must exist and have had one update run, which installs Podman, Pos
 
     Expected: on the orchestrator, `root 700` for the directory and `root 600` for `aisec-address-probe` and `aisec-collector`. On the lab VM, `root 700`, `root 600` for both tokens, `root 644` for the certificate, and the fingerprint of step 9.
 
-18. Run both of the collector's methods in full, from this checkout, with the contract on standard input.
+18. Run both of the collector's methods in full, from this checkout, with the access specification on standard input.
 
     ```bash
     code=$(cat collectors/netbox/netbox_access.py)

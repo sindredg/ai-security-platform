@@ -96,7 +96,7 @@ The orchestrator keeps its own NAT gateway until step 8. Until then each step ca
    EOF
    ```
 
-   Expected: the node `Ready`, `apt ok`, and `403` for the tunnel, because no fetch window is open. A rebuilt orchestrator has all three settings from its template and skips this step.
+   Expected: the node `Ready`, `apt ok`, and `403` for the tunnel, because no just-in-time (JIT) egress window is open. A rebuilt orchestrator has all three settings from its template and skips this step.
 
 ## Close the orchestrator's way out
 
@@ -121,7 +121,7 @@ The orchestrator keeps its own NAT gateway until step 8. Until then each step ca
 
    Expected: the purge removes three packages, and `0` listeners on 3128.
 
-## Open a fetch window
+## Open a JIT egress window
 
 9. Open a window before anything on the orchestrator fetches from GitHub, a registry, Hugging Face, or PyPI: a model or agent build, a new image digest, a K3s upgrade, or a rebuilt orchestrator's first boot. A pod restart does not need one.
 
