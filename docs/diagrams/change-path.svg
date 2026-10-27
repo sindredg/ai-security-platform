@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 1040 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="change-path-title change-path-desc" id="change-path-root">
+        <title id="change-path-title">A fix's way from a match to NetBox</title>
+        <desc id="change-path-desc">Sequence diagram of a fix after the comparison matched: the orchestrator host checks the policy and rehearses on the copy, the operator's machine opens the pull request from the checked bundle and signs the approval tag, delivery takes a token made for it on the NetBox VM, verifies the tag, applies the change, and runs both checks, and the pull request merges only when both say within.</desc>
+        <defs>
+      <style>#change-path-root { --color-paper:   #2d3142;   
+      --color-ink:     #f5f5f5;   
+      --color-muted:   #bfc0c0;
+      --color-accent:  #f08a59;
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace; }
+      #change-path-root { font-family: var(--font-sans); color: var(--color-ink); }
+      #change-path-root .diagram-container { width: 100%; overflow-x: auto; }
+      #change-path-root .diagram-container { overflow-x: visible; }</style>
+          <marker id="change-path-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/></marker>
+          <marker id="change-path-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#f08a59"/></marker>
+          <marker id="change-path-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#739fdf"/></marker>
+
+          <!-- OPTIONAL: dot-pattern background. Uncomment and add <rect fill="url(#change-path-dots)"/> after the paper rect to enable. -->
+          <!--
+          <pattern id="change-path-dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="#f5f5f5" fill-opacity="0.08"/>
+          </pattern>
+          -->
+        </defs>
+
+        <rect width="100%" height="100%" fill="#2d3142"/>
+
+        <!-- Lifelines -->
+        <line x1="120" y1="120" x2="120" y2="652" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3,3"/>
+        <line x1="320" y1="120" x2="320" y2="652" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3,3"/>
+        <line x1="520" y1="120" x2="520" y2="652" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3,3"/>
+        <line x1="720" y1="120" x2="720" y2="652" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3,3"/>
+        <line x1="920" y1="120" x2="920" y2="652" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="1" stroke-dasharray="3,3"/>
+        <!-- Activation bars -->
+        <rect x="316" y="152" width="8" height="144" fill="#f5f5f5" fill-opacity="0.06" stroke="#bfc0c0" stroke-width="0.8"/>
+        <rect x="116" y="208" width="8" height="44" fill="#f5f5f5" fill-opacity="0.06" stroke="#bfc0c0" stroke-width="0.8"/>
+        <rect x="316" y="392" width="8" height="124" fill="#f5f5f5" fill-opacity="0.06" stroke="#bfc0c0" stroke-width="0.8"/>
+        <rect x="516" y="464" width="8" height="52" fill="#f5f5f5" fill-opacity="0.06" stroke="#bfc0c0" stroke-width="0.8"/>
+        <!-- The alt fragment: the merge after the checks, or a restore -->
+        <rect x="688" y="532" width="264" height="112" rx="4" fill="#f5f5f5" fill-opacity="0.04" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="1"/>
+        <rect x="688" y="532" width="40" height="16" rx="2" fill="#2d3142" stroke="#f5f5f5" stroke-opacity="0.22" stroke-width="1"/>
+        <text x="708" y="544" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.12em">ALT</text>
+        <text x="736" y="544" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.04em">&#91;within by both&#93;</text>
+        <line x1="696" y1="592" x2="944" y2="592" stroke="#f5f5f5" stroke-opacity="0.20" stroke-width="1" stroke-dasharray="4,3"/>
+        <text x="700" y="606" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.04em">&#91;a check fails&#93;</text>
+        <!-- Messages, top to bottom -->
+        <path d="M 324 160 L 360 160 L 360 184 L 324 184" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#change-path-arrow)"/>
+        <line x1="316" y1="220" x2="124" y2="220" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#change-path-arrow)"/>
+        <line x1="124" y1="248" x2="316" y2="248" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#change-path-arrow)" stroke-dasharray="5,4"/>
+        <line x1="324" y1="284" x2="920" y2="284" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#change-path-arrow)"/>
+        <line x1="920" y1="324" x2="720" y2="324" fill="none" stroke="#739fdf" stroke-width="1.2" marker-end="url(#change-path-arrow-link)"/>
+        <line x1="920" y1="360" x2="720" y2="360" fill="none" stroke="#f08a59" stroke-width="1.4" marker-end="url(#change-path-arrow-accent)"/>
+        <line x1="520" y1="400" x2="324" y2="400" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#change-path-arrow)"/>
+        <line x1="324" y1="436" x2="720" y2="436" fill="none" stroke="#739fdf" stroke-width="1.2" marker-end="url(#change-path-arrow-link)"/>
+        <line x1="324" y1="472" x2="516" y2="472" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#change-path-arrow)"/>
+        <line x1="516" y1="508" x2="324" y2="508" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#change-path-arrow)" stroke-dasharray="5,4"/>
+        <line x1="920" y1="576" x2="720" y2="576" fill="none" stroke="#739fdf" stroke-width="1.2" marker-end="url(#change-path-arrow-link)"/>
+        <line x1="920" y1="632" x2="720" y2="632" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#change-path-arrow)"/>
+        <!-- Message labels -->
+        <rect x="368" y="166" width="80" height="12" rx="2" fill="#2d3142"/>
+        <text x="408" y="175" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">POLICY CHECK</text>
+        <rect x="176" y="202" width="88" height="12" rx="2" fill="#2d3142"/>
+        <text x="220" y="211" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">RESET · APPLY</text>
+        <rect x="172" y="230" width="96" height="12" rx="2" fill="#2d3142"/>
+        <text x="220" y="239" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">WITHIN BY BOTH</text>
+        <rect x="768" y="266" width="104" height="12" rx="2" fill="#2d3142"/>
+        <text x="820" y="275" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">CHECKED BUNDLE</text>
+        <rect x="776" y="306" width="88" height="12" rx="2" fill="#2d3142"/>
+        <text x="820" y="315" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">PULL REQUEST</text>
+        <rect x="780" y="342" width="80" height="12" rx="2" fill="#2d3142"/>
+        <text x="820" y="351" fill="#f08a59" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">SIGNED TAG</text>
+        <rect x="368" y="382" width="104" height="12" rx="2" fill="#2d3142"/>
+        <text x="420" y="391" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">TOKEN · 1 HOUR</text>
+        <rect x="568" y="418" width="104" height="12" rx="2" fill="#2d3142"/>
+        <text x="620" y="427" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">FETCH · VERIFY</text>
+        <rect x="396" y="454" width="48" height="12" rx="2" fill="#2d3142"/>
+        <text x="420" y="463" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">APPLY</text>
+        <rect x="372" y="490" width="96" height="12" rx="2" fill="#2d3142"/>
+        <text x="420" y="499" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">WITHIN BY BOTH</text>
+        <rect x="796" y="558" width="48" height="12" rx="2" fill="#2d3142"/>
+        <text x="820" y="567" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">MERGE</text>
+        <rect x="780" y="614" width="80" height="12" rx="2" fill="#2d3142"/>
+        <text x="820" y="623" fill="#949eb2" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.06em">RESTORE TAG</text>
+        <!-- Actors, drawn after the messages -->
+        <rect x="48" y="64" width="144" height="56" rx="6" fill="#2d3142"/>
+        <rect x="48" y="64" width="144" height="56" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="120" y="90" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Rehearsal copy</text>
+        <text x="120" y="106" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">lab VM · reset</text>
+        <rect x="248" y="64" width="144" height="56" rx="6" fill="#2d3142"/>
+        <rect x="248" y="64" width="144" height="56" rx="6" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="320" y="90" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Orchestrator</text>
+        <text x="320" y="106" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">propose · deliver</text>
+        <rect x="448" y="64" width="144" height="56" rx="6" fill="#2d3142"/>
+        <rect x="448" y="64" width="144" height="56" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="520" y="90" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">NetBox</text>
+        <text x="520" y="106" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">the live target</text>
+        <rect x="648" y="64" width="144" height="56" rx="6" fill="#2d3142"/>
+        <rect x="648" y="64" width="144" height="56" rx="6" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="720" y="90" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Targets repository</text>
+        <text x="720" y="106" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">pipeline · tags</text>
+        <rect x="848" y="64" width="144" height="56" rx="6" fill="#2d3142"/>
+        <rect x="848" y="64" width="144" height="56" rx="6" fill="#bfc0c0" fill-opacity="0.10" stroke="#949eb2" stroke-width="1"/>
+        <text x="920" y="90" fill="#f5f5f5" font-size="12" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Operator's machine</text>
+        <text x="920" y="106" fill="#bfc0c0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">publish · approve</text>
+        <line x1="40" y1="672" x2="1000" y2="672" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <text x="40" y="688" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="40" y="704" width="14" height="10" rx="2" fill="#393e53" stroke="#f5f5f5" stroke-width="1"/>
+        <text x="60" y="712" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Trusted host, root commands</text>
+        <rect x="280" y="704" width="14" height="10" rx="2" fill="#f5f5f5" fill-opacity="0.03" stroke="#f5f5f5" stroke-opacity="0.30" stroke-width="1"/>
+        <text x="300" y="712" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Target side, or GitHub</text>
+        <rect x="520" y="704" width="14" height="10" rx="2" fill="#bfc0c0" fill-opacity="0.10" stroke="#949eb2" stroke-width="1"/>
+        <text x="540" y="712" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">The operator</text>
+        <line x1="40" y1="728" x2="68" y2="728" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#change-path-arrow)"/>
+        <text x="76" y="730" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Call</text>
+        <line x1="200" y1="728" x2="228" y2="728" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#change-path-arrow)" stroke-dasharray="5,4"/>
+        <text x="236" y="730" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Return: the checks' verdicts</text>
+        <line x1="440" y1="728" x2="468" y2="728" stroke="#739fdf" stroke-width="1.2" marker-end="url(#change-path-arrow-link)"/>
+        <text x="476" y="730" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">To GitHub</text>
+        <line x1="600" y1="728" x2="628" y2="728" stroke="#f08a59" stroke-width="1.4" marker-end="url(#change-path-arrow-accent)"/>
+        <text x="636" y="730" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">The approval: one commit, one delivery</text>
+
+      </svg>
