@@ -39,7 +39,7 @@ The installer is not piped from the network into a shell. The script is fetched 
 | `orchestration` | Workflows from fixed templates: the dispatch step, the comparison step for NetBox jobs, and the exit handler | Register a job, hand it to the worker, check the result, compare the model's verdict with the checks', revoke the token |
 | `collection` | Collectors and deterministic checks. Not created: NetBox's collector runs on the hosts, for the checks and, since 2026-10-25, for a job ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md)) | Read approved sources, correlate advisories locally |
 | `tool-services` | Narrow MCP servers and the policy check | Check caller, job, target, operation, and arguments on every call |
-| `change` | PR broker and delivery runner | Publish permitted patches, apply approved changes |
+| `change` | Not created: proposals and delivery are root commands on the orchestrator host, and the platform holds no repository credential ([ADR 0045](../decisions/0045-the-operator-publishes-a-checked-proposal.md), [ADR 0046](../decisions/0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md)) | Check and rehearse a proposed fix, and apply an approved one |
 
 Namespaces organize workloads. They are not a security boundary against malicious code, and nothing here relies on them as one.
 
