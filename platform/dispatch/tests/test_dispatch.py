@@ -458,6 +458,22 @@ class Chain(unittest.TestCase):
         self.assertEqual(self.registered_digest()["target"], "netbox")
 
 
+class TheJobLine(unittest.TestCase):
+    def test_the_worker_gets_the_target(self):
+        line = dispatch.job_line("job-1", "netbox", 6, 60, "t", "ab" * 32)
+        self.assertEqual(
+            json.loads(line),
+            {
+                "job": "job-1",
+                "token": "ab" * 32,
+                "task": "t",
+                "max_turns": 6,
+                "seconds": 60,
+                "target": "netbox",
+            },
+        )
+
+
 PART = {"role": "assistant", "type": "text", "text": "Confirmed."}
 
 

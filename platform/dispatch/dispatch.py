@@ -262,18 +262,25 @@ class Session:
             self.process.wait()
 
 
-def dispatch(job, target, max_turns, seconds, task):
-    token = secrets.token_hex(32)
-    register(job, target, seconds, token)
-    line = json.dumps(
+def job_line(job, target, max_turns, seconds, task, token):
+    """The line the worker reads. The target tells it how the answer ends
+    (#215)."""
+    return json.dumps(
         {
             "job": job,
             "token": token,
             "task": task,
             "max_turns": max_turns,
             "seconds": seconds,
+            "target": target,
         }
     ).encode()
+
+
+def dispatch(job, target, max_turns, seconds, task):
+    token = secrets.token_hex(32)
+    register(job, target, seconds, token)
+    line = job_line(job, target, max_turns, seconds, task, token)
     session = Session(private_key())
 
     def stopped(signum, frame):
