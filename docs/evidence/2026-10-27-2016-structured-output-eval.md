@@ -6,7 +6,7 @@ Milestone 5, 2026-10-27. [All run sets](README.md), [previous: Final output answ
 
 **Tested:** Whether each eval job's verdicts reach the verification gate in a form it reads, now that a NetBox job answers through a structured output.
 
-**Changed since the run set before:** A NetBox job answers through Goose's structured output since `ac29afb`, and the job program writes the verification gate's lines from it. The seed holds the fix of targets #15, so the cases' expected verdicts changed at `dd75b6a`, and no case has a fix to propose.
+**Changed since the run set before:** The six held-out cases, twice each, in place of two development jobs on the seed's contract. The seed holds the fix of targets #15, so the cases' expected verdicts changed at `dd75b6a`, and no case has a fix to propose.
 
 | Setting | Value |
 | --- | --- |

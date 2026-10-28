@@ -6,7 +6,9 @@ Status: **tested** on 2026-10-26. Twelve evaluation (eval) jobs ran on the live 
 
 The remediation proposals were scored on 2026-10-27 by [the proposal rules](#the-proposal-rules), again two jobs per case. Under the rules as written, the four matched jobs got 6 of 6 accounts right, and 17 of 20 counting the stopped jobs ([record](../evidence/2026-10-27-0653-scored-proposals.md), [worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-scored-proposals)).
 
-On the seed after the fix, with the agent's output as a structured output, twelve more eval jobs ran on 2026-10-27. None stopped on a line the verification gate could not read, and all 16 verdicts the deterministic checks agree on were theirs. By the proposal rules, the ten matched jobs got 16 of 16 accounts right, and 20 of 20 counting the stopped jobs ([record](../evidence/2026-10-27-2016-structured-output-eval.md), [worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-eval-run-after-the-fix)).
+On the seed after the fix, with the agent's output as a structured output, twelve more eval jobs ran on 2026-10-27. None stopped on a line the verification gate could not read, and the model's verdict was the deterministic checks' on all 16 accounts where they agree ([record](../evidence/2026-10-27-2016-structured-output-eval.md), [worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-eval-run-after-the-fix)).
+
+By the proposal rules, the ten matched jobs got 16 of 16 accounts right, and 20 of 20 counting the stopped jobs. In 4 of the 16, the model proposed a removal that would have left the account under-privileged, and the policy refused it.
 
 ## The cases
 
@@ -78,8 +80,8 @@ After the fix, each account holds one permission scoped to tenant A. `policy.imp
 
 - **Twelve jobs.** They show whether the investigation works at all, not a rate.
 - **One configuration.** Every case reads the same permissions and records. The cases test reading an access specification against evidence, not finding a different misconfiguration.
-- **The seed after the fix is an easier test.** Both accounts hold the same grants, so a model cannot be wrong by mixing them up, and no case has a fix to propose. Scores on it are a new baseline, not comparable with the runs before the fix.
+- **The seed after the fix is an easier test.** Both accounts hold the same grants, so a model cannot be wrong by mixing them up, and no case has a fix to propose ([#220](https://github.com/sindredg/ai-security-platform/issues/220)). Scores on it are a new baseline, not comparable with the runs before the fix.
 - **One author wrote the cases and tuned the task.** The task was tuned on the seed's access specification only, and no change to its wording targets a case. The separation is by data.
 - **The rule for the disagreement is read, not computed.**
 - **Found in the runs: no case has documents that disagree in the task's sense.** The task calls `ev-0002` and `ev-0003` disagreeing a reason for `inconclusive`. In `two-of-three` those two agree, and the deterministic checks disagree because the access specification grants a device its record list leaves out ([#205](https://github.com/sindredg/ai-security-platform/issues/205)).
-- **Found in the runs: two cases are close to the tuning specification.** `control-only` and `consumer-only` change only the accounts the access specification names, as [ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md) says. They hold 4 of the 18 scored verdicts.
+- **Found in the runs: two cases are close to the tuning specification.** `control-only` and `consumer-only` change only the accounts the access specification names, as [ADR 0042](../decisions/0042-held-out-cases-and-the-baseline-without-the-agent.md) says. They hold 4 of the 18 scored verdicts before the seed's fix, and 4 of the 16 after.

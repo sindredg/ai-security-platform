@@ -56,7 +56,7 @@
         "2026-10-27-0653-scored-proposals#consumer-only-2",
         "2026-10-27-0653-scored-proposals#change-1"
       ],
-      "change": "Two task sentences made it rarer. A structured output ([ADR 0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)) ended it in twelve eval jobs ([record](2026-10-27-2016-structured-output-eval.md)). The stop stays for an answer without one."
+      "change": "Two task sentences made it rarer. A structured output ([ADR 0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)) ended it in twelve eval jobs ([record](2026-10-27-2016-structured-output-eval.md)), though an output can still leave out an account ([#221](https://github.com/sindredg/ai-security-platform/issues/221))."
     },
     {
       "finding": "Thinking on took 1.8 times as long, for no better answer, in two jobs each way.",
@@ -125,7 +125,7 @@
       "change": "The proposal command checks the workflow's entrypoint and its one comparison ([#203](https://github.com/sindredg/ai-security-platform/issues/203))."
     },
     {
-      "finding": "Four times, the model proposed a removal that would leave the account under-privileged, and the policy refused it.",
+      "finding": "In four jobs, the model proposed six removals that would each leave an account under-privileged, and the policy refused every one.",
       "runs": [
         "2026-10-27-0653-scored-proposals#sites-1",
         "2026-10-27-0653-scored-proposals#sites-2",
@@ -139,7 +139,7 @@
       "runs": [
         "2026-10-27-2016-structured-output-eval"
       ],
-      "change": "None: a job still ends within its 20-minute limit ([ADR 0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md))."
+      "change": "None: a job still ends within its 20-minute limit ([ADR 0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md), [worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-eval-run-after-the-fix))."
     }
   ]
 }

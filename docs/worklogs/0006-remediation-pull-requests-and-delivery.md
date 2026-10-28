@@ -312,13 +312,13 @@ From 12:00 to 18:00 UTC on 2026-10-26, each hour held 602 to 609 manager rows an
 
 The delivered fix changed what the cases' checks give. Both halves of the checks ran on each case's contract at 19:42 UTC, outside any job: `inventory-reader` now gets the control's verdicts in every case, and `policy.implied_fix` finds no fix for any account. The case file and [the rules](../validation/investigation.md#the-cases) hold these since `dd75b6a`, committed before the run.
 
-Delivery cannot bring the old seed back for a run: restore mode applies main's seed, which holds the fix. So the run after the fix is a new baseline. Its stops on a verdict line compare with milestone 5's run, and its match rate and proposals do not.
+Delivery cannot bring the old seed back for a run: restore mode applies main's seed, which holds the fix. So the run after the fix is a new baseline. Its stops on a verdict line compare with [the scored proposals run](#the-scored-proposals), and its match rate and proposals do not.
 
 ### The eval run after the fix
 
 Date: 2026-10-27, 20:16 to 23:04 UTC ([record](../evidence/2026-10-27-2016-structured-output-eval.md)). The six held-out cases ran twice each, with the task at `ac29afb`, and the case file and [the rules](../validation/investigation.md#the-proposal-rules) at `dd75b6a`, both on GitHub before the first job. The expected result was reasoned from [ADR 0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md), in the task's commit: no job stops on a missing or unreadable verdict line, since the job program writes those lines.
 
-| Measure | Milestone 5's eval run | After the fix |
+| Measure | The scored proposals run | After the fix |
 | --- | --- | --- |
 | Jobs stopped on a missing or unreadable verdict line | 5 of 12 | None |
 | Answers through the structured output | None | 12 of 12, each from one call that Goose accepted |
@@ -326,9 +326,9 @@ Date: 2026-10-27, 20:16 to 23:04 UTC ([record](../evidence/2026-10-27-2016-struc
 | Verdicts right where the deterministic checks agree | 10 of 18 | 16 of 16 |
 | Accounts right by the proposal rules, stopped jobs included | 17 of 20 | 20 of 20 |
 
-Both `two-of-three` jobs stopped as designed: the deterministic checks disagree on both accounts, so the verification gate stops whatever the model says. The seed after the fix is a new baseline ([above](#the-held-out-cases-after-the-fix)). The first row compares with milestone 5's run, and the others do not.
+Both `two-of-three` jobs stopped as designed: the deterministic checks disagree on both accounts, so the verification gate stops whatever the model says. The seed after the fix is a new baseline ([above](#the-held-out-cases-after-the-fix)). The first row compares with the scored proposals run, and the others do not.
 
-The fix did not change the expected verdicts of `devices-only`. Milestone 5's two jobs called the control `within` there and stopped, and these two called it `excess`, the deterministic checks' verdict. Two jobs each give a hint, not a rate.
+The fix did not change the expected verdicts of `devices-only`. In the scored proposals run, both jobs called the control `within` there and stopped, and here both called it `excess`, the deterministic checks' verdict. Two jobs each give a hint, not a rate.
 
 Four jobs proposed removing each account's one permission, which would leave the account under-privileged. In `devices-only`, the policy refused both proposals, `without permission 1 it is missing, not within`, and the staging test of the removal gave `missing` by both deterministic checks. In `two-of-three`, the verification gate stopped first.
 
@@ -336,8 +336,8 @@ The rule for `two-of-three`, read as written: the first answer says the permissi
 
 Each of the 20 verdict rows cites at least one document, and only documents its job fetched, so no conclusion lacks tool evidence. Each job was offered `load_skill`, `recipe__final_output`, and `tools__get_evidence`, read from the worker's journal, and the model server's KV cache was cleared before and after each job.
 
-The schema costs time. The first prompt grew from 1,574 tokens to 3,475, and its evaluation from about 95 seconds to about 274. A job's prompts totalled a median of 17,298 tokens against 10,355, and a job took a median of 11.8 minutes against 8.6, within its 20-minute limit.
+The schema costs time. By the model server's `prompt eval time` lines in the worker's journal, each job's first prompt held 3,475 tokens and took about 274 seconds to evaluate, against 1,574 tokens and about 95 seconds in each job of the scored proposals run. By the records, a job's prompts totalled a median of 17,298 tokens against 10,355, and a job took a median of 11.8 minutes against 8.6, within its 20-minute limit.
 
 After the run, a synthetic job, `syn-10272306`, was offered `load_skill` and `tools__get_evidence` only, with no structured output tool, and its KV cache was cleared before and after it ([record](../evidence/2026-10-27-2306-synthetic-job-after-the-eval.md)). Every check from `main` at `fe4a34b`, ending at 23:18 UTC: 426 passed, 0 failed.
 
-[#215](https://github.com/sindredg/ai-security-platform/issues/215) is settled by this run: the verdicts reach the verification gate in a form it reads. How often the model is right on the harder seed before the fix, with a structured output, is not measured, because delivery cannot bring that seed back.
+[#215](https://github.com/sindredg/ai-security-platform/issues/215) is settled by this run: the verdicts reach the verification gate in a form it reads. An answer can still leave out an account, since the schema requires one verdict, not one per account ([#221](https://github.com/sindredg/ai-security-platform/issues/221)). How the model does with a structured output on a seed with a fix to propose is not measured, because delivery cannot bring that seed back ([#220](https://github.com/sindredg/ai-security-platform/issues/220)).
