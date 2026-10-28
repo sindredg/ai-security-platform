@@ -2,7 +2,7 @@
 
 # A synthetic job after the eval run
 
-Milestone 5, 2026-10-27. [All run sets](README.md), [previous: Structured output eval](2026-10-27-2016-structured-output-eval.md).
+Milestone 5, 2026-10-27. [All run sets](README.md), [previous: Structured output eval](2026-10-27-2016-structured-output-eval.md), [next: Accounts in the job line](2026-10-28-1500-accounts-in-the-job-line.md).
 
 **Tested:** Whether a synthetic job, which has no schema, is offered no structured output tool and still completes with the KV cache cleared.
 

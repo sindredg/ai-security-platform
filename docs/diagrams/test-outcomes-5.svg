@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 960 536" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="test-outcomes-5-title test-outcomes-5-desc" id="test-outcomes-5-root">
+<svg viewBox="0 0 960 592" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="test-outcomes-5-title test-outcomes-5-desc" id="test-outcomes-5-root">
         <title id="test-outcomes-5-title">NetBox jobs at the comparison in milestone 5, by outcome</title>
         <desc id="test-outcomes-5-desc">Stacked bar chart of the NetBox jobs in each of milestone 5's run sets that ran the comparison step: matches, stops by their cause, and failures.</desc>
         <defs>
@@ -28,21 +28,21 @@
         <rect width="100%" height="100%" fill="#2d3142"/>
 
         <!-- Gridlines and the axis -->
-        <line x1="296" y1="64" x2="296" y2="408" stroke="#f5f5f5" stroke-opacity="0.20" stroke-width="1"/>
-        <text x="296" y="424" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">0</text>
-        <line x1="392" y1="64" x2="392" y2="408" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
-        <text x="392" y="424" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">2</text>
-        <line x1="488" y1="64" x2="488" y2="408" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
-        <text x="488" y="424" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">4</text>
-        <line x1="584" y1="64" x2="584" y2="408" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
-        <text x="584" y="424" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">6</text>
-        <line x1="680" y1="64" x2="680" y2="408" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
-        <text x="680" y="424" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">8</text>
-        <line x1="776" y1="64" x2="776" y2="408" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
-        <text x="776" y="424" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10</text>
-        <line x1="872" y1="64" x2="872" y2="408" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
-        <text x="872" y="424" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">12</text>
-        <text x="584" y="440" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">NETBOX JOBS</text>
+        <line x1="296" y1="64" x2="296" y2="464" stroke="#f5f5f5" stroke-opacity="0.20" stroke-width="1"/>
+        <text x="296" y="480" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">0</text>
+        <line x1="392" y1="64" x2="392" y2="464" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
+        <text x="392" y="480" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">2</text>
+        <line x1="488" y1="64" x2="488" y2="464" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
+        <text x="488" y="480" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">4</text>
+        <line x1="584" y1="64" x2="584" y2="464" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
+        <text x="584" y="480" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">6</text>
+        <line x1="680" y1="64" x2="680" y2="464" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
+        <text x="680" y="480" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">8</text>
+        <line x1="776" y1="64" x2="776" y2="464" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
+        <text x="776" y="480" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">10</text>
+        <line x1="872" y1="64" x2="872" y2="464" stroke="#f5f5f5" stroke-opacity="0.08" stroke-width="0.8"/>
+        <text x="872" y="480" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">12</text>
+        <text x="584" y="496" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle" letter-spacing="0.14em">NETBOX JOBS</text>
         <!-- One bar per run set -->
         <text x="280" y="92" fill="#f5f5f5" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="end">Proposal lines</text>
         <text x="280" y="105" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">2026-10-26 22:14</text>
@@ -101,18 +101,29 @@
         <rect x="776" y="360" width="96" height="28" fill="#8d8298" fill-opacity="0.22" stroke="#8d8298" stroke-width="1"/>
         <text x="824" y="377" fill="#8d8298" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">2</text>
         <text x="880" y="377" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace">12</text>
+        <text x="280" y="428" fill="#f5f5f5" font-size="11" font-weight="600" font-family="'Geist', system-ui, sans-serif" text-anchor="end">Accounts in the job line</text>
+        <text x="280" y="441" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="end">2026-10-28 15:00</text>
+        <rect x="296" y="416" width="96" height="28" fill="#2d3142"/>
+        <rect x="296" y="416" width="96" height="28" fill="#f08a59" fill-opacity="0.45" stroke="#f08a59" stroke-width="1"/>
+        <text x="344" y="433" fill="#f08a59" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">2</text>
+        <rect x="392" y="416" width="48" height="28" fill="#2d3142"/>
+        <rect x="392" y="416" width="48" height="28" fill="#a0a0a0" fill-opacity="0.22" stroke="#a0a0a0" stroke-width="1"/>
+        <text x="416" y="433" fill="#a0a0a0" font-size="9" font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">1</text>
+        <text x="448" y="433" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace">3</text>
         <!-- Legend -->
-        <line x1="40" y1="464" x2="920" y2="464" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
-        <text x="40" y="480" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
-        <rect x="40" y="496" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.45" stroke="#f08a59" stroke-width="1"/>
-        <text x="60" y="504" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Match</text>
-        <rect x="336" y="496" width="14" height="10" rx="2" fill="#82a0c0" fill-opacity="0.22" stroke="#82a0c0" stroke-width="1"/>
-        <text x="356" y="504" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: verdicts right, a line unreadable</text>
-        <rect x="632" y="496" width="14" height="10" rx="2" fill="#d3ad7a" fill-opacity="0.22" stroke="#d3ad7a" stroke-width="1"/>
-        <text x="652" y="504" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: a wrong or missing verdict</text>
-        <rect x="40" y="516" width="14" height="10" rx="2" fill="#8d8298" fill-opacity="0.22" stroke="#8d8298" stroke-width="1"/>
-        <text x="60" y="524" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: the checks disagree or are missing</text>
-        <rect x="336" y="516" width="14" height="10" rx="2" fill="#b88670" fill-opacity="0.22" stroke="#b88670" stroke-width="1"/>
-        <text x="356" y="524" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Failed: time limit</text>
+        <line x1="40" y1="520" x2="920" y2="520" stroke="#f5f5f5" stroke-opacity="0.10" stroke-width="0.8"/>
+        <text x="40" y="536" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', ui-monospace, monospace" letter-spacing="0.14em">LEGEND</text>
+        <rect x="40" y="552" width="14" height="10" rx="2" fill="#f08a59" fill-opacity="0.45" stroke="#f08a59" stroke-width="1"/>
+        <text x="60" y="560" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Match</text>
+        <rect x="336" y="552" width="14" height="10" rx="2" fill="#82a0c0" fill-opacity="0.22" stroke="#82a0c0" stroke-width="1"/>
+        <text x="356" y="560" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: verdicts right, a line unreadable</text>
+        <rect x="632" y="552" width="14" height="10" rx="2" fill="#d3ad7a" fill-opacity="0.22" stroke="#d3ad7a" stroke-width="1"/>
+        <text x="652" y="560" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: a wrong or missing verdict</text>
+        <rect x="40" y="572" width="14" height="10" rx="2" fill="#8d8298" fill-opacity="0.22" stroke="#8d8298" stroke-width="1"/>
+        <text x="60" y="580" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: the checks disagree or are missing</text>
+        <rect x="336" y="572" width="14" height="10" rx="2" fill="#b88670" fill-opacity="0.22" stroke="#b88670" stroke-width="1"/>
+        <text x="356" y="580" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Failed: time limit</text>
+        <rect x="632" y="572" width="14" height="10" rx="2" fill="#a0a0a0" fill-opacity="0.22" stroke="#a0a0a0" stroke-width="1"/>
+        <text x="652" y="580" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Failed before the job ran</text>
 
       </svg>
