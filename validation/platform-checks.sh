@@ -575,6 +575,7 @@ probe_router="$probe_common"'
 echo "unit_tailscaled=$(systemctl is-active tailscaled)"
 echo "unit_mss_clamp=$(systemctl is-active aisec-mss-clamp)"
 echo "mss_rules=$(nft list table inet aisec_mss 2>/dev/null | grep -c maxseg)"
+echo "session_log_rules=$(nft list table inet aisec_sessions 2>/dev/null | grep -c "log prefix \"aisec-target-ssh")"
 echo "ip_forward=$(sysctl -n net.ipv4.ip_forward)"
 echo "lock=$(tailscale lock status 2>/dev/null | head -n 1)"
 echo "lock_signed=$(tailscale lock status 2>/dev/null | grep -c "This node is accessible under Tailnet Lock")"
@@ -1004,6 +1005,9 @@ if probe=$($SSH "$ROUTER" 'sudo bash -s' <<<"$probe_router" 2>/dev/null) && [ -n
   check R.2 "The segment size clamp is loaded" "active 2" "$(value unit_mss_clamp) $(value mss_rules)"
   check R.3 "The router forwards packets" 1 "$(value ip_forward)"
   check R.4 "The router advertises the platform, the targets, and the edge subnet" "$ROUTES" "$(value advertised_routes)"
+  # Every session to a target from the mesh passes this chain. The kernel's
+  # line reaches the workspace through the router's log agent (T04).
+  check R.8 "Operator sessions to the targets are logged on the router" 1 "$(value session_log_rules)"
   # The flag on the running agent's command line (ADR 0025). The defaults file
   # alone would not show an agent started without it.
   check R.5 "The mesh VPN agent uploads no logs to the vendor" 1 "$(value log_upload_off)"

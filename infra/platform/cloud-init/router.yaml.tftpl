@@ -25,12 +25,23 @@ write_files:
           oifname "tailscale0" tcp flags syn tcp option maxseg size set 1240
         }
       }
+      # Each new SSH connection from the mesh to a target gets a kernel log
+      # line, with the operator device's mesh address as its source. The log
+      # agent sends it to the workspace (T04). Nothing is dropped here.
+      table inet aisec_sessions
+      delete table inet aisec_sessions
+      table inet aisec_sessions {
+        chain forward {
+          type filter hook forward priority filter; policy accept;
+          iifname "tailscale0" ip daddr 10.50.0.0/20 tcp dport 22 ct state new log prefix "aisec-target-ssh: "
+        }
+      }
 
   - path: /etc/systemd/system/aisec-mss-clamp.service
     permissions: "0644"
     content: |
       [Unit]
-      Description=Clamp TCP segment size on routes through the mesh VPN
+      Description=Segment size clamp and session log on routes through the mesh VPN
       Before=tailscaled.service
 
       [Service]

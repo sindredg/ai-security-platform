@@ -290,3 +290,19 @@ The orchestrator and the router are both on the mesh until step 13. Until then, 
     ```
 
     Expected: `No changes` and exit `0`.
+
+## Changes to a running router
+
+A router built from the current template has these at first boot. A running router ignores template changes, so each is loaded by hand.
+
+20. Load the session log rule, with the file from the template.
+
+    ```bash
+    awk '/path: \/etc\/aisec\/mss-clamp.nft/ {f = 1; next} f && /content: \|/ {c = 1; next} c && /^  - path:/ {exit} c {sub(/^      /, ""); print}' \
+      REPLACE_WITH_PLATFORM_CHECKOUT/infra/platform/cloud-init/router.yaml.tftpl |
+      REPLACE_WITH_SSH aisec-router 'sudo tee /etc/aisec/mss-clamp.nft > /dev/null && sudo systemctl restart aisec-mss-clamp &&
+        sudo nft list table inet aisec_sessions | grep -c aisec-target-ssh; sudo nft list table inet aisec_mss | grep -c maxseg'
+    ```
+
+    Expected: `1`, then `2`. A session to a target from the workstation then puts one `aisec-target-ssh` line in the router's kernel log, and in the workspace's `Syslog` table within a few minutes.
+
