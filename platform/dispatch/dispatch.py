@@ -303,9 +303,11 @@ def accounts_for(job, target, now=None):
         document = compare.load_document(compare.VERDICTS, job)
     except compare.Stop as stop:
         raise Failed(str(stop)) from None
-    collected = datetime.strptime(document["collected"], COLLECTED_FORMAT).replace(
-        tzinfo=UTC
-    )
+    try:
+        collected = datetime.strptime(document["collected"], COLLECTED_FORMAT)
+    except ValueError:
+        raise Failed("the checks' verdicts' time is not a time") from None
+    collected = collected.replace(tzinfo=UTC)
     age = ((now or datetime.now(UTC)) - collected).total_seconds()
     if age < -COLLECTED_SKEW:
         raise Failed("the checks' verdicts are from the future")
@@ -345,18 +347,20 @@ def dispatch(job, target, max_turns, seconds, task):
     session = None
     registered = False
 
-    # A stop closes the session, which cancels the job on the worker, and
-    # revokes the token itself: argo terminate skips the exit handler that
-    # would (#174). The handler's second revoke is 200 at the service.
+    # A stop revokes the token itself, since argo terminate skips the exit
+    # handler that would (#174), then closes the session, which cancels the
+    # job on the worker. The exit handler's second revoke is 200 at the
+    # service. A stop inside register's request, after the service stored
+    # the job, revokes nothing: that entry expires with its seconds.
     def stopped(signum, frame):
-        if session is not None:
-            session.close()
         revoked = None
         if registered:
             try:
                 revoked, _ = revoke(job)
-            except (Failed, OSError) as error:
+            except Exception as error:  # noqa: BLE001 - the exit is what matters
                 print(f"revoke on stop failed: {error}", file=sys.stderr)
+        if session is not None:
+            session.close()
         print(json.dumps({"job": job, "stopped": signum, "revoked": revoked}))
         sys.exit(128 + signum)
 
