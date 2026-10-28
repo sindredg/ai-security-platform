@@ -341,3 +341,22 @@ The schema costs time. By the model server's `prompt eval time` lines in the wor
 After the run, a synthetic job, `syn-10272306`, was offered `load_skill` and `tools__get_evidence` only, with no structured output tool, and its KV cache was cleared before and after it ([record](../evidence/2026-10-27-2306-synthetic-job-after-the-eval.md)). Every check from `main` at `fe4a34b`, ending at 23:18 UTC: 426 passed, 0 failed.
 
 [#215](https://github.com/sindredg/ai-security-platform/issues/215) is settled by this run: the verdicts reach the verification gate in a form it reads. An answer can still leave out an account, since the schema requires one verdict, not one per account ([#221](https://github.com/sindredg/ai-security-platform/issues/221)). How the model does with a structured output on a seed with a fix to propose is not measured, because delivery cannot bring that seed back ([#220](https://github.com/sindredg/ai-security-platform/issues/220)).
+
+### Accounts in the job line
+
+Date: 2026-10-28, 15:00 to 15:40 UTC ([record](../evidence/2026-10-28-1500-accounts-in-the-job-line.md)). The schema a NetBox job's recipe carried required one verdict, not one per account ([#221](https://github.com/sindredg/ai-security-platform/issues/221)). Since `fafe39b`, the dispatch step reads the job's accounts from the checks' verdicts and names them in the job line, and the job program requires a verdict under each name ([ADR 0051](../decisions/0051-a-netbox-jobs-schema-names-each-account-of-the-job.md)).
+
+The job program went to the worker at 15:00 UTC, with the same SHA-256 as the checkout, and the template's three steps moved to the dispatch image the pipeline pushed from `b9de301`, pulled in one egress window. The expected result was written before the run: two jobs on the seed's access specification end in a match with a verdict under both names, and a job submitted with no collection fails at the dispatch step before it runs, with the comparison's own stop and no registration.
+
+| Job | Result | Seen |
+| --- | --- | --- |
+| `nb-10281500-a1` | Succeeded, match on both accounts, 703 seconds | One structured output call, accepted, with `verdicts` keyed by both names |
+| `nb-10281500-nocollect` | Failed at the dispatch step, 21 seconds after submission | `failed: no checks' verdicts for this job`. No audit line, no job line on the worker |
+| `nb-10281500-a3` | Succeeded, match on both accounts, 823 seconds | One structured output call, accepted |
+| `syn-10281500` | Succeeded, 96 seconds | Offered no structured output tool. The KV cache cleared before and after |
+
+Each pod ran the new image, read from the pods' image IDs. The verdicts item mounted under `/etc/aisec`, inside the tool certificate's mount, and the dispatch step read it. By the model server's `prompt eval time` lines, each NetBox job's first prompt held 3,796 tokens, 321 more than with the schema of [the eval run](#the-eval-run-after-the-fix), and took 309 seconds to evaluate.
+
+Every check from `a4f3b32` at 15:32 UTC: 425 of 426 passed. `U.7` failed because the mesh VPN agent's upstream released 1.104.4 while the pin holds 1.104.2, which this change does not touch.
+
+Not seen: Goose refusing an output that leaves an account out, since both calls were accepted first, and a case with more than two accounts.

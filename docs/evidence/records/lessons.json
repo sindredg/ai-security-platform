@@ -1,145 +1,154 @@
 {
-  "intro": "What the runs showed, the runs that show it, and what changed because of it. A finding with nothing changed yet says so.",
-  "lessons": [
-    {
-      "finding": "Without a slot save path, the model server refused to erase its slot, so each job's prompt stayed for the next job.",
-      "runs": [
-        "2026-10-20-1927-first-jobs-over-the-socket#hand-1"
-      ],
-      "change": "An empty, read-only save path ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md)), then an erase before each job that refuses the job when it fails ([ADR 0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md))."
-    },
-    {
-      "finding": "Workflow pods waited for a token secret that Argo's install did not create, until the workflow's deadline.",
-      "runs": [
-        "2026-10-21-1412-first-workflows-attempt#investigate-2llvm"
-      ],
-      "change": "The manifests create the executor's token ([troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md))."
-    },
-    {
-      "finding": "All three small models followed injected text in the evidence, and all three called the `refuted` case confirmed.",
-      "runs": [
-        "2026-10-21-1706-model-comparison-first-run",
-        "2026-10-21-1918-model-comparison-second-run"
-      ],
-      "change": "No control relies on the model ignoring injected text ([A1](../security/ai-threats.md)). Qwen3.5-4B stayed ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md))."
-    },
-    {
-      "finding": "A check of the job's status passed a wrong answer.",
-      "runs": [
-        "2026-10-23-1500-erase-before-each-job#investigate-q6ttr"
-      ],
-      "change": "The workflow compares the model's verdict with two deterministic checks, and stops on anything but a match ([ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md))."
-    },
-    {
-      "finding": "The tool service refused calls for another job's documents, and a document with a field outside its schema.",
-      "runs": [
-        "2026-10-25-1208-first-netbox-jobs#nb-10251208-b",
-        "2026-10-25-1208-first-netbox-jobs#nb-10251208-c"
-      ],
-      "change": "Nothing: evidence per job held as designed ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md))."
-    },
-    {
-      "finding": "The model read results by their position when the tool service answered them in another order.",
-      "runs": [
-        "2026-10-25-1751-the-comparison#nb-10251751-a",
-        "2026-10-25-1856-results-in-another-order#nb-10251856-a"
-      ],
-      "change": "The task asks for one document at a time ([troubleshooting 18](../troubleshooting/18-tool-results-come-back-in-another-order.md))."
-    },
-    {
-      "finding": "Right verdicts in a form the comparison cannot read stop the workflow.",
-      "runs": [
-        "2026-10-25-1922-one-document-at-a-time#nb-10251922-a1",
-        "2026-10-25-2211-thinking-on-and-off#nb-10252211-off1",
-        "2026-10-25-2308-scored-cases#control-only-2",
-        "2026-10-26-2214-proposal-lines#nb-10262214-p1",
-        "2026-10-27-0653-scored-proposals#consumer-only-2",
-        "2026-10-27-0653-scored-proposals#change-1"
-      ],
-      "change": "Two task sentences made it rarer. A structured output ([ADR 0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)) ended it in twelve eval jobs ([record](2026-10-27-2016-structured-output-eval.md)), though an output can still leave out an account ([#221](https://github.com/sindredg/ai-security-platform/issues/221))."
-    },
-    {
-      "finding": "Thinking on took 1.8 times as long, for no better answer, in two jobs each way.",
-      "runs": [
-        "2026-10-25-2211-thinking-on-and-off"
-      ],
-      "change": "Thinking stays off. How it does on harder cases is not tested ([#36](https://github.com/sindredg/ai-security-platform/issues/36))."
-    },
-    {
-      "finding": "A job at its time limit leaves the model's slot unerased.",
-      "runs": [
-        "2026-10-25-1751-the-comparison#nb-10251751-b",
-        "2026-10-25-2308-scored-cases#two-of-three-2"
-      ],
-      "change": "The erase before the next job empties it. The fix belongs to milestone 6 ([#199](https://github.com/sindredg/ai-security-platform/issues/199))."
-    },
-    {
-      "finding": "No wrong verdict ended in a match. Both wrong verdicts said `within` where the checks said `missing`.",
-      "runs": [
-        "2026-10-25-2308-scored-cases#sites-2",
-        "2026-10-25-2308-scored-cases#change-2"
-      ],
-      "change": "Nothing yet. The comparison stopped both."
-    },
-    {
-      "finding": "Where the two checks disagreed, no answer said the evidence disagrees.",
-      "runs": [
-        "2026-10-25-2308-scored-cases#two-of-three-1"
-      ],
-      "change": "Nothing yet. No case has documents that disagree in the task's sense ([#205](https://github.com/sindredg/ai-security-platform/issues/205))."
-    },
-    {
-      "finding": "A job called Goose's own `load_skill`, and no audit record holds that call.",
-      "runs": [
-        "2026-10-26-0608-erase-after-a-timeout#syn-10260607"
-      ],
-      "change": "Nothing yet ([#207](https://github.com/sindredg/ai-security-platform/issues/207))."
-    },
-    {
-      "finding": "Thinking on and off proposed the right fix in all four jobs. Off, the model wrote its reasoning into the answer and took as long.",
-      "runs": [
-        "2026-10-27-0542-thinking-with-a-proposal#nb-10270542-on1",
-        "2026-10-27-0542-thinking-with-a-proposal#nb-10270542-off2"
-      ],
-      "change": "Thinking stays off ([#36](https://github.com/sindredg/ai-security-platform/issues/36))."
-    },
-    {
-      "finding": "The rehearsal passed a patch with a change to the delivery account, because it tests the contract's accounts only. The policy refused it.",
-      "runs": [
-        "2026-10-27-1556-unsafe-patch#nb-10271606-unsafe"
-      ],
-      "change": "None: the policy names the accounts a fix may touch, and the rehearsal is evidence, not proof ([ADR 0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md))."
-    },
-    {
-      "finding": "One answer proposed removing the consumer's own scoped permission. The comparison stopped it on a wrong verdict, and the policy refuses a permission the checks do not call excess.",
-      "runs": [
-        "2026-10-27-0653-scored-proposals#change-2"
-      ],
-      "change": "None: two controls blocked it."
-    },
-    {
-      "finding": "A workflow started at the compare step matched an answer the operator wrote, with no model. The proposal command refused it.",
-      "runs": [
-        "2026-10-27-1556-unsafe-patch#nb-10271617-skip"
-      ],
-      "change": "The proposal command checks the workflow's entrypoint and its one comparison ([#203](https://github.com/sindredg/ai-security-platform/issues/203))."
-    },
-    {
-      "finding": "In four jobs, the model proposed six removals that would each leave an account under-privileged, and the policy refused every one.",
-      "runs": [
-        "2026-10-27-0653-scored-proposals#sites-1",
-        "2026-10-27-0653-scored-proposals#sites-2",
-        "2026-10-27-2016-structured-output-eval#devices-only-1",
-        "2026-10-27-2016-structured-output-eval#devices-only-2"
-      ],
-      "change": "None: the policy checks the account against its access specification after the removal ([ADR 0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md))."
-    },
-    {
-      "finding": "The schema more than doubled each job's first prompt, to 3,475 tokens, and reading it took about 274 seconds instead of 95.",
-      "runs": [
-        "2026-10-27-2016-structured-output-eval"
-      ],
-      "change": "None: a job still ends within its 20-minute limit ([ADR 0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md), [worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-eval-run-after-the-fix))."
-    }
-  ]
+ "intro": "What the runs showed, the runs that show it, and what changed because of it. A finding with nothing changed yet says so.",
+ "lessons": [
+  {
+   "finding": "Without a slot save path, the model server refused to erase its slot, so each job's prompt stayed for the next job.",
+   "runs": [
+    "2026-10-20-1927-first-jobs-over-the-socket#hand-1"
+   ],
+   "change": "An empty, read-only save path ([troubleshooting 12](../troubleshooting/12-slot-erase-needs-a-save-path.md)), then an erase before each job that refuses the job when it fails ([ADR 0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md))."
+  },
+  {
+   "finding": "Workflow pods waited for a token secret that Argo's install did not create, until the workflow's deadline.",
+   "runs": [
+    "2026-10-21-1412-first-workflows-attempt#investigate-2llvm"
+   ],
+   "change": "The manifests create the executor's token ([troubleshooting 14](../troubleshooting/14-workflow-pods-wait-for-the-executors-token.md))."
+  },
+  {
+   "finding": "All three small models followed injected text in the evidence, and all three called the `refuted` case confirmed.",
+   "runs": [
+    "2026-10-21-1706-model-comparison-first-run",
+    "2026-10-21-1918-model-comparison-second-run"
+   ],
+   "change": "No control relies on the model ignoring injected text ([A1](../security/ai-threats.md)). Qwen3.5-4B stayed ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md))."
+  },
+  {
+   "finding": "A check of the job's status passed a wrong answer.",
+   "runs": [
+    "2026-10-23-1500-erase-before-each-job#investigate-q6ttr"
+   ],
+   "change": "The workflow compares the model's verdict with two deterministic checks, and stops on anything but a match ([ADR 0041](../decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md))."
+  },
+  {
+   "finding": "The tool service refused calls for another job's documents, and a document with a field outside its schema.",
+   "runs": [
+    "2026-10-25-1208-first-netbox-jobs#nb-10251208-b",
+    "2026-10-25-1208-first-netbox-jobs#nb-10251208-c"
+   ],
+   "change": "Nothing: evidence per job held as designed ([ADR 0040](../decisions/0040-a-jobs-evidence-is-collected-on-the-hosts-and-stored-per-job.md))."
+  },
+  {
+   "finding": "The model read results by their position when the tool service answered them in another order.",
+   "runs": [
+    "2026-10-25-1751-the-comparison#nb-10251751-a",
+    "2026-10-25-1856-results-in-another-order#nb-10251856-a"
+   ],
+   "change": "The task asks for one document at a time ([troubleshooting 18](../troubleshooting/18-tool-results-come-back-in-another-order.md))."
+  },
+  {
+   "finding": "Right verdicts in a form the comparison cannot read stop the workflow.",
+   "runs": [
+    "2026-10-25-1922-one-document-at-a-time#nb-10251922-a1",
+    "2026-10-25-2211-thinking-on-and-off#nb-10252211-off1",
+    "2026-10-25-2308-scored-cases#control-only-2",
+    "2026-10-26-2214-proposal-lines#nb-10262214-p1",
+    "2026-10-27-0653-scored-proposals#consumer-only-2",
+    "2026-10-27-0653-scored-proposals#change-1"
+   ],
+   "change": "Two task sentences made it rarer. A structured output ([ADR 0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)) ended it in twelve eval jobs ([record](2026-10-27-2016-structured-output-eval.md)), though an output can still leave out an account ([#221](https://github.com/sindredg/ai-security-platform/issues/221))."
+  },
+  {
+   "finding": "Thinking on took 1.8 times as long, for no better answer, in two jobs each way.",
+   "runs": [
+    "2026-10-25-2211-thinking-on-and-off"
+   ],
+   "change": "Thinking stays off. How it does on harder cases is not tested ([#36](https://github.com/sindredg/ai-security-platform/issues/36))."
+  },
+  {
+   "finding": "A job at its time limit leaves the model's slot unerased.",
+   "runs": [
+    "2026-10-25-1751-the-comparison#nb-10251751-b",
+    "2026-10-25-2308-scored-cases#two-of-three-2"
+   ],
+   "change": "The erase before the next job empties it. The fix belongs to milestone 6 ([#199](https://github.com/sindredg/ai-security-platform/issues/199))."
+  },
+  {
+   "finding": "No wrong verdict ended in a match. Both wrong verdicts said `within` where the checks said `missing`.",
+   "runs": [
+    "2026-10-25-2308-scored-cases#sites-2",
+    "2026-10-25-2308-scored-cases#change-2"
+   ],
+   "change": "Nothing yet. The comparison stopped both."
+  },
+  {
+   "finding": "Where the two checks disagreed, no answer said the evidence disagrees.",
+   "runs": [
+    "2026-10-25-2308-scored-cases#two-of-three-1"
+   ],
+   "change": "Nothing yet. No case has documents that disagree in the task's sense ([#205](https://github.com/sindredg/ai-security-platform/issues/205))."
+  },
+  {
+   "finding": "A job called Goose's own `load_skill`, and no audit record holds that call.",
+   "runs": [
+    "2026-10-26-0608-erase-after-a-timeout#syn-10260607"
+   ],
+   "change": "Nothing yet ([#207](https://github.com/sindredg/ai-security-platform/issues/207))."
+  },
+  {
+   "finding": "Thinking on and off proposed the right fix in all four jobs. Off, the model wrote its reasoning into the answer and took as long.",
+   "runs": [
+    "2026-10-27-0542-thinking-with-a-proposal#nb-10270542-on1",
+    "2026-10-27-0542-thinking-with-a-proposal#nb-10270542-off2"
+   ],
+   "change": "Thinking stays off ([#36](https://github.com/sindredg/ai-security-platform/issues/36))."
+  },
+  {
+   "finding": "The rehearsal passed a patch with a change to the delivery account, because it tests the contract's accounts only. The policy refused it.",
+   "runs": [
+    "2026-10-27-1556-unsafe-patch#nb-10271606-unsafe"
+   ],
+   "change": "None: the policy names the accounts a fix may touch, and the rehearsal is evidence, not proof ([ADR 0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md))."
+  },
+  {
+   "finding": "One answer proposed removing the consumer's own scoped permission. The comparison stopped it on a wrong verdict, and the policy refuses a permission the checks do not call excess.",
+   "runs": [
+    "2026-10-27-0653-scored-proposals#change-2"
+   ],
+   "change": "None: two controls blocked it."
+  },
+  {
+   "finding": "A workflow started at the compare step matched an answer the operator wrote, with no model. The proposal command refused it.",
+   "runs": [
+    "2026-10-27-1556-unsafe-patch#nb-10271617-skip"
+   ],
+   "change": "The proposal command checks the workflow's entrypoint and its one comparison ([#203](https://github.com/sindredg/ai-security-platform/issues/203))."
+  },
+  {
+   "finding": "In four jobs, the model proposed six removals that would each leave an account under-privileged, and the policy refused every one.",
+   "runs": [
+    "2026-10-27-0653-scored-proposals#sites-1",
+    "2026-10-27-0653-scored-proposals#sites-2",
+    "2026-10-27-2016-structured-output-eval#devices-only-1",
+    "2026-10-27-2016-structured-output-eval#devices-only-2"
+   ],
+   "change": "None: the policy checks the account against its access specification after the removal ([ADR 0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md))."
+  },
+  {
+   "finding": "The schema more than doubled each job's first prompt, to 3,475 tokens, and reading it took about 274 seconds instead of 95.",
+   "runs": [
+    "2026-10-27-2016-structured-output-eval"
+   ],
+   "change": "None: a job still ends within its 20-minute limit ([ADR 0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md), [worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-eval-run-after-the-fix))."
+  },
+  {
+   "finding": "Both jobs put a verdict under each account's name in one accepted call. The two-account schema added 321 tokens to the first prompt, read in 309 seconds.",
+   "change": "The schema names each account ([ADR 0051](../decisions/0051-a-netbox-jobs-schema-names-each-account-of-the-job.md)), and a job with no checks' verdicts fails before it runs.",
+   "runs": [
+    "2026-10-28-1500-accounts-in-the-job-line#nb-10281500-a1",
+    "2026-10-28-1500-accounts-in-the-job-line#nb-10281500-a3",
+    "2026-10-28-1500-accounts-in-the-job-line#nb-10281500-nocollect"
+   ]
+  }
+ ]
 }
