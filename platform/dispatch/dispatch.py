@@ -41,6 +41,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -79,6 +80,11 @@ TARGETS = ("synthetic", "netbox")
 # the file the comparison step reads, so the model is asked for the accounts
 # the comparison checks and no others.
 ANSWER_TARGETS = ("netbox",)
+# The checks' verdicts the dispatch step takes: collected within the hour, and
+# not more than five minutes ahead of this clock (T23).
+COLLECTED_MAX_AGE = 3600
+COLLECTED_SKEW = 300
+COLLECTED_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 TOOLS = ["get_evidence"]
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 # The ranges the job program on the worker accepts. Checked here first, so a
@@ -283,17 +289,32 @@ class Session:
             self.process.wait()
 
 
-def accounts_for(job, target):
+def accounts_for(job, target, now=None):
     """The names of the accounts a job answers for, sorted, from the checks'
     verdicts for the job, or None for a target without a schema. A NetBox job
     with no verdicts fails here, before it runs, with the stop the comparison
-    step would give after it (#221)."""
+    step would give after it (#221). So does one whose verdicts were collected
+    more than COLLECTED_MAX_AGE seconds ago (T23): the collect command writes
+    the item right before the job is submitted, and an older one is a job's
+    evidence left behind, or put there by hand."""
     if target not in ANSWER_TARGETS:
         return None
     try:
-        return sorted(compare.load_checks(compare.VERDICTS, job))
+        document = compare.load_document(compare.VERDICTS, job)
     except compare.Stop as stop:
         raise Failed(str(stop)) from None
+    collected = datetime.strptime(document["collected"], COLLECTED_FORMAT).replace(
+        tzinfo=UTC
+    )
+    age = ((now or datetime.now(UTC)) - collected).total_seconds()
+    if age < -COLLECTED_SKEW:
+        raise Failed("the checks' verdicts are from the future")
+    if age > COLLECTED_MAX_AGE:
+        raise Failed(
+            f"the checks' verdicts are {age:.0f} s old, and the dispatch step "
+            f"takes at most {COLLECTED_MAX_AGE}"
+        )
+    return sorted(document["accounts"])
 
 
 def job_line(job, target, max_turns, seconds, task, token, accounts=None):

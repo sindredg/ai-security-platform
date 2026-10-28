@@ -133,6 +133,11 @@ def in_shape(document):
 
 def load_checks(path, job):
     """The checks' verdicts for the job, by account. Raises Stop."""
+    return load_document(path, job)["accounts"]
+
+
+def load_document(path, job):
+    """The checks' verdicts item for the job, in shape. Raises Stop."""
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -145,7 +150,7 @@ def load_checks(path, job):
         raise Stop(SHAPE)
     if document["job"] != job:
         raise Stop("the checks' verdicts are for another job")
-    return document["accounts"]
+    return document
 
 
 def after_label(line, label="verdict"):

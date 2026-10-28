@@ -19,6 +19,7 @@ import textwrap
 import threading
 import time
 import unittest
+from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import ClassVar
@@ -33,7 +34,7 @@ import dispatch
 # dispatch step reads from them the accounts a NetBox job answers for (#221).
 VERDICTS = {
     "job": "job-1",
-    "collected": "2026-10-25T16:00:00Z",
+    "collected": "set in setUp",
     "accounts": {
         "inventory-reader": {"configured": "excess", "observed": "excess"},
         "inventory-reader-control": {"configured": "within", "observed": "within"},
@@ -143,8 +144,14 @@ class Chain(unittest.TestCase):
         (self.tmp / "known_hosts").write_text("10.40.0.36 ssh-ed25519 AAAA\n")
         (self.tmp / "system.txt").write_text("You investigate security findings.")
         self.verdicts = self.tmp / "verdicts.json"
+        # Collected now: the dispatch step takes an item up to an hour old.
+        VERDICTS["collected"] = self.collected()
         self.verdicts.write_text(json.dumps(VERDICTS))
         self.mode = "ok"
+
+    def collected(self, seconds_ago=0):
+        when = datetime.now(UTC) - timedelta(seconds=seconds_ago)
+        return when.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def tearDown(self):
         self.http.shutdown()
@@ -500,6 +507,15 @@ class Chain(unittest.TestCase):
                 {**VERDICTS, "accounts": {}},
                 "the checks' verdicts are not in their shape",
             ),
+            # An item left from an earlier job, or written by hand (T23).
+            "stale": (
+                {**VERDICTS, "collected": self.collected(3601)},
+                "the checks' verdicts are 360",
+            ),
+            "from the future": (
+                {**VERDICTS, "collected": self.collected(-301)},
+                "the checks' verdicts are from the future",
+            ),
         }
         for name, (document, stop) in cases.items():
             with self.subTest(name):
@@ -514,6 +530,20 @@ class Chain(unittest.TestCase):
                 self.assertIn("failed: " + stop, err)
                 self.assertEqual(Stub.calls, [])
                 self.assertFalse((self.tmp / "ssh-argv.json").exists())
+
+    def test_the_age_limit_takes_an_item_within_the_hour_and_the_skew(self):
+        for name, document in {
+            "3599 s old": {**VERDICTS, "collected": self.collected(3599)},
+            "299 s ahead": {**VERDICTS, "collected": self.collected(-299)},
+        }.items():
+            with self.subTest(name):
+                self.verdicts.write_text(json.dumps(document))
+                Stub.calls = []
+                code, _, err = self.run_dispatch(
+                    "dispatch", "job-1", "netbox", "6", "60", "t"
+                )
+                self.assertEqual(code, 0, err)
+                self.assertEqual(Stub.calls[0][:2], ("POST", "/jobs"))
 
     def test_a_synthetic_job_needs_no_checks_verdicts_and_gets_no_accounts(self):
         self.verdicts.unlink()
