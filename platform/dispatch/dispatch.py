@@ -28,6 +28,7 @@ environment variable, or a file here. Standard library only.
 """
 
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -41,6 +42,21 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+
+def load_compare():
+    """The comparison step's reader of the checks' verdicts, from the file
+    beside this one in the image. Loaded by path, since Python's isolated
+    mode, which the tests run this file in, leaves its directory off the
+    import path."""
+    path = Path(__file__).with_name("compare.py")
+    spec = importlib.util.spec_from_file_location("compare", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+compare = load_compare()
 
 # Fixed for the pod. The tests point them at stubs.
 REGISTER_URL = os.environ.get(
@@ -58,6 +74,11 @@ WORKER = "aisec-job@10.40.0.36"
 
 # The targets the tool service's policy lists. It refuses any other too.
 TARGETS = ("synthetic", "netbox")
+# The targets whose jobs answer in a schema that names the job's accounts
+# (ADR 0051). The step reads the names from the checks' verdicts for the job,
+# the file the comparison step reads, so the model is asked for the accounts
+# the comparison checks and no others.
+ANSWER_TARGETS = ("netbox",)
 TOOLS = ["get_evidence"]
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 # The ranges the job program on the worker accepts. Checked here first, so a
@@ -262,25 +283,41 @@ class Session:
             self.process.wait()
 
 
-def job_line(job, target, max_turns, seconds, task, token):
+def accounts_for(job, target):
+    """The names of the accounts a job answers for, sorted, from the checks'
+    verdicts for the job, or None for a target without a schema. A NetBox job
+    with no verdicts fails here, before it runs, with the stop the comparison
+    step would give after it (#221)."""
+    if target not in ANSWER_TARGETS:
+        return None
+    try:
+        return sorted(compare.load_checks(compare.VERDICTS, job))
+    except compare.Stop as stop:
+        raise Failed(str(stop)) from None
+
+
+def job_line(job, target, max_turns, seconds, task, token, accounts=None):
     """The line the worker reads. The target tells it how the answer ends
-    (#215)."""
-    return json.dumps(
-        {
-            "job": job,
-            "token": token,
-            "task": task,
-            "max_turns": max_turns,
-            "seconds": seconds,
-            "target": target,
-        }
-    ).encode()
+    (#215), and the accounts which names the answer's schema requires
+    (#221). The names alone go: the checks' verdicts stay here."""
+    line = {
+        "job": job,
+        "token": token,
+        "task": task,
+        "max_turns": max_turns,
+        "seconds": seconds,
+        "target": target,
+    }
+    if accounts is not None:
+        line["accounts"] = accounts
+    return json.dumps(line).encode()
 
 
 def dispatch(job, target, max_turns, seconds, task):
+    accounts = accounts_for(job, target)
     token = secrets.token_hex(32)
     register(job, target, seconds, token)
-    line = job_line(job, target, max_turns, seconds, task, token)
+    line = job_line(job, target, max_turns, seconds, task, token, accounts)
     session = Session(private_key())
 
     def stopped(signum, frame):

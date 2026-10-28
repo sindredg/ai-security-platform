@@ -32,6 +32,10 @@ JOB = {
     "max_turns": 6,
     "seconds": 60,
 }
+ACCOUNTS = ["inventory-reader", "inventory-reader-control"]
+# A NetBox job's line names its accounts, read by the dispatch step from the
+# checks' verdicts for the job (#221).
+NETBOX = {**JOB, "target": "netbox", "accounts": ACCOUNTS}
 
 # Prints a transcript with one tool call, as Goose's --output-format json
 # does. FAKE_MODE changes what it does. It records its arguments and the
@@ -226,10 +230,39 @@ class TheJobLine(unittest.TestCase):
                 agent_job.parse_job(json.dumps({**JOB, "target": target}))
 
     def test_a_job_line_with_a_target_passes(self):
-        for target in ("synthetic", "netbox"):
-            with self.subTest(target):
-                job = {**JOB, "target": target}
+        for job in ({**JOB, "target": "synthetic"}, NETBOX):
+            with self.subTest(job["target"]):
                 self.assertEqual(agent_job.parse_job(json.dumps(job)), job)
+
+    def test_a_netbox_job_line_names_its_accounts_and_no_other_line_does(self):
+        bad = {
+            "a NetBox job without accounts": {**JOB, "target": "netbox"},
+            "no accounts": {**NETBOX, "accounts": []},
+            "accounts as text": {**NETBOX, "accounts": "inventory-reader"},
+            "accounts as an object": {**NETBOX, "accounts": {"a": 1}},
+            "an account twice": {**NETBOX, "accounts": ["a", "a"]},
+            "too many accounts": {**NETBOX, "accounts": [f"a{i}" for i in range(21)]},
+            "an account in upper case": {**NETBOX, "accounts": ["Reader"]},
+            "an account with a space": {**NETBOX, "accounts": ["a b"]},
+            "an account with a newline": {**NETBOX, "accounts": ["a\n"]},
+            "an account too long": {**NETBOX, "accounts": ["a" * 65]},
+            "an account that is not text": {**NETBOX, "accounts": [1]},
+            "an account that is a list": {**NETBOX, "accounts": [["a"]]},
+            "a synthetic job with accounts": {
+                **JOB,
+                "target": "synthetic",
+                "accounts": ACCOUNTS,
+            },
+            "no target, with accounts": {**JOB, "accounts": ACCOUNTS},
+        }
+        for name, job in bad.items():
+            with (
+                self.subTest(name),
+                self.assertRaisesRegex(agent_job.Refused, "accounts"),
+            ):
+                agent_job.parse_job(json.dumps(job))
+        twenty = {**NETBOX, "accounts": [f"account-{i}" for i in range(20)]}
+        self.assertEqual(agent_job.parse_job(json.dumps(twenty)), twenty)
 
     def test_a_job_line_from_a_dispatch_image_without_targets_passes(self):
         self.assertNotIn("target", agent_job.parse_job(json.dumps(JOB)))
@@ -313,7 +346,7 @@ class AWholeJob(Base):
         # ADR 0049 end to end: the job line's target puts the schema in the
         # recipe, Goose offers the final output and accepts a call, and the
         # answer is the lines written from it, not Goose's last text.
-        line = json.dumps({**JOB, "target": "netbox"}).encode() + b"\n"
+        line = json.dumps(NETBOX).encode() + b"\n"
         code, data = self.run_job(line, mode="final-output")
         self.assertEqual(code, 0)
         result = json.loads(data)
@@ -326,7 +359,8 @@ class AWholeJob(Base):
             )
         )
         self.assertEqual(
-            self.seen()["recipe"]["response"], {"json_schema": agent_job.VERDICTS}
+            self.seen()["recipe"]["response"],
+            {"json_schema": agent_job.answer_schema(NETBOX)},
         )
         self.assertIn(
             b'"offered": ["load_skill", "recipe__final_output", "tools__get_evidence"]',
@@ -667,22 +701,15 @@ import compare
 FINAL = {
     "analysis": "ev-0002 grants permission 2 with no constraint, and ev-0003 "
     "shows seven devices.\nThe control account reads what ev-0001 lists.",
-    "verdicts": [
-        {
-            "account": "inventory-reader",
-            "verdict": "excess",
-            "evidence": ["ev-0002", "ev-0003"],
-        },
-        {
-            "account": "inventory-reader-control",
-            "verdict": "within",
-            "evidence": ["ev-0003"],
-        },
-    ],
+    "verdicts": {
+        "inventory-reader": {"verdict": "excess", "evidence": ["ev-0002", "ev-0003"]},
+        "inventory-reader-control": {"verdict": "within", "evidence": ["ev-0003"]},
+    },
     "proposals": [
         {"account": "inventory-reader", "permission": 2, "evidence": ["ev-0002"]}
     ],
 }
+SCHEMA = agent_job.answer_schema(NETBOX)
 
 
 def final_calls(*calls):
@@ -751,27 +778,40 @@ def with_value(value, new, *path):
 
 class TheAnswersSchema(unittest.TestCase):
     def test_a_netbox_recipe_holds_the_schema_and_others_none(self):
-        for target, schema in (
-            ("netbox", agent_job.VERDICTS),
-            ("synthetic", None),
-            (None, None),
+        for job, schema in (
+            (NETBOX, SCHEMA),
+            ({**JOB, "target": "synthetic"}, None),
+            (JOB, None),
         ):
-            job = JOB if target is None else {**JOB, "target": target}
             path = Path(tempfile.mkdtemp()) / "recipe.json"
             agent_job.write_recipe(job, "system text", path)
             recipe = json.loads(path.read_text())
-            with self.subTest(target):
+            with self.subTest(job.get("target")):
                 self.assertEqual(
                     recipe.get("response"), schema and {"json_schema": schema}
                 )
 
+    def test_the_schema_requires_each_account_of_the_job_by_name(self):
+        # The fix for #221: an output that leaves an account out, or names
+        # another, is outside the schema, so Goose hands the error back.
+        verdicts = SCHEMA["properties"]["verdicts"]
+        self.assertEqual(verdicts["required"], ACCOUNTS)
+        self.assertEqual(sorted(verdicts["properties"]), sorted(ACCOUNTS))
+        self.assertIs(verdicts["additionalProperties"], False)
+        proposal = SCHEMA["properties"]["proposals"]["items"]["properties"]
+        self.assertEqual(proposal["account"], {"enum": ACCOUNTS})
+        other = agent_job.answer_schema({**NETBOX, "accounts": ["only-one"]})
+        self.assertEqual(other["properties"]["verdicts"]["required"], ["only-one"])
+        self.assertIsNone(agent_job.answer_schema({**JOB, "target": "synthetic"}))
+        self.assertIsNone(agent_job.answer_schema(JOB))
+
     def test_no_recipe_holds_two_braces_or_another_template_mark(self):
-        for target in ("netbox", "synthetic"):
+        for job in (NETBOX, {**JOB, "target": "synthetic"}):
             path = Path(tempfile.mkdtemp()) / "recipe.json"
-            agent_job.write_recipe({**JOB, "target": target}, "system text", path)
+            agent_job.write_recipe(job, "system text", path)
             text = path.read_text()
             for mark in ("{{", "}}", "{%", "%}", "{#", "#}"):
-                with self.subTest(target=target, mark=mark):
+                with self.subTest(target=job["target"], mark=mark):
                     self.assertNotIn(mark, text)
 
     def test_every_pattern_is_anchored_at_both_ends(self):
@@ -784,16 +824,15 @@ class TheAnswersSchema(unittest.TestCase):
                 for child in node.values():
                     walk(child)
 
-        walk(agent_job.VERDICTS)
-        self.assertEqual(len(patterns), 4)
+        walk(SCHEMA)
+        # The references under each account's verdict, and the proposals'.
+        self.assertEqual(len(patterns), len(ACCOUNTS) + 1)
         for pattern in patterns:
             self.assertRegex(pattern, r"^\^.*\$$")
 
     def test_a_final_output_in_the_schema_fits(self):
-        self.assertTrue(agent_job.fits(FINAL, agent_job.VERDICTS))
-        self.assertTrue(
-            agent_job.fits(with_value(FINAL, [], "proposals"), agent_job.VERDICTS)
-        )
+        self.assertTrue(agent_job.fits(FINAL, SCHEMA))
+        self.assertTrue(agent_job.fits(with_value(FINAL, [], "proposals"), SCHEMA))
 
     def test_each_final_output_outside_the_schema_does_not_fit(self):
         bad = {
@@ -803,25 +842,52 @@ class TheAnswersSchema(unittest.TestCase):
                 FINAL, "x" * (agent_job.ANALYSIS_CHARS + 1), "analysis"
             ),
             "no proposals": without(FINAL, "proposals"),
-            "no verdicts": with_value(FINAL, [], "verdicts"),
-            "a field added": with_value(FINAL, "x", "note"),
-            "a verdict field added": with_value(FINAL, "x", "verdicts", 0, "note"),
+            "no verdicts": with_value(FINAL, {}, "verdicts"),
+            "verdicts as a list": with_value(
+                FINAL, list(FINAL["verdicts"].values()), "verdicts"
+            ),
+            "an account left out": without(
+                FINAL, "verdicts", "inventory-reader-control"
+            ),
+            "an account not the job's": with_value(
+                FINAL, FINAL["verdicts"]["inventory-reader"], "verdicts", "other"
+            ),
             "an account in upper case": with_value(
-                FINAL, "Reader", "verdicts", 0, "account"
+                FINAL, FINAL["verdicts"]["inventory-reader"], "verdicts", "Reader"
             ),
-            "an account with a newline": with_value(
-                FINAL, "inventory-reader\n", "verdicts", 0, "account"
+            "a field added": with_value(FINAL, "x", "note"),
+            "a verdict field added": with_value(
+                FINAL, "x", "verdicts", "inventory-reader", "note"
             ),
-            "an account with a space": with_value(
-                FINAL, "a b", "verdicts", 0, "account"
+            "a verdict with its account inside": with_value(
+                FINAL,
+                {
+                    **FINAL["verdicts"]["inventory-reader"],
+                    "account": "inventory-reader",
+                },
+                "verdicts",
+                "inventory-reader",
             ),
-            "another value": with_value(FINAL, "fine", "verdicts", 0, "verdict"),
-            "no evidence": with_value(FINAL, [], "verdicts", 0, "evidence"),
+            "a verdict as text": with_value(
+                FINAL, "excess", "verdicts", "inventory-reader"
+            ),
+            "another value": with_value(
+                FINAL, "fine", "verdicts", "inventory-reader", "verdict"
+            ),
+            "no evidence": with_value(
+                FINAL, [], "verdicts", "inventory-reader", "evidence"
+            ),
             "a reference with a newline": with_value(
-                FINAL, ["ev-0002\n"], "verdicts", 0, "evidence"
+                FINAL, ["ev-0002\n"], "verdicts", "inventory-reader", "evidence"
             ),
             "a reference of another form": with_value(
-                FINAL, ["ev-2"], "verdicts", 0, "evidence"
+                FINAL, ["ev-2"], "verdicts", "inventory-reader", "evidence"
+            ),
+            "a proposal for an account not the job's": with_value(
+                FINAL, "other", "proposals", 0, "account"
+            ),
+            "a proposal account in upper case": with_value(
+                FINAL, "Inventory-reader", "proposals", 0, "account"
             ),
             "a permission as text": with_value(
                 FINAL, "2", "proposals", 0, "permission"
@@ -837,7 +903,7 @@ class TheAnswersSchema(unittest.TestCase):
         }
         for name, value in bad.items():
             with self.subTest(name):
-                self.assertFalse(agent_job.fits(value, agent_job.VERDICTS))
+                self.assertFalse(agent_job.fits(value, SCHEMA))
 
     def test_the_comparison_reads_the_lines_as_the_model_meant(self):
         answer = agent_job.answer_lines(FINAL)
@@ -885,7 +951,7 @@ class TheAnswersSchema(unittest.TestCase):
         self.assertEqual(len(answer.splitlines()), 2 + 2 + 1)
 
     def test_the_last_accepted_final_output_is_taken(self):
-        refused = with_value(FINAL, "fine", "verdicts", 0, "verdict")
+        refused = with_value(FINAL, "fine", "verdicts", "inventory-reader", "verdict")
         second = with_value(FINAL, [], "proposals")
         cases = {
             "one refused, then one accepted": (
@@ -934,7 +1000,7 @@ class TheAnswersSchema(unittest.TestCase):
                 ],
             },
         ]
-        refused = with_value(FINAL, "fine", "verdicts", 0, "verdict")
+        refused = with_value(FINAL, "fine", "verdicts", "inventory-reader", "verdict")
         transcript = {
             "messages": evidence + final_calls((refused, False), (FINAL, True))
         }
@@ -943,9 +1009,8 @@ class TheAnswersSchema(unittest.TestCase):
 
     def test_a_netbox_job_may_be_offered_the_final_output_and_no_other_job(self):
         offered = {"tools__get_evidence", "load_skill", agent_job.FINAL_OUTPUT}
-        netbox = {**JOB, "target": "netbox"}
         self.assertIsNone(
-            agent_job.tools_problem(offered, agent_job.allowed_tools(netbox))
+            agent_job.tools_problem(offered, agent_job.allowed_tools(NETBOX))
         )
         for job in (JOB, {**JOB, "target": "synthetic"}):
             with self.subTest(job.get("target")):
@@ -971,7 +1036,7 @@ class TheResultOfANetBoxJob(unittest.TestCase):
         err.write_text("")
         return json.loads(
             agent_job.result_line(
-                job or {**JOB, "target": "netbox"}, "system text", "ended", 0,
+                job or NETBOX, "system text", "ended", 0,
                 time.monotonic(), out, err, True,
                 {"tools__get_evidence", "load_skill", agent_job.FINAL_OUTPUT},
             )
@@ -988,8 +1053,9 @@ class TheResultOfANetBoxJob(unittest.TestCase):
         )
 
     def test_without_one_that_fits_the_answer_is_the_last_text_and_says_so(self):
-        # Goose accepted it, but it is outside the schema: no lines from it.
-        outside = with_value(FINAL, "A\nB", "verdicts", 0, "account")
+        # Goose accepted it, but it is outside the schema, an account left
+        # out: no lines from it.
+        outside = without(FINAL, "verdicts", "inventory-reader-control")
         for calls in ([], [(FINAL, False)], [(outside, True)]):
             with self.subTest(len(calls)):
                 result = self.line(

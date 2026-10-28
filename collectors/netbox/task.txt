@@ -10,4 +10,4 @@ Give each account in the contract one verdict.
 
 For each account whose verdict is excess, find the one change that removes the excess: the permission to take from that account. Only a permission that ev-0002 lists for that account may be named.
 
-When you have read the three documents, give the answer by calling the final_output tool, on its own. In the analysis, cite the evidence each conclusion rests on, and say where the evidence disagrees. Give one verdict for each account in the contract, with the account's name as ev-0001 gives it and the evidence the verdict rests on, and one proposal for each account whose verdict is excess, with the permission's id from ev-0002.
+When you have read the three documents, give the answer by calling the final_output tool, on its own. In the analysis, cite the evidence each conclusion rests on, and say where the evidence disagrees. Give the verdict for each account under its name, as the schema lists them, with the evidence the verdict rests on, and one proposal for each account whose verdict is excess, with the permission's id from ev-0002.

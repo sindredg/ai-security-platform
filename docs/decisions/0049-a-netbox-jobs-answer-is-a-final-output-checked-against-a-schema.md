@@ -3,6 +3,8 @@
 Status: Accepted
 Date: 2026-10-27
 
+The schema names each of the job's accounts, and the job line carries them: [0051](0051-a-netbox-jobs-schema-names-each-account-of-the-job.md).
+
 ## Context
 
 The comparison reads one verdict line per account, in a strict form, and stops on anything else ([0041](0041-the-workflow-compares-the-models-verdict-with-the-checks.md)). The task asks for those lines in plain text, and for a proposal line per excess account ([0043](0043-proposals-are-remove-only-and-a-policy-check-decides.md)).

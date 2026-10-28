@@ -29,6 +29,17 @@ sys.path.insert(0, str(HERE))
 
 import dispatch
 
+# The checks' verdicts for job-1, as the collect command writes them. The
+# dispatch step reads from them the accounts a NetBox job answers for (#221).
+VERDICTS = {
+    "job": "job-1",
+    "collected": "2026-10-25T16:00:00Z",
+    "accounts": {
+        "inventory-reader": {"configured": "excess", "observed": "excess"},
+        "inventory-reader-control": {"configured": "within", "observed": "within"},
+    },
+}
+
 # A fake Goose: records the recipe, then answers as FAKE_MODE says. It logs
 # the request it would send the model, with the tools Goose 1.56.0 offers,
 # where the job program reads them (#139).
@@ -131,6 +142,8 @@ class Chain(unittest.TestCase):
         (self.tmp / "key").write_text("not a real key\n")
         (self.tmp / "known_hosts").write_text("10.40.0.36 ssh-ed25519 AAAA\n")
         (self.tmp / "system.txt").write_text("You investigate security findings.")
+        self.verdicts = self.tmp / "verdicts.json"
+        self.verdicts.write_text(json.dumps(VERDICTS))
         self.mode = "ok"
 
     def tearDown(self):
@@ -197,6 +210,7 @@ class Chain(unittest.TestCase):
             "AISEC_WORK": str(self.tmp / "work"),
             "AISEC_RESULT": str(self.tmp / "result.json"),
             "AISEC_ANSWER": str(self.tmp / "answer.txt"),
+            "AISEC_VERDICTS": str(self.verdicts),
             "AISEC_SSH": str(fake_ssh),
         }
 
@@ -457,6 +471,53 @@ class Chain(unittest.TestCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(self.registered_digest()["target"], "netbox")
 
+    def test_a_netbox_jobs_schema_names_the_accounts_of_the_checks_verdicts(self):
+        # The names reach the job program, which requires each in the
+        # schema it gives Goose (#221).
+        code, _, err = self.run_dispatch("dispatch", "job-1", "netbox", "6", "60", "t")
+        self.assertEqual(code, 0, err)
+        recipe = json.loads((self.tmp / "recipe-seen.json").read_text())
+        verdicts = recipe["response"]["json_schema"]["properties"]["verdicts"]
+        self.assertEqual(
+            verdicts["required"], ["inventory-reader", "inventory-reader-control"]
+        )
+
+    def test_a_netbox_job_without_the_checks_verdicts_fails_before_it_runs(self):
+        # The same stops the comparison step would give after the job.
+        cases = {
+            "no file": (None, "no checks' verdicts for this job"),
+            "another job's": (
+                {**VERDICTS, "job": "job-2"},
+                "the checks' verdicts are for another job",
+            ),
+            "not in shape": (
+                {**VERDICTS, "accounts": {}},
+                "the checks' verdicts are not in their shape",
+            ),
+        }
+        for name, (document, stop) in cases.items():
+            with self.subTest(name):
+                self.verdicts.unlink(missing_ok=True)
+                if document is not None:
+                    self.verdicts.write_text(json.dumps(document))
+                Stub.calls = []
+                code, _, err = self.run_dispatch(
+                    "dispatch", "job-1", "netbox", "6", "60", "t"
+                )
+                self.assertEqual(code, 1)
+                self.assertIn("failed: " + stop, err)
+                self.assertEqual(Stub.calls, [])
+                self.assertFalse((self.tmp / "ssh-argv.json").exists())
+
+    def test_a_synthetic_job_needs_no_checks_verdicts_and_gets_no_accounts(self):
+        self.verdicts.unlink()
+        code, _, err = self.run_dispatch(
+            "dispatch", "job-1", "synthetic", "6", "60", "t"
+        )
+        self.assertEqual(code, 0, err)
+        recipe = json.loads((self.tmp / "recipe-seen.json").read_text())
+        self.assertNotIn("response", recipe)
+
 
 class TheJobLine(unittest.TestCase):
     def test_the_worker_gets_the_target(self):
@@ -472,6 +533,13 @@ class TheJobLine(unittest.TestCase):
                 "target": "netbox",
             },
         )
+
+    def test_the_worker_gets_the_accounts_of_a_job_that_has_them(self):
+        names = ["inventory-reader", "inventory-reader-control"]
+        line = dispatch.job_line("job-1", "netbox", 6, 60, "t", "ab" * 32, names)
+        self.assertEqual(json.loads(line)["accounts"], names)
+        line = dispatch.job_line("job-1", "synthetic", 6, 60, "t", "ab" * 32, None)
+        self.assertNotIn("accounts", json.loads(line))
 
 
 PART = {"role": "assistant", "type": "text", "text": "Confirmed."}

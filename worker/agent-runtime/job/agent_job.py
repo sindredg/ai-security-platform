@@ -50,10 +50,15 @@ SECONDS = range(60, 1201)
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 TOKEN = re.compile(r"[0-9a-f]{64}")
 FIELDS = {"job", "token", "task", "max_turns", "seconds"}
-# The job's target, which the dispatch step names since #217. A line from a
-# dispatch image before it has none. The tool service's targets.
-OPTIONAL = {"target"}
+# The job's target, which the dispatch step names since #217, and for a
+# target that answers in a schema, the names of the accounts the answer
+# covers, which the dispatch step reads from the checks' verdicts for the job
+# (ADR 0051). A line from a dispatch image before #217 has neither. The tool
+# service's targets. The names follow the comparison's pattern for an account.
+OPTIONAL = {"target", "accounts"}
 TARGETS = ("synthetic", "netbox")
+ACCOUNT = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
+MAX_ACCOUNTS = 20
 # Goose renders the recipe file as a MiniJinja template before it parses
 # it, so template syntax in the task would run, and its output could replace
 # the recipe. It also runs a first message that starts with "!" as a shell
@@ -95,68 +100,83 @@ FINAL_OUTPUT_ACCEPTED = "Final output successfully collected."
 # The answer the comparison reads is at most 8 KiB (dispatch.py). The lines
 # after the analysis take far less.
 ANALYSIS_CHARS = 2000
-ACCOUNT_NAME = {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"}
 REFERENCES = {
     "type": "array",
     "minItems": 1,
     "maxItems": 8,
     "items": {"type": "string", "pattern": "^ev-[0-9]{4}$"},
 }
-VERDICTS = {
+VERDICT = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["analysis", "verdicts", "proposals"],
+    "required": ["verdict", "evidence"],
     "properties": {
-        "analysis": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": ANALYSIS_CHARS,
-            "description": "What the evidence shows for each account, citing "
-            "it, and where it disagrees",
-        },
-        "verdicts": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 20,
-            "description": "One for each account in the contract",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["account", "verdict", "evidence"],
-                "properties": {
-                    "account": ACCOUNT_NAME,
-                    "verdict": {
-                        "enum": ["excess", "missing", "within", "inconclusive"]
-                    },
-                    "evidence": REFERENCES,
-                },
-            },
-        },
-        "proposals": {
-            "type": "array",
-            "maxItems": 20,
-            "description": "One for each account whose verdict is excess",
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["account", "permission", "evidence"],
-                "properties": {
-                    "account": ACCOUNT_NAME,
-                    "permission": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 999999999,
-                        "description": "The id in ev-0002 of the permission to "
-                        "take from the account",
-                    },
-                    "evidence": REFERENCES,
-                },
-            },
-        },
+        "verdict": {"enum": ["excess", "missing", "within", "inconclusive"]},
+        "evidence": REFERENCES,
     },
 }
-# The targets whose jobs answer in a schema, and the schema.
-ANSWER_SCHEMAS = {"netbox": VERDICTS}
+
+
+def verdicts_schema(accounts):
+    """The schema of a NetBox job's answer: an analysis, a verdict under the
+    name of each of the job's accounts, and a proposal for each account whose
+    verdict is excess. Every account is required and no other is allowed, so
+    Goose refuses an output that leaves one out and hands the error back to
+    the model (ADR 0051, #221)."""
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["analysis", "verdicts", "proposals"],
+        "properties": {
+            "analysis": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": ANALYSIS_CHARS,
+                "description": "What the evidence shows for each account, citing "
+                "it, and where it disagrees",
+            },
+            "verdicts": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": list(accounts),
+                "description": "The verdict for each account in the contract, "
+                "under the account's name",
+                "properties": {name: VERDICT for name in accounts},
+            },
+            "proposals": {
+                "type": "array",
+                "maxItems": MAX_ACCOUNTS,
+                "description": "One for each account whose verdict is excess",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["account", "permission", "evidence"],
+                    "properties": {
+                        "account": {"enum": list(accounts)},
+                        "permission": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 999999999,
+                            "description": "The id in ev-0002 of the permission "
+                            "to take from the account",
+                        },
+                        "evidence": REFERENCES,
+                    },
+                },
+            },
+        },
+    }
+
+
+# The targets whose jobs answer in a schema, and the schema for a job's
+# accounts.
+ANSWER_SCHEMAS = {"netbox": verdicts_schema}
+
+
+def answer_schema(job):
+    """The schema a job's answer is checked against, or None."""
+    build = ANSWER_SCHEMAS.get(job.get("target"))
+    return build(job["accounts"]) if build else None
 
 
 class Refused(Exception):
@@ -196,6 +216,17 @@ def parse_job(line):
         raise Refused("job line has the wrong fields")
     if "target" in job and job["target"] not in TARGETS:
         raise Refused("target is not known")
+    accounts = job.get("accounts")
+    if job.get("target") in ANSWER_SCHEMAS:
+        if not (
+            isinstance(accounts, list)
+            and 0 < len(accounts) <= MAX_ACCOUNTS
+            and all(isinstance(a, str) and ACCOUNT.fullmatch(a) for a in accounts)
+            and len(set(accounts)) == len(accounts)
+        ):
+            raise Refused("accounts are missing or not valid")
+    elif "accounts" in job:
+        raise Refused("accounts for a target without a schema")
     if not isinstance(job["job"], str) or not JOB_ID.fullmatch(job["job"]):
         raise Refused("job ID is not valid")
     if not isinstance(job["token"], str) or not TOKEN.fullmatch(job["token"]):
@@ -233,7 +264,7 @@ def write_recipe(job, system, path):
             }
         ],
     }
-    schema = ANSWER_SCHEMAS.get(job.get("target"))
+    schema = answer_schema(job)
     if schema:
         recipe["response"] = {"json_schema": schema}
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -406,7 +437,7 @@ def accepted_output(transcript):
 
 
 def fits(value, schema):
-    """Whether value fits schema, for the keywords VERDICTS uses. Goose
+    """Whether value fits schema, for the keywords the answer schema uses. Goose
     checked it first. This keeps the lines written from it to what the schema
     allows, whatever Goose's checker passed."""
     if "enum" in schema and value not in schema["enum"]:
@@ -458,8 +489,8 @@ def answer_lines(final):
     analysis = " ".join(final["analysis"].split())
     lines = [f"Analysis: {analysis}", ""]
     lines += [
-        f"Verdict: {v['account']} {v['verdict']} {' '.join(v['evidence'])}"
-        for v in final["verdicts"]
+        f"Verdict: {name} {v['verdict']} {' '.join(v['evidence'])}"
+        for name, v in final["verdicts"].items()
     ]
     lines += [
         f"Proposal: {p['account']} remove {p['permission']} {' '.join(p['evidence'])}"
@@ -581,7 +612,7 @@ def result_line(job, system, outcome, code, started, out, err, erased, offered):
     except (AttributeError, TypeError):
         pass
     stderr = Path(err).read_text(errors="replace").replace(token, "[token]")
-    schema = ANSWER_SCHEMAS.get(job.get("target"))
+    schema = answer_schema(job)
     if schema and final is not None and fits(final, schema):
         answer = answer_lines(final)
         stderr += f"\nthe answer is the final output, after {final_calls} calls"
