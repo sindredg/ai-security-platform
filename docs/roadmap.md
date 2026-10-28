@@ -10,12 +10,12 @@ Security work has no milestone of its own. Each practice is part of the criteria
 | --- | --- | --- | --- |
 | 0. Documentation baseline and preflight | Done | None | [Worklog](worklogs/0000-azure-preflight.md) |
 | 1. Network foundation | Done | None. The effective rules were tested in milestone 2 | [Worklog](worklogs/0001-network-foundation.md) |
-| 2. Platform compute | Done | Accepted gap: no tool has a CIS profile for Ubuntu 26.04. Configured, not tested: push protection, and an update pull request for a provider or an action | [Worklog](worklogs/0002-platform-compute.md) |
+| 2. Platform compute | Done | Accepted gap: no tool has a CIS profile for Ubuntu 26.04. Configured, not tested: an update pull request for a provider or an action | [Worklog](worklogs/0002-platform-compute.md) |
 | 3. Toolchain integration | Done | Accepted gap: every job on `synthetic` reads one fixed file. Root on the orchestrator, trusted by design, can edit the audit file before the log agent sends it | [Worklog](worklogs/0003-toolchain-integration.md) |
 | 3a. Edge network and monitoring | Done | Configured, not tested: a connection from the router to an operator device. The mesh policy's own tests refuse one | [Worklog](worklogs/0004-edge-network-and-monitoring.md) |
 | 4. NetBox target and exercise 1 investigation | Done | Accepted gap: no case whose documents disagree ([#205](https://github.com/sindredg/ai-security-platform/issues/205)). An inconclusive verdict stopped a workflow in tests only | [Worklog](worklogs/0005-netbox-target-and-exercise-1.md), [evidence](evidence/README.md) |
 | 5. Remediation, pull requests, and delivery | Done | Pipeline tests only: a wider fix refused. Configured, not tested: the copy's routing at first boot. Accepted gap: no held-out case has a fix left to propose ([#220](https://github.com/sindredg/ai-security-platform/issues/220)) | [Worklog](worklogs/0006-remediation-pull-requests-and-delivery.md), [evidence](evidence/README.md) |
-| 6. Operational and containment drills | Next | | |
+| 6. Operational and containment drills | In progress | | [Worklog](worklogs/0007-operational-and-containment-drills.md) |
 | 7. Exercise 2: excess network access | Planned | | |
 | 8. Exercise 3: vulnerable image or dependency | Planned | | |
 

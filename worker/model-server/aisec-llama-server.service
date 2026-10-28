@@ -12,12 +12,17 @@ After=network.target
 # The job program erases the slot after each job (#32). The server refuses
 # every slot action, erase included, without a save path. The one it gets is
 # empty and read-only to it, so a save fails and there is nothing to restore.
+#
+# The server takes a cancel only between prompt batches. At the default of
+# 2048 tokens a late batch outlasts the job program's 90 s wait for the erase,
+# and a timed-out job leaves its prompt in the slot (#199, ADR 0052). 512
+# tokens is at most about 75 s at the slowest rate measured.
 ExecStart=@LLAMA_DIR@/llama-server \
   --model @MODEL_FILE@ \
   --alias local \
   --host 127.0.0.1 --port 8080 \
   --threads 2 --threads-batch 2 \
-  --ctx-size 8192 --parallel 1 --cache-ram 0 \
+  --ctx-size 8192 --batch-size 512 --parallel 1 --cache-ram 0 \
   --reasoning off \
   --no-ui --offline \
   --slot-save-path @SLOT_DIR@

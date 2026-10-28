@@ -55,6 +55,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0049](0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md) | A NetBox job answers through Goose's final output, checked against a schema, and the job program writes the lines the comparison reads | Accepted |
 | [0050](0050-a-guarded-change-merges-only-with-an-approval-on-its-head.md) | A pull request that changes NetBox's seed or the approvers merges only with an approval tag on its head commit, checked from the default branch | Accepted |
 | [0051](0051-a-netbox-jobs-schema-names-each-account-of-the-job.md) | A NetBox job's schema requires a verdict under the name of each of the job's accounts, which the dispatch step reads from the checks' verdicts and names in the job line. Changes the schema of 0049 and the job line of 0030 | Accepted |
+| [0052](0052-a-smaller-prompt-batch-so-a-cancel-reaches-the-model-server-in-time.md) | The model server's prompt batch is 512 tokens, so a cancel reaches it inside the job program's erase wait, and the waits stay | Accepted |
 
 ## Format
 

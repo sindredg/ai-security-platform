@@ -45,6 +45,7 @@ The router runs the mesh agent and nothing else ([ADR 0025](../decisions/0025-th
 | `R.5` | The mesh VPN agent uploads no logs to the vendor | The vendor would get a record of the router's activity | `--no-logs-no-support` on the running agent's command line, from `/proc`. The defaults file alone would not show an agent started without it |
 | `R.6` | Tailscale SSH and the web client are off | Either is a way in that skips sshd and the certificate | `RunSSH` and `RunWebClient` from `tailscale debug prefs`, both `false` |
 | `R.7` | Nothing is served or funnelled through the mesh VPN | Funnel publishes a port to the internet. Serve publishes it to the mesh | `tailscale serve status --json` prints `{}`. No answer is a failure |
+| `R.8` | Operator sessions to the targets are logged on the router | The targets send no logs. The router sees every session from the mesh, and its line names the operator device (T04) | The `aisec_sessions` table has one rule with the prefix `aisec-target-ssh`. No table is `0` |
 
 `E.5`, `U.2`, and `U.6` to `U.9` also read the router. They are on [containment](containment.md#the-orchestrators-side) and [package proxy](package-proxy.md).
 

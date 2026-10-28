@@ -13,6 +13,7 @@ Status: **tested** on the running system on 2026-10-12. `validation/platform-che
 | `S.5` | The server answers with a loaded model | An active unit can still be loading, or stuck | `/health` on loopback returns 200. The server returns 503 while it loads |
 | `S.6` | The unit's exposure score is 1.3 | The server parses a model file and every prompt, so its sandbox is the control. A setting dropped from the unit moves the score | `systemd-analyze security` |
 | `S.7` | The model file the server loads matches its checksum from the build | The file is 2.78 GB of weights that nothing else looks at after the build | The path after `--model` on the unit's command line, hashed and compared with its line in `SHA256SUMS` |
+| `S.8` | The prompt batch is 512 tokens | A cancel reaches the server between batches. A longer batch outlasts the erase wait, and a timed-out job leaves its prompt in the slot ([ADR 0052](../decisions/0052-a-smaller-prompt-batch-so-a-cancel-reaches-the-model-server-in-time.md)) | The value after `--batch-size` on the unit's command line |
 
 `S.1` and `S.4` are two layers of one claim. `S.4` says the server does not listen where the network can see it. `S.1` says the network would drop the packet anyway.
 
@@ -29,6 +30,7 @@ No broken input was made on the running system: that would mean stopping or chan
 | `S.5` | The server returns 503, or there is no connection | `503`, `000` |
 | `S.6` | The score is 1.5, or the unit does not exist | `1.5`, empty |
 | `S.7` | One byte added to the file, an empty `SHA256SUMS`, no `SHA256SUMS`, a wrong checksum on the line, a `SHA256SUMS` that lists another file that matches, a unit that loads a file with no line, no model directory, no unit | `differ` |
+| `S.8` | A command line without `--batch-size`, the unit before the change, or one with `--batch-size 2048` | empty, `2048` |
 
 The formats the probes parse were read from the real tools on the workstation: `ss -Hltnp`, `systemctl show -p ExecStart`, and the last line of `systemd-analyze security`, on systemd 255. The worker runs a newer systemd. The run on the system confirms its output parses the same way: `S.4`, `S.6`, and `S.7` each got a value and it was the expected one.
 

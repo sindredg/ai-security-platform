@@ -2,6 +2,7 @@
 
 Date: 2026-10-20
 Milestone: 3, toolchain integration
+Status: the batch of up to 2048 tokens named below is 512 since [ADR 0052](../decisions/0052-a-smaller-prompt-batch-so-a-cancel-reaches-the-model-server-in-time.md).
 
 ## Symptom
 

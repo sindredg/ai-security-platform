@@ -111,7 +111,7 @@ The download leaves through the NAT gateway and is billed per GB.
    REPLACE_WITH_SSH aisec-worker 'cd feed/model-server && sudo scripts/install-server.sh'
    ```
 
-   Expected: `Active: active (running)`, and a command line from `/opt/aisec/llama.cpp/llama-b11669` that ends `--cache-ram 0 --reasoning off --no-ui --offline --slot-save-path /opt/aisec/llama.cpp/slots`. The script checks the model file against its line in `SHA256SUMS` first, and stops when there is none. Then it creates the slot directory, and stops if the directory is not empty. Then it waits until `http://127.0.0.1:8080/health` answers.
+   Expected: `Active: active (running)`, and a command line from `/opt/aisec/llama.cpp/llama-b11669` that holds `--batch-size 512` and ends `--cache-ram 0 --reasoning off --no-ui --offline --slot-save-path /opt/aisec/llama.cpp/slots`. The script checks the model file against its line in `SHA256SUMS` first, and stops when there is none. Then it creates the slot directory, and stops if the directory is not empty. Then it waits until `http://127.0.0.1:8080/health` answers.
 
 8. Confirm that the port is closed to everything but the worker itself.
 

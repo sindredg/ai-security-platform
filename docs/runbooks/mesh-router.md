@@ -290,3 +290,28 @@ The orchestrator and the router are both on the mesh until step 13. Until then, 
     ```
 
     Expected: `No changes` and exit `0`.
+
+## Changes to a running router
+
+A router built from the current template has these at first boot. A running router ignores template changes, so each is loaded by hand.
+
+20. Load the session log rule, with the file from the template.
+
+    ```bash
+    awk '/path: \/etc\/aisec\/mss-clamp.nft/ {f = 1; next} f && /content: \|/ {c = 1; next} c && /^  - path:/ {exit} c {sub(/^      /, ""); print}' \
+      REPLACE_WITH_PLATFORM_CHECKOUT/infra/platform/cloud-init/router.yaml.tftpl |
+      REPLACE_WITH_SSH aisec-router 'sudo tee /etc/aisec/mss-clamp.nft > /dev/null && sudo systemctl restart aisec-mss-clamp &&
+        sudo nft list table inet aisec_sessions | grep -c aisec-target-ssh; sudo nft list table inet aisec_mss | grep -c maxseg'
+    ```
+
+    Expected: `1`, then `2`. A session to a target from the workstation then puts one `aisec-target-ssh` line in the router's kernel log, and in the workspace's `Syslog` table within a few minutes.
+
+21. Move the agent's pin. The agent restarts, so the session that runs this drops, and the unit runs detached.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-router 'sudo systemd-run --unit=aisec-pin-move --on-active=5 bash -c "apt-mark unhold tailscale && apt-get install -y -q tailscale=REPLACE_WITH_PINNED_VERSION && apt-mark hold tailscale"'
+    sleep 90
+    REPLACE_WITH_SSH aisec-router 'tailscale version | head -n 1; apt-mark showhold; systemctl is-active tailscaled; systemctl show aisec-pin-move -p Result --value'
+    ```
+
+    Expected: the pinned version, `tailscale`, `active`, `success`. The mesh came back within 30 seconds on 2026-10-20. `U.2` and `U.7` then pass.

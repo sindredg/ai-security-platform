@@ -539,6 +539,7 @@ echo "model_listen=$(ss -Hltnp | awk "\$4 ~ /:'"$MODEL_PORT"'\$/ {print \$4, \$6
 echo "model_health=$(code http://127.0.0.1:'"$MODEL_PORT"'/health)"
 echo "model_exposure=$(LC_ALL=C systemd-analyze security --no-pager '"$MODEL_UNIT"'.service 2>/dev/null | sed -n "s/.*Overall exposure level for [^:]*: \([0-9.]*\).*/\1/p")"
 model_file=$(systemctl show '"$MODEL_UNIT"' -p ExecStart --value 2>/dev/null | sed -n "s/.* --model \([^ ]*\) .*/\1/p")
+echo "model_batch=$(systemctl show '"$MODEL_UNIT"' -p ExecStart --value 2>/dev/null | sed -n "s/.* --batch-size \([0-9]*\) .*/\1/p")"
 echo "model_sum=$(cd "$(dirname "$model_file")" 2>/dev/null && grep "  $(basename "$model_file")\$" SHA256SUMS 2>/dev/null | sha256sum --check --strict --status 2>/dev/null && echo match || echo differ)"
 tool() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 -X POST -d "{}" "$@"; }
 echo "tool_port=$(tcp '"$ORCH_IP"' '"$TOOL_PORT"')"
@@ -574,6 +575,7 @@ probe_router="$probe_common"'
 echo "unit_tailscaled=$(systemctl is-active tailscaled)"
 echo "unit_mss_clamp=$(systemctl is-active aisec-mss-clamp)"
 echo "mss_rules=$(nft list table inet aisec_mss 2>/dev/null | grep -c maxseg)"
+echo "session_log_rules=$(nft list table inet aisec_sessions 2>/dev/null | grep -c "log prefix \"aisec-target-ssh")"
 echo "ip_forward=$(sysctl -n net.ipv4.ip_forward)"
 echo "lock=$(tailscale lock status 2>/dev/null | head -n 1)"
 echo "lock_signed=$(tailscale lock status 2>/dev/null | grep -c "This node is accessible under Tailnet Lock")"
@@ -922,6 +924,9 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # The file named on the unit's command line, against the line for it in the
   # SHA256SUMS the build wrote. No line for that file is "differ", not a pass.
   check S.7 "The model file the server loads matches its checksum from the build" match "$(value model_sum)"
+  # A cancel reaches the server between prompt batches. A batch longer than the
+  # job program's erase wait leaves a timed-out job's prompt in the slot (#199).
+  check S.8 "The model server's prompt batch is 512 tokens" 512 "$(value model_batch)"
   check T.9 "The worker reaches the tool port" open "$(value tool_port)"
   # Through TLS with the pinned certificate and the name in it, to a refusal:
   # the service answers, and wants a token.
@@ -1000,6 +1005,9 @@ if probe=$($SSH "$ROUTER" 'sudo bash -s' <<<"$probe_router" 2>/dev/null) && [ -n
   check R.2 "The segment size clamp is loaded" "active 2" "$(value unit_mss_clamp) $(value mss_rules)"
   check R.3 "The router forwards packets" 1 "$(value ip_forward)"
   check R.4 "The router advertises the platform, the targets, and the edge subnet" "$ROUTES" "$(value advertised_routes)"
+  # Every session to a target from the mesh passes this chain. The kernel's
+  # line reaches the workspace through the router's log agent (T04).
+  check R.8 "Operator sessions to the targets are logged on the router" 1 "$(value session_log_rules)"
   # The flag on the running agent's command line (ADR 0025). The defaults file
   # alone would not show an agent started without it.
   check R.5 "The mesh VPN agent uploads no logs to the vendor" 1 "$(value log_upload_off)"

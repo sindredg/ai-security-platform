@@ -41,6 +41,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -79,6 +80,11 @@ TARGETS = ("synthetic", "netbox")
 # the file the comparison step reads, so the model is asked for the accounts
 # the comparison checks and no others.
 ANSWER_TARGETS = ("netbox",)
+# The checks' verdicts the dispatch step takes: collected within the hour, and
+# not more than five minutes ahead of this clock (T23).
+COLLECTED_MAX_AGE = 3600
+COLLECTED_SKEW = 300
+COLLECTED_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 TOOLS = ["get_evidence"]
 JOB_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 # The ranges the job program on the worker accepts. Checked here first, so a
@@ -283,17 +289,34 @@ class Session:
             self.process.wait()
 
 
-def accounts_for(job, target):
+def accounts_for(job, target, now=None):
     """The names of the accounts a job answers for, sorted, from the checks'
     verdicts for the job, or None for a target without a schema. A NetBox job
     with no verdicts fails here, before it runs, with the stop the comparison
-    step would give after it (#221)."""
+    step would give after it (#221). So does one whose verdicts were collected
+    more than COLLECTED_MAX_AGE seconds ago (T23): the collect command writes
+    the item right before the job is submitted, and an older one is a job's
+    evidence left behind, or put there by hand."""
     if target not in ANSWER_TARGETS:
         return None
     try:
-        return sorted(compare.load_checks(compare.VERDICTS, job))
+        document = compare.load_document(compare.VERDICTS, job)
     except compare.Stop as stop:
         raise Failed(str(stop)) from None
+    try:
+        collected = datetime.strptime(document["collected"], COLLECTED_FORMAT)
+    except ValueError:
+        raise Failed("the checks' verdicts' time is not a time") from None
+    collected = collected.replace(tzinfo=UTC)
+    age = ((now or datetime.now(UTC)) - collected).total_seconds()
+    if age < -COLLECTED_SKEW:
+        raise Failed("the checks' verdicts are from the future")
+    if age > COLLECTED_MAX_AGE:
+        raise Failed(
+            f"the checks' verdicts are {age:.0f} s old, and the dispatch step "
+            f"takes at most {COLLECTED_MAX_AGE}"
+        )
+    return sorted(document["accounts"])
 
 
 def job_line(job, target, max_turns, seconds, task, token, accounts=None):
@@ -313,18 +336,39 @@ def job_line(job, target, max_turns, seconds, task, token, accounts=None):
     return json.dumps(line).encode()
 
 
+def revoke(job):
+    """Ends the job at the tool service. A job it does not hold is 200 too."""
+    return tool_service("DELETE", REGISTER_URL + "/" + job)
+
+
 def dispatch(job, target, max_turns, seconds, task):
     accounts = accounts_for(job, target)
     token = secrets.token_hex(32)
-    register(job, target, seconds, token)
-    line = job_line(job, target, max_turns, seconds, task, token, accounts)
-    session = Session(private_key())
+    session = None
+    registered = False
 
+    # A stop revokes the token itself, since argo terminate skips the exit
+    # handler that would (#174), then closes the session, which cancels the
+    # job on the worker. The exit handler's second revoke is 200 at the
+    # service. A stop inside register's request, after the service stored
+    # the job, revokes nothing: that entry expires with its seconds.
     def stopped(signum, frame):
-        session.close()
+        revoked = None
+        if registered:
+            try:
+                revoked, _ = revoke(job)
+            except Exception as error:  # noqa: BLE001 - the exit is what matters
+                print(f"revoke on stop failed: {error}", file=sys.stderr)
+        if session is not None:
+            session.close()
+        print(json.dumps({"job": job, "stopped": signum, "revoked": revoked}))
         sys.exit(128 + signum)
 
     signal.signal(signal.SIGTERM, stopped)
+    register(job, target, seconds, token)
+    registered = True
+    line = job_line(job, target, max_turns, seconds, task, token, accounts)
+    session = Session(private_key())
     try:
         session.send(line + b"\n")
         result = check_result(
@@ -381,7 +425,7 @@ def main(argv):
                 raise Failed("seconds out of range")
             dispatch(job, target, int(max_turns), int(seconds), task)
         elif len(argv) == 3 and argv[1] == "revoke":
-            status, text = tool_service("DELETE", REGISTER_URL + "/" + argv[2])
+            status, text = revoke(argv[2])
             print(status, text)
             if status != 200:
                 raise Failed("revoke refused")
