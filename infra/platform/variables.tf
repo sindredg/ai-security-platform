@@ -113,7 +113,7 @@ variable "tailscale_auth_key" {
 variable "tailscale_version" {
   description = "Mesh VPN agent version, as the package repository names it."
   type        = string
-  default     = "1.104.2"
+  default     = "1.104.4"
 }
 
 variable "k3s_version" {

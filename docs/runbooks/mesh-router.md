@@ -306,3 +306,12 @@ A router built from the current template has these at first boot. A running rout
 
     Expected: `1`, then `2`. A session to a target from the workstation then puts one `aisec-target-ssh` line in the router's kernel log, and in the workspace's `Syslog` table within a few minutes.
 
+21. Move the agent's pin. The agent restarts, so the session that runs this drops, and the unit runs detached.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-router 'sudo systemd-run --unit=aisec-pin-move --on-active=5 bash -c "apt-mark unhold tailscale && apt-get install -y -q tailscale=REPLACE_WITH_PINNED_VERSION && apt-mark hold tailscale"'
+    sleep 90
+    REPLACE_WITH_SSH aisec-router 'tailscale version | head -n 1; apt-mark showhold; systemctl is-active tailscaled; systemctl show aisec-pin-move -p Result --value'
+    ```
+
+    Expected: the pinned version, `tailscale`, `active`, `success`. The mesh came back within 30 seconds on 2026-10-20. `U.2` and `U.7` then pass.
