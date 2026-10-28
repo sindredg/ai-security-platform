@@ -84,10 +84,11 @@ Each drill breaks the finished workflow on purpose and reads what it left. The s
 
    Expected: `configmap/netbox-verdicts patched`, then `Failed` within a minute, the last log line `failed: the checks' verdicts are 72NN s old, and the dispatch step takes at most 3600`, and `0` audit lines: the job never registered.
 
-5. Write an item with a fresh time and a verdict the live seed contradicts, and submit a job for it. The item is trusted, and the verification gate stops on the model's disagreement with it.
+5. Collect the job, so its evidence documents exist, then overwrite its item with a fresh time and a verdict the live seed contradicts, and submit it. The item is trusted, and the verification gate stops on the model's disagreement with it.
 
    ```bash
    JOB=nb-REPLACE_WITH_STAMP-forged
+   REPLACE_WITH_SSH aisec-orchestrator "sudo collect-netbox-evidence $JOB"
    item "$JOB" "$(date -u +%FT%TZ)" within
    argo submit --from workflowtemplate/investigate --name "$JOB" -p target=netbox -p seconds=1200 -p max-turns=8 \
      -p task="$(cat REPLACE_WITH_PLATFORM_CHECKOUT/collectors/netbox/task.txt)" --wait
@@ -98,16 +99,16 @@ Each drill breaks the finished workflow on purpose and reads what it left. The s
 
 ## Resource use per investigation
 
-6. Take a footprint reading before step 5's job and one after it, then read the diff and the machine's `Perf` rows for the job's minutes.
+6. Read each component's cumulative CPU time and peak memory on the orchestrator before step 5's job and after it, and the machine's `Perf` rows for the job's minutes. The difference over the job's seconds is each component's average CPU.
 
    ```bash
-   bash .notes/tools/orchestrator-footprint.sh > T0.txt   # before the submit in step 5
-   bash .notes/tools/orchestrator-footprint.sh > T1.txt   # after the workflow ends
-   python3 -I .notes/tools/footprint-diff.py T0.txt T1.txt
+   REPLACE_WITH_SSH aisec-orchestrator 'for u in k3s azuremonitoragent aisec-audit-copy aisec-journal-pull; do
+       systemctl show -p Id,CPUUsageNSec,MemoryPeak "$u.service" | tr "\n" " "; echo; done
+     for d in /sys/fs/cgroup/kubepods.slice/*/*pod*.slice; do echo "${d##*/} $(grep usage_usec "$d/cpu.stat") $(cat "$d/memory.peak")"; done'
    kql "Perf | where Computer == 'aisec-orchestrator' and CounterName in ('% Processor Time', 'Available MBytes Memory') and TimeGenerated between (datetime(REPLACE_WITH_T0) .. datetime(REPLACE_WITH_T1)) | summarize avg(CounterValue), min(CounterValue), max(CounterValue) by CounterName"
    ```
 
-   Expected: the dispatch pod's and the tool service's CPU over the job, the controller's, and the machine's processor time and free memory. The footprint tools are local to the operator's machine until a later slice moves them into the repository.
+   Expected: the dispatch pod's and the tool service's CPU over the job, the controller's, and the machine's processor time and free memory. A pod's cgroup goes with the pod, so the second reading comes while the compare step still runs, or from the `Perf` rows alone.
 
 ## Push protection
 

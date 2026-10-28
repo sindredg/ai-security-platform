@@ -66,7 +66,7 @@ Each threat the [threat model](../security/threat-model.md) rates high has a dri
 
 ## Slice 1: drills without an apply
 
-The code is in pull request #TBD. The expected results below were written before the live run, and the run fills in the results. The procedure is the [containment drills runbook](../runbooks/containment-drills.md).
+The code is in pull request [#226](https://github.com/sindredg/ai-security-platform/pull/226). The expected results below were written before the live run, and the run fills in the results. The procedure is the [containment drills runbook](../runbooks/containment-drills.md).
 
 ### A job that times out
 
@@ -78,7 +78,7 @@ Result: not yet run.
 
 ### A terminated workflow
 
-The dispatch step revokes the job's token in its stop handler, since `argo terminate` skips the exit handler ([#174](https://github.com/sindredg/ai-security-platform/issues/174)). The pipeline's stop test asserts the `DELETE` at the tool service and the exit code 143.
+The dispatch step revokes the job's token in its signal handler, since `argo terminate` skips the exit handler ([#174](https://github.com/sindredg/ai-security-platform/issues/174)). The pipeline's stop test asserts the `DELETE` at the tool service and the exit code 143.
 
 Expected: after `argo terminate` the dispatch step's log ends with `"stopped": 15, "revoked": 200`, the audit file has the job's `revoke` by the dispatch caller, the worker's line has `"outcome": "cancelled"` and `"slot_erased": true`, and the workflow is `Failed`.
 
@@ -94,7 +94,7 @@ Result: not yet run.
 
 ### Stale and forged checks' verdicts
 
-The dispatch step refuses a checks' verdicts item older than an hour, or more than five minutes ahead of its clock, before the job runs (T23). The pipeline tests cover 3610 seconds old, 310 ahead, 3590 old, and 290 ahead.
+The dispatch step refuses a checks' verdicts item older than an hour, or more than five minutes ahead of its clock, before the job runs (T23). The pipeline tests cover 3660 seconds old, 360 ahead, 3540 old, and 240 ahead, and a time the pattern admits and the calendar does not.
 
 Expected, stale: an item written by hand with a `collected` two hours old fails the dispatch step with `the checks' verdicts are N s old`, no `register` in the audit file, and the workflow `Failed`. Expected, forged: an item written by hand with a fresh time and `within` for an account the live seed gives `excess` runs the job, the model answers `excess`, and the verification gate stops on the disagreement. The forged item was trusted: `W.12` says who can write it, and that is the boundary.
 
