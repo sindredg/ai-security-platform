@@ -1,0 +1,91 @@
+{
+  "title": "A synthetic job after the eval run",
+  "short": "Synthetic job after the eval",
+  "milestone": 5,
+  "tested": "Whether a synthetic job, which has no schema, is offered no structured output tool and still completes with the KV cache cleared.",
+  "changed": "The job program offers Goose's structured output tool only to a NetBox job since `ac29afb`, and the dispatch step names the job's target since `3fd555b`.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking off"
+    ],
+    [
+      "Agent",
+      "Goose 1.56.0"
+    ],
+    [
+      "Task",
+      "The fixture question: is finding F-0001 confirmed, with its evidence under `ev-0001`"
+    ],
+    [
+      "Limits",
+      "1200 seconds and 8 turns"
+    ]
+  ],
+  "source": "Live system, 2026-10-27 23:06 to 23:08 UTC. The workflow as Argo kept it, read at 23:18 UTC, the worker's job lines, and the audit lines.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0006-remediation-pull-requests-and-delivery.md#the-eval-run-after-the-fix"
+    ],
+    [
+      "ADR 0049",
+      "../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "syn-10272306",
+      "target": "synthetic",
+      "case": null,
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-10-27T23:06:35Z",
+      "finished": "2026-10-27T23:08:20Z",
+      "phase": "Succeeded",
+      "message": "",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T23:06:35Z",
+          "finished": "2026-10-27T23:08:00Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-10-27T23:08:10Z",
+          "finished": "2026-10-27T23:08:14Z"
+        }
+      ],
+      "result": {
+        "status": "completed",
+        "seconds": 80.1,
+        "agent_status": "completed",
+        "tool_calls": 1,
+        "tool_errors": 0,
+        "input_tokens": 2317,
+        "output_tokens": 50,
+        "slot_erased": true
+      },
+      "checks": null,
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-10-27T23:07:45Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 312
+        }
+      ],
+      "answer": "Status: confirmed\nExcess: tenancy.contact, circuits.circuit",
+      "note": "The worker's journal line for the job names the tools Goose offered: `load_skill` and `tools__get_evidence`, and no structured output tool."
+    }
+  ]
+}

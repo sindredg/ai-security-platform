@@ -4,7 +4,7 @@ What the agent reads, what it may call, how it works through a job, and every ch
 
 | | |
 | --- | --- |
-| State | Built. A NetBox job returns structured output since 2026-10-27 ([evidence](../evidence/2026-10-27-1948-final-output-answers.md)) |
+| State | Verified. A NetBox job returns structured output since 2026-10-27, and each of twelve eval jobs answered through it ([evidence](../evidence/2026-10-27-2016-structured-output-eval.md)) |
 | Runs on | The AI worker, in a sandboxed unit started for each job ([AI worker](ai-worker.md#the-agent-runtime)) |
 | System prompt | [`worker/agent-runtime/system.txt`](../../worker/agent-runtime/system.txt), the same for every job |
 | Task | [`collectors/netbox/task.txt`](../../collectors/netbox/task.txt) for a NetBox job, passed as the workflow's `task` parameter |
@@ -21,7 +21,7 @@ You investigate security findings for an infrastructure team. You have no knowle
 
 The NetBox task names the three documents: `ev-0001` the access specification (the task calls it the contract), `ev-0002` each account's configured permissions, and `ev-0003` what each account's token returned. It defines four verdicts, asks, for each over-privileged (`excess`) account, for the permission whose removal fixes it, and asks for its output through Goose's structured-output tool.
 
-The job program writes these into a recipe for Goose, with one extension: the tool service, over the Model Context Protocol (MCP), with this job's token in a header. For a NetBox job the recipe also carries the output's schema: an analysis of at most 2,000 characters, one verdict per account with its evidence, and one proposal per over-privileged account.
+The job program writes these into a recipe for Goose, with one extension: the tool service, over the Model Context Protocol (MCP), with this job's token in a header. For a NetBox job the recipe also carries the output's schema: an analysis of at most 2,000 characters, verdicts with their evidence, and proposals. Its descriptions ask for one verdict per account and one proposal per over-privileged account, and it requires at least one verdict ([#221](https://github.com/sindredg/ai-security-platform/issues/221)).
 
 ## What it can call
 

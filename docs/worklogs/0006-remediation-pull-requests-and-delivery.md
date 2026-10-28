@@ -286,7 +286,7 @@ Date: 2026-10-27, from 17:55 UTC. A review of the close found a criterion tested
 | A changed commit voiding the approval: tests covered another key, a used tag, and a commit that changes more, not an approval moved to another commit | A test that moves one (`e354d45`) | **Tested** live, 19:48 UTC: a copy of the used tag pointed at main's head, its signature kept, refused with `the signature is not the approval key's` |
 | A workflow that named `dispatch` as its entrypoint still skipped the comparison ([#203](https://github.com/sindredg/ai-security-platform/issues/203)) | Inline steps ([0048](../decisions/0048-the-workflows-steps-are-inline-so-no-workflow-runs-one-alone.md)), and a pipeline step that lints a workflow per entrypoint | **Tested**: refused at submission by the Argo CLI, 19:47 UTC. Created with `kubectl`, 20:15 UTC: failed by the controller, `invalid spec: template reference investigate.compare not found`, no pod |
 | Nothing kept a seed change that was never approved from being merged | "Approved commit", a check on the targets repository ([0050](../decisions/0050-a-guarded-change-merges-only-with-an-approval-on-its-head.md)) | **Tested** on GitHub: a seed change with no approval failed it ([#17](https://github.com/sindredg/ai-security-platform-test/pull/17)), and the approved commit passed ([#18](https://github.com/sindredg/ai-security-platform-test/pull/18)) |
-| 6 of 12 scored jobs stopped on a missing or unreadable verdict line ([#215](https://github.com/sindredg/ai-security-platform/issues/215)) | A NetBox job answers through Goose's final output, checked against a schema ([0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)) | **Running** from 20:15 UTC: twelve scored jobs on the seed after the fix, recorded when they end |
+| 5 of 12 scored jobs stopped on a missing or unreadable verdict line ([#215](https://github.com/sindredg/ai-security-platform/issues/215)) | A NetBox job answers through Goose's final output, checked against a schema ([0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)) | **Tested** live, 20:16 to 23:04 UTC: none of twelve eval jobs stopped on a verdict line, and each answered through the structured output ([the run](#the-eval-run-after-the-fix)) |
 | [#164](https://github.com/sindredg/ai-security-platform/issues/164) was closed before the journal's volume was read | A read of the workspace | **Tested**, read-only: the export account's user manager wrote about 603 rows an hour until 2026-10-26 19:00 UTC, and none from 20:00 UTC |
 | `U.1`, `U.9`, and `U.13` failed on a `libbrotli1` security update | The hosts' unattended upgrade, run early | **Tested** live, 19:24 UTC, on the edge, the orchestrator, and the router: pending before, installed, none pending after |
 
@@ -312,4 +312,32 @@ From 12:00 to 18:00 UTC on 2026-10-26, each hour held 602 to 609 manager rows an
 
 The delivered fix changed what the cases' checks give. Both halves of the checks ran on each case's contract at 19:42 UTC, outside any job: `inventory-reader` now gets the control's verdicts in every case, and `policy.implied_fix` finds no fix for any account. The case file and [the rules](../validation/investigation.md#the-cases) hold these since `dd75b6a`, committed before the run.
 
-Delivery cannot bring the old seed back for a run: restore mode applies main's seed, which holds the fix. So the run after the fix is a new baseline. Its stops on a verdict line compare with milestone 5's run, and its match rate and proposals do not.
+Delivery cannot bring the old seed back for a run: restore mode applies main's seed, which holds the fix. So the run after the fix is a new baseline. Its stops on a verdict line compare with [the scored proposals run](#the-scored-proposals), and its match rate and proposals do not.
+
+### The eval run after the fix
+
+Date: 2026-10-27, 20:16 to 23:04 UTC ([record](../evidence/2026-10-27-2016-structured-output-eval.md)). The six held-out cases ran twice each, with the task at `ac29afb`, and the case file and [the rules](../validation/investigation.md#the-proposal-rules) at `dd75b6a`, both on GitHub before the first job. The expected result was reasoned from [ADR 0049](../decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md), in the task's commit: no job stops on a missing or unreadable verdict line, since the job program writes those lines.
+
+| Measure | The scored proposals run | After the fix |
+| --- | --- | --- |
+| Jobs stopped on a missing or unreadable verdict line | 5 of 12 | None |
+| Answers through the structured output | None | 12 of 12, each from one call that Goose accepted |
+| Matches at the verification gate | 4 of 12 | 10 of 12 |
+| Verdicts right where the deterministic checks agree | 10 of 18 | 16 of 16 |
+| Accounts right by the proposal rules, stopped jobs included | 17 of 20 | 20 of 20 |
+
+Both `two-of-three` jobs stopped as designed: the deterministic checks disagree on both accounts, so the verification gate stops whatever the model says. The seed after the fix is a new baseline ([above](#the-held-out-cases-after-the-fix)). The first row compares with the scored proposals run, and the others do not.
+
+The fix did not change the expected verdicts of `devices-only`. In the scored proposals run, both jobs called the control `within` there and stopped, and here both called it `excess`, the deterministic checks' verdict. Two jobs each give a hint, not a rate.
+
+Four jobs proposed removing each account's one permission, which would leave the account under-privileged. In `devices-only`, the policy refused both proposals, `without permission 1 it is missing, not within`, and the staging test of the removal gave `missing` by both deterministic checks. In `two-of-three`, the verification gate stopped first.
+
+The rule for `two-of-three`, read as written: the first answer says the permissions are the access specification's, and that both tokens returned `a-sw-02`, which the specification does not list. The second says what the permissions grant without calling them the specification's, so 1 of 2 meets the rule, as in milestone 4. Neither calls the evidence disagreeing, and both give `excess`, the observed side ([#205](https://github.com/sindredg/ai-security-platform/issues/205)).
+
+Each of the 20 verdict rows cites at least one document, and only documents its job fetched, so no conclusion lacks tool evidence. Each job was offered `load_skill`, `recipe__final_output`, and `tools__get_evidence`, read from the worker's journal, and the model server's KV cache was cleared before and after each job.
+
+The schema costs time. By the model server's `prompt eval time` lines in the worker's journal, each job's first prompt held 3,475 tokens and took about 274 seconds to evaluate, against 1,574 tokens and about 95 seconds in each job of the scored proposals run. By the records, a job's prompts totalled a median of 17,298 tokens against 10,355, and a job took a median of 11.8 minutes against 8.6, within its 20-minute limit.
+
+After the run, a synthetic job, `syn-10272306`, was offered `load_skill` and `tools__get_evidence` only, with no structured output tool, and its KV cache was cleared before and after it ([record](../evidence/2026-10-27-2306-synthetic-job-after-the-eval.md)). Every check from `main` at `fe4a34b`, ending at 23:18 UTC: 426 passed, 0 failed.
+
+[#215](https://github.com/sindredg/ai-security-platform/issues/215) is settled by this run: the verdicts reach the verification gate in a form it reads. An answer can still leave out an account, since the schema requires one verdict, not one per account ([#221](https://github.com/sindredg/ai-security-platform/issues/221)). How the model does with a structured output on a seed with a fix to propose is not measured, because delivery cannot bring that seed back ([#220](https://github.com/sindredg/ai-security-platform/issues/220)).

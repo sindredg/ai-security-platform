@@ -236,7 +236,7 @@ Each gets a decision record before the milestone that depends on it.
 ## Limitations
 
 - One K3s node and single VMs. A VM failure stops that part of the system.
-- Investigations are slow: a completed evaluation (eval) job took 4.8 to 13.6 minutes in the workflow ([evidence](evidence/2026-10-25-2308-scored-cases.md)).
+- Investigations are slow: an evaluation (eval) job took 9.6 to 13.3 minutes in the workflow, about 4.6 of them reading its first prompt ([evidence](evidence/2026-10-27-2016-structured-output-eval.md), [worklog](worklogs/0006-remediation-pull-requests-and-delivery.md#the-eval-run-after-the-fix)).
 - One operator. Automated checks are the only second reader of a change.
 - A separate VM limits what a compromised worker can reach, and does nothing against a compromised host or provider.
 - Both roots use the same network module, so a change to it reaches both sides.
