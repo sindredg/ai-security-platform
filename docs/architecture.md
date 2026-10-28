@@ -182,7 +182,7 @@ Each practice lands with the milestone that builds what it checks ([ADR 0010](de
 
 | Practice | State |
 | --- | --- |
-| Threat model | Written, and revised with each milestone ([threat model](security/threat-model.md)) |
+| Threat model | Current after milestone 5, revised with each milestone ([threat model](security/threat-model.md)) |
 | Repository protection | Verified: required checks refuse commits the operator's key did not sign, in both repositories, and unapproved seed changes in the targets one ([pipeline](components/pipeline.md#repository-settings)). Push protection: configured, not tested |
 | Static checks on pull requests | Built, with no cloud credentials ([pipeline](components/pipeline.md#checks-on-every-pull-request)). Trivy fails SSH from any source, and the network module refuses it at plan |
 | Dependency updates | Verified for the tool service's packages: Dependabot's [#190](https://github.com/sindredg/ai-security-platform/pull/190) failed the [signature check](components/pipeline.md#the-signature-check) as designed, and was redone signed in [#193](https://github.com/sindredg/ai-security-platform/pull/193). None yet for an action or a provider |
