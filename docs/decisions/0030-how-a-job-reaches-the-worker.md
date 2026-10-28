@@ -5,6 +5,8 @@ Date: 2026-10-19
 
 Changes three parts of [0012](0012-dispatch-over-ssh-with-a-forced-command.md): which image opens the session, that no network rule is added, and that the runner starts the agent's unit itself. Adds one rule to the host rule of [0018](0018-a-host-rule-keeps-pods-off-the-internet.md). The rest of 0012 stands: SSH from a workflow step, a key that runs one command as an account without sudo, the job on standard input, the result on standard output, a closed session as the cancel, and one job at a time.
 
+The job line also names the job's target ([0049](0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)) and, for a NetBox job, its accounts ([0051](0051-a-netbox-jobs-schema-names-each-account-of-the-job.md)).
+
 ## Context
 
 0012 was decided on 2026-10-11, before three things that now stand in its way:

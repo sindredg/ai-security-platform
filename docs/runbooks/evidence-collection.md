@@ -312,7 +312,7 @@ The config map stays, with every job's keys: `deploy.sh` makes it once and never
 REPLACE_WITH_SSH aisec-orchestrator 'sudo k3s kubectl -n tool-services delete configmap tool-service-evidence-netbox'
 ```
 
-`netbox-verdicts` stays too, with every job's verdicts: Argo's `install.sh` makes it once. The comparison step mounts it as optional, so deleting it does not stop a pod from starting: every NetBox job then stops at the verification gate, with `no checks' verdicts for this job`. A collection after the delete fails at `reading the ConfigMap netbox-verdicts`, after it has written the job's directory and the tool service's keys, so that job ID is spent. Argo's `install.sh` makes the config map again. That is reasoned from the template and the collect command, not observed.
+`netbox-verdicts` stays too, with every job's verdicts: Argo's `install.sh` makes it once. The dispatch and comparison steps mount it as optional, so deleting it does not stop a pod from starting: every NetBox job then fails at the dispatch step, before it runs, with `no checks' verdicts for this job` ([ADR 0051](../decisions/0051-a-netbox-jobs-schema-names-each-account-of-the-job.md)). A collection after the delete fails at `reading the ConfigMap netbox-verdicts`, after it has written the job's directory and the tool service's keys, so that job ID is spent. Argo's `install.sh` makes the config map again. That is reasoned from the template and the collect command, not observed.
 
 ```bash
 REPLACE_WITH_SSH aisec-orchestrator 'sudo k3s kubectl -n orchestration delete configmap netbox-verdicts'
