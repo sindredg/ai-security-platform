@@ -4,7 +4,7 @@ The machine that runs the agent and the model. It reads advisories, target evide
 
 | | |
 | --- | --- |
-| State | Runs the model server. The agent runtime is installed and runs once per job. The job socket is installed, and workflows dispatch jobs to it since 2026-10-21 ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)) |
+| State | Built. The model server, the agent runtime, and the job socket are installed, and workflows dispatch jobs to it since 2026-10-21 ([worklog](../worklogs/0003-toolchain-integration.md#installed-argo-and-the-first-workflows)). Verified by the `G` and `S` checks ([last run](../validation/README.md#last-run)) and by each job in the [test evidence](../evidence/README.md) |
 | Where | Sweden Central, `snet-worker`, fixed private address `10.40.0.36` |
 | Size | `Standard_D2ps_v6`: 2 vCPUs, 8 GiB, Arm64. Two physical cores for the same quota as one x64 core pair |
 | Image | Ubuntu 26.04 LTS, `Canonical:ubuntu-26_04-lts:server-arm64` |
