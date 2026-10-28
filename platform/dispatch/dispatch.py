@@ -313,18 +313,37 @@ def job_line(job, target, max_turns, seconds, task, token, accounts=None):
     return json.dumps(line).encode()
 
 
+def revoke(job):
+    """Ends the job at the tool service. A job it does not hold is 200 too."""
+    return tool_service("DELETE", REGISTER_URL + "/" + job)
+
+
 def dispatch(job, target, max_turns, seconds, task):
     accounts = accounts_for(job, target)
     token = secrets.token_hex(32)
-    register(job, target, seconds, token)
-    line = job_line(job, target, max_turns, seconds, task, token, accounts)
-    session = Session(private_key())
+    session = None
+    registered = False
 
+    # A stop closes the session, which cancels the job on the worker, and
+    # revokes the token itself: argo terminate skips the exit handler that
+    # would (#174). The handler's second revoke is 200 at the service.
     def stopped(signum, frame):
-        session.close()
+        if session is not None:
+            session.close()
+        revoked = None
+        if registered:
+            try:
+                revoked, _ = revoke(job)
+            except (Failed, OSError) as error:
+                print(f"revoke on stop failed: {error}", file=sys.stderr)
+        print(json.dumps({"job": job, "stopped": signum, "revoked": revoked}))
         sys.exit(128 + signum)
 
     signal.signal(signal.SIGTERM, stopped)
+    register(job, target, seconds, token)
+    registered = True
+    line = job_line(job, target, max_turns, seconds, task, token, accounts)
+    session = Session(private_key())
     try:
         session.send(line + b"\n")
         result = check_result(
@@ -381,7 +400,7 @@ def main(argv):
                 raise Failed("seconds out of range")
             dispatch(job, target, int(max_turns), int(seconds), task)
         elif len(argv) == 3 and argv[1] == "revoke":
-            status, text = tool_service("DELETE", REGISTER_URL + "/" + argv[2])
+            status, text = revoke(argv[2])
             print(status, text)
             if status != 200:
                 raise Failed("revoke refused")

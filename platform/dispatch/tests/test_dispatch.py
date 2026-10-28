@@ -423,13 +423,19 @@ class Chain(unittest.TestCase):
         )
         started = time.monotonic()
         process.send_signal(signal.SIGTERM)
-        process.communicate(timeout=30)
+        out, _ = process.communicate(timeout=30)
         self.assertEqual(process.returncode, 128 + signal.SIGTERM)
         (job,) = self.jobs
         job.wait(timeout=15)
         self.assertLess(time.monotonic() - started, 15)
         self.assertIn(b'"outcome": "cancelled"', job.stderr.read())
         self.assertFalse((self.tmp / "result.json").exists())
+        # The stop revokes the job's token itself: argo terminate skips the
+        # exit handler that would (#174).
+        self.assertEqual(Stub.calls[0][:2], ("POST", "/jobs"))
+        # The job's own erase can land after the revoke, so the order is open.
+        self.assertIn(("DELETE", "/jobs/job-1", "Bearer caller-token", b""), Stub.calls)
+        self.assertIn(b'"revoked": 200', out)
 
     def test_revoke_ends_the_job_as_the_dispatch_account(self):
         code, out, _ = self.run_dispatch("revoke", "job-1")
