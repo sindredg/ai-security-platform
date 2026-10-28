@@ -102,6 +102,17 @@ spec:
                 - name: tmp
                   emptyDir:
                     sizeLimit: 1Mi
+                # This job's checks' verdicts, the comparison step's item: the
+                # step reads from it the accounts the job answers for (ADR
+                # 0051). Optional, so a job with none still starts the step,
+                # which fails on it before the job runs.
+                - name: verdicts
+                  configMap:
+                    name: netbox-verdicts
+                    optional: true
+                    items:
+                      - key: "{{workflow.name}}.json"
+                        path: verdicts.json
               container:
                 image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:c9df710df64d554ef0e8e6c74763fb96843b5984928fcdfaba180721b5b36704
                 # The executor needs the command: it cannot read the image's
@@ -136,6 +147,9 @@ spec:
                     readOnly: true
                   - name: dispatch-ssh
                     mountPath: /etc/dispatch
+                    readOnly: true
+                  - name: verdicts
+                    mountPath: /etc/aisec/verdicts
                     readOnly: true
                   - name: work
                     mountPath: /run/dispatch
