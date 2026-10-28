@@ -511,7 +511,7 @@ class Chain(unittest.TestCase):
             # seconds past each edge: the step starts up to a second later.
             "stale": (
                 {**VERDICTS, "collected": self.collected(3610)},
-                "the checks' verdicts are 360",
+                "the checks' verdicts are 361",
             ),
             "from the future": (
                 {**VERDICTS, "collected": self.collected(-310)},
