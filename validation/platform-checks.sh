@@ -539,6 +539,7 @@ echo "model_listen=$(ss -Hltnp | awk "\$4 ~ /:'"$MODEL_PORT"'\$/ {print \$4, \$6
 echo "model_health=$(code http://127.0.0.1:'"$MODEL_PORT"'/health)"
 echo "model_exposure=$(LC_ALL=C systemd-analyze security --no-pager '"$MODEL_UNIT"'.service 2>/dev/null | sed -n "s/.*Overall exposure level for [^:]*: \([0-9.]*\).*/\1/p")"
 model_file=$(systemctl show '"$MODEL_UNIT"' -p ExecStart --value 2>/dev/null | sed -n "s/.* --model \([^ ]*\) .*/\1/p")
+echo "model_batch=$(systemctl show '"$MODEL_UNIT"' -p ExecStart --value 2>/dev/null | sed -n "s/.* --batch-size \([0-9]*\) .*/\1/p")"
 echo "model_sum=$(cd "$(dirname "$model_file")" 2>/dev/null && grep "  $(basename "$model_file")\$" SHA256SUMS 2>/dev/null | sha256sum --check --strict --status 2>/dev/null && echo match || echo differ)"
 tool() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 -X POST -d "{}" "$@"; }
 echo "tool_port=$(tcp '"$ORCH_IP"' '"$TOOL_PORT"')"
@@ -922,6 +923,9 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # The file named on the unit's command line, against the line for it in the
   # SHA256SUMS the build wrote. No line for that file is "differ", not a pass.
   check S.7 "The model file the server loads matches its checksum from the build" match "$(value model_sum)"
+  # A cancel reaches the server between prompt batches. A batch longer than the
+  # job program's erase wait leaves a timed-out job's prompt in the slot (#199).
+  check S.8 "The model server's prompt batch is 512 tokens" 512 "$(value model_batch)"
   check T.9 "The worker reaches the tool port" open "$(value tool_port)"
   # Through TLS with the pinned certificate and the name in it, to a refusal:
   # the service answers, and wants a token.
