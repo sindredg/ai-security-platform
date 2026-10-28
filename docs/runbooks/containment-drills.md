@@ -67,23 +67,28 @@ Each drill breaks the finished workflow on purpose and reads what it left. The s
 4. Write an item by hand with a `collected` two hours old, and submit a job for it. The dispatch step refuses it before the job runs.
 
    ```bash
+   item() {  # item JOB COLLECTED VERDICT: a checks' verdicts item for both accounts, written as root
+     python3 -I -c 'import json, sys
+   job, collected, verdict = sys.argv[1:]
+   accounts = {a: {"configured": verdict, "observed": verdict} for a in ("inventory-reader", "inventory-reader-control")}
+   print(json.dumps({"data": {job + ".json": json.dumps({"job": job, "collected": collected, "accounts": accounts})}}))' "$@" |
+       REPLACE_WITH_SSH aisec-orchestrator 'sudo k3s kubectl -n orchestration patch configmap netbox-verdicts --type merge --patch-file /dev/stdin'
+   }
    JOB=nb-REPLACE_WITH_STAMP-stale
-   OLD=$(date -u -d '2 hours ago' +%FT%TZ)
-   REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n orchestration patch configmap netbox-verdicts --type merge -p '{\"data\": {\"$JOB.json\": \"{\\\"job\\\": \\\"$JOB\\\", \\\"collected\\\": \\\"$OLD\\\", \\\"accounts\\\": {\\\"inventory-reader\\\": {\\\"configured\\\": \\\"excess\\\", \\\"observed\\\": \\\"excess\\\"}}}\"}}'"
+   item "$JOB" "$(date -u -d '2 hours ago' +%FT%TZ)" excess
    argo submit --from workflowtemplate/investigate --name "$JOB" -p target=netbox -p seconds=120 -p max-turns=8 \
      -p task="$(cat REPLACE_WITH_PLATFORM_CHECKOUT/collectors/netbox/task.txt)" --wait
    argo logs "$JOB" | tail -n 1
    REPLACE_WITH_SSH aisec-orchestrator "sudo grep -c '\"job\": \"$JOB\"' /var/log/aisec/tool-audit.jsonl"
    ```
 
-   Expected: `Failed` within a minute, the last log line `failed: the checks' verdicts are 72NN s old, and the dispatch step takes at most 3600`, and `0` audit lines: the job never registered.
+   Expected: `configmap/netbox-verdicts patched`, then `Failed` within a minute, the last log line `failed: the checks' verdicts are 72NN s old, and the dispatch step takes at most 3600`, and `0` audit lines: the job never registered.
 
 5. Write an item with a fresh time and a verdict the live seed contradicts, and submit a job for it. The item is trusted, and the verification gate stops on the model's disagreement with it.
 
    ```bash
    JOB=nb-REPLACE_WITH_STAMP-forged
-   NOW=$(date -u +%FT%TZ)
-   REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n orchestration patch configmap netbox-verdicts --type merge -p '{\"data\": {\"$JOB.json\": \"{\\\"job\\\": \\\"$JOB\\\", \\\"collected\\\": \\\"$NOW\\\", \\\"accounts\\\": {\\\"inventory-reader\\\": {\\\"configured\\\": \\\"within\\\", \\\"observed\\\": \\\"within\\\"}, \\\"inventory-reader-control\\\": {\\\"configured\\\": \\\"within\\\", \\\"observed\\\": \\\"within\\\"}}}\"}}'"
+   item "$JOB" "$(date -u +%FT%TZ)" within
    argo submit --from workflowtemplate/investigate --name "$JOB" -p target=netbox -p seconds=1200 -p max-turns=8 \
      -p task="$(cat REPLACE_WITH_PLATFORM_CHECKOUT/collectors/netbox/task.txt)" --wait
    argo get "$JOB" | grep -E "Status|Message|compare"
