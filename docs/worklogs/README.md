@@ -10,3 +10,5 @@ One worklog per milestone: what was done, the commands that were run, and the ev
 | [0003](0003-toolchain-integration.md) | Toolchain integration |
 | [0004](0004-edge-network-and-monitoring.md) | Edge network and monitoring |
 | [0005](0005-netbox-target-and-exercise-1.md) | NetBox target and exercise 1 investigation |
+| [0006](0006-remediation-pull-requests-and-delivery.md) | Remediation, pull requests, and delivery |
+| [0007](0007-operational-and-containment-drills.md) | Operational and containment drills |
