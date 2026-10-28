@@ -114,7 +114,7 @@ spec:
                       - key: "{{workflow.name}}.json"
                         path: verdicts.json
               container:
-                image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:c9df710df64d554ef0e8e6c74763fb96843b5984928fcdfaba180721b5b36704
+                image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:651992ddf47f782eb039862a708e7ec548571240010aff77ea14ef525d00bc40
                 # The executor needs the command: it cannot read the image's
                 # entry point from a registry it has no way to reach.
                 command: [python, /opt/dispatch/dispatch.py]
@@ -197,7 +197,7 @@ spec:
                   emptyDir:
                     sizeLimit: 1Mi
               container:
-                image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:c9df710df64d554ef0e8e6c74763fb96843b5984928fcdfaba180721b5b36704
+                image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:651992ddf47f782eb039862a708e7ec548571240010aff77ea14ef525d00bc40
                 command: [python, /opt/dispatch/compare.py]
                 args:
                   - "{{workflow.name}}"
@@ -232,7 +232,7 @@ spec:
         labels:
           app.kubernetes.io/name: dispatch
       container:
-        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:c9df710df64d554ef0e8e6c74763fb96843b5984928fcdfaba180721b5b36704
+        image: ghcr.io/sindredg/ai-security-platform/dispatch@sha256:651992ddf47f782eb039862a708e7ec548571240010aff77ea14ef525d00bc40
         command: [python, /opt/dispatch/dispatch.py]
         args: [revoke, "{{workflow.name}}"]
         resources:
