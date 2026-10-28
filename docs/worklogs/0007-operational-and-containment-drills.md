@@ -40,7 +40,7 @@ Each threat the [threat model](../security/threat-model.md) rates high has a dri
 | T10 push past the ruleset | Verified | None needed | [Worklog 0004](0004-edge-network-and-monitoring.md#the-fail-side-on-github) |
 | T11 approval reused | Verified | None needed | [Worklog 0006](0006-remediation-pull-requests-and-delivery.md#fixes-after-the-close) |
 | T12 repository credential stolen | Verified | None needed | [Credential inventory](../security/credentials.md) |
-| T13 secret in the public repository | Built | Push-protection drill, slice 1 | [Push protection](#push-protection) |
+| T13 secret in the public repository | Verified | Push-protection drill, slice 1 | [Push protection](#push-protection) |
 | T15 GitHub account taken over | Accepted | Accepted risk | [Accepted risks](../security/accepted-risks.md#accepted-risks) |
 | T56 approval key stolen | Accepted | Accepted risk | [Accepted risks](../security/accepted-risks.md#accepted-risks) |
 | T59 stolen GitHub session | Verified | None needed | [Worklog 0006](0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end) |
@@ -110,7 +110,7 @@ Result: not yet run.
 
 Expected: a signed commit holding a GitHub token with a valid checksum, on a scratch branch, is refused at the push with GitHub's push-protection message naming the token type, and nothing lands on the remote. A push that goes through means the pattern alone does not catch a made-up token, and the accepted risk stays, with that evidence.
 
-Result: not yet run.
+Result, 2026-10-28 17:24 UTC, from the workstation: the push was refused with `GH013: Repository rule violations`, a `Push cannot contain secrets` block naming `GitHub Personal Access Token` at `drill.txt:1` of the commit, and `push declined due to repository rule violations`. `git ls-remote` found no branch after it. The token was 40 characters of `ghp_`, 30 random characters, and their CRC32 in base62, made for the drill and never a credential.
 
 ### The pin and every check
 
