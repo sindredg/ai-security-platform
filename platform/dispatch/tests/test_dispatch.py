@@ -507,13 +507,14 @@ class Chain(unittest.TestCase):
                 {**VERDICTS, "accounts": {}},
                 "the checks' verdicts are not in their shape",
             ),
-            # An item left from an earlier job, or written by hand (T23).
+            # An item left from an earlier job, or written by hand (T23). Ten
+            # seconds past each edge: the step starts up to a second later.
             "stale": (
-                {**VERDICTS, "collected": self.collected(3601)},
+                {**VERDICTS, "collected": self.collected(3610)},
                 "the checks' verdicts are 360",
             ),
             "from the future": (
-                {**VERDICTS, "collected": self.collected(-301)},
+                {**VERDICTS, "collected": self.collected(-310)},
                 "the checks' verdicts are from the future",
             ),
         }
@@ -533,8 +534,8 @@ class Chain(unittest.TestCase):
 
     def test_the_age_limit_takes_an_item_within_the_hour_and_the_skew(self):
         for name, document in {
-            "3599 s old": {**VERDICTS, "collected": self.collected(3599)},
-            "299 s ahead": {**VERDICTS, "collected": self.collected(-299)},
+            "3590 s old": {**VERDICTS, "collected": self.collected(3590)},
+            "290 s ahead": {**VERDICTS, "collected": self.collected(-290)},
         }.items():
             with self.subTest(name):
                 self.verdicts.write_text(json.dumps(document))

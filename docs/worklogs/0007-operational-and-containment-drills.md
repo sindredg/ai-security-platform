@@ -94,7 +94,7 @@ Result: not yet run.
 
 ### Stale and forged checks' verdicts
 
-The dispatch step refuses a checks' verdicts item older than an hour, or more than five minutes ahead of its clock, before the job runs (T23). The pipeline tests cover 3601 seconds old, 301 ahead, 3599 old, and 299 ahead.
+The dispatch step refuses a checks' verdicts item older than an hour, or more than five minutes ahead of its clock, before the job runs (T23). The pipeline tests cover 3610 seconds old, 310 ahead, 3590 old, and 290 ahead.
 
 Expected, stale: an item written by hand with a `collected` two hours old fails the dispatch step with `the checks' verdicts are N s old`, no `register` in the audit file, and the workflow `Failed`. Expected, forged: an item written by hand with a fresh time and `within` for an account the live seed gives `excess` runs the job, the model answers `excess`, and the verification gate stops on the disagreement. The forged item was trusted: `W.12` says who can write it, and that is the boundary.
 
