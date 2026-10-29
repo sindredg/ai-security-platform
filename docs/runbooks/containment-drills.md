@@ -89,13 +89,13 @@ Each drill breaks the finished workflow on purpose and reads what it left. The s
    ```bash
    JOB=nb-REPLACE_WITH_STAMP-forged
    REPLACE_WITH_SSH aisec-orchestrator "sudo collect-netbox-evidence $JOB"
-   item "$JOB" "$(date -u +%FT%TZ)" within
+   item "$JOB" "$(date -u +%FT%TZ)" excess
    argo submit --from workflowtemplate/investigate --name "$JOB" -p target=netbox -p seconds=1200 -p max-turns=8 \
      -p task="$(cat REPLACE_WITH_PLATFORM_CHECKOUT/collectors/netbox/task.txt)" --wait
    argo get "$JOB" | grep -E "Status|Message|compare"
    ```
 
-   Expected: the job runs on the live evidence and answers `excess` for `inventory-reader`, and the compare step fails with a stop naming the account and both verdicts. The item written by root was taken as the checks' word: `W.12` names who can write the config map, and nothing in the workflow tells a collected item from a written one.
+   Expected: the collection prints `within` for both accounts, since the seed holds the merged fix, and the job runs on the live evidence and answers `within` for both. The compare step fails with `stop:` naming each account, `the model says within, the checks say excess`. The item written by root was taken as the checks' word: `W.12` names who can write the config map, and nothing in the workflow tells a collected item from a written one.
 
 ## Resource use per investigation
 

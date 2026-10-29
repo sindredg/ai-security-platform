@@ -2,7 +2,7 @@
  "title": "Drills without an apply",
  "short": "Drills without an apply",
  "milestone": 6,
- "tested": "Whether a timed-out job erases the model server's slot, a terminated workflow revokes its token, a stale checks' verdicts item is refused, and a forged one is trusted.",
+ "tested": "Whether a timed-out job erases the slot, a terminated workflow revokes its token, a stale item is refused, a forged one is trusted, and a synthetic job passes.",
  "changed": "The dispatch step revokes the token in its signal handler and refuses an item older than an hour, and the model server's prompt batch is 512 tokens ([ADR 0052](../decisions/0052-a-smaller-prompt-batch-so-a-cancel-reaches-the-model-server-in-time.md)), since `cb98d92`. The template runs the dispatch image the pipeline pushed from `cb98d92`.",
  "setup": [
   [
@@ -22,7 +22,7 @@
    "1200 seconds and 8 turns, except the timeout drill at 120 seconds"
   ]
  ],
- "source": "Live system, 2026-10-28 17:48 to 18:12 UTC. Each workflow as Argo kept it, read as it ended, the collect command's output, the worker's job lines, and the audit lines.",
+ "source": "Live system, 2026-10-28 17:48 to 18:12 UTC and 2026-10-29 17:45 to 17:58 UTC. Each workflow as Argo kept it, read as it ended, the collect command's output, the worker's job lines, and the audit lines.",
  "links": [
   [
    "Worklog",
@@ -279,6 +279,58 @@
    ],
    "answer": "Analysis: The contract (ev-0001) grants inventory-reader and inventory-reader-control permission to view dcim.device and ipam.ipaddress with tenant__slug=tenant-a constraint. Both accounts have matching permissions (inventory-reader: id=1, inventory-reader-control: id=3) in ev-0002. Both accounts return the same records as the contract lists (3 devices, 3 IP addresses) and both correctly deny the same four requests (ev-0003 matches ev-0001). No excess or missing evidence found.\n\nVerdict: inventory-reader within ev-0001 ev-0002 ev-0003\nVerdict: inventory-reader-control within ev-0001 ev-0002 ev-0003\n",
    "note": "The item was overwritten by hand before the job, with the verdicts the collection had given, so nothing told it from the real one and the job matched."
+  },
+  {
+   "job": "syn-10281747",
+   "target": "synthetic",
+   "case": null,
+   "limits": {
+    "seconds": 600,
+    "turns": 8
+   },
+   "started": "2026-10-28T18:09:26Z",
+   "finished": "2026-10-28T18:11:12Z",
+   "phase": "Succeeded",
+   "message": "",
+   "steps": [
+    {
+     "step": "dispatch",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-28T18:09:26Z",
+     "finished": "2026-10-28T18:10:52Z"
+    },
+    {
+     "step": "revoke",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-28T18:11:02Z",
+     "finished": "2026-10-28T18:11:07Z"
+    }
+   ],
+   "result": {
+    "status": "completed",
+    "seconds": 81.1,
+    "agent_status": "completed",
+    "tool_calls": 1,
+    "tool_errors": 0,
+    "input_tokens": 2317,
+    "output_tokens": 50,
+    "slot_erased": true
+   },
+   "checks": null,
+   "comparison": null,
+   "calls": [
+    {
+     "at": "2026-10-28T18:10:38Z",
+     "tool": "get_evidence",
+     "argument": "ev-0001",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 312
+    }
+   ],
+   "answer": "Status: confirmed\nExcess: tenancy.contact, circuits.circuit"
   },
   {
    "job": "nb-10291744-forged",

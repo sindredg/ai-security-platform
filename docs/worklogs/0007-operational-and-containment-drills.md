@@ -14,7 +14,7 @@ In progress. The drills run in slices, each a pull request of code and expectati
 | Forbidden tool calls, storage reads, network connections, and policy edits from a worker | **Planned**: a later slice |
 | Instructions embedded in advisories and tool results | **Planned**: a later slice |
 | Forged and stale target evidence | **Verified**: a stale item refused before the job, a forged item trusted to the verification gate and stopped there ([result](#stale-and-forged-checks-verdicts)) |
-| Cleanup verification and measured resource use per investigation | **Verified** for the measurement ([#176](https://github.com/sindredg/ai-security-platform/issues/176), [result](#resource-use-per-investigation)). **Planned**: a later slice verifies cleanup |
+| Cleanup verification and measured resource use per investigation | **Verified** for the machine and the long-lived pods; the job's pods by subtraction ([#176](https://github.com/sindredg/ai-security-platform/issues/176), [result](#resource-use-per-investigation)). **Planned**: a later slice verifies cleanup |
 | The incident response runbook, run for three cases | **Planned**: after the drills without an apply |
 | An audit daemon and file integrity monitoring on both VMs, with a drill each | **Planned**: after the drills without an apply |
 | A rebuild of each VM from the current templates | **Planned**: last. An accepted gap if the subscription window ends first |
@@ -82,7 +82,9 @@ The dispatch step revokes the job's token in its signal handler, since `argo ter
 
 Expected: after `argo terminate` the dispatch step's log ends with `"stopped": 15, "revoked": 200`, the audit file has the job's `revoke` by the dispatch caller, the worker's line has `"outcome": "cancelled"` and `"slot_erased": true`, and the workflow is `Failed`.
 
-Result, 2026-10-28 17:52 to 17:55 UTC ([record](../evidence/2026-10-28-1747-drills-without-an-apply.md#nb-10281747-terminate)): `nb-10281747-terminate` was terminated 103 seconds after its submission, as the agent's first turn began. The dispatch step's log ended with `{"stopped": 15, "revoked": 200}` and exit code 143, the workflow is `Failed` with `Stopped with strategy 'Terminate'`, and no exit handler ran. The audit file has the job's `register` at 17:52:51 and its `revoke` at 17:54:30, both by the dispatch step's address. The worker's line at 17:55:07, 37 seconds after the revoke, has `"outcome": "cancelled"` and `"slot_erased": true`.
+Result, 2026-10-28 17:52 to 17:55 UTC ([record](../evidence/2026-10-28-1747-drills-without-an-apply.md#nb-10281747-terminate)): `nb-10281747-terminate` was terminated 103 seconds after its submission, 99 seconds into its first prompt. The dispatch step's log ended with `{"stopped": 15, "revoked": 200}` and exit code 143, the workflow is `Failed` with `Stopped with strategy 'Terminate'`, and no exit handler ran.
+
+The audit file has the job's `register` at 17:52:51 and its `revoke` at 17:54:30, both by the dispatch step's address. The worker's line at 17:55:07, 37 seconds after the revoke, has `"outcome": "cancelled"` and `"slot_erased": true`.
 
 ### Operator sessions to the targets
 
@@ -102,13 +104,17 @@ Result, stale, 2026-10-28 17:55 UTC ([record](../evidence/2026-10-28-1747-drills
 
 Result, forged: the first item written by hand at 17:55 UTC said `within` for both accounts, which is what the seed after the merged fix gives, so `nb-10281747-forged` matched and the item could not be told from the real one ([record](../evidence/2026-10-28-1747-drills-without-an-apply.md#nb-10281747-forged)). The expectation above was written for the seed before the fix.
 
-Result, forged, 2026-10-29 17:45 to 17:58 UTC ([record](../evidence/2026-10-28-1747-drills-without-an-apply.md#nb-10291744-forged)): `nb-10291744-forged` was collected with `within` for both accounts, its item overwritten as root with `excess` for both, and submitted at 17:45:50. The job ran on the live evidence, answered `within` for both accounts after 700 seconds and three calls, and the compare step failed with `stop: inventory-reader: the model says within, the checks say excess; inventory-reader-control: the model says within, the checks say excess`. The exit handler's revoke answered 200. Nothing in the dispatch step or the comparison tells a hand-written item from the collector's: the disagreement is the only signal, and the model's reading of the live evidence is what gives it.
+Result, forged, 2026-10-29 17:45 to 17:58 UTC ([record](../evidence/2026-10-28-1747-drills-without-an-apply.md#nb-10291744-forged)): `nb-10291744-forged` was collected with `within` for both accounts, its item overwritten as root with `excess` for both, and submitted at 17:45:50. The job ran on the live evidence, answered `within` for both accounts after 700 seconds and three calls, and the compare step failed with `stop: inventory-reader: the model says within, the checks say excess; inventory-reader-control: the model says within, the checks say excess`. The exit handler's revoke answered 200.
+
+Nothing in the dispatch step or the comparison tells a hand-written item from the collector's: the disagreement is the only signal, and the model's reading of the live evidence is what gives it.
 
 ### Resource use per investigation
 
 Two readings of `orchestrator-footprint` around the forged item's job, diffed for the average CPU per component, with the `Perf` rows for the job's minutes ([#176](https://github.com/sindredg/ai-security-platform/issues/176)). The day's volume for 2026-10-27, the busiest so far, decides the cap ([#175](https://github.com/sindredg/ai-security-platform/issues/175)).
 
-Result, 2026-10-28 17:55 to 18:09 UTC, on the orchestrator: over the 0.22 hours around `nb-10281747-forged`, K3s averaged 7.19 percent of one core, the job's own pods 0.94, the workflow controller 0.12, and the tool service 0.11, with the machine busy 3.8 percent of all cores. The `Perf` rows for the job's minutes averaged 5.1 percent processor time with a peak of 9.9, and available memory stayed between 5188 and 5226 MB. The day of 2026-10-27 billed 52.21 MB, 27.56 of it `Perf` and 22.41 the worker's journal; three times that is 157 MB, under the 210 MB cap, so the cap stays.
+Result, 2026-10-28 17:55 to 18:09 UTC, on the orchestrator: over the 0.22 hours around `nb-10281747-forged`, K3s averaged 7.19 percent of one core and the machine was busy 3.8 percent of all cores. The burstable slice averaged 0.94, of which the four pods that outlive a job took 0.66: the metrics server 0.28, CoreDNS 0.15, the workflow controller 0.12, and the tool service 0.11, with peaks of 35 MiB and 67 MiB for the last two. The job's own pods are the remainder, about 0.28 percent of one core, reasoned by subtraction and not read: their cgroups go when they end, and the per-pod reading from the workstation during the 2026-10-29 job returned nothing, so [#176](https://github.com/sindredg/ai-security-platform/issues/176) stays open for that reading.
+
+The `Perf` rows for the job's minutes averaged 5.1 percent processor time with a peak of 9.9, and available memory stayed between 5188 and 5226 MB. The day of 2026-10-27 billed 52.21 MB, 27.56 of it `Perf` and 22.41 the worker's journal. Three times that is 157 MB, under the 210 MB cap, so the cap stays.
 
 ### Push protection
 
@@ -120,4 +126,6 @@ Result, 2026-10-28 17:24 UTC, from the workstation: the push was refused with `G
 
 The mesh VPN agent pin moved to 1.104.4 ([#225](https://github.com/sindredg/ai-security-platform/issues/225)), loaded on the running router by the runbook's step 21. Expected after the slice: every check passes, 428 of 428, with `S.8` and `R.8` new and `U.7` passing again.
 
-Result, 2026-10-28: the move ran on the router in a detached unit at 17:45:39 UTC and took 23 seconds, and the router read 1.104.4, held, with the agent active, at 17:46:36. The template moved to the dispatch image the pipeline pushed from `cb98d92`, `dispatch@sha256:d6a947b0...`, which the registry answers anonymously and whose manifest hashes to the digest. One 20-minute window pulled it and Argo's two images with `ok` for each, and every pod of the five workflows ran on it. Every check from the pin checkout at `4a6a37f`, 18:11 to 18:20 UTC: 428 passed, 0 failed, with `S.8`, `R.8`, `U.2`, `U.7`, and `G.10` among them.
+Result, 2026-10-28, from the router's journal read on 2026-10-29: the detached unit started at 17:45:34 UTC, unpacked 1.104.4 over 1.104.2 at 17:45:40, restarted the agent at 17:45:43, and ended at 17:45:57, 23 seconds of wall clock. The agent reported itself healthy at 17:45:47, and the read-back at 17:48 printed 1.104.4 and `active`.
+
+The template moved to the dispatch image the pipeline pushed from `cb98d92`, `dispatch@sha256:d6a947b0...`, which the registry answers anonymously and whose manifest hashes to the digest. One 20-minute window pulled it and Argo's two images with `ok` for each, and every pod of the five workflows ran on it. Every check from the pin checkout at `4a6a37f`, 18:11 to 18:20 UTC: 428 passed, 0 failed, with `S.8`, `R.8`, `U.2`, `U.7`, and `G.10` among them.

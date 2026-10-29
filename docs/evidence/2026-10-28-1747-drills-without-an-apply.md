@@ -4,7 +4,7 @@
 
 Milestone 6, 2026-10-28. [All run sets](README.md), [previous: Accounts in the job line](2026-10-28-1500-accounts-in-the-job-line.md).
 
-**Tested:** Whether a timed-out job erases the model server's slot, a terminated workflow revokes its token, a stale checks' verdicts item is refused, and a forged one is trusted.
+**Tested:** Whether a timed-out job erases the slot, a terminated workflow revokes its token, a stale item is refused, a forged one is trusted, and a synthetic job passes.
 
 **Changed since the run set before:** The dispatch step revokes the token in its signal handler and refuses an item older than an hour, and the model server's prompt batch is 512 tokens ([ADR 0052](../decisions/0052-a-smaller-prompt-batch-so-a-cancel-reaches-the-model-server-in-time.md)), since `cb98d92`. The template runs the dispatch image the pipeline pushed from `cb98d92`.
 
@@ -23,11 +23,12 @@ Milestone 6, 2026-10-28. [All run sets](README.md), [previous: Accounts in the j
 | [nb-10281747-terminate](#nb-10281747-terminate) | Stopped | 0 of 2 | 0 | 1.9 |
 | [nb-10281747-stale](#nb-10281747-stale) | Failed at dispatch | No checks | 0 | 0.3 |
 | [nb-10281747-forged](#nb-10281747-forged) | Match | 2 of 2 | 4, 1 to Goose's own tools | 12.4 |
+| [syn-10281747](#syn-10281747) | Completed | No checks | 1 | 1.8 |
 | [nb-10291744-forged](#nb-10291744-forged) | Stop: wrong verdict | 0 of 2 | 4, 1 to Goose's own tools | 12.2 |
 
 Verdicts right counts the accounts whose two checks agree. Minutes run from the workflow's start to its end.
 
-**Source:** Live system, 2026-10-28 17:48 to 18:12 UTC. Each workflow as Argo kept it, read as it ended, the collect command's output, the worker's job lines, and the audit lines.
+**Source:** Live system, 2026-10-28 17:48 to 18:12 UTC and 2026-10-29 17:45 to 17:58 UTC. Each workflow as Argo kept it, read as it ended, the collect command's output, the worker's job lines, and the audit lines.
 
 **Also:** [Worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply), [Runbook](../runbooks/containment-drills.md).
 
@@ -103,6 +104,26 @@ Analysis: The contract (ev-0001) grants inventory-reader and inventory-reader-co
 
 Verdict: inventory-reader within ev-0001 ev-0002 ev-0003
 Verdict: inventory-reader-control within ev-0001 ev-0002 ev-0003
+```
+
+</details>
+
+## syn-10281747
+
+`syn-10281747`, 2026-10-28 18:09:26 to 18:11:12 UTC. **Completed.**
+
+| Call | Time (UTC) | Tool | Argument | Result |
+| --- | --- | --- | --- | --- |
+| 1 | 18:10:38 | `get_evidence` | `ev-0001` | Allowed, 312 bytes |
+
+On the worker: `completed` after 81.1 s, 2,317 tokens in and 50 out, the model's slot erased after it.
+
+<details>
+<summary>The answer, 59 bytes</summary>
+
+```text
+Status: confirmed
+Excess: tenancy.contact, circuits.circuit
 ```
 
 </details>
