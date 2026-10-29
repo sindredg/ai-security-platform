@@ -1,6 +1,6 @@
 # Containment drills: operator procedure
 
-Status: Written on 2026-10-28 with milestone 6's first slice. Not yet run. Results go to the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md) when each step has run.
+Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
 
 Each drill breaks the finished workflow on purpose and reads what it left. The steps are independent and each is put back after it. Later slices add their drills here.
 

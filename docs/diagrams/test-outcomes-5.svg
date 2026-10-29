@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 960 592" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="test-outcomes-5-title test-outcomes-5-desc" id="test-outcomes-5-root">
+<svg viewBox="0 0 960 636" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="test-outcomes-5-title test-outcomes-5-desc" id="test-outcomes-5-root">
         <title id="test-outcomes-5-title">NetBox jobs at the comparison in milestone 5, by outcome</title>
         <desc id="test-outcomes-5-desc">Stacked bar chart of the NetBox jobs in each of milestone 5's run sets that ran the comparison step: matches, stops by their cause, and failures.</desc>
         <defs>
@@ -118,12 +118,14 @@
         <rect x="336" y="552" width="14" height="10" rx="2" fill="#82a0c0" fill-opacity="0.22" stroke="#82a0c0" stroke-width="1"/>
         <text x="356" y="560" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: verdicts right, a line unreadable</text>
         <rect x="632" y="552" width="14" height="10" rx="2" fill="#d3ad7a" fill-opacity="0.22" stroke="#d3ad7a" stroke-width="1"/>
-        <text x="652" y="560" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: a wrong or missing verdict</text>
+        <text x="652" y="560" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: a verdict against the checks, or missing</text>
         <rect x="40" y="572" width="14" height="10" rx="2" fill="#8d8298" fill-opacity="0.22" stroke="#8d8298" stroke-width="1"/>
         <text x="60" y="580" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stop: the checks disagree or are missing</text>
         <rect x="336" y="572" width="14" height="10" rx="2" fill="#b88670" fill-opacity="0.22" stroke="#b88670" stroke-width="1"/>
         <text x="356" y="580" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Failed: time limit</text>
-        <rect x="632" y="572" width="14" height="10" rx="2" fill="#a0a0a0" fill-opacity="0.22" stroke="#a0a0a0" stroke-width="1"/>
-        <text x="652" y="580" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Failed before the job ran</text>
+        <rect x="632" y="572" width="14" height="10" rx="2" fill="#7a96aa" fill-opacity="0.22" stroke="#7a96aa" stroke-width="1"/>
+        <text x="652" y="580" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Stopped by the operator</text>
+        <rect x="40" y="592" width="14" height="10" rx="2" fill="#a0a0a0" fill-opacity="0.22" stroke="#a0a0a0" stroke-width="1"/>
+        <text x="60" y="600" fill="#bfc0c0" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Failed before the job ran</text>
 
       </svg>

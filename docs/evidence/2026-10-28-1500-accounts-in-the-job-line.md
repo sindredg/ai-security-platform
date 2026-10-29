@@ -2,7 +2,7 @@
 
 # Accounts in the job line
 
-Milestone 5, 2026-10-28. [All run sets](README.md), [previous: Synthetic job after the eval](2026-10-27-2306-synthetic-job-after-the-eval.md).
+Milestone 5, 2026-10-28. [All run sets](README.md), [previous: Synthetic job after the eval](2026-10-27-2306-synthetic-job-after-the-eval.md), [next: Drills without an apply](2026-10-28-1747-drills-without-an-apply.md).
 
 **Tested:** Whether a schema built from the accounts the dispatch step names gets a verdict under each name, and a job with no checks' verdicts fails before it runs.
 

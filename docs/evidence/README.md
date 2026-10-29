@@ -8,6 +8,8 @@ Each run set is a batch of agent jobs, or model calls, that tested one thing. It
 
 ![NetBox jobs at the comparison in milestone 5, per run set: matches, stops by their cause, and failures](../diagrams/test-outcomes-5.svg)
 
+![NetBox jobs at the comparison in milestone 6, per run set: matches, stops by their cause, and failures](../diagrams/test-outcomes-6.svg)
+
 | Run set | Date | Tested | Jobs | Outcomes |
 | --- | --- | --- | --- | --- |
 | [First jobs over the worker's socket](2026-10-20-1927-first-jobs-over-the-socket.md) | 2026-10-20 | Whether a job sent to the worker's socket by hand reaches the tool service and returns an answer, and whether a cancel stops it. | 2 | 1 completed, 1 cancelled |
@@ -36,5 +38,6 @@ Each run set is a batch of agent jobs, or model calls, that tested one thing. It
 | [The held-out cases with a structured output](2026-10-27-2016-structured-output-eval.md) | 2026-10-27 | Whether each eval job's verdicts reach the verification gate in a form it reads, now that a NetBox job answers through a structured output. | 12 | 10 match, 2 stop |
 | [A synthetic job after the eval run](2026-10-27-2306-synthetic-job-after-the-eval.md) | 2026-10-27 | Whether a synthetic job, which has no schema, is offered no structured output tool and still completes with the KV cache cleared. | 1 | 1 completed |
 | [Accounts in the job line](2026-10-28-1500-accounts-in-the-job-line.md) | 2026-10-28 | Whether a schema built from the accounts the dispatch step names gets a verdict under each name, and a job with no checks' verdicts fails before it runs. | 4 | 2 match, 1 failed at dispatch, 1 completed |
+| [Drills without an apply](2026-10-28-1747-drills-without-an-apply.md) | 2026-10-28 | Whether a timed-out job erases the model server's slot, a terminated workflow revokes its token, a stale checks' verdicts item is refused, and a forged one is trusted. | 5 | 1 failed, 1 stopped, 1 failed at dispatch, 1 match, 1 stop |
 
 Each run set has one record in [`records/`](records/), built from each workflow and the tool service's audit log by [`record.py`](../../validation/evidence/record.py). The pages are generated from the records, and the pipeline fails when a page and its record differ. How a run set is recorded is in the [runbook](../runbooks/test-evidence.md).
