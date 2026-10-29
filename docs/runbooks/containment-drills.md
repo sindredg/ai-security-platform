@@ -1,6 +1,6 @@
 # Containment drills: operator procedure
 
-Status: Written on 2026-10-28 with milestone 6's first slice. Not yet run. Results go to the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md) when each step has run.
+Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
 
 Each drill breaks the finished workflow on purpose and reads what it left. The steps are independent and each is put back after it. Later slices add their drills here.
 
@@ -89,13 +89,13 @@ Each drill breaks the finished workflow on purpose and reads what it left. The s
    ```bash
    JOB=nb-REPLACE_WITH_STAMP-forged
    REPLACE_WITH_SSH aisec-orchestrator "sudo collect-netbox-evidence $JOB"
-   item "$JOB" "$(date -u +%FT%TZ)" within
+   item "$JOB" "$(date -u +%FT%TZ)" excess
    argo submit --from workflowtemplate/investigate --name "$JOB" -p target=netbox -p seconds=1200 -p max-turns=8 \
      -p task="$(cat REPLACE_WITH_PLATFORM_CHECKOUT/collectors/netbox/task.txt)" --wait
    argo get "$JOB" | grep -E "Status|Message|compare"
    ```
 
-   Expected: the job runs on the live evidence and answers `excess` for `inventory-reader`, and the compare step fails with a stop naming the account and both verdicts. The item written by root was taken as the checks' word: `W.12` names who can write the config map, and nothing in the workflow tells a collected item from a written one.
+   Expected: the collection prints `within` for both accounts, since the seed holds the merged fix, and the job runs on the live evidence and answers `within` for both. The compare step fails with `stop:` naming each account, `the model says within, the checks say excess`. The item written by root was taken as the checks' word: `W.12` names who can write the config map, and nothing in the workflow tells a collected item from a written one.
 
 ## Resource use per investigation
 

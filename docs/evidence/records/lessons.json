@@ -71,7 +71,7 @@
     "2026-10-25-1751-the-comparison#nb-10251751-b",
     "2026-10-25-2308-scored-cases#two-of-three-2"
    ],
-   "change": "The erase before the next job empties it. The fix belongs to milestone 6 ([#199](https://github.com/sindredg/ai-security-platform/issues/199))."
+   "change": "The erase before the next job empties it. A 512-token prompt batch lets the cancel through ([ADR 0052](../decisions/0052-a-smaller-prompt-batch-so-a-cancel-reaches-the-model-server-in-time.md)), shown by the timeout drill below."
   },
   {
    "finding": "No wrong verdict ended in a match. Both wrong verdicts said `within` where the checks said `missing`.",
@@ -149,6 +149,28 @@
     "2026-10-28-1500-accounts-in-the-job-line#nb-10281500-a3",
     "2026-10-28-1500-accounts-in-the-job-line#nb-10281500-nocollect"
    ]
+  },
+  {
+   "finding": "With a 512-token prompt batch, a timed-out job's cancel reached the model server, and the slot was erased 14 seconds later.",
+   "runs": [
+    "2026-10-28-1747-drills-without-an-apply#nb-10281747-timeout"
+   ],
+   "change": "None. [ADR 0052](../decisions/0052-a-smaller-prompt-batch-so-a-cancel-reaches-the-model-server-in-time.md) is confirmed, and [#199](https://github.com/sindredg/ai-security-platform/issues/199) closes."
+  },
+  {
+   "finding": "A terminated workflow skips the exit handler. The dispatch step's own signal handler revoked the token, and the worker ended `cancelled` with the slot erased.",
+   "runs": [
+    "2026-10-28-1747-drills-without-an-apply#nb-10281747-terminate"
+   ],
+   "change": "None. The revoke in the signal handler, from [#174](https://github.com/sindredg/ai-security-platform/issues/174), is confirmed."
+  },
+  {
+   "finding": "A checks' verdicts item written by root is trusted to the verification gate. One with the collection's verdicts matched; one the live evidence contradicts stopped there.",
+   "runs": [
+    "2026-10-28-1747-drills-without-an-apply#nb-10281747-forged",
+    "2026-10-28-1747-drills-without-an-apply#nb-10291744-forged"
+   ],
+   "change": "None. `W.12` names who can write the item, an item older than an hour is refused, and the rest is the [T23 accepted risk](../security/accepted-risks.md#accepted-risks)."
   }
  ]
 }

@@ -1,6 +1,6 @@
 # Mesh VPN router: operator procedure
 
-Status: Implemented on 2026-10-17. Run once, on the live platform, between 13:40 and 14:35 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-router). Steps 1, 5, 11, 12, and 13 were corrected after that run to the commands that ran, and step 17 was added for a failure it found. The undo in step 10 names Azure run command since 2026-10-19, when the serial console was found to offer no login. The `unattended-upgrade` line in the router's first boot was added after it, and has not run on a first boot.
+Status: Implemented on 2026-10-17. Run once, on the live platform, between 13:40 and 14:35 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-router). Steps 1, 5, 11, 12, and 13 were corrected after that run to the commands that ran, and step 17 was added for a failure it found. The undo in step 10 names Azure run command since 2026-10-19, when the serial console was found to offer no login. The `unattended-upgrade` line in the router's first boot was added after it, and has not run on a first boot. Step 21 ran on 2026-10-28 for the move to 1.104.4, and its result line was corrected after that run.
 
 This builds the router VM in Denmark East, moves the mesh VPN onto it, and takes the orchestrator off the mesh ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)). It is the first of two stages of the edge network. The second, the edge VM with Squid and the platform's way out ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)), has [its own runbook](edge-vm.md).
 
@@ -311,7 +311,7 @@ A router built from the current template has these at first boot. A running rout
     ```bash
     REPLACE_WITH_SSH aisec-router 'sudo systemd-run --unit=aisec-pin-move --on-active=5 bash -c "apt-mark unhold tailscale && apt-get install -y -q tailscale=REPLACE_WITH_PINNED_VERSION && apt-mark hold tailscale"'
     sleep 90
-    REPLACE_WITH_SSH aisec-router 'tailscale version | head -n 1; apt-mark showhold; systemctl is-active tailscaled; systemctl show aisec-pin-move -p Result --value'
+    REPLACE_WITH_SSH aisec-router 'tailscale version | head -n 1; apt-mark showhold; systemctl is-active tailscaled'
     ```
 
-    Expected: the pinned version, `tailscale`, `active`, `success`. The mesh came back within 30 seconds on 2026-10-20. `U.2` and `U.7` then pass.
+    Expected: the pinned version, `tailscale`, `active`. The unit's own result is no check: a transient unit answers `success` before it runs and after it is collected, so the version line is the proof. The mesh came back within 30 seconds on 2026-10-20, and the move to 1.104.4 took 23 seconds on 2026-10-28. `U.2` and `U.7` then pass.

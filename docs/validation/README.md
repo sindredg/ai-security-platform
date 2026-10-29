@@ -47,9 +47,9 @@ The script changes nothing. It opens connections that should fail, reads setting
 
 ## Last run
 
-From `a4f3b32`, ending at 15:40 UTC on 2026-10-28, after the accounts in the job line went live: 425 of 426 passed. `U.7` failed because the mesh VPN agent's upstream released 1.104.4 while the pin holds 1.104.2 ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#accounts-in-the-job-line)).
+From `4a6a37f`, ending at 18:20 UTC on 2026-10-28, after milestone 6's first slice went live: 428 of 428 passed, with `S.8` and `R.8` new and `U.7` passing again on the moved pin ([worklog](../worklogs/0007-operational-and-containment-drills.md#the-pin-and-every-check)).
 
-Each earlier run is in the worklog of its milestone, with what it was run for: [0002](../worklogs/0002-platform-compute.md), [0003](../worklogs/0003-toolchain-integration.md), [0004](../worklogs/0004-edge-network-and-monitoring.md), [0005](../worklogs/0005-netbox-target-and-exercise-1.md), and [0006](../worklogs/0006-remediation-pull-requests-and-delivery.md).
+Each earlier run is in the worklog of its milestone, with what it was run for: [0002](../worklogs/0002-platform-compute.md), [0003](../worklogs/0003-toolchain-integration.md), [0004](../worklogs/0004-edge-network-and-monitoring.md), [0005](../worklogs/0005-netbox-target-and-exercise-1.md), [0006](../worklogs/0006-remediation-pull-requests-and-delivery.md), and [0007](../worklogs/0007-operational-and-containment-drills.md).
 
 ## What the checks do not cover
 

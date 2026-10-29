@@ -9,17 +9,17 @@ In progress. The drills run in slices, each a pull request of code and expectati
 
 | Gate | Result |
 | --- | --- |
-| Worker and orchestrator interruption without duplicate changes | **Planned**: slice 1 terminates a workflow ([#174](https://github.com/sindredg/ai-security-platform/issues/174)); a later slice interrupts delivery ([#216](https://github.com/sindredg/ai-security-platform/issues/216)) |
+| Worker and orchestrator interruption without duplicate changes | **Verified** for a terminated workflow ([#174](https://github.com/sindredg/ai-security-platform/issues/174), [result](#a-terminated-workflow)). **Planned**: a later slice interrupts delivery ([#216](https://github.com/sindredg/ai-security-platform/issues/216)) |
 | Duplicate findings without duplicate pull requests | **Planned**: a later slice |
 | Forbidden tool calls, storage reads, network connections, and policy edits from a worker | **Planned**: a later slice |
 | Instructions embedded in advisories and tool results | **Planned**: a later slice |
-| Forged and stale target evidence | **Planned**: slice 1 ([stale and forged items](#stale-and-forged-checks-verdicts)) |
-| Cleanup verification and measured resource use per investigation | **Planned**: slice 1 measures ([#176](https://github.com/sindredg/ai-security-platform/issues/176)); a later slice verifies cleanup |
+| Forged and stale target evidence | **Verified**: a stale item refused before the job, a forged item trusted to the verification gate and stopped there ([result](#stale-and-forged-checks-verdicts)) |
+| Cleanup verification and measured resource use per investigation | **Verified** for the machine and the long-lived pods; the job's pods by subtraction ([#176](https://github.com/sindredg/ai-security-platform/issues/176), [result](#resource-use-per-investigation)). **Planned**: a later slice verifies cleanup |
 | The incident response runbook, run for three cases | **Planned**: after the drills without an apply |
 | An audit daemon and file integrity monitoring on both VMs, with a drill each | **Planned**: after the drills without an apply |
 | A rebuild of each VM from the current templates | **Planned**: last. An accepted gap if the subscription window ends first |
-| Operator sessions to the targets in the audit log (T04) | **Planned**: slice 1 ([sessions](#operator-sessions-to-the-targets)) |
-| The KV-cache clear after a job that timed out ([#199](https://github.com/sindredg/ai-security-platform/issues/199)) | **Planned**: slice 1 ([timeout](#a-job-that-times-out)) |
+| Operator sessions to the targets in the audit log (T04) | **Verified**: one session, one workspace row ([result](#operator-sessions-to-the-targets)) |
+| The KV-cache clear after a job that timed out ([#199](https://github.com/sindredg/ai-security-platform/issues/199)) | **Verified**: the slot erased 14 seconds after the cancel ([result](#a-job-that-times-out)) |
 
 ## The gate for the high threats
 
@@ -49,7 +49,7 @@ Each threat the [threat model](../security/threat-model.md) rates high has a dri
 | T18 worker as another job | Verified | Another job's token, later slice | [Record](../evidence/2026-10-21-1511-first-workflows.md) |
 | T21 worker edits its audit record | Verified | None needed | `L.1` to `L.7` |
 | T22 tool service exploited | Verified | None needed | `T.3` to `T.5`, `T.8`, `T.9`, `M.5`, `Z.13`, `E.8` |
-| T23 target reports false evidence | Built | Stale and forged items, slice 1. The cloud API and network comparison: accepted risk | [Stale and forged items](#stale-and-forged-checks-verdicts) |
+| T23 target reports false evidence | Verified | Stale and forged items, slice 1. The cloud API and network comparison: accepted risk | [Stale and forged items](#stale-and-forged-checks-verdicts) |
 | T24 target attacks the collector | Verified | Injected instructions drill, later slice | [Record](../evidence/2026-10-25-1208-first-netbox-jobs.md) |
 | T25 target side removes containment | Verified | None needed | `Z.10`, `Z.11` |
 | T26 delivery changes more than approved | Verified | None needed | [Worklog 0006](0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end) |
@@ -74,7 +74,7 @@ The model server's prompt batch is 512 tokens ([ADR 0052](../decisions/0052-a-sm
 
 Expected: a NetBox job with a 120-second limit times out inside its first prompt, its journal line has `"outcome": "timeout"` and `"slot_erased": true`, and the model server's journal shows the cancel taken within one 512-token batch. The first prompt's rate at 512 is read against 12.3 tokens per second at 2048 on 2026-10-28.
 
-Result: not yet run.
+Result, 2026-10-28 17:48 to 17:51 UTC, on the live system ([record](../evidence/2026-10-28-1747-drills-without-an-apply.md#nb-10281747-timeout)): `nb-10281747-timeout`, with a 120-second limit, ended `timeout` with `slot_erased` true after 134 seconds, the dispatch step logged `failed: the job ended timeout`, and the exit handler's revoke answered 200. The model server's journal has the cancel at 17:51:15 and the slot released 14 seconds later at `n_tokens = 2048`, four batches of 512. The first prompt of the forged item's job ran at 12.15 tokens per second at 512, against 12.3 at 2048 the same day.
 
 ### A terminated workflow
 
@@ -82,7 +82,9 @@ The dispatch step revokes the job's token in its signal handler, since `argo ter
 
 Expected: after `argo terminate` the dispatch step's log ends with `"stopped": 15, "revoked": 200`, the audit file has the job's `revoke` by the dispatch caller, the worker's line has `"outcome": "cancelled"` and `"slot_erased": true`, and the workflow is `Failed`.
 
-Result: not yet run.
+Result, 2026-10-28 17:52 to 17:55 UTC ([record](../evidence/2026-10-28-1747-drills-without-an-apply.md#nb-10281747-terminate)): `nb-10281747-terminate` was terminated 103 seconds after its submission, 99 seconds into its first prompt. The dispatch step's log ended with `{"stopped": 15, "revoked": 200}` and exit code 143, the workflow is `Failed` with `Stopped with strategy 'Terminate'`, and no exit handler ran.
+
+The audit file has the job's `register` at 17:52:51 and its `revoke` at 17:54:30, both by the dispatch step's address. The worker's line at 17:55:07, 37 seconds after the revoke, has `"outcome": "cancelled"` and `"slot_erased": true`.
 
 ### Operator sessions to the targets
 
@@ -90,7 +92,7 @@ The router logs each new SSH connection from the mesh to the target range, and `
 
 Expected: `R.8` fails on the router before the rule loads and passes after, and one session from the workstation to the NetBox VM gives one `Syslog` row from `aisec-router` whose message has `aisec-target-ssh`, `SRC=` the workstation's mesh address, `DST=10.50.0.4`, and `DPT=22`.
 
-Result: not yet run.
+Result, 2026-10-28 17:45 and 17:47 UTC: `R.8` read `0` on the router before the rule loaded and `1` after. Each of two sessions from the workstation to the NetBox VM put one kernel line on the router and one `Syslog` row in the workspace, `kern warning`, with `aisec-target-ssh:`, `IN=tailscale0`, `SRC=` the workstation's mesh address, `DST=10.50.0.4`, and `DPT=22`. Both rows were read from the workspace at 18:09 UTC.
 
 ### Stale and forged checks' verdicts
 
@@ -98,13 +100,21 @@ The dispatch step refuses a checks' verdicts item older than an hour, or more th
 
 Expected, stale: an item written by hand with a `collected` two hours old fails the dispatch step with `the checks' verdicts are N s old`, no `register` in the audit file, and the workflow `Failed`. Expected, forged: an item written by hand with a fresh time and `within` for an account the live seed gives `excess` runs the job, the model answers `excess`, and the verification gate stops on the disagreement. The forged item was trusted: `W.12` says who can write it, and that is the boundary.
 
-Result: not yet run.
+Result, stale, 2026-10-28 17:55 UTC ([record](../evidence/2026-10-28-1747-drills-without-an-apply.md#nb-10281747-stale)): `nb-10281747-stale`, an item written as root with `collected` 7208 seconds before, failed the dispatch step with `the checks' verdicts are 7208 s old, and the dispatch step takes at most 3600`, 23 seconds after its submission. No audit line and no worker line carry the job's name, and the exit handler's revoke answered 200 with `job: null`.
+
+Result, forged: the first item written by hand at 17:55 UTC said `within` for both accounts, which is what the seed after the merged fix gives, so `nb-10281747-forged` matched and the item could not be told from the real one ([record](../evidence/2026-10-28-1747-drills-without-an-apply.md#nb-10281747-forged)). The expectation above was written for the seed before the fix.
+
+Result, forged, 2026-10-29 17:45 to 17:58 UTC ([record](../evidence/2026-10-28-1747-drills-without-an-apply.md#nb-10291744-forged)): `nb-10291744-forged` was collected with `within` for both accounts, its item overwritten as root with `excess` for both, and submitted at 17:45:50. The job ran on the live evidence, answered `within` for both accounts after 700 seconds and three calls, and the compare step failed with `stop: inventory-reader: the model says within, the checks say excess; inventory-reader-control: the model says within, the checks say excess`. The exit handler's revoke answered 200.
+
+Nothing in the dispatch step or the comparison tells a hand-written item from the collector's: the disagreement is the only signal, and the model's reading of the live evidence is what gives it.
 
 ### Resource use per investigation
 
 Two readings of `orchestrator-footprint` around the forged item's job, diffed for the average CPU per component, with the `Perf` rows for the job's minutes ([#176](https://github.com/sindredg/ai-security-platform/issues/176)). The day's volume for 2026-10-27, the busiest so far, decides the cap ([#175](https://github.com/sindredg/ai-security-platform/issues/175)).
 
-Result: not yet run.
+Result, 2026-10-28 17:55 to 18:09 UTC, on the orchestrator: over the 0.22 hours around `nb-10281747-forged`, K3s averaged 7.19 percent of one core and the machine was busy 3.8 percent of all cores. The burstable slice averaged 0.94, of which the four pods that outlive a job took 0.66: the metrics server 0.28, CoreDNS 0.15, the workflow controller 0.12, and the tool service 0.11, with peaks of 35 MiB and 67 MiB for the last two. The job's own pods are the remainder, about 0.28 percent of one core, reasoned by subtraction and not read: their cgroups go when they end, and the per-pod reading from the workstation during the 2026-10-29 job returned nothing, so [#176](https://github.com/sindredg/ai-security-platform/issues/176) stays open for that reading.
+
+The `Perf` rows for the job's minutes averaged 5.1 percent processor time with a peak of 9.9, and available memory stayed between 5188 and 5226 MB. The day of 2026-10-27 billed 52.21 MB, 27.56 of it `Perf` and 22.41 the worker's journal. Three times that is 157 MB, under the 210 MB cap, so the cap stays.
 
 ### Push protection
 
@@ -116,4 +126,6 @@ Result, 2026-10-28 17:24 UTC, from the workstation: the push was refused with `G
 
 The mesh VPN agent pin moved to 1.104.4 ([#225](https://github.com/sindredg/ai-security-platform/issues/225)), loaded on the running router by the runbook's step 21. Expected after the slice: every check passes, 428 of 428, with `S.8` and `R.8` new and `U.7` passing again.
 
-Result: not yet run.
+Result, 2026-10-28, from the router's journal read on 2026-10-29: the detached unit started at 17:45:34 UTC, unpacked 1.104.4 over 1.104.2 at 17:45:40, restarted the agent at 17:45:43, and ended at 17:45:57, 23 seconds of wall clock. The agent reported itself healthy at 17:45:47, and the read-back at 17:48 printed 1.104.4 and `active`.
+
+The template moved to the dispatch image the pipeline pushed from `cb98d92`, `dispatch@sha256:d6a947b0...`, which the registry answers anonymously and whose manifest hashes to the digest. One 20-minute window pulled it and Argo's two images with `ok` for each, and every pod of the five workflows ran on it. Every check from the pin checkout at `4a6a37f`, 18:11 to 18:20 UTC: 428 passed, 0 failed, with `S.8`, `R.8`, `U.2`, `U.7`, and `G.10` among them.

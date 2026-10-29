@@ -2,7 +2,7 @@
 
 llama.cpp serves one model on the worker, on `127.0.0.1:8080`. Nothing outside the worker is meant to reach it, and the file it loads was built on the worker from pinned inputs. The design is [ADR 0015](../decisions/0015-build-the-model-file-on-the-worker.md). The procedure is the [model server runbook](../runbooks/model-server.md).
 
-Status: **tested** on the running system on 2026-10-12. `validation/platform-checks.sh` reported 101 passed, 0 failed, with all seven `S` checks among them. Before that run, each check was run locally with stubs against the broken inputs listed below, and failed.
+Status: **tested** on the running system on 2026-10-28. `validation/platform-checks.sh` reported 428 passed, 0 failed, with all eight `S` checks among them ([worklog 0007](../worklogs/0007-operational-and-containment-drills.md#the-pin-and-every-check)). Before that run, each check was run locally with stubs against the broken inputs listed below, and failed.
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
