@@ -337,7 +337,7 @@ def main(argv):
         print(f"not written: {error}", file=sys.stderr)
         return 1
     run_set = add(run_set, record)
-    set_path.write_text(json.dumps(run_set, indent=2, ensure_ascii=False) + "\n")
+    set_path.write_text(json.dumps(run_set, indent=1, ensure_ascii=False) + "\n")
     print(f"{record['job']}: {record['phase']}, {len(record['calls'])} calls")
     return 0
 
