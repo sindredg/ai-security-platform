@@ -11,7 +11,7 @@ In progress. The drills run in slices, each a pull request of code and expectati
 | --- | --- |
 | Worker and orchestrator interruption without duplicate changes | **Verified** for a terminated workflow ([#174](https://github.com/sindredg/ai-security-platform/issues/174), [result](#a-terminated-workflow)). **Planned**: a later slice interrupts delivery ([#216](https://github.com/sindredg/ai-security-platform/issues/216)) |
 | Duplicate findings without duplicate pull requests | **Planned**: a later slice |
-| Forbidden tool calls, storage reads, network connections, and policy edits from a worker | **Planned**: a later slice |
+| Forbidden tool calls, storage reads, network connections, and policy edits from a worker | **Verified**: 42 probes from a job's sandbox during a job, no connection open, every edit failed, and the tool service refused each call without the job's live token ([result](#slice-2-forbidden-calls-from-the-worker)) |
 | Instructions embedded in advisories and tool results | **Planned**: a later slice |
 | Forged and stale target evidence | **Verified**: a stale item refused before the job, a forged item trusted to the verification gate and stopped there ([result](#stale-and-forged-checks-verdicts)) |
 | Cleanup verification and measured resource use per investigation | **Verified** for the machine and the long-lived pods; the job's pods by subtraction ([#176](https://github.com/sindredg/ai-security-platform/issues/176), [result](#resource-use-per-investigation)). **Planned**: a later slice verifies cleanup |
@@ -44,9 +44,9 @@ Each threat the [threat model](../security/threat-model.md) rates high has a dri
 | T15 GitHub account taken over | Accepted | Accepted risk | [Accepted risks](../security/accepted-risks.md#accepted-risks) |
 | T56 approval key stolen | Accepted | Accepted risk | [Accepted risks](../security/accepted-risks.md#accepted-risks) |
 | T59 stolen GitHub session | Verified | None needed | [Worklog 0006](0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end) |
-| T16 tool call outside the job | Verified | Forbidden calls drill, later slice | [Worklog 0003](0003-toolchain-integration.md#the-round-trip) |
-| T17 worker reaches a target or the internet | Verified | Forbidden connections drill, later slice | `P.5` to `P.11`, `C.1` to `C.10` |
-| T18 worker as another job | Verified | Another job's token, later slice | [Record](../evidence/2026-10-21-1511-first-workflows.md) |
+| T16 tool call outside the job | Verified | Forbidden calls drill, slice 2 | [Result](#the-drill), [worklog 0003](0003-toolchain-integration.md#the-round-trip) |
+| T17 worker reaches a target or the internet | Verified | Forbidden connections drill, slice 2 | `P.5` to `P.11`, `C.1` to `C.10`, [result](#the-drill) |
+| T18 worker as another job | Verified | Another job's token, slice 2 | [Result](#the-drill), [record](../evidence/2026-10-21-1511-first-workflows.md) |
 | T21 worker edits its audit record | Verified | None needed | `L.1` to `L.7` |
 | T22 tool service exploited | Verified | None needed | `T.3` to `T.5`, `T.8`, `T.9`, `M.5`, `Z.13`, `E.8` |
 | T23 target reports false evidence | Verified | Stale and forged items, slice 1. The cloud API and network comparison: accepted risk | [Stale and forged items](#stale-and-forged-checks-verdicts) |
@@ -61,7 +61,7 @@ Each threat the [threat model](../security/threat-model.md) rates high has a dri
 | T44 feed key runs commands as root | Verified | None needed | `E.4`, `E.9` to `E.11` |
 | T50 compromised Argo controller image | Verified | None needed | `W.2`, `W.3`, `W.7` ([worklog 0005](0005-netbox-target-and-exercise-1.md#argo)) |
 | A1 prompt injection | Verified | Injected instructions drill, later slice | [Records](../evidence/README.md) |
-| A2 excessive agency | Built | Forbidden calls drill, later slice | [AI threats](../security/ai-threats.md) |
+| A2 excessive agency | Verified | Forbidden calls drill, slice 2 | [Result](#the-drill), [AI threats](../security/ai-threats.md) |
 | A3 wrong and convincing | Verified | None needed | [Records](../evidence/2026-10-27-0653-scored-proposals.md) |
 
 ## Slice 1: drills without an apply
@@ -129,3 +129,41 @@ The mesh VPN agent pin moved to 1.104.4 ([#225](https://github.com/sindredg/ai-s
 Result, 2026-10-28, from the router's journal read on 2026-10-29: the detached unit started at 17:45:34 UTC, unpacked 1.104.4 over 1.104.2 at 17:45:40, restarted the agent at 17:45:43, and ended at 17:45:57, 23 seconds of wall clock. The agent reported itself healthy at 17:45:47, and the read-back at 17:48 printed 1.104.4 and `active`.
 
 The template moved to the dispatch image the pipeline pushed from `cb98d92`, `dispatch@sha256:d6a947b0...`, which the registry answers anonymously and whose manifest hashes to the digest. One 20-minute window pulled it and Argo's two images with `ok` for each, and every pod of the five workflows ran on it. Every check from the pin checkout at `4a6a37f`, 18:11 to 18:20 UTC: 428 passed, 0 failed, with `S.8`, `R.8`, `U.2`, `U.7`, and `G.10` among them.
+
+## Slice 2: forbidden calls from the worker
+
+The code is in pull request [#228](https://github.com/sindredg/ai-security-platform/pull/228). The expected results below were written before the live run, and the run fills in the results. The procedure is steps 8 to 11 of the [containment drills runbook](../runbooks/containment-drills.md#forbidden-calls-from-the-worker).
+
+### The drill
+
+`validation/drills/forbidden-calls-from-the-worker.sh` runs as root on the worker and tries, from inside a transient unit built from every `[Service]` line of the installed job unit, what a compromised job would try. The connection probes are the `C` checks' addresses plus the registration port, read as root and in the sandbox, with the tool port and the model server as controls. The file probes read the model file, the tool certificate, the system text, the dispatch key's line, `/etc/shadow`, the journal, other units' private `/tmp`, and the job socket. The edit probes touch a unit file, the firewall, `ip_forward`, the job socket's unit, and the model file. The tool probes call without a token, with a made-up one, on the registration path, through the system's trust store, and with tokens the operator registered for two NetBox jobs: one whose evidence was collected, one with nothing under its name.
+
+The fail side ran on the workstation on 2026-10-30: the report function marks `open` on a containment probe, `succeeds` on an edit probe, and a status other than the expected one on a token probe as `FAIL`, three of six cases. The worker has no cloud identity ([T36](../security/threat-model.md#threats)), so "storage" here is the worker's own files, and "policy" the unit, the firewall, and the kernel settings. The security group rules are out of a worker's reach by design and are read by the `Z` checks.
+
+Expected: every probe `PASS`. As root the connections time out, as `C.1` to `C.10` read them; in the sandbox the unit's `IPAddressDeny` adds a second layer for every address but the orchestrator and localhost, so the read there is `denied` or `timeout` and never `open`. The model file reads: it is public weights at mode 644, and the sandbox cannot write it. The dispatch key's line is behind `ProtectHome`, the journal and `/etc/shadow` behind their modes, other units' private `/tmp` behind `PrivateTmp`, and the job socket behind its `0660 root:aisec-job` mode, which the sandbox's dynamic user is not in. Each edit fails on the read-only file system, the missing capability, or the missing authorization. The tokenless calls answer `401`, `401`, `404`, and `000`, each an audit line. The live token reads `ev-0001`, the foreign token is refused with `nothing by that reference`, and the live token after its revocation answers `401`. These mechanisms are reasoned from the unit file and the service's code, not observed before the run.
+
+Result, 2026-10-30 02:43 to 03:16 UTC, on the live system. The first attempt at 02:43, during `nb-10300239-record`, ran the eleven root probes and no sandbox probe: `systemd-run` refused the unit's `IPAddressAllow=localhost 10.40.0.4` as one property, since it reads a symbolic address only on its own, and 19 probes read empty. The fixed script, run on its own at 03:06, failed four probes: `sysctl -w` exits 0 when the kernel ignores the write (the value stayed 0), and the three tokenless calls read empty because systemd, not the shell, read the `${out##*$'\n'}` form in the command and dropped it (the worker's journal at 03:08:25). The kernel setting is written as a file now, and the status is parsed with `tail` and `head`.
+
+The second run, 03:14 to 03:16 UTC during `nb-10300311-record`, passed all 39 probes of the sandbox phase and the three token probes. Every connection read `timeout` as root and in the sandbox, with the two controls `open`, and a public name did not resolve. The sandbox read was `timeout` and not the reasoned `denied`: the unit's filter drops the packet, and the connect waits. The model file, the certificate, and the system text read; the dispatch key's line and `/etc/shadow` read `denied`, the journal 0 lines, other units' private `/tmp` 0 entries while the job's unit ran, and the job socket `permission denied`.
+
+Each edit failed: the unit file and the kernel setting on the read-only file system, the firewall on `address family not supported` (no netlink socket under `RestrictAddressFamilies`), the socket's unit on an unreachable system bus, and the model file on `permission denied`. The tokenless calls read `401`, `401`, `404`, and `000`. The live token read `ev-0001` (`200 allowed`, 1486 bytes in its audit line), the foreign token `refused: nothing by that reference`, and the live token after its revocation `401`. The audit file holds the drill as `seq` 437 to 447: two `register`, three tokenless `request` refusals, one `call` allowed, one `call` refused, `revoke`, a `request` refused with `revoked token`, and `revoke`. The drill's transient units left systemd's start and end lines on the worker and nothing else.
+
+### The record job and the footprint
+
+A NetBox job runs during the drill, so the sandbox probes see a running job's private `/tmp` and its token's recipe as absent, and the job's workflow gives the slice its record. Every two minutes of the job, `kubectl top pod -A` on the orchestrator reads each pod's CPU and memory ([#176](https://github.com/sindredg/ai-security-platform/issues/176)), which the tunnel's operator token could not on 2026-10-28.
+
+Expected: the job `Succeeded` with the compare step `Succeeded`, since the seed holds the merged fix; its audit lines are `register`, three `call` allowed, `revoke`. The footprint rows show the dispatch pod, the tool service, the Argo controller, and the system pods with their CPU in millicores and memory in MiB, five or more readings.
+
+Result, on the live system ([record](../evidence/2026-10-30-0239-forbidden-calls-from-the-worker.md)): `nb-10300239-record` (02:41:35 to 02:53:52 UTC) and `nb-10300311-record` (03:12:44 to 03:25:01 UTC) each `Succeeded` with a match for both accounts, three calls, 701.8 agent seconds, and the audit lines `register`, three `call` allowed, and `revoke`. The worker's job line for each ends `"outcome": "ended"` with `slot_erased` true.
+
+The footprint, from `kubectl top pod -A` on the orchestrator every two minutes, twelve readings per run and five with the dispatch pod present:
+
+| Pod | CPU | Memory |
+| --- | --- | --- |
+| Dispatch pod (the job) | 1 millicore | 45 to 50 MiB |
+| Tool service | 1 to 3 millicores | 61 MiB |
+| Argo controller | 1 to 2 millicores | 23 to 29 MiB |
+| metrics-server | 3 to 4 millicores | 33 to 34 MiB |
+| CoreDNS, local-path-provisioner | 2 and 1 millicores | 19 and 11 MiB |
+
+The dispatch pod waits on an SSH session for the job's twelve minutes, so its cost is its memory. This closes [#176](https://github.com/sindredg/ai-security-platform/issues/176): the pods' share of the job is read, and the machine's was in slice 1.
