@@ -6,6 +6,8 @@ Status: **tested** on the running system on 2026-10-19. `G.1` to `G.4` pass, wit
 
 `G.11` failed on the live system on 2026-10-26 before the same change as `J.11`, with no profile line, and passes after it ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-workers-own-logins)).
 
+`G.12` was added on 2026-10-30 and passed on the live worker the same day. During a job that day, the drill read it `2 1 1`, and `G.4` and `G.9` `2` and `1` ([worklog](../worklogs/0007-operational-and-containment-drills.md#slice-6-what-a-job-leaves)).
+
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
 | `G.1` | The Goose binary is root's and the one pinned in this checkout | The binary is what reads the model's output and decides which tool to call. The install checked the archive, and nothing checked the unpacked file afterwards | Owner and mode `root 755`, and the SHA-256 of `/opt/aisec/goose/goose-<version>/goose` equals `GOOSE_BINARY_SHA256` in `worker/agent-runtime/pins.env`. The pin was read from the release archive after the archive matched `artifacts.tsv`, not from the worker. The path names the pinned version, so a pin that moves without an install fails here |
@@ -36,6 +38,7 @@ Each check's own probe line, run on the worker on 2026-10-18 at 19:04 UTC with t
 | `G.4` | The model server's unit, which keeps a private `/tmp` | `2` |
 | `G.10` | None needed: it fails on the live worker, on 2026-10-20 after the first two jobs | `false` |
 | `G.10` | On 2026-10-20: a unit pattern with no jobs, `aisec-no-such-job@*`, and the model server's unit | Empty, twice, which the check prints as `no job outcome in the journal` |
+| `G.4`, `G.9`, `G.12` | A running job, on 2026-10-30 at 21:27 UTC: the drill's `during` phase reads what the checks read | `2`, `1`, and `2 1 1` |
 | `G.8` | Locally, on 2026-10-19, not on the worker: the five files installed into a temporary directory the way `install-job.sh` does, then `MemoryMax` changed in the unit, then the runner removed | `match`, then `differ` twice |
 
 ## Limits

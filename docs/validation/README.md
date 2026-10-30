@@ -47,7 +47,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 
 ## Last run
 
-From `7de2eee`, ending at 18:17 UTC on 2026-10-30, after the change commands with the rule of ADR 0053 were installed: 428 of 428 passed ([worklog](../worklogs/0007-operational-and-containment-drills.md#the-drill-on-the-orchestrator)).
+From `d94f479`, ending at 21:47 UTC on 2026-10-30, with `G.12` new: 429 of 429 passed ([worklog](../worklogs/0007-operational-and-containment-drills.md#the-result)).
 
 Each earlier run is in the worklog of its milestone, with what it was run for: [0002](../worklogs/0002-platform-compute.md), [0003](../worklogs/0003-toolchain-integration.md), [0004](../worklogs/0004-edge-network-and-monitoring.md), [0005](../worklogs/0005-netbox-target-and-exercise-1.md), [0006](../worklogs/0006-remediation-pull-requests-and-delivery.md), and [0007](../worklogs/0007-operational-and-containment-drills.md).
 
