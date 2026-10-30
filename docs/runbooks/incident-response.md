@@ -1,6 +1,8 @@
 # Incident response: operator procedure
 
-Status: Implemented on 2026-10-30, when steps 1 to 6, 8, 11, 12, 15, and 16 ran on the live system from 23:08 UTC, and steps 9, 10, 13, 17 to 19, and 21 in a second run from 23:22 UTC, after two command faults in the first: steps 9 and 13 moved nothing, and step 17 got no answer, both corrected below. Steps 7, 14, and 20 are each a rebuild, written against the rebuild sections of other runbooks, and run only in the rebuild the [roadmap](../roadmap.md#6-operational-and-containment-drills) lists last. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-7-the-incident-response-runbook).
+Status: Implemented on 2026-10-30, when steps 1 to 6, 8, 11, 12, 15, and 16 ran on the live system from 23:08 UTC, and steps 9, 10, 13, 17 to 19, and 21 in a second run from 23:22 UTC, after two command faults in the first: steps 9 and 13 moved nothing, and step 17 got no answer, both corrected below. The read commands of steps 3 (the step's log lines and the denied count) and 15 (the journal line) were changed after the run and have not run as written.
+
+Steps 7, 14, and 20 are each a rebuild, written against the rebuild sections of other runbooks, and run only in the rebuild the [roadmap](../roadmap.md#6-operational-and-containment-drills) lists last. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-7-the-incident-response-runbook).
 
 Three cases, in the same order each: detect, contain, verify, rotate or restore, undo what the drill changed, replace, record. The containment and rotation steps are reversible and are followed by the read that shows each took, and by its undo. The replacement steps destroy a VM.
 
@@ -70,16 +72,16 @@ The worker runs the agent and the model, and the design assumes it is compromise
    REPLACE_WITH_SSH aisec-worker 'journalctl --no-pager -o cat -u "aisec-agent-job@*" --since -10min | grep -E "outcome|Stopping|Deactivated|Consumed" | cut -c1-120
      for h in archive.ubuntu.com security.ubuntu.com; do curl -s -o /dev/null -w "%{http_code} " -x http://10.45.0.4:3128 "http://$h/ubuntu/dists/resolute/InRelease"; done; echo
      curl -s --max-time 3 http://127.0.0.1:8080/health; echo "exit $?"'
-   REPLACE_WITH_SSH aisec-edge 'sudo grep -c " 10.40.0.36 TCP_DENIED/403 " /var/log/squid/access.log'
+   REPLACE_WITH_SSH aisec-edge 'sudo awk -v since="$(date -d -10min +%s)" "\$1 >= since && / 10.40.0.36 TCP_DENIED\/403 /" /var/log/squid/access.log | wc -l'
    ```
 
    Expected: `Failed`, the dispatch step `Failed` and the exit handler's `revoke` node `Succeeded`; the step's log holds the job runner's `refused: the job ended without a result, or another job is running`, carried over SSH, and its own `failed: the session ended without a result`. The audit's last lines for the job are the `revoke` allowed for the operator's registration pod and the exit handler's `revoke`, also allowed, since the tool service keeps a revoked registration for an hour ([containment drills](containment-drills.md), step 23).
 
-   On the worker, no `outcome` line: the unit was stopped, so the job program never wrote one, and systemd's `Stopping`, `Deactivated`, and `Consumed` lines stand instead. Then `403 403` from the proxy, a health read that fails with exit `7`, and at least `2` denied lines for the worker's address on the edge; `G.7`, `S.2`, `P.6`, and `P.7` fail in this state.
+   On the worker, no `outcome` line: the unit was stopped, so the job program never wrote one, and systemd's `Stopping`, `Deactivated`, and `Consumed` lines stand instead. Then `403 403` from the proxy, a health read that fails with exit `7`, and `2` denied lines for the worker's address in the last ten minutes on the edge. `G.7`, `S.2`, `P.6`, and `P.7` read these same values and fail in this state: reasoned from the checks' probes, since the checks ran only after every undo.
 
 4. Rotate the dispatch key: a new pair in the secret on the orchestrator, and its public half on the worker. The worker holds only the public half, so the pair is rotated because a compromised worker learns which key may log in, not because it can use the key.
 
-   In an incident, step 7 comes first and this step installs the new half on the new worker; here it rotates on the running worker, which also starts the job socket again.
+   In an incident, step 7 comes first and this step installs the new half on the new worker; here it rotates on the running worker, which also starts the job socket again. The install reinstalls the job runner, the job program, and the units from the worker's `feed/agent-runtime/scripts`, so that copy has to be this checkout's first ([agent runtime runbook](agent-runtime.md), step 2).
 
    ```bash
    HOST_KEY=$(REPLACE_WITH_SSH aisec-worker 'cut -d " " -f 1,2 /etc/ssh/ssh_host_ed25519_key.pub')
@@ -124,7 +126,9 @@ The worker runs the agent and the model, and the design assumes it is compromise
 
 A compromised NetBox VM can answer the collector with what it likes ([T23](../security/threat-model.md), [T24](../security/threat-model.md)). The verification gate stops a job whose two deterministic checks disagree, or whose model disagrees with them, and the router logs each operator session to the target ([containment drills](containment-drills.md), steps 3 to 5). Containment stops the platform from reading the target at all, and the comparison below reads what changed.
 
-8. Detect: compare the live NetBox with the seed, from the orchestrator, with the collector's token. The drill reads every group of objects in the seed through the group's endpoint and compares each object's fields, and the token's own access, with the seed.
+8. Detect: compare the live NetBox with the seed, from the orchestrator, with the collector's token. The drill reads every group of objects in the seed through the group's endpoint and compares each object, in the fields the seed names for it, and the token's own access with the seed.
+
+   A field the seed does not name, such as an account's superuser flag or a permission's groups, is not compared ([#235](https://github.com/sindredg/ai-security-platform/issues/235)).
 
    ```bash
    REPLACE_WITH_SSH aisec-orchestrator 'cat > ~/netbox_against_the_seed.py' < REPLACE_WITH_PLATFORM_CHECKOUT/validation/drills/netbox_against_the_seed.py
@@ -142,7 +146,7 @@ A compromised NetBox VM can answer the collector with what it likes ([T23](../se
    hold aisec-orchestrator; hold aisec-lab
    ```
 
-   Expected: on the orchestrator `0`, then `aisec-address-probe` and `aisec-collector`; on the lab VM `0`, then `inventory-reader` and `inventory-reader-control`. The directory is root's alone, so the move runs in root's shell: the operator's shell cannot expand a pattern inside it.
+   Expected: on the orchestrator `0`, then `aisec-address-probe` and `aisec-collector`; on the lab VM `0`, then `inventory-reader` and `inventory-reader-control`. The directory is root's alone, so the move runs in root's shell: the operator's shell cannot expand a pattern inside it. A move that fails leaves the empty holding directory behind, which `rmdir` removes.
 
 10. Verify that nothing reads the target: the collect command for a new job, and each deterministic check's half as `N.14` and `N.17` run them.
 
@@ -154,9 +158,9 @@ A compromised NetBox VM can answer the collector with what it likes ([T23](../se
     REPLACE_WITH_SSH aisec-lab "sudo python3 -I -c $(printf %q "$code") observed --summary" < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json; echo "exit $?"
     ```
 
-    Expected: `failed: configured: exit 1:` with `FileNotFoundError` naming `aisec-collector`, exit `1`, and `0` items for the job: a failed collection writes nothing. Each half ends in the same error for its token, with exit `1`. `N.13` to `N.17` fail in this state.
+    Expected: `failed: configured: exit 1:` with `FileNotFoundError` naming `aisec-collector`, exit `1`, and `0` items for the job: a failed collection writes nothing. Each half ends in the same error for its token, with exit `1`. `N.13` to `N.17` read these files and these halves, and fail in this state: reasoned from the checks' probes, since the checks ran only after every undo.
 
-11. Compare against a target that differs, with the held token. The live NetBox is left alone, and the staging copy stands in for a target someone changed, since it has a dump to restore from: apply one change there through the installed change library, as a staging test does, and compare the copy with the seed using the copy's own tokens.
+11. Compare against a target that differs. The live NetBox is left alone, and the staging copy stands in for a target someone changed, since it has a dump to restore from: apply one change there through the installed change library, as a staging test does, and compare the copy with the seed using the copy's own tokens.
 
     ```bash
     REPLACE_WITH_SSH aisec-orchestrator 'sudo python3 -I -c "import sys; sys.path.insert(0, \"/usr/local/lib/aisec\"); import netbox_change as c
@@ -165,7 +169,7 @@ A compromised NetBox VM can answer the collector with what it likes ([T23](../se
     c.apply(netbox, c.plan(c.live_assignments(netbox, [name]), {name: []}))
     print(c.live_assignments(netbox, [name]))"
       sudo python3 -I ~/netbox_against_the_seed.py ~/seed.json --url https://10.50.1.4:8443 --cert /etc/aisec/netbox-rehearsal/tls.crt \
-        --token /etc/aisec/netbox-rehearsal/tokens/aisec-collector | grep -v "not readable"; echo "exit $?"'
+        --token /etc/aisec/netbox-rehearsal/tokens/aisec-collector | grep -v "not readable"; echo "exit ${PIPESTATUS[0]}"'
     ```
 
     Expected: the permission with `'users': []`. Then permissions `seed 6 netbox 6 differs: inventory-reader: tenant-a inventory differs in users`, the other three groups `same`, `== 4 groups compared, 1 differences`, and `exit 1`. The copy's users group reads as the live one's: the seed's four, beside the seeding and probe accounts its own install made.
@@ -177,7 +181,7 @@ A compromised NetBox VM can answer the collector with what it likes ([T23](../se
       -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/etc/aisec/netbox/observe/known_hosts -T aisec-rehearse@10.50.0.36 id </dev/null | tail -n 1
       sudo cat /etc/aisec/netbox-rehearsal/reset/seed.sha256
       sudo python3 -I ~/netbox_against_the_seed.py ~/seed.json --url https://10.50.1.4:8443 --cert /etc/aisec/netbox-rehearsal/tls.crt \
-        --token /etc/aisec/netbox-rehearsal/tokens/aisec-collector | tail -n 1; echo "exit $?"'
+        --token /etc/aisec/netbox-rehearsal/tokens/aisec-collector | tail -n 1; echo "exit ${PIPESTATUS[0]}"'
     ```
 
     Expected: the dump's SHA-256 twice, the same, after about a minute; then `== 4 groups compared, 0 differences` and `exit 0`. The live NetBox has no dump: its restore is step 14.
@@ -211,7 +215,7 @@ The collector's token is the credential this case takes: the platform's own toke
     REPLACE_WITH_SSH aisec-netbox 'sudo journalctl --no-pager -o cat -u netbox --since -2min | grep -F "10.50.0.36 - \"GET /api/status/" | tail -n 1'
     ```
 
-    Expected: `{"detail":"Source IP 10.50.0.36 is not permitted to authenticate using this token."} 403`, as `N.12` reads for the probe's token from the orchestrator. Then the web server's request line in NetBox's journal, `10.50.0.36 - "GET /api/status/ HTTP/2" 403` with its time: the address and the status are logged on the target, and the reason is in the answer alone.
+    Expected: `{"detail":"Source IP 10.50.0.36 is not permitted to authenticate using this token."} 403`, as `N.12` reads for the probe's token from the orchestrator. Then the web server's request line in NetBox's journal, `10.50.0.36 - "GET /api/status/ HTTP/2" 403` with its time: the address and the status are logged on the target, and the reason came in the answer.
 
 16. Contain: delete the account's tokens on NetBox with the seeding token, which the NetBox VM makes ([NetBox runbook](netbox.md), step 15).
 
@@ -232,7 +236,7 @@ The collector's token is the credential this case takes: the platform's own toke
     REPLACE_WITH_SSH aisec-orchestrator "sudo python3 -I -c $(printf %q "$code") configured" < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json | grep -E '"verdict"|"why"' | sort -u
     ```
 
-    Expected: `{"detail":"Invalid v2 token"} 403`; the orchestrator's shell names Squid as its proxy, which `--noproxy` leaves out. The configured half gives `"verdict": "missing"` for both accounts with the reason `users: 403 {'detail': 'Invalid v2 token'}`: a dead collector token reads as every account lacking everything, and `N.14` fails on it. A collection in this state writes `missing` against the observed half's `within`, and the verification gate stops the job on the disagreement.
+    Expected: `{"detail":"Invalid v2 token"} 403`; the orchestrator's shell names Squid as its proxy, which `--noproxy` leaves out. The configured half gives `"verdict": "missing"` for both accounts with the reason `users: 403 {'detail': 'Invalid v2 token'}`: a dead collector token reads as every account lacking everything, and `N.14` fails on it. A collection in this state would write `missing` against the observed half's `within`, and the verification gate would stop the job on the disagreement: reasoned from the collect command and the comparison step, not run.
 
 18. Rotate: the seed run, which deletes each seeded account's tokens and makes new ones, then the tokens to their hosts ([NetBox runbook](netbox.md), steps 16 and 17).
 

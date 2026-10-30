@@ -7,8 +7,9 @@ the incident response runbook).
 Runs as root on the orchestrator with the collector's token, which views the
 inventory, the accounts, and the permissions and nothing else. For each group
 of objects in the seed it lists the group's endpoint and compares what NetBox
-holds with the seed: the objects by the group's key, and every field of each
-as the seed's own run judges them before it leaves an object alone. A
+holds with the seed: the objects by the group's key, and each object in the
+fields the seed names for it, as the seed's own run judges them before it
+leaves an object alone. A field the seed does not name is not compared. A
 permission's users are compared by name. The seeding and probe accounts,
 which make-netbox-token.sh makes and the seed does not hold, are not extras.
 

@@ -208,7 +208,7 @@
    ]
   },
   {
-   "finding": "NetBox's journal logs a refused request's address and status, not why it was refused. The reason is in the answer alone.",
+   "finding": "NetBox's journal holds the web server's request line for a refused token: the address and the status. The reason came in the answer.",
    "change": "None. The runbook reads the request line on the target and the reason from the answer ([runbook](../runbooks/incident-response.md#a-leaked-credential)).",
    "runs": [
     "2026-10-30-2308-incident-response"

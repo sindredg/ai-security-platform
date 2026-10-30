@@ -12,7 +12,8 @@ permissions and gets no new token here: the seed run makes one (the NetBox
 runbook, steps 16 and 17).
 
 Prints each token's ID and NetBox's status, then a count. The exit is 1 when
-the account was not found or a deletion was refused, 2 when the seeding
+the account was not found, a listed token belongs to another account, or a
+deletion was refused, 2 when the seeding
 token or the arguments cannot be read. Standard library only, beside the
 collector's client in /usr/local/lib/aisec.
 """
@@ -49,6 +50,18 @@ def revoke_tokens(netbox, account):
     except LookupError as error:
         print(f"failed: {error}", file=sys.stderr)
         return 1
+    # NetBox lists the account's tokens for the filter. Each token's owner is
+    # read back before anything is deleted, so a filter NetBox ignored, which
+    # would list every token, deletes none.
+    for token in tokens:
+        owner = token.get("user") or {}
+        if owner.get("id") != user["id"]:
+            print(
+                f"failed: token {token['id']} belongs to {owner.get('username')}, "
+                f"not {account}: nothing deleted",
+                file=sys.stderr,
+            )
+            return 1
     deleted = 0
     for token in tokens:
         status, _ = netbox.call("DELETE", f"{TOKENS}{token['id']}/")

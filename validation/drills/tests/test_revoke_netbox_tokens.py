@@ -88,6 +88,23 @@ class Revoke(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("nobody: 0 found, 1 expected", out)
 
+    def test_a_token_of_another_account_in_the_answer_is_left_and_fails_the_run(self):
+        # A filter NetBox ignored would list every token: none is deleted
+        # before each token's owner is checked, and a foreign one stops the run.
+        self.tokens[1]["user"] = {"id": 9, "username": "aisec-seed"}
+        netbox = FakeNetBox(self.users, self.tokens)
+        netbox.list = lambda path, **query: (
+            (200, self.tokens[:2])
+            if path == TOKENS
+            else FakeNetBox.list(netbox, path, **query)
+        )
+        code, out = run(netbox, "aisec-collector")
+        self.assertEqual(code, 1)
+        self.assertNotIn("DELETE", str(netbox.calls))
+        self.assertIn(
+            "token 12 belongs to aisec-seed, not aisec-collector: nothing deleted", out
+        )
+
     def test_a_refused_deletion_fails_the_run(self):
         code, out = run(
             FakeNetBox(self.users, self.tokens, deletes=403), "aisec-collector"
