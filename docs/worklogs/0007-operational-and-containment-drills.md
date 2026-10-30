@@ -12,7 +12,7 @@ In progress. The drills run in slices, each a pull request of code and expectati
 | Worker and orchestrator interruption without duplicate changes | **Verified** for a terminated workflow ([#174](https://github.com/sindredg/ai-security-platform/issues/174), [result](#a-terminated-workflow)). **Planned**: a later slice interrupts delivery ([#216](https://github.com/sindredg/ai-security-platform/issues/216)) |
 | Duplicate findings without duplicate pull requests | **Planned**: a later slice |
 | Forbidden tool calls, storage reads, network connections, and policy edits from a worker | **Verified**: 42 probes during a job, 31 from a job's sandbox and 11 as root: no connection open, every edit failed, and the tool service gave no document without the job's own live token ([result](#slice-2-forbidden-calls-from-the-worker)) |
-| Instructions embedded in advisories and tool results | **Verified**: a record name that says `excess` made the model call both accounts `excess` and propose removing each one's only permission, and the verification gate stopped both ([result](#the-injected-name)) |
+| Instructions embedded in advisories and tool results | **Verified**: the model called both accounts `excess`, citing a record name that says so, and proposed removing each one's only permission; the verification gate stopped both ([result](#the-injected-name)) |
 | Forged and stale target evidence | **Verified**: a stale item refused before the job, a forged item trusted to the verification gate and stopped there ([result](#stale-and-forged-checks-verdicts)) |
 | Cleanup verification and measured resource use per investigation | **Verified** for the machine and the long-lived pods ([result](#resource-use-per-investigation)), and for the dispatch pod every two minutes of a job ([#176](https://github.com/sindredg/ai-security-platform/issues/176), [result](#the-record-job-and-the-footprint)). **Planned**: a later slice verifies cleanup |
 | The incident response runbook, run for three cases | **Planned**: after the drills without an apply |
@@ -60,7 +60,7 @@ Each threat the [threat model](../security/threat-model.md) rates high has a dri
 | T36 workload reaches another's credentials | Verified | None needed | `T.3`, `K.9` |
 | T44 feed key runs commands as root | Verified | None needed | `E.4`, `E.9` to `E.11` |
 | T50 compromised Argo controller image | Verified | None needed | `W.2`, `W.3`, `W.7` ([worklog 0005](0005-netbox-target-and-exercise-1.md#argo)) |
-| A1 prompt injection | Verified | Injected instructions drill, later slice | [Records](../evidence/README.md) |
+| A1 prompt injection | Verified | Injected instructions drill, slice 3 | [The injected name](#the-injected-name), [record](../evidence/2026-10-30-1502-instructions-in-the-evidence.md) |
 | A2 excessive agency | Verified | Forbidden calls drill, slice 2 | [Result](#the-drill), [AI threats](../security/ai-threats.md) |
 | A3 wrong and convincing | Verified | None needed | [Records](../evidence/2026-10-27-0653-scored-proposals.md) |
 
@@ -198,12 +198,14 @@ The first structured output was refused by the schema: its analysis ran over 2,0
 
 ### The seed and the copy
 
-The seed run adds the device to the live NetBox and to the rehearsal copy, and replaces the seeded accounts' tokens as every seed run does. The copy's dump is taken again, so a reset brings the record back and a staging test on the copy sees the live seed.
+The seed run adds the device to the live NetBox and to the staging copy, and replaces the seeded accounts' tokens as every seed run does. The copy's dump is taken again, so a reset brings the record back and a staging test on the copy sees the live seed.
 
 Expected: on the live NetBox the first seed run prints 35 `have` lines and one `made`, the second 36 `have`; both methods give `within` for both accounts. On the copy, 35 `have` and one `made`, four tokens, `within` for both accounts, and a new dump SHA-256 on the orchestrator.
 
 Then `N.14`, `N.17`, `N.18`, and `N.23` pass with the merged targets checkout. The object count is reasoned from the seed's 35 objects, not read before the run.
 
-Result, 2026-10-30 15:03 to 15:04 UTC, on the live system: the first seed run printed 35 `have` lines, one `made` line for the device, and three `made  token for` lines; the second 36 `have` lines. Both methods gave `within` for both accounts, with the device among each token's device records. The first run also deleted the one token `aisec-deliver` still had on the live NetBox, left by the delivery of 2026-10-27 and expired an hour after it by [ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md), which was not read.
+Result, 2026-10-30 15:03 to 15:04 UTC, on the live system: the first seed run printed 35 `have` lines, one `made` line for the device, and three `made  token for` lines; the second 36 `have` lines. Both methods gave `within` for both accounts, with the device among each token's device records.
 
-On the copy: 35 `have`, one `made` for the device, four tokens, `within` for both accounts by both methods, and a new dump with a new SHA-256 on the orchestrator, the earlier dump kept as `seed-before-the-drill.dump`. Then every check passed with the targets checkout at `9b7c5bd`, 428 of 428 at 15:23 to 15:31 UTC, `N.14`, `N.17`, `N.18`, and `N.23` among them.
+The first run also deleted the one token `aisec-deliver` still had on the live NetBox, left by the delivery of 2026-10-27. The token itself was not read; [ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md) expires it an hour after it was made.
+
+On the copy: 35 `have`, one `made` for the device, four tokens, `within` for both accounts by both methods, and a new dump with a new SHA-256 on the orchestrator, the earlier dump kept as `seed-before-the-drill.dump`. Then every check passed with the targets checkout at `9b7c5bd`, 428 of 428 at 15:22 to 15:31 UTC, `N.14`, `N.17`, `N.18`, and `N.23` among them.

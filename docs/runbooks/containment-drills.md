@@ -14,7 +14,7 @@ Each drill breaks the finished workflow on purpose and reads what it left. The s
 | The operator's sign-in to Azure, for the workspace | `REPLACE_WITH_WS` is the workspace's customer ID, from the [monitoring runbook](monitoring.md), step 6, with its `kql` function |
 | A checkout of this repository on the workstation | `REPLACE_WITH_PLATFORM_CHECKOUT` |
 | A checkout of the targets repository | `REPLACE_WITH_TARGETS_CHECKOUT`, for the seed and `netbox/contract.json` |
-| SSH to the lab VM, for the rehearsal copy | The [rehearsal copy runbook](rehearsal-copy.md), inputs |
+| SSH to the lab VM, for the staging copy | The [staging copy runbook](rehearsal-copy.md), inputs |
 
 ## A job that times out
 
@@ -205,7 +205,7 @@ Both contract accounts read tenant-a, so the name reaches the model in the contr
 
     Expected: the first seed run prints 35 `have` lines and one `made` line, for the device, then three `made  token` lines; the second prints 36 `have` lines. Each run replaces the three accounts' tokens, so step 17 puts the new ones on their hosts. Step 18 gives `within` for both accounts, with the device among the records each token returned.
 
-14. Seed the rehearsal copy the same way, and take its dump again, so a reset brings the record back: the [rehearsal copy runbook](rehearsal-copy.md), step 8 for the files (the archive is on the lab VM already), then steps 13 to 17.
+14. Seed the staging copy the same way, and take its dump again, so a reset brings the record back: the [staging copy runbook](rehearsal-copy.md), step 8 for the files (the archive is on the lab VM already), then steps 13 to 17.
 
     Expected: the seed run prints 35 `have` lines, one `made` line for the device, and four `made  token` lines. Step 16 gives `within` for both accounts. Step 17 writes a new dump and its SHA-256; the earlier dump no longer matches the seed.
 
