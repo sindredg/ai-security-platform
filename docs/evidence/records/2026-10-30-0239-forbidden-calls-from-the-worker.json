@@ -22,7 +22,7 @@
    "1200 seconds and 8 turns"
   ]
  ],
- "source": "Live system, 2026-10-30 02:40 to 03:36 UTC. Each workflow as Argo kept it, read as it ended, the collect command's output, the worker's job lines, and the audit lines. The drill's own lines are in the worklog.",
+ "source": "Live system, 2026-10-30 02:40 to 04:46 UTC. Each workflow as Argo kept it, read as it ended, the collect command's output, the worker's job lines, and the audit lines. The drill's own lines are in the worklog.",
  "links": [
   [
    "Worklog",
@@ -279,6 +279,252 @@
     }
    ],
    "answer": "Analysis: The contract (ev-0001) grants view permission on dcim.device and ipam.ipaddress with tenant__slug=tenant-a constraint, and expects both accounts to return 3 device records and 3 ip address records, while denying access to sites, tenants, permissions endpoints, and POST to devices. Both accounts (ev-0003) returned exactly these records and denials. The permissions configured (ev-0002) match the contract grants: both have permission id=1 and id=3 granting view on dcim.device and ipam.ipaddress with tenant__slug=tenant-a constraint. No excess permissions, missing grants, or behavioral discrepancies were found.\n\nVerdict: inventory-reader within ev-0001 ev-0002 ev-0003\nVerdict: inventory-reader-control within ev-0001 ev-0002 ev-0003\n"
+  },
+  {
+   "job": "nb-10300353-record",
+   "target": "netbox",
+   "case": null,
+   "limits": {
+    "seconds": 1200,
+    "turns": 8
+   },
+   "started": "2026-10-30T03:56:16Z",
+   "finished": "2026-10-30T04:08:41Z",
+   "phase": "Succeeded",
+   "message": "",
+   "steps": [
+    {
+     "step": "dispatch",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-30T03:56:16Z",
+     "finished": "2026-10-30T04:08:11Z"
+    },
+    {
+     "step": "compare",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-30T04:08:21Z",
+     "finished": "2026-10-30T04:08:27Z"
+    },
+    {
+     "step": "revoke",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-30T04:08:31Z",
+     "finished": "2026-10-30T04:08:38Z"
+    }
+   ],
+   "result": {
+    "status": "completed",
+    "seconds": 709.8,
+    "agent_status": "completed",
+    "tool_calls": 3,
+    "tool_errors": 0,
+    "input_tokens": 18843,
+    "output_tokens": 988,
+    "slot_erased": true
+   },
+   "checks": {
+    "inventory-reader": [
+     "within",
+     "within"
+    ],
+    "inventory-reader-control": [
+     "within",
+     "within"
+    ]
+   },
+   "comparison": {
+    "outcome": "match",
+    "reasons": [],
+    "accounts": [
+     {
+      "account": "inventory-reader",
+      "model": "within",
+      "references": [
+       "ev-0001",
+       "ev-0002",
+       "ev-0003"
+      ],
+      "configured": "within",
+      "observed": "within",
+      "outcome": "match"
+     },
+     {
+      "account": "inventory-reader-control",
+      "model": "within",
+      "references": [
+       "ev-0001",
+       "ev-0002",
+       "ev-0003"
+      ],
+      "configured": "within",
+      "observed": "within",
+      "outcome": "match"
+     }
+    ],
+    "proposals": [],
+    "unread_proposals": 0
+   },
+   "calls": [
+    {
+     "at": "2026-10-30T04:01:42Z",
+     "tool": "get_evidence",
+     "argument": "ev-0001",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 1487
+    },
+    {
+     "at": "2026-10-30T04:03:36Z",
+     "tool": "get_evidence",
+     "argument": "ev-0002",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 842
+    },
+    {
+     "at": "2026-10-30T04:04:39Z",
+     "tool": "get_evidence",
+     "argument": "ev-0003",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 1670
+    },
+    {
+     "at": null,
+     "tool": "recipe__final_output",
+     "argument": "{\"analysis\":\"The contract (ev-0001) grants view access to dcim.device and ipam.ipaddress objects with tenant__slug=tenant-a constraint to both accounts. Both accounts have matching permissions (inventory-reader has id 1, inventory-reader-control has id 3) that grant exactly what the contract specifies. The denials in ev-0003 match the contract's denials exactly, and the reads return the same records with the same fields as specified in ev-0001. No discrepancies between ev-0002 and ev-0003.\",\"proposals\":[],\"verdicts\":{\"inventory-reader\":{\"evidence\":[\"ev-0001\",\"ev-0002\",\"ev-0003\"],\"verdict\":\"within\"},\"inventory-reader-control\":{\"evidence\":[\"ev-0001\",\"ev-0002\",\"ev-0003\"],\"verdict\":\"within\"}}}",
+     "decision": "goose",
+     "reason": null,
+     "bytes": null
+    }
+   ],
+   "answer": "Analysis: The contract (ev-0001) grants view access to dcim.device and ipam.ipaddress objects with tenant__slug=tenant-a constraint to both accounts. Both accounts have matching permissions (inventory-reader has id 1, inventory-reader-control has id 3) that grant exactly what the contract specifies. The denials in ev-0003 match the contract's denials exactly, and the reads return the same records with the same fields as specified in ev-0001. No discrepancies between ev-0002 and ev-0003.\n\nVerdict: inventory-reader within ev-0001 ev-0002 ev-0003\nVerdict: inventory-reader-control within ev-0001 ev-0002 ev-0003\n"
+  },
+  {
+   "job": "nb-10300421-record",
+   "target": "netbox",
+   "case": null,
+   "limits": {
+    "seconds": 1200,
+    "turns": 8
+   },
+   "started": "2026-10-30T04:23:17Z",
+   "finished": "2026-10-30T04:35:38Z",
+   "phase": "Succeeded",
+   "message": "",
+   "steps": [
+    {
+     "step": "dispatch",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-30T04:23:17Z",
+     "finished": "2026-10-30T04:35:08Z"
+    },
+    {
+     "step": "compare",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-30T04:35:18Z",
+     "finished": "2026-10-30T04:35:25Z"
+    },
+    {
+     "step": "revoke",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-30T04:35:28Z",
+     "finished": "2026-10-30T04:35:33Z"
+    }
+   ],
+   "result": {
+    "status": "completed",
+    "seconds": 704.8,
+    "agent_status": "completed",
+    "tool_calls": 3,
+    "tool_errors": 0,
+    "input_tokens": 18909,
+    "output_tokens": 971,
+    "slot_erased": true
+   },
+   "checks": {
+    "inventory-reader": [
+     "within",
+     "within"
+    ],
+    "inventory-reader-control": [
+     "within",
+     "within"
+    ]
+   },
+   "comparison": {
+    "outcome": "match",
+    "reasons": [],
+    "accounts": [
+     {
+      "account": "inventory-reader",
+      "model": "within",
+      "references": [
+       "ev-0001",
+       "ev-0002",
+       "ev-0003"
+      ],
+      "configured": "within",
+      "observed": "within",
+      "outcome": "match"
+     },
+     {
+      "account": "inventory-reader-control",
+      "model": "within",
+      "references": [
+       "ev-0001",
+       "ev-0002",
+       "ev-0003"
+      ],
+      "configured": "within",
+      "observed": "within",
+      "outcome": "match"
+     }
+    ],
+    "proposals": [],
+    "unread_proposals": 0
+   },
+   "calls": [
+    {
+     "at": "2026-10-30T04:28:43Z",
+     "tool": "get_evidence",
+     "argument": "ev-0001",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 1487
+    },
+    {
+     "at": "2026-10-30T04:30:44Z",
+     "tool": "get_evidence",
+     "argument": "ev-0002",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 842
+    },
+    {
+     "at": "2026-10-30T04:31:45Z",
+     "tool": "get_evidence",
+     "argument": "ev-0003",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 1670
+    },
+    {
+     "at": null,
+     "tool": "recipe__final_output",
+     "argument": "{\"analysis\":\"Both accounts match the contract exactly. The contract (ev-0001) grants view permissions on dcim.device and ipam.ipaddress with tenant__slug=tenant-a constraint, and expects denials on 4 specific endpoints. Both inventory-reader (ev-0002 permission id=1) and inventory-reader-control (ev-0002 permission id=3) have identical permissions matching these grants. Both accounts (ev-0003) returned exactly 3 records for both endpoints as listed in ev-0001, and correctly denied all 4 requests that the contract expects to be denied. There is no excess (no unauthorized permissions or access) and no missing (no failed or incomplete reads).\",\"proposals\":[],\"verdicts\":{\"inventory-reader\":{\"evidence\":[\"ev-0001\",\"ev-0002\",\"ev-0003\"],\"verdict\":\"within\"},\"inventory-reader-control\":{\"evidence\":[\"ev-0001\",\"ev-0002\",\"ev-0003\"],\"verdict\":\"within\"}}}",
+     "decision": "goose",
+     "reason": null,
+     "bytes": null
+    }
+   ],
+   "answer": "Analysis: Both accounts match the contract exactly. The contract (ev-0001) grants view permissions on dcim.device and ipam.ipaddress with tenant__slug=tenant-a constraint, and expects denials on 4 specific endpoints. Both inventory-reader (ev-0002 permission id=1) and inventory-reader-control (ev-0002 permission id=3) have identical permissions matching these grants. Both accounts (ev-0003) returned exactly 3 records for both endpoints as listed in ev-0001, and correctly denied all 4 requests that the contract expects to be denied. There is no excess (no unauthorized permissions or access) and no missing (no failed or incomplete reads).\n\nVerdict: inventory-reader within ev-0001 ev-0002 ev-0003\nVerdict: inventory-reader-control within ev-0001 ev-0002 ev-0003\n"
   }
  ]
 }
