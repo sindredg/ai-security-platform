@@ -297,3 +297,31 @@ The kept entry refuses its token as `revoked token`, which slice 2 read; runbook
 Then every check passed with the targets checkout at `9b7c5bd`, 429 of 429, 21:38 to 21:47 UTC, `G.12` among them with `0 0 0`.
 
 The review of the pull request found runbook step 23's command splitting the output on the audit line, the changed-files probe passing on any file, and the kept entry's lifetime understated. The command splits on the config map's first line now, the drill reads the files inside and outside the private directories apart, and the text says a later registration prunes the entry. The split probe has not run on the worker: the run's eight files were all inside, read from its list.
+
+## Slice 7: the incident response runbook
+
+The expected results below were written before the live run, and the run fills in the results. The procedure is the [incident response runbook](../runbooks/incident-response.md): a compromised worker, a compromised target, and a leaked credential, each detected, contained, verified, rotated or restored, and put back, with the replacement written as a rebuild and not run.
+
+Two small tools go with it, both run on the orchestrator through the collector's client and both tested against a fake NetBox (`validation/drills/tests/`). `netbox_against_the_seed.py` compares a NetBox with the seed in the targets repository: every group of objects by its key and each object's fields, and the token's own access against the collector's permission in the seed. `revoke_netbox_tokens.py` deletes one account's tokens with the seeding token.
+
+### What each case rotates
+
+The worker holds no private credential of another machine: the dispatch key's public half, the tool service's certificate, the model, and a running job's token in its unit's private `/tmp` ([credentials](../security/credentials.md)). The job's token is revoked and the dispatch key pair replaced, because a compromised worker learns which key may log in, not because it can use it. The worker's own host key goes with the VM.
+
+The NetBox VM holds the accounts' tokens as hashes and its TLS key. The platform's tokens are moved out of reach while the target is suspect, and the seed run replaces every seeded account's token. The TLS key and the pinned certificate go with the VM.
+
+The collector's token is the leaked credential: read-only, limited to the orchestrator's address, and the one the platform uses most. NetBox refuses it from any other address ([ADR 0039](../decisions/0039-netbox-takes-a-clients-address-from-the-connection.md)), and the seed run replaces it.
+
+### Expected
+
+A compromised worker: a NetBox job's agent is working when the revoke, the stop of the socket, the unit, and the model server, and the deny at Squid land. The workflow ends `Failed` with the dispatch step's `the session ended without a result`, the exit handler's revoke `Succeeded`, and no `outcome` line on the worker, since the stopped unit never wrote one. The proxy answers `403` twice from the worker, the model server's port nothing, `G.7`, `S.2`, `P.6`, and `P.7` read their fail state, and the rotation changes the secret's digest and the worker's key line to one fingerprint, after which a synthetic job `Succeeded`.
+
+A compromised target: the live NetBox against the seed, `0` differences in four groups with the five ungranted groups refused. With the tokens held, the collect command fails on the missing token file and writes no item, and both halves fail the same way. One permission's users emptied on the staging copy gives `1` difference naming it, the reset gives the dump's SHA-256 and `0` differences, and the tokens back give `within` for both accounts by both methods.
+
+A leaked credential: the collector's token from the lab VM gets `403` with `Source IP 10.50.0.36 is not permitted`, the deletion with the seeding token `204` once, the token then `Invalid token` from the orchestrator, and the configured half `missing` for both accounts with `403` in its reason. The seed run makes three tokens and none for the delivery account, both halves give `within`, and the old token is still refused.
+
+Reasoned and not observed before the run: whether NetBox's journal logs the refused request, the exact order of the two log lines of the stopped dispatch step, and the seed's users group reading two accounts beside the seed's four on both NetBoxes. Then every check passes with the targets checkout, `G.5` and `W.10` with the new key and `N.14` and `N.17` with the new tokens, the same count as the last run.
+
+### The result
+
+Not run yet.
