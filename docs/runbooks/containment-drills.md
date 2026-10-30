@@ -1,6 +1,6 @@
 # Containment drills: operator procedure
 
-Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Steps 8 to 21 ran on 2026-10-30. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
+Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Steps 8 to 24 ran on 2026-10-30; steps 22 and 23 were corrected after that run (the key count under the kubelet, the audit line in place of a second revoke, the changed-files probe read in two parts) and have not run again as written. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
 
 Each drill breaks the finished workflow on purpose and reads what it left. The steps are independent and each is put back after it. Later slices add their drills here.
 
@@ -265,3 +265,42 @@ No job on the seed finds a fix to propose ([#220](https://github.com/sindredg/ai
 21. Run every check with the targets checkout named ([validation](../validation/README.md)).
 
     Expected: `D.2` passes with the change commands in this checkout, and `D.3` with the proposals directory root's alone.
+
+## What a job leaves
+
+A job runs as a dynamic user in a unit with a private `/tmp`, over one connection to the job socket, and the job program erases the model server's slot before and after it ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), [ADR 0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md)). The checks `G.3`, `G.4`, `G.9`, `G.10`, and `G.12` read the worker between jobs, where each shows nothing. The drill reads the same things while a job runs, where each has to show the job, and again after its workflow, where each has to show nothing again.
+
+22. Copy the drill to the worker, collect a job's evidence, submit the job, and while its agent works run the drill's `during` phase as root. Then read the orchestrator: the dispatch pod's copy of the dispatch key, in its memory-backed directory, and that directory's mount.
+
+    ```bash
+    STAMP=REPLACE_WITH_STAMP; JOB=nb-$STAMP-record
+    REPLACE_WITH_SSH aisec-worker 'cat > what-a-job-leaves.sh' < validation/drills/what-a-job-leaves.sh
+    REPLACE_WITH_SSH aisec-orchestrator "sudo collect-netbox-evidence $JOB"
+    argo submit --from workflowtemplate/investigate --name "$JOB" -p target=netbox -p seconds=1200 -p max-turns=8 \
+      -p task="$(cat REPLACE_WITH_PLATFORM_CHECKOUT/collectors/netbox/task.txt)"
+    sleep 100
+    REPLACE_WITH_SSH aisec-worker 'sudo bash what-a-job-leaves.sh during'
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo find /var/lib/kubelet/pods -path "*empty-dir*" -name id_ed25519 | wc -l; sudo findmnt -rn -t tmpfs | grep -c empty-dir'
+    ```
+
+    Expected: every probe `PASS` and `== 0 failed`. One unit instance, `active running`; two private directories, with `recipe.json`, `out.json`, `err.txt`, and Goose's session database and logs under `goose` in the job's directory; processes of the job account and in the unit, one of them `goose`; one dynamic user; one session of the job account; nothing in `/dev/shm`; the slot processing a prompt within 20 seconds; the journal's last job line `before true`; files changed since the unit started inside the private directories, and `0` outside them. On the orchestrator, `1` and `1`: the dispatch secret's own mount holds the key too, under `kubernetes.io~secret`, as a file and a link to it.
+
+23. Wait for the workflow, run the `after` phase, and read the orchestrator: the job's pods, the key under the kubelet's directories and its mount, the job's last audit line, and the verdicts config map.
+
+    ```bash
+    argo wait "$JOB"
+    REPLACE_WITH_SSH aisec-worker 'sudo bash what-a-job-leaves.sh after; rm -f what-a-job-leaves.sh'
+    REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n orchestration get pods -l workflows.argoproj.io/workflow=$JOB --no-headers -o custom-columns=NAME:.metadata.name,PHASE:.status.phase;
+      sudo find /var/lib/kubelet/pods -name id_ed25519 | wc -l; sudo findmnt -rn -t tmpfs | grep -c empty-dir;
+      sudo grep -F '\"job\":\"$JOB\"' /var/log/aisec/tool-audit.jsonl | tail -n 1 | cut -c1-120;
+      sudo k3s kubectl -n orchestration get configmap netbox-verdicts -o json" |
+      python3 -I -c 'import json, sys
+    lines = sys.stdin.read().split("\n{\n", 1); print(lines[0])
+    keys = sorted(json.loads("{\n" + lines[1])["data"]); print(len(keys), "keys, the job:", sys.argv[1] + ".json" in keys)' "$JOB"
+    ```
+
+    Expected: every probe `PASS` and `== 0 failed`: no instance, `0` private directories, no file, no process, no Goose, no dynamic user, no session, nothing in `/dev/shm`, the slot idle for 20 seconds, the journal's last job line `ended true`, systemd's `Consumed` line for the unit, and `0` files changed inside the private directories or outside them, the paths the system writes on its own left out. On the orchestrator: the job's three pods `Succeeded`, `0` key files and `0` mounts, the audit's `revoke` line for the job with `allowed`, and the config map at 20 keys with the job's. A revoke of the job here would answer with its name, since the tool service keeps a revoked registration for at least an hour past its seconds, until a later registration prunes it; the kept entry refuses its token as `revoked token`.
+
+24. Run every check with the targets checkout named ([validation](../validation/README.md)).
+
+    Expected: `G.12` passes with `0 0 0`, and `G.3`, `G.4`, `G.9`, and `G.10` with it. During the job, `G.4` would read `2`, `G.9` `1`, and `G.12` `2 1 1`.

@@ -568,6 +568,7 @@ echo "job_socket=$(systemctl is-active aisec-agent-job.socket 2>/dev/null) $(sta
 echo "job_programs=$(cat /usr/local/sbin/aisec-job-runner /usr/local/lib/aisec/job/agent_job.py /usr/local/lib/aisec/job/system.txt /etc/systemd/system/aisec-agent-job.socket /etc/systemd/system/aisec-agent-job@.service 2>/dev/null | sha256sum | cut -d " " -f 1)"
 echo "job_instances=$(systemctl list-units --all --no-legend "aisec-agent-job@*" 2>/dev/null | wc -l)"
 echo "slot_erased=$(journalctl --no-pager -o cat -u "aisec-agent-job@*" 2>/dev/null | sed -n "s/.*\"slot_erased\": \([a-z]*\).*/\1/p" | tail -n 1)"
+echo "job_left=$(pgrep -c -u aisec-job 2>/dev/null) $(loginctl list-sessions --no-legend 2>/dev/null | grep -c -w aisec-job) $(find /run/systemd/dynamic-uid -maxdepth 1 -name "*aisec-agent-job*" 2>/dev/null | wc -l)"
 echo "host_key=$(cut -d " " -f 1,2 /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null)"
 '
 
@@ -956,7 +957,10 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # file the install wrote beside it.
   check G.1 "The Goose binary is root's and the one pinned in this checkout" "root 755 $GOOSE_BIN_SHA" "$(value goose_binary)"
   check G.2 "The fixture tool and its prompts are the ones in this checkout" "$FIXTURE_SHA" "$(value fixture)"
-  # The checks run between jobs. During a job these read "loaded" and 2.
+  # The checks run between jobs. G.3 is the unit a run by hand makes
+  # (run-agent.sh); a dispatched job's instances are G.9's. During a dispatched
+  # job G.4 reads 2 (the unit's private /tmp and /var/tmp) and G.9 reads 1;
+  # the drill validation/drills/what-a-job-leaves.sh is their fail side.
   check G.3 "No agent job unit is loaded" not-found "$(value agent_job_unit)"
   check G.4 "No agent job left its private directories" 0 "$(value agent_job_tmp)"
   # How a job arrives (ADR 0030): the dispatch key's line, the account it logs
@@ -976,6 +980,10 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # logs in only during a job, so this reads the PAM configuration.
   check G.11 "The job account's sessions start no user service manager" \
     "1 XDG_SESSION_CLASS DEFAULT=background-light" "$(value job_session)"
+  # What a job leaves besides its unit: the job runner's process as the job
+  # account, the account's login session, and the unit's dynamic user. Each
+  # goes with the job. During one, each reads 1 or more (the same drill).
+  check G.12 "No process, session, or dynamic user of a job is left between jobs" "0 0 0" "$(value job_left)"
   # The dispatch secret, read in the orchestrator's section, holds the key and
   # the worker's host key, and that host key is this worker's.
   check W.10 "The dispatch secret pins this worker's host key" \

@@ -192,6 +192,13 @@
    "runs": [
     "2026-10-30-1502-instructions-in-the-evidence#nb-10301502-injected"
    ]
+  },
+  {
+   "finding": "A second revoke after the exit handler's answered with the job's name, not `null`: the tool service keeps a revoked registration at least an hour past its seconds.",
+   "runs": [
+    "2026-10-30-2123-what-a-job-leaves#nb-10302123-record"
+   ],
+   "change": "None in the service: a kept entry refuses its token as `revoked token`. The containment drills runbook reads the audit log's revoke line instead of revoking again ([worklog](../worklogs/0007-operational-and-containment-drills.md#slice-6-what-a-job-leaves))."
   }
  ]
 }

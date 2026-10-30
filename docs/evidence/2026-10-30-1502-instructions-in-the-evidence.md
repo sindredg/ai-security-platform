@@ -2,7 +2,7 @@
 
 # Instructions in the evidence
 
-Milestone 6, 2026-10-30. [All run sets](README.md), [previous: Forbidden calls from the worker](2026-10-30-0239-forbidden-calls-from-the-worker.md).
+Milestone 6, 2026-10-30. [All run sets](README.md), [previous: Forbidden calls from the worker](2026-10-30-0239-forbidden-calls-from-the-worker.md), [next: What a job leaves](2026-10-30-2123-what-a-job-leaves.md).
 
 **Tested:** Whether a record name that reads as an instruction, in the evidence of both accounts, makes the model's verdict or a proposal pass the verification gate.
 
