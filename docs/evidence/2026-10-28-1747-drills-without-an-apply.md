@@ -2,7 +2,7 @@
 
 # Drills without an apply
 
-Milestone 6, 2026-10-28. [All run sets](README.md), [previous: Accounts in the job line](2026-10-28-1500-accounts-in-the-job-line.md).
+Milestone 6, 2026-10-28. [All run sets](README.md), [previous: Accounts in the job line](2026-10-28-1500-accounts-in-the-job-line.md), [next: Forbidden calls from the worker](2026-10-30-0239-forbidden-calls-from-the-worker.md).
 
 **Tested:** Whether a timed-out job erases the slot, a terminated workflow revokes its token, a stale item is refused, a forged one is trusted, and a synthetic job passes.
 

@@ -1,6 +1,6 @@
 # Containment drills: operator procedure
 
-Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
+Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Steps 8 to 11 ran on 2026-10-30. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
 
 Each drill breaks the finished workflow on purpose and reads what it left. The steps are independent and each is put back after it. Later slices add their drills here.
 
@@ -122,3 +122,59 @@ Each drill breaks the finished workflow on purpose and reads what it left. The s
    ```
 
    Expected: the push refused with `GH013: Repository rule violations` and a `Push cannot contain secrets` block naming the token type, exit `1`, and no branch on the remote. If the push goes through, delete the remote branch, and the accepted risk stays with that result.
+
+## Forbidden calls from the worker
+
+8. Copy the registration client to the orchestrator, collect evidence under a drill name, and register two NetBox jobs with tokens made here: one under the collected name, one under a name nothing was collected for. Copy the drill script to the worker.
+
+   ```bash
+   STAMP=REPLACE_WITH_STAMP
+   tar -cf - platform/tool-service policies/tool-service.json |
+     REPLACE_WITH_SSH aisec-orchestrator 'mkdir -p ~/feed/tool-service && tar -C ~/feed/tool-service -xf -'
+   REG='sudo ~/feed/tool-service/platform/tool-service/register.sh'
+   digest() { printf %s "$1" | sha256sum | cut -d' ' -f1; }
+   LIVE=$(openssl rand -hex 32); FOREIGN=$(openssl rand -hex 32)
+   REPLACE_WITH_SSH aisec-orchestrator "sudo collect-netbox-evidence nb-$STAMP-drill"
+   REPLACE_WITH_SSH aisec-orchestrator "$REG register nb-$STAMP-drill $(digest "$LIVE") - 1800 netbox"
+   REPLACE_WITH_SSH aisec-orchestrator "$REG register nb-$STAMP-foreign $(digest "$FOREIGN") - 1800 netbox"
+   REPLACE_WITH_SSH aisec-worker 'cat > forbidden-calls-drill.sh' < validation/drills/forbidden-calls-from-the-worker.sh
+   ```
+
+   Expected: the collection prints `within` for both accounts, then `201 {"job": "nb-REPLACE_WITH_STAMP-drill"}` and `201 {"job": "nb-REPLACE_WITH_STAMP-foreign"}`.
+
+9. Submit a NetBox job, and while its agent works run the drill as root on the worker: the sandbox phase, then the tokens phase with the two tokens on its standard input. The loop on the orchestrator reads each pod's footprint every two minutes while the job runs.
+
+   ```bash
+   JOB=nb-$STAMP-record
+   REPLACE_WITH_SSH aisec-orchestrator "sudo collect-netbox-evidence $JOB"
+   argo submit --from workflowtemplate/investigate --name "$JOB" -p target=netbox -p seconds=1200 -p max-turns=8 \
+     -p task="$(cat REPLACE_WITH_PLATFORM_CHECKOUT/collectors/netbox/task.txt)"
+   REPLACE_WITH_SSH aisec-orchestrator 'for _ in $(seq 1 10); do date -u +%T; sudo k3s kubectl top pod -A --no-headers; sleep 120; done' > top-pods.txt &
+   sleep 90
+   REPLACE_WITH_SSH aisec-worker 'sudo bash forbidden-calls-drill.sh sandbox'
+   printf 'live=%s=200 allowed\nforeign=%s=200 refused: nothing by that reference\n' "$LIVE" "$FOREIGN" |
+     REPLACE_WITH_SSH aisec-worker 'sudo bash forbidden-calls-drill.sh tokens'
+   ```
+
+   Expected: every probe `PASS` and `== 0 failed` twice. As root and in the sandbox, no connection opens but the two controls, and a public name does not resolve. In the sandbox the model file, the tool certificate, and the system text read; the dispatch key's line, `/etc/shadow`, the journal, other units' private `/tmp`, and the job socket do not, while the root-side line counts the running job's private `/tmp` as `1`. Each edit fails. The tokenless calls answer `401`, `401`, `404`, and `000`. The live token reads `ev-0001`, and the foreign token, accepted as its own job, is refused with `nothing by that reference`.
+
+10. Revoke the live token on the orchestrator, call again with it, and revoke the other.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-orchestrator "$REG revoke nb-$STAMP-drill"
+    printf 'revoked=%s=401 {"error": "refused"}\n' "$LIVE" | REPLACE_WITH_SSH aisec-worker 'sudo bash forbidden-calls-drill.sh tokens'
+    REPLACE_WITH_SSH aisec-orchestrator "$REG revoke nb-$STAMP-foreign"
+    unset LIVE FOREIGN
+    ```
+
+    Expected: `200 {"job": "nb-REPLACE_WITH_STAMP-drill"}`, the probe `PASS` with `401`, then `200 {"job": "nb-REPLACE_WITH_STAMP-foreign"}`.
+
+11. Read the audit lines the drill left, the drill units' lines on the worker, and the job's end. Remove the script copy.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-orchestrator "sudo grep -E \"nb-$STAMP-(drill|foreign)|not the tool endpoint|no token|unknown token\" /var/log/aisec/tool-audit.jsonl | tail -n 12"
+    REPLACE_WITH_SSH aisec-worker 'journalctl --no-pager -o cat -u "aisec-drill-*" --since -30min | tail -n 20; rm -f forbidden-calls-drill.sh'
+    argo wait "$JOB"; argo get "$JOB" | grep -E "Status|compare"; wait
+    ```
+
+    Expected: `register` allowed for both drill jobs; one `call` allowed with `result_bytes` for the live token and one refused with `nothing by that reference` for the foreign one; three `request` lines refused, with `no token, or a malformed one`, `unknown token`, and `not the tool endpoint`; `revoke` allowed, then a `request` refused with `revoked token`; `revoke` allowed again. The drill units leave systemd's start and end lines and nothing from the probes. The job `Succeeded` with the compare step `Succeeded`, and `top-pods.txt` holds one block of pods per two minutes.
