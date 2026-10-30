@@ -5,13 +5,15 @@ with that account's token projected for the tool service. Standard library
 only. It reads its arguments from the first line of standard input, so that
 nothing about the job is in the pod's spec.
 
-    register JOB TOKEN_SHA256 [TOKEN_OVERRIDE|-] [SECONDS]
+    register JOB TOKEN_SHA256 [TOKEN_OVERRIDE|-] [SECONDS] [TARGET]
     revoke JOB [- TOKEN_OVERRIDE]
 
 TOKEN_OVERRIDE replaces the projected token. The negative checks use it to
 present a token that should be refused. "-" keeps the projected token.
 SECONDS is the job's lifetime, 600 by default. The expiry check uses a short
-one so that it does not wait ten minutes.
+one so that it does not wait ten minutes. TARGET is the job's target,
+synthetic by default; the forbidden calls drill registers netbox jobs, whose
+documents are the ones collected under the job's name.
 """
 
 import json
@@ -34,7 +36,8 @@ def main():
     context = ssl.create_default_context(cafile=CERT)
     headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
     if action == "register":
-        body = {"job": job, "target": "synthetic", "tools": ["get_evidence"]}
+        target = args[5] if len(args) > 5 else "synthetic"
+        body = {"job": job, "target": target, "tools": ["get_evidence"]}
         seconds = int(args[4]) if len(args) > 4 else 600
         body |= {"seconds": seconds, "token_sha256": args[2]}
         data, method, url = json.dumps(body).encode(), "POST", URL
