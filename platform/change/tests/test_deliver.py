@@ -407,6 +407,26 @@ class Deliver(unittest.TestCase):
         written = self.state / "results" / "approve_netbox_nb-1.json"
         self.assertEqual(json.loads(written.read_text())["stage"], "the ledger line")
 
+    def test_a_git_error_after_the_apply_writes_a_result(self):
+        # The contract's read from the repository fails after the change: a
+        # refusal from git is a failure after the ledger line too.
+        real_git = deliver.git
+
+        def failing_git(repo, *args, **kwargs):
+            if args[0] == "show" and args[-1].endswith("contract.json"):
+                raise deliver.Refused("git show: fatal: unable to read")
+            return real_git(repo, *args, **kwargs)
+
+        tag = self.tag("approve/netbox/nb-1", self.fix_branch())
+        with mock.patch.object(deliver, "git", failing_git):
+            result = deliver.deliver(tag, TOKEN)
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["stage"], "the read back")
+        self.assertIn("unable to read", result["reason"])
+        self.assertEqual(len(self.live.patches), 1)
+        written = self.state / "results" / "approve_netbox_nb-1.json"
+        self.assertEqual(json.loads(written.read_text())["stage"], "the read back")
+
     def test_main_reports_a_failure_after_the_approval_was_used(self):
         def failing_halves(contract):
             raise deliver.collection.Failed("the observed half: ssh exited 255")

@@ -127,6 +127,7 @@ def rehearse(changes, contract):
     except (collection.Failed, netbox_change.Failed, OSError) as error:
         result["reason"] = str(error)
         return result
+    configured = observed = None
     try:
         copy = netbox_change.client(
             COPY_URL, str(COPY / "tls.crt"), str(COPY / "tokens" / "aisec-deliver")
@@ -149,15 +150,17 @@ def rehearse(changes, contract):
             result["reason"] = (
                 f"{result['reason']}; {after}" if result["reason"] else after
             )
+    if configured is not None:
+        # Kept even when the reset after the halves failed.
+        result["verdicts"] = {
+            name: {
+                "configured": configured["accounts"][name]["verdict"],
+                "observed": observed["accounts"][name]["verdict"],
+            }
+            for name in contract["accounts"]
+        }
     if result["reason"]:
         return result
-    result["verdicts"] = {
-        name: {
-            "configured": configured["accounts"][name]["verdict"],
-            "observed": observed["accounts"][name]["verdict"],
-        }
-        for name in contract["accounts"]
-    }
     result["passed"] = all(
         found["configured"] == found["observed"] == "within"
         for found in result["verdicts"].values()

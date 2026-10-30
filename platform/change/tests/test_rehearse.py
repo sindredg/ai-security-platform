@@ -235,7 +235,11 @@ class Rehearse(unittest.TestCase):
         result = rehearse.rehearse(CHANGES, REPORTS["contract"])
         self.assertFalse(result["passed"])
         self.assertIn("the reset after it", result["reason"])
-        self.assertEqual(result["verdicts"], {})
+        # The halves' verdicts are kept, so the operator sees both.
+        self.assertEqual(
+            result["verdicts"]["inventory-reader"],
+            {"configured": "within", "observed": "within"},
+        )
 
 
 if __name__ == "__main__":

@@ -256,7 +256,13 @@ def deliver(tag, token, now=None):
             )
             result["passed"] = within if chosen == "fix" else True
             result["stage"] = "the checks"
-    except (netbox_change.Failed, collection.Failed, OSError, ValueError) as error:
+    except (
+        Refused,
+        netbox_change.Failed,
+        collection.Failed,
+        OSError,
+        ValueError,
+    ) as error:
         result["reason"] = str(error)
     results = STATE / "results"
     results.mkdir(mode=0o700, parents=True, exist_ok=True)
