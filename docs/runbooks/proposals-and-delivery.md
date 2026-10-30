@@ -31,7 +31,7 @@ Before this:
    REPLACE_WITH_SSH aisec-orchestrator 'sudo propose-netbox-fix REPLACE_WITH_JOB'
    ```
 
-   Expected: `policy: allowed`, `rehearsal: passed`, each account in the access specification `within/within`, and the bundle's path. A refused or failed proposal prints its reasons and exits 1, and its bundle has no `pr-body.md`. A job is proposed once.
+   Expected: `policy: allowed`, `rehearsal: passed`, each account in the access specification `within/within`, and the bundle's path. A refused or failed proposal prints its reasons and exits 1, and its bundle has no `pr-body.md`. A job is proposed once, and a fix an earlier undelivered bundle holds is refused as `the same fix as JOB, not delivered`, with nothing written ([ADR 0053](../decisions/0053-a-fix-is-proposed-once-until-it-is-delivered.md)).
 
 ## Publish, from the operator's machine
 
@@ -56,6 +56,14 @@ Before this:
    ```
 
    Expected: one line per change, `PERMISSION: without ACCOUNT`, then `1 1 netbox/seed.json`.
+   Then read the open pull requests, so one finding gets one pull request ([ADR 0053](../decisions/0053-a-fix-is-proposed-once-until-it-is-delivered.md)).
+
+   ```bash
+   gh api 'repos/sindredg/ai-security-platform-test/pulls?state=open' |
+     python3 -I platform/change/open_fixes.py REPLACE_WITH_BUNDLE/proposal.json
+   ```
+
+   Expected: `no open pull request with this fix`. One that holds it is listed with its number and branch, and the command exits 1: deliver that one first, or close it.
 
 4. Commit with the commit signing key, push, and open the pull request with `pr-body.md` as its body.
 

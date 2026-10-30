@@ -237,3 +237,25 @@ Result, 2026-10-30 17:06 to 17:09 UTC, on the live system: against main's librar
 After `install-change.sh` from `f5f9832`, the first reset restored the seed's dump, the failure was the same, `reset_after` held the dump's SHA-256, the configured half read `within` for both, and the drill ended `== 0 failed`. The reason a failed staging test records is the failed half's error output, the last lines of the collector's traceback here. Then every check passed with the targets checkout at `9b7c5bd`, 428 of 428, 17:09 to 17:18 UTC, `D.2`, `D.3`, `Q.3`, and `Q.5` among them.
 
 The review of the pull request found a git refusal while reading the commit's contract after the apply still raised, and the except now takes it, with a seventh test seen failing first; the suite is 81. A failed second reset keeps the halves' verdicts, so the operator sees both. The delivery's failure path is Built, not Verified: it ran with stubs only.
+
+## Slice 5: the same finding twice
+
+The code, the expectations, and the results are in [#TBD](https://github.com/sindredg/ai-security-platform/pull/TBD). The expected results below were written before the live run. The procedure is steps 19 to 21 of the [containment drills runbook](../runbooks/containment-drills.md#the-same-finding-twice).
+
+### The rule and the check
+
+Two jobs on one case find the same excess, and each matched job could be proposed: the propose command refused only a job proposed already, so one finding could get two pull requests. [ADR 0053](../decisions/0053-a-fix-is-proposed-once-until-it-is-delivered.md) puts the rule on the orchestrator: a proposal that removes an account from a permission an earlier allowed and rehearsed bundle removes it from too is refused until a delivery of that bundle passed, and nothing is written for it. The operator's machine reads the open pull requests before it opens one, with `platform/change/open_fixes.py`.
+
+Expected, with stubs (`platform/change/tests`, ten new tests): the second job is refused with `the same fix as nb-1, not delivered`, with no bundle and no staging test; a delivery result with `passed` lifts the rule, a failed one does not; another permission, or an earlier bundle without a fix, is no duplicate. The open pull requests check lists a pull request whose change row names the same account and permission ID, passes on another permission or account, and ignores a body in another shape.
+
+Result, 2026-10-30, locally: the ten tests, two of them failing before the rule and the check's module missing, pass after it; 91 of 91 in the suite.
+
+### The drill on the orchestrator
+
+No job on the seed finds a fix to propose ([#220](https://github.com/sindredg/ai-security-platform/issues/220)), so the drill `validation/drills/the-same-fix-twice.sh` writes the earlier bundle as a fixture, with the live ID of `inventory-reader`'s tenant-a permission from the job's collection, and proposes a kept matched job with the operator's proposals naming the same account and ID. After a delivery result fixture, the second proposal reaches the policy, which refuses it since the account is within, after the staging test every named proposal gets.
+
+Expected, on the live system, before the rule (main's command at `111743c`): the first proposal reaches the policy and writes its bundle, the second is refused as proposed already, and the drill ends `== 3 failed`. After `install-change.sh` from this branch: `refused: JOB: the same fix as nb-STAMP-first, not delivered` with no bundle, then `policy: refused` with the bundle written, `== 0 failed`, and the drill removes its fixtures and that bundle. The open pull requests check against the targets repository reads its open pull requests and prints `no open pull request with this fix`; its fail side is in the tests.
+
+Then every check passes with the targets checkout at `9b7c5bd`, `D.2` with this checkout's commands.
+
+Result: not yet run.
