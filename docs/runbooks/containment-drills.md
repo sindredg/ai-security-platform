@@ -156,7 +156,7 @@ Each drill breaks the finished workflow on purpose and reads what it left. The s
      REPLACE_WITH_SSH aisec-worker 'sudo bash forbidden-calls-drill.sh tokens'
    ```
 
-   Expected: every probe `PASS` and `== 0 failed` twice. As root and in the sandbox, no connection opens but the two controls, and a public name does not resolve. In the sandbox the model file, the tool certificate, and the system text read; the dispatch key's line, `/etc/shadow`, the journal, other units' private `/tmp` (the running job's among them), and the job socket do not. Each edit fails. The tokenless calls answer `401`, `401`, `404`, and `000`. The live token reads `ev-0001`, and the foreign token is refused with `nothing by that reference`.
+   Expected: every probe `PASS` and `== 0 failed` twice. As root and in the sandbox, no connection opens but the two controls, and a public name does not resolve. In the sandbox the model file, the tool certificate, and the system text read; the dispatch key's line, `/etc/shadow`, the journal, other units' private `/tmp`, and the job socket do not, while the root-side line counts the running job's private `/tmp` as `1`. Each edit fails. The tokenless calls answer `401`, `401`, `404`, and `000`. The live token reads `ev-0001`, and the foreign token, accepted as its own job, is refused with `nothing by that reference`.
 
 10. Revoke the live token on the orchestrator, call again with it, and revoke the other.
 
@@ -172,9 +172,9 @@ Each drill breaks the finished workflow on purpose and reads what it left. The s
 11. Read the audit lines the drill left, the drill units' lines on the worker, and the job's end. Remove the script copy.
 
     ```bash
-    REPLACE_WITH_SSH aisec-orchestrator "sudo grep -E \"nb-$STAMP-(drill|foreign)|not the tool endpoint|no token\" /var/log/aisec/tool-audit.jsonl | tail -n 12"
+    REPLACE_WITH_SSH aisec-orchestrator "sudo grep -E \"nb-$STAMP-(drill|foreign)|not the tool endpoint|no token|unknown token\" /var/log/aisec/tool-audit.jsonl | tail -n 12"
     REPLACE_WITH_SSH aisec-worker 'journalctl --no-pager -o cat -u "aisec-drill-*" --since -30min | tail -n 20; rm -f forbidden-calls-drill.sh'
     argo wait "$JOB"; argo get "$JOB" | grep -E "Status|compare"; wait
     ```
 
-    Expected: `register` allowed for both drill jobs; one `call` allowed with `result_bytes` for the live token and one refused with `nothing by that reference` for the foreign one; three `request` lines refused, two with `no token, or a malformed one` and one with `not the tool endpoint`; `revoke` allowed, then a `request` refused with `revoked token`; `revoke` allowed again. The drill units leave systemd's start and end lines and nothing from the probes. The job `Succeeded` with the compare step `Succeeded`, and `top-pods.txt` holds one block of pods per two minutes.
+    Expected: `register` allowed for both drill jobs; one `call` allowed with `result_bytes` for the live token and one refused with `nothing by that reference` for the foreign one; three `request` lines refused, with `no token, or a malformed one`, `unknown token`, and `not the tool endpoint`; `revoke` allowed, then a `request` refused with `revoked token`; `revoke` allowed again. The drill units leave systemd's start and end lines and nothing from the probes. The job `Succeeded` with the compare step `Succeeded`, and `top-pods.txt` holds one block of pods per two minutes.

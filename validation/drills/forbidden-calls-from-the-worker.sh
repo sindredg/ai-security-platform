@@ -24,8 +24,9 @@
 # needs show that the same function reads "open" where the sandbox may
 # connect. An edit probe passes when the command fails, and prints the error.
 # The tokens phase calls get_evidence for ev-0001 with each token inside the
-# sandbox, with the token on the sandbox's standard input and never on a
-# command line, and passes when the HTTP status and the result equal EXPECTED,
+# sandbox. The token reaches the sandbox on its standard input and curl as a
+# header read from standard input, so it is on no command line, on the host
+# or inside. The probe passes when the HTTP status and the result equal EXPECTED,
 # for example "200 allowed", "200 refused: nothing by that reference", or
 # '401 {"error": "refused"}'.
 #
@@ -65,13 +66,16 @@ sandbox() {
 
 # report PROBE EXPECTED VALUE [MODE]: one line, and the failed count. MODE
 # "not" passes on any value but EXPECTED; "starts" when VALUE starts with it.
+# An empty value fails in every mode: a probe that did not run proves nothing.
 report() {
-  local probe=$1 expected=$2 value=$3 mode=${4:-equal} verdict
+  local probe=$1 expected=$2 value=$3 mode=${4:-equal} verdict=""
   value=${value//$'\n'/ }
   case $mode in
-    not) [ "$value" != "$expected" ] && verdict=PASS || verdict=FAIL; expected="not $expected" ;;
-    starts) [ "${value#"$expected"}" != "$value" ] && verdict=PASS || verdict=FAIL ;;
-    *) [ "$value" = "$expected" ] && verdict=PASS || verdict=FAIL ;;
+    not) expected="not $expected" ;;&
+    *) [ -z "$value" ] && verdict=FAIL ;;&
+    not) [ -z "$verdict" ] && { [ "$value" != "${expected#not }" ] && verdict=PASS || verdict=FAIL; } ;;
+    starts) [ -z "$verdict" ] && { [ "${value#"$expected"}" != "$value" ] && verdict=PASS || verdict=FAIL; } ;;
+    *) [ -z "$verdict" ] && { [ "$value" = "$expected" ] && verdict=PASS || verdict=FAIL; } ;;
   esac
   [ "$verdict" = PASS ] || failed=$((failed + 1))
   printf '%-46s expected %-36s read %-44s %s\n' "$probe" "$expected" "${value:0:44}" "$verdict"
@@ -151,6 +155,8 @@ except OSError as e:
   report "sandbox: /etc/shadow" denied "$(value shadow "$out")"
   report "sandbox: journal lines readable" 0 "$(value journal "$out")"
   report "sandbox: other units' private /tmp seen" 0 "$(value host_private_tmp "$out")"
+  printf '%-46s %s\n' "root: job units' private /tmp present" \
+    "$(find /tmp -maxdepth 1 -name 'systemd-private-*-aisec-agent-job@*' 2>/dev/null | wc -l) (no verdict: 1 or more while a job runs)"
   report "sandbox: a connection to the job socket" permission-denied "$(value job_socket "$out")"
 }
 
@@ -182,13 +188,13 @@ echo "model_file_write=$(attempt bash -c "printf x >> '"$MODEL_FILE"'")"
 # body's first 80 characters. One request per probe: the four tokenless calls
 # stay far under the service's limit of 30 untrusted requests a minute.
 call_fn='
-call() {  # call TOKEN PATH
+call() {  # call TOKEN PATH: the token goes to curl as a header on standard input
   local out status body
   out=$(curl -s --max-time 10 --cacert '"$CERT"' -w "\n%{http_code}" -X POST \
-    ${1:+-H "Authorization: Bearer $1"} -H "Content-Type: application/json" \
+    ${1:+-H @-} -H "Content-Type: application/json" \
     -H "Accept: application/json, text/event-stream" \
     -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"get_evidence\",\"arguments\":{\"reference\":\"ev-0001\"}}}" \
-    "'"$TOOL"'$2" 2>/dev/null)
+    "'"$TOOL"'$2" 2>/dev/null <<< "${1:+Authorization: Bearer $1}")
   status=$(tail -n 1 <<< "$out"); body=$(head -n -1 <<< "$out")
   case $body in
     *\"isError\":\ false*|*\"isError\":false*) echo "$status allowed" ;;
