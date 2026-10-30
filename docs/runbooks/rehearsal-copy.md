@@ -1,6 +1,6 @@
 # The staging copy on the lab VM: operator procedure
 
-Status: Implemented on 2026-10-26. Run once, on the live system, 20:04 to 20:37 UTC, from four scripts with the same commands ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-rehearsal-copy)). The first install stopped at step 16 on a fault of its own output helper, and a second script ran steps 16 to 21.
+Status: Implemented on 2026-10-26. Run once, on the live system, 20:04 to 20:37 UTC, from four scripts with the same commands ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-rehearsal-copy)). The first install stopped at step 16 on a fault of its own output helper, and a second script ran steps 16 to 21. Step 21's change was corrected on 2026-10-30, after the seed took the fix; the corrected step ran only inside the [interrupted staging test drill](containment-drills.md#a-staging-test-that-fails-after-its-apply), with the collector token aside.
 
 Step 14 has since gained `AISEC_NETBOX_COPY=yes` ([ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md)), and the undo and the steps after a rebuild were not run.
 
