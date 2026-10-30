@@ -2,7 +2,7 @@
 
 Status: Implemented on 2026-10-26. Run once, on the live system, 20:04 to 20:37 UTC, from four scripts with the same commands ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-rehearsal-copy)). The first install stopped at step 16 on a fault of its own output helper, and a second script ran steps 16 to 21.
 
-Step 14 has since gained `AISEC_NETBOX_COPY=yes` ([ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md)), and the undo and the steps after a rebuild were not run.
+Step 14 has since gained `AISEC_NETBOX_COPY=yes` ([ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md)), and the undo and the steps after a rebuild were not run. Step 21's change was corrected on 2026-10-30, after the seed took the fix; the corrected step ran only inside the [interrupted staging test drill](containment-drills.md#a-staging-test-that-fails-after-its-apply), with the collector token aside.
 
 This gives the lab VM a second interface in the `rehearsal` subnet, installs a second NetBox on it as the staging copy, seeds the copy, and gives the orchestrator a reset of it through one forced command ([ADR 0044](../decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)). The copy is target side: a passed staging test is evidence, and the check after delivery is the proof.
 
@@ -249,17 +249,17 @@ Before this:
 
     Expected: the forced command runs instead, and its last line is the SHA-256 step 17 recorded, after about a minute.
 
-21. Run a staging test of the seed's fix once with the installed library.
+21. Run a staging test once with the installed library: a change that removes `inventory-reader` from its one permission.
 
     ```bash
     REPLACE_WITH_SSH aisec-orchestrator "sudo python3 -I -c 'import json, sys
     sys.path.insert(0, \"/usr/local/lib/aisec\")
     import rehearse
-    change = {\"account\": \"inventory-reader\", \"permission_id\": 0, \"permission\": \"inventory-reader: inventory\"}
+    change = {\"account\": \"inventory-reader\", \"permission_id\": 0, \"permission\": \"inventory-reader: tenant-a inventory\"}
     print(json.dumps(rehearse.rehearse([change], json.load(open(\"/etc/aisec/netbox/contract.json\")))))'"
     ```
 
-    Expected: `"passed": true`, the reset's SHA-256 twice, one change on the copy's own ID for `inventory-reader: inventory`, and both accounts `within` by both methods. The copy is reset again after the halves.
+    Expected: `"passed": false`, the reset's SHA-256 twice, one change on the copy's own ID for `inventory-reader: tenant-a inventory`, and `inventory-reader` `missing` by both methods: the seed holds the fix of 2026-10-27, so the removal leaves the account short. The copy is reset again after the halves, whatever happened between the two resets. The verdicts are reasoned from the seed, not observed: the corrected step ran only inside the drill, where the halves did not complete.
 
 ## Checks
 

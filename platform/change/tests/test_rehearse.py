@@ -36,7 +36,10 @@ rest = sys.argv[sys.argv.index(target) + 1 :]
 with open(d + "/events", "a") as f:
     f.write(" ".join([target.split("@")[0], *rest]) + "\\n")
 if target.startswith("aisec-rehearse@"):
-    sys.stdout.write(open(d + "/reset.out").read())
+    # A second reset answers from reset2.out when a test wrote one.
+    n = open(d + "/events").read().count("aisec-rehearse")
+    name = "/reset2.out" if n > 1 and os.path.exists(d + "/reset2.out") else "/reset.out"
+    sys.stdout.write(open(d + name).read())
 else:
     sys.stdin.read()
     sys.stdout.write(open(d + "/observed.out").read())
@@ -202,6 +205,41 @@ class Rehearse(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertIn("does not hold it on the copy", result["reason"])
         self.assertEqual(self.copy.patches, [])
+
+    def test_a_failure_after_the_apply_still_resets_the_copy(self):
+        # The configured half fails after the change: the copy would hold it
+        # until the next staging test, so the reset after it runs whatever
+        # happened (#216).
+        (self.tmp / "configured.out").unlink()
+        result = rehearse.rehearse(CHANGES, REPORTS["contract"])
+        self.assertFalse(result["passed"])
+        self.assertIn("configured half", result["reason"])
+        self.assertEqual(len(self.copy.patches), 1)
+        events = self.events.read_text().splitlines()
+        self.assertEqual(events[-1], "aisec-rehearse")
+        self.assertEqual(result["reset_after"], SEED_SHA)
+
+    def test_a_failed_reset_after_a_failure_is_in_the_reason_too(self):
+        (self.tmp / "configured.out").unlink()
+        self.write("reset2.out", "b" * 64 + "\n")
+        result = rehearse.rehearse(CHANGES, REPORTS["contract"])
+        self.assertFalse(result["passed"])
+        self.assertIn("configured half", result["reason"])
+        self.assertIn(
+            "the reset after it: the copy's reset restored b", result["reason"]
+        )
+        self.assertIsNone(result["reset_after"])
+
+    def test_a_failed_reset_after_a_passed_staging_test_fails_it(self):
+        self.write("reset2.out", "b" * 64 + "\n")
+        result = rehearse.rehearse(CHANGES, REPORTS["contract"])
+        self.assertFalse(result["passed"])
+        self.assertIn("the reset after it", result["reason"])
+        # The halves' verdicts are kept, so the operator sees both.
+        self.assertEqual(
+            result["verdicts"]["inventory-reader"],
+            {"configured": "within", "observed": "within"},
+        )
 
 
 if __name__ == "__main__":

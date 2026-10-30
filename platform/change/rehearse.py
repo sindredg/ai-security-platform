@@ -112,7 +112,8 @@ def halves(contract):
 def rehearse(changes, contract):
     """The rehearsal's result: the reset, the changes made on the copy, both
     methods' verdicts for each contract account, whether all are within, and
-    why not when it stopped short."""
+    why not when it stopped short. Once the copy's first reset is done, it is
+    reset again whatever happens after it, so the copy rests at the seed."""
     result = {
         "reset": None,
         "applied": [],
@@ -123,6 +124,11 @@ def rehearse(changes, contract):
     }
     try:
         result["reset"] = reset()
+    except (collection.Failed, netbox_change.Failed, OSError) as error:
+        result["reason"] = str(error)
+        return result
+    configured = observed = None
+    try:
         copy = netbox_change.client(
             COPY_URL, str(COPY / "tls.crt"), str(COPY / "tokens" / "aisec-deliver")
         )
@@ -132,18 +138,29 @@ def rehearse(changes, contract):
         netbox_change.apply(copy, applied)
         result["applied"] = applied
         configured, observed = halves(contract)
-        # The copy rests at the seed between rehearsals.
-        result["reset_after"] = reset()
     except (collection.Failed, netbox_change.Failed, OSError) as error:
         result["reason"] = str(error)
-        return result
-    result["verdicts"] = {
-        name: {
-            "configured": configured["accounts"][name]["verdict"],
-            "observed": observed["accounts"][name]["verdict"],
+    finally:
+        # The copy rests at the seed between rehearsals, so a failure in
+        # between does not leave the change on it (#216).
+        try:
+            result["reset_after"] = reset()
+        except (collection.Failed, OSError) as error:
+            after = f"the reset after it: {error}"
+            result["reason"] = (
+                f"{result['reason']}; {after}" if result["reason"] else after
+            )
+    if configured is not None:
+        # Kept even when the reset after the halves failed.
+        result["verdicts"] = {
+            name: {
+                "configured": configured["accounts"][name]["verdict"],
+                "observed": observed["accounts"][name]["verdict"],
+            }
+            for name in contract["accounts"]
         }
-        for name in contract["accounts"]
-    }
+    if result["reason"]:
+        return result
     result["passed"] = all(
         found["configured"] == found["observed"] == "within"
         for found in result["verdicts"].values()

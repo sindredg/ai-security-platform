@@ -105,6 +105,8 @@ Before this:
 
    Expected: `fix COMMIT, read back: True`, each changed permission with its users, each account in the access specification `within/within`, then `passed`. The same tag again prints `refused: approve/netbox/REPLACE_WITH_JOB: this approval was used already`, and nothing changes. Without a token on standard input the command exits 2 before it fetches.
 
+   A failure after the approval's tag is in the ledger prints `failed after STAGE: REASON` and writes the result with how far it got (the ledger line, the apply, the read back, the checks). Nothing is rolled back by itself.
+
 8. Close the window.
 
    ```bash

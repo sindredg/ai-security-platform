@@ -1,6 +1,6 @@
 # Containment drills: operator procedure
 
-Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Steps 8 to 16 ran on 2026-10-30. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
+Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Steps 8 to 18 ran on 2026-10-30. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
 
 Each drill breaks the finished workflow on purpose and reads what it left. The steps are independent and each is put back after it. Later slices add their drills here.
 
@@ -218,3 +218,22 @@ Both contract accounts read tenant-a, so the name reaches the model in the contr
 16. Run every check with the targets checkout named ([validation](../validation/README.md)).
 
     Expected: `N.14`, `N.17`, `N.18`, and `N.23` pass. `N.17` and `N.23` read the device among the records each token returned, and `N.18` the installed contract and cases as the two checkouts hold them.
+
+## A staging test that fails after its apply
+
+A staging test resets the copy, applies the fix there, runs both methods, and resets the copy again ([ADR 0044](../decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)). Until 2026-10-30 a failure between the two resets returned before the second, and the copy held the change until the next staging test ([#216](https://github.com/sindredg/ai-security-platform/issues/216)). The drill breaks a staging test after its apply and reads whether the copy is reset.
+
+The delivery's own failure path, a failure after the approval's tag is in the ledger, is covered by tests with stubs only (`platform/change/tests/test_deliver.py`). A live delivery needs an approval tag and a token, and a fault injected after the apply would change the live NetBox.
+
+17. Copy the drill to the orchestrator and run it as root. It moves the copy's collector token aside, runs the installed library with a change that removes `inventory-reader` from its one permission, puts the token back, and reads the copy's configured half.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-orchestrator 'cat > ~/staging-test-drill.sh' < validation/drills/staging-test-fails-after-the-apply.sh
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo bash ~/staging-test-drill.sh; rm -f ~/staging-test-drill.sh'
+    ```
+
+    Expected: `the copy's configured half before: inventory-reader:within inventory-reader-control:within`, the result as JSON, then six `PASS` lines: the first reset restored the seed, one change applied, the test failed, the reason names the configured half, the reset after it restored the seed, and the configured half after reads `within` for both. Then `== 0 failed`. Without the reset after a failure, the last two probes read `null` and `inventory-reader:missing`, and the line is `== 2 failed`.
+
+18. Run every check with the targets checkout named ([validation](../validation/README.md)).
+
+    Expected: `D.2` passes with the change commands in this checkout, and `Q.3` with the copy at the seed.
