@@ -2,7 +2,7 @@
 
 Status: Implemented on 2026-10-27. Run once, on the live system, from scripts with the same commands ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end)): step 1 on 2026-10-26 for the job, steps 2 to 5 at 06:08 to 06:09 UTC, and steps 6 to 11 at 16:18 to 16:24 UTC. The merge in step 9 was the operator's, and the undo was not run.
 
-Step 5's rerun is new since "Approved commit" became required on 2026-10-27. A rerun was seen to read a tag pushed after the first run, with a test tag whose signature fails ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#fixes-after-the-close)).
+Step 5's rerun is new since "Approved commit" became required on 2026-10-27. A rerun was seen to read a tag pushed after the first run, with a test tag whose signature fails ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#fixes-after-the-close)). Step 3's read of the open pull requests ran once on 2026-10-30 with none open; its fail side is in `platform/change/tests/test_open_fixes.py`.
 
 This takes a NetBox job that passed the verification gate from its remediation proposal to a delivered fix: the policy check and a staging test on the copy, on the orchestrator host, a pull request from the operator's machine, an approval tag signed with the approval key, and delivery with a token made for it ([ADR 0043](../decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md) to [ADR 0047](../decisions/0047-a-delivery-token-for-each-delivery.md)). It ends with the rollback and with the copy brought to the merged seed.
 
@@ -31,7 +31,7 @@ Before this:
    REPLACE_WITH_SSH aisec-orchestrator 'sudo propose-netbox-fix REPLACE_WITH_JOB'
    ```
 
-   Expected: `policy: allowed`, `rehearsal: passed`, each account in the access specification `within/within`, and the bundle's path. A refused or failed proposal prints its reasons and exits 1, and its bundle has no `pr-body.md`. A job is proposed once.
+   Expected: `policy: allowed`, `rehearsal: passed`, each account in the access specification `within/within`, and the bundle's path. A refused or failed proposal prints its reasons and exits 1, and its bundle has no `pr-body.md`. A job is proposed once, and a fix an earlier undelivered bundle holds is refused as `the same fix as JOB, not delivered`, with nothing written ([ADR 0053](../decisions/0053-a-fix-is-proposed-once-until-it-is-delivered.md)).
 
 ## Publish, from the operator's machine
 
@@ -56,6 +56,14 @@ Before this:
    ```
 
    Expected: one line per change, `PERMISSION: without ACCOUNT`, then `1 1 netbox/seed.json`.
+   Then read the open pull requests, so one finding gets one pull request ([ADR 0053](../decisions/0053-a-fix-is-proposed-once-until-it-is-delivered.md)).
+
+   ```bash
+   gh api 'repos/sindredg/ai-security-platform-test/pulls?state=open&per_page=100' |
+     python3 -I platform/change/open_fixes.py REPLACE_WITH_BUNDLE/proposal.json
+   ```
+
+   Expected: `no open pull request with this fix`. One that holds it is listed with its number and branch, and the command exits 1: deliver that one first, or close it.
 
 4. Commit with the commit signing key, push, and open the pull request with `pr-body.md` as its body.
 

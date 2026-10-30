@@ -1,6 +1,6 @@
 # Containment drills: operator procedure
 
-Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Steps 8 to 18 ran on 2026-10-30. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
+Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Steps 8 to 21 ran on 2026-10-30. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
 
 Each drill breaks the finished workflow on purpose and reads what it left. The steps are independent and each is put back after it. Later slices add their drills here.
 
@@ -237,3 +237,31 @@ The delivery's own failure path, a failure after the approval's tag is in the le
 18. Run every check with the targets checkout named ([validation](../validation/README.md)).
 
     Expected: `D.2` passes with the change commands in this checkout, and `Q.3` with the copy at the seed.
+
+## The same finding twice
+
+Two jobs on one case can find the same excess, and each matched job can be proposed. The propose command refuses a proposal that removes an account from a permission an earlier allowed and rehearsed bundle removes it from too, until a delivery of that bundle passed ([ADR 0053](../decisions/0053-a-fix-is-proposed-once-until-it-is-delivered.md)). The operator's machine reads the open pull requests before it opens one ([proposals and delivery runbook](proposals-and-delivery.md), step 3).
+
+No job on the seed finds a fix to propose ([#220](https://github.com/sindredg/ai-security-platform/issues/220)), so the drill writes the earlier bundle as a fixture and proposes with the operator's proposals, for a matched job whose collection is kept and that was not proposed.
+
+19. Copy the drill to the orchestrator and run it as root with the job's name.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-orchestrator 'cat > ~/the-same-fix-twice.sh' < validation/drills/the-same-fix-twice.sh
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo bash ~/the-same-fix-twice.sh REPLACE_WITH_JOB; rm -f ~/the-same-fix-twice.sh'
+    ```
+
+    Expected: the fixture's line with the permission's ID; the first proposal's output with `refused: REPLACE_WITH_JOB: the same fix as nb-REPLACE_WITH_STAMP-first, not delivered`, then `PASS` for the refusal and for no bundle written; the second proposal's output with `policy: refused` and `rehearsal: failed`, since the account is within, then `PASS` for the proposal reaching the policy; `== 0 failed`. Without the rule, the first proposal reaches the policy and writes its bundle, and the second is refused as proposed already: `== 3 failed`.
+
+20. Read the open pull requests of the targets repository against a bundle, from the operator's machine.
+
+    ```bash
+    gh api 'repos/sindredg/ai-security-platform-test/pulls?state=open&per_page=100' |
+      python3 -I platform/change/open_fixes.py REPLACE_WITH_BUNDLE/proposal.json
+    ```
+
+    Expected: the count of open pull requests read, then `no open pull request with this fix` and exit 0. A pull request whose change row names the same account and permission ID is listed with its number and branch, and the exit is 1 (`platform/change/tests/test_open_fixes.py`).
+
+21. Run every check with the targets checkout named ([validation](../validation/README.md)).
+
+    Expected: `D.2` passes with the change commands in this checkout, and `D.3` with the proposals directory root's alone.

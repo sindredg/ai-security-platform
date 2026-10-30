@@ -5,6 +5,7 @@ kubectl a stub that prints a stored workflow, and the rehearsal and the live
 lookup of a permission's name replaced. The policy is the real one.
 """
 
+import io
 import json
 import shutil
 import sys
@@ -231,6 +232,9 @@ class Main(unittest.TestCase):
         for patch in (
             mock.patch.object(propose, "STATE", self.state),
             mock.patch.object(propose, "PROPOSALS", self.tmp / "proposals"),
+            mock.patch.object(
+                propose, "DELIVERIES", self.tmp / "deliveries", create=True
+            ),
             mock.patch.object(propose, "CONTRACT", self.tmp / "contract.json"),
             mock.patch.object(propose, "CASES", self.tmp / "cases.json"),
             mock.patch.object(propose, "KUBECTL", [str(kubectl)]),
@@ -347,6 +351,83 @@ class Main(unittest.TestCase):
     def test_a_job_proposed_once_is_not_proposed_again(self):
         self.assertEqual(propose.main(["propose-netbox-fix", "nb-1"]), 0)
         self.assertEqual(propose.main(["propose-netbox-fix", "nb-1"]), 1)
+
+    def second_job(self, proposals=None):
+        """A second job, nb-2, on the same collection, with the same
+        proposals unless given."""
+        job = self.state / "nb-2"
+        job.mkdir()
+        for name in ("configured.json", "ev-0001.json", "verdicts.json"):
+            text = (self.state / "nb-1" / name).read_text().replace('"nb-1"', '"nb-2"')
+            (job / name).write_text(text)
+        found = workflow(
+            job="nb-2", compared=comparison(job="nb-2", proposals=proposals)
+        )
+        self.workflow_file.write_text(json.dumps(found))
+
+    def propose_second(self):
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            code = propose.main(["propose-netbox-fix", "nb-2"])
+        return code, err.getvalue()
+
+    def test_the_same_fix_from_a_second_job_is_refused_until_delivered(self):
+        # ADR 0053: one pull request per finding. The second job keeps its
+        # turn: nothing is written, so it can be proposed after the delivery.
+        self.assertEqual(propose.main(["propose-netbox-fix", "nb-1"]), 0)
+        self.second_job()
+        code, err = self.propose_second()
+        self.assertEqual(code, 1)
+        self.assertIn("the same fix as nb-1, not delivered", err)
+        self.assertFalse((self.tmp / "proposals" / "nb-2").exists())
+        self.assertEqual(len(self.rehearsed), 1)
+
+    def test_a_delivered_fix_does_not_block_a_second_proposal(self):
+        self.assertEqual(propose.main(["propose-netbox-fix", "nb-1"]), 0)
+        deliveries = self.tmp / "deliveries"
+        deliveries.mkdir()
+        (deliveries / "approve_netbox_nb-1.json").write_text(
+            json.dumps({"tag": "approve/netbox/nb-1", "passed": True})
+        )
+        self.second_job()
+        code, err = self.propose_second()
+        self.assertEqual((code, err), (0, ""))
+        self.assertTrue((self.tmp / "proposals" / "nb-2" / "proposal.json").exists())
+
+    def test_a_failed_delivery_still_blocks(self):
+        self.assertEqual(propose.main(["propose-netbox-fix", "nb-1"]), 0)
+        deliveries = self.tmp / "deliveries"
+        deliveries.mkdir()
+        (deliveries / "approve_netbox_nb-1.json").write_text(
+            json.dumps({"tag": "approve/netbox/nb-1", "passed": False})
+        )
+        self.second_job()
+        code, err = self.propose_second()
+        self.assertEqual(code, 1)
+        self.assertIn("not delivered", err)
+
+    def test_another_permission_is_not_a_duplicate(self):
+        self.assertEqual(propose.main(["propose-netbox-fix", "nb-1"]), 0)
+        other = [
+            {
+                "account": "inventory-reader",
+                "action": "remove",
+                "permission": 1,
+                "references": ["ev-0002"],
+            }
+        ]
+        self.second_job(proposals=other)
+        _, err = self.propose_second()
+        self.assertNotIn("the same fix", err)
+        self.assertTrue((self.tmp / "proposals" / "nb-2" / "proposal.json").exists())
+
+    def test_a_bundle_without_a_fix_does_not_block(self):
+        self.result = dict(PASSED, passed=False, reason="the copy's observed half: x")
+        self.assertEqual(propose.main(["propose-netbox-fix", "nb-1"]), 1)
+        self.result = PASSED
+        self.second_job()
+        code, err = self.propose_second()
+        self.assertEqual((code, err), (0, ""))
 
     def test_the_usage_needs_a_job(self):
         for argv in (["p"], ["p", "Not_A_Job"], ["p", "nb-1", "--proposals"]):
