@@ -10,7 +10,10 @@ template that went through its dispatch and its comparison and matched
 every one it can name on the copy, even one the policy refuses, and writes
 the bundle to /var/lib/aisec/proposals/JOB/: proposal.json, and for a fix that
 was allowed and passed its rehearsal, pr-body.md, which the operator's machine
-uses for the pull request. A job is proposed once.
+uses for the pull request. A job is proposed once, and a fix only once until
+it is delivered: a proposal naming an account and permission that an earlier
+allowed, rehearsed bundle holds is refused while no delivery of that bundle
+passed, and nothing is written for it (ADR 0053).
 
 With --proposals, the file's proposals replace the comparison's, in the same
 shape, and the bundle marks them as the operator's. It is for the unsafe
@@ -43,6 +46,8 @@ import rehearse
 
 STATE = Path(os.environ.get("AISEC_STATE", "/var/lib/aisec/evidence/netbox"))
 PROPOSALS = Path(os.environ.get("AISEC_PROPOSALS", "/var/lib/aisec/proposals"))
+# The delivery command's results, one per tag (ADR 0046).
+DELIVERIES = Path(os.environ.get("AISEC_DELIVERIES", "/var/lib/aisec/delivery/results"))
 CONTRACT = Path(os.environ.get("AISEC_CONTRACT", "/etc/aisec/netbox/contract.json"))
 CASES = Path(os.environ.get("AISEC_CASES", "/etc/aisec/netbox/cases.json"))
 KUBECTL = os.environ.get("AISEC_KUBECTL", "/usr/local/bin/k3s kubectl").split()
@@ -247,6 +252,28 @@ def pr_body(bundle):
     return "\n".join(lines)
 
 
+def delivered(job):
+    """Whether a delivery of the job's fix passed."""
+    result = DELIVERIES / f"approve_netbox_{job}.json"
+    return result.exists() and json.loads(result.read_text()).get("passed") is True
+
+
+def duplicate_of(proposals):
+    """The earlier job whose allowed, rehearsed, and undelivered fix removes
+    an account from a permission these proposals name too, or None."""
+    wanted = {(p["account"], p["permission"]) for p in proposals}
+    if not wanted or not PROPOSALS.is_dir():
+        return None
+    for earlier in sorted(PROPOSALS.iterdir()):
+        if not (earlier / "pr-body.md").exists():
+            continue
+        bundle = json.loads((earlier / "proposal.json").read_text())
+        held = {(c["account"], c["permission_id"]) for c in bundle["policy"]["changes"]}
+        if held & wanted and not delivered(earlier.name):
+            return earlier.name
+    return None
+
+
 def propose(job, operator=None):
     out = PROPOSALS / job
     if out.exists():
@@ -258,6 +285,12 @@ def propose(job, operator=None):
     if operator is not None:
         comparison = dict(
             comparison, proposals=proposals_from(operator), unread_proposals=0
+        )
+    earlier = duplicate_of(comparison["proposals"])
+    if earlier:
+        raise Refused(
+            f"{job}: the same fix as {earlier}, not delivered: deliver that one, "
+            "or remove its bundle"
         )
     decision = policy.check(comparison, configured, contract)
     try:
