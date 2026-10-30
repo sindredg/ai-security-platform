@@ -374,6 +374,54 @@ class Deliver(unittest.TestCase):
         # No automatic rollback: the one change stays.
         self.assertEqual(len(self.live.patches), 1)
 
+    def test_a_failure_after_the_ledger_line_writes_a_result(self):
+        # The checks after the change fail: the approval is used and the
+        # change applied, and the result says how far it got (#216).
+        def failing_halves(contract):
+            raise deliver.collection.Failed("the observed half: ssh exited 255")
+
+        tag = self.tag("approve/netbox/nb-1", self.fix_branch())
+        with mock.patch.object(deliver, "halves", failing_halves):
+            result = deliver.deliver(tag, TOKEN)
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["stage"], "the read back")
+        self.assertIn("ssh exited 255", result["reason"])
+        self.assertEqual(len(self.live.patches), 1)
+        self.assertTrue(result["read_back"])
+        written = self.state / "results" / "approve_netbox_nb-1.json"
+        self.assertEqual(json.loads(written.read_text())["reason"], result["reason"])
+        self.assertEqual((self.state / "used").read_text().split(), [result["tag_sha"]])
+
+    def test_a_failed_apply_after_the_ledger_line_writes_a_result(self):
+        def failing_call(method, path, body=None):
+            raise netbox_change.Failed("reader: all: 500 server error")
+
+        self.live.call = failing_call
+        tag = self.tag("approve/netbox/nb-1", self.fix_branch())
+        result = deliver.deliver(tag, TOKEN)
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["stage"], "the ledger line")
+        self.assertIn("500 server error", result["reason"])
+        self.assertEqual(result["applied"], [])
+        self.assertEqual(len(result["planned"]), 1)
+        written = self.state / "results" / "approve_netbox_nb-1.json"
+        self.assertEqual(json.loads(written.read_text())["stage"], "the ledger line")
+
+    def test_main_reports_a_failure_after_the_approval_was_used(self):
+        def failing_halves(contract):
+            raise deliver.collection.Failed("the observed half: ssh exited 255")
+
+        tag = self.tag("approve/netbox/nb-1", self.fix_branch())
+        err = io.StringIO()
+        with (
+            mock.patch.object(deliver, "halves", failing_halves),
+            mock.patch("sys.stderr", err),
+        ):
+            code = deliver.main(["deliver", tag], stdin=io.StringIO(TOKEN + "\n"))
+        self.assertEqual(code, 1)
+        self.assertIn("failed after the read back:", err.getvalue())
+        self.assertNotIn("refused", err.getvalue())
+
     def test_a_commit_that_is_not_on_main_or_a_child_of_it_is_refused(self):
         first = self.fix_branch()
         run("git", "checkout", "-q", "-b", "deeper", first, cwd=self.remote)

@@ -19,7 +19,9 @@ The tag is written to the ledger before anything changes. Delivery then sets
 each permission's users to the commit's seed, reads them back, and runs both
 of the collector's methods against NetBox with the commit's contract. A fix
 passes only when every contract account is within by both. A failed check
-stops for the operator: nothing is rolled back by itself.
+stops for the operator: nothing is rolled back by itself. A failure after the
+ledger line is written as the result too, with how far the delivery got, since
+the approval is used by then.
 
 The delivery token comes on standard input, one line: a token made for this
 delivery by make-netbox-token.sh deliver on the NetBox VM, piped here from the
@@ -216,30 +218,46 @@ def deliver(tag, token, now=None):
     with open(STATE / "used", "a") as ledger:
         ledger.write(approval["tag_sha"] + "\n")
     changes = netbox_change.plan(live, wanted)
-    netbox_change.apply(netbox, changes)
-    back = users(netbox_change.live_assignments(netbox, sorted(wanted)))
     result = {
         "tag": tag,
         "tag_sha": approval["tag_sha"],
         "commit": commit,
         "mode": chosen,
         "tagged_at": approval["tagged_at"],
-        "delivered_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "applied": changes,
-        "read_back": back == wanted,
+        "delivered_at": None,
+        "planned": changes,
+        "applied": [],
+        "read_back": False,
         "verdicts": {},
         "passed": False,
+        # How far the delivery got, and why it stopped. The approval is used
+        # from here on, so a failure is written as the result, not raised
+        # (#216). A failure during the apply leaves which of the planned
+        # changes landed unrecorded: the check after delivery reads NetBox.
+        "stage": "the ledger line",
+        "reason": None,
     }
-    if result["read_back"]:
-        contract = json.loads(
-            git(repo, "show", f"{commit}:netbox/contract.json").stdout
-        )
-        result["verdicts"] = halves(contract)
-        within = all(
-            v == {"configured": "within", "observed": "within"}
-            for v in result["verdicts"].values()
-        )
-        result["passed"] = within if chosen == "fix" else True
+    try:
+        netbox_change.apply(netbox, changes)
+        result["applied"] = changes
+        result["delivered_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        result["stage"] = "the apply"
+        back = users(netbox_change.live_assignments(netbox, sorted(wanted)))
+        result["read_back"] = back == wanted
+        result["stage"] = "the read back"
+        if result["read_back"]:
+            contract = json.loads(
+                git(repo, "show", f"{commit}:netbox/contract.json").stdout
+            )
+            result["verdicts"] = halves(contract)
+            within = all(
+                v == {"configured": "within", "observed": "within"}
+                for v in result["verdicts"].values()
+            )
+            result["passed"] = within if chosen == "fix" else True
+            result["stage"] = "the checks"
+    except (netbox_change.Failed, collection.Failed, OSError, ValueError) as error:
+        result["reason"] = str(error)
     results = STATE / "results"
     results.mkdir(mode=0o700, parents=True, exist_ok=True)
     (results / f"{tag.replace('/', '_')}.json").write_text(
@@ -279,6 +297,9 @@ def main(argv, stdin=None):
         ValueError,
     ) as error:
         print(f"refused: {error}", file=sys.stderr)
+        return 1
+    if result["reason"]:
+        print(f"failed after {result['stage']}: {result['reason']}", file=sys.stderr)
         return 1
     print(f"{result['mode']} {result['commit'][:12]}, read back: {result['read_back']}")
     for change in result["applied"]:
