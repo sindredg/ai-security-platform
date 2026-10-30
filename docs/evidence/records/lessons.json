@@ -194,7 +194,7 @@
    ]
   },
   {
-   "finding": "A second revoke a minute after the exit handler's answered with the job's name, not `null`: the tool service keeps a revoked registration for an hour past its seconds.",
+   "finding": "A second revoke after the exit handler's answered with the job's name, not `null`: the tool service keeps a revoked registration at least an hour past its seconds.",
    "runs": [
     "2026-10-30-2123-what-a-job-leaves#nb-10302123-record"
    ],

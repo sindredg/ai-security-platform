@@ -1,6 +1,6 @@
 # Containment drills: operator procedure
 
-Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Steps 8 to 24 ran on 2026-10-30. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
+Status: Implemented on 2026-10-28, when steps 1 to 4, 6, and 7 ran on the live system, and step 5 on 2026-10-29. Steps 8 to 24 ran on 2026-10-30; steps 22 and 23 were corrected after that run (the key count under the kubelet, the audit line in place of a second revoke, the changed-files probe read in two parts) and have not run again as written. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-1-drills-without-an-apply).
 
 Each drill breaks the finished workflow on purpose and reads what it left. The steps are independent and each is put back after it. Later slices add their drills here.
 
@@ -283,7 +283,7 @@ A job runs as a dynamic user in a unit with a private `/tmp`, over one connectio
     REPLACE_WITH_SSH aisec-orchestrator 'sudo find /var/lib/kubelet/pods -path "*empty-dir*" -name id_ed25519 | wc -l; sudo findmnt -rn -t tmpfs | grep -c empty-dir'
     ```
 
-    Expected: every probe `PASS` and `== 0 failed`. One unit instance, `active running`; two private directories, with `recipe.json`, `out.json`, `err.txt`, and Goose's session database and logs under `goose` in the job's directory; processes of the job account and in the unit, one of them `goose`; one dynamic user; one session of the job account; nothing in `/dev/shm`; the slot processing a prompt within 20 seconds; the journal's last job line `before true`; and files changed since the unit started, all under the private directories. On the orchestrator, `1` and `1`: the dispatch secret's own mount holds the key too, under `kubernetes.io~secret`, as a file and a link to it.
+    Expected: every probe `PASS` and `== 0 failed`. One unit instance, `active running`; two private directories, with `recipe.json`, `out.json`, `err.txt`, and Goose's session database and logs under `goose` in the job's directory; processes of the job account and in the unit, one of them `goose`; one dynamic user; one session of the job account; nothing in `/dev/shm`; the slot processing a prompt within 20 seconds; the journal's last job line `before true`; files changed since the unit started inside the private directories, and `0` outside them. On the orchestrator, `1` and `1`: the dispatch secret's own mount holds the key too, under `kubernetes.io~secret`, as a file and a link to it.
 
 23. Wait for the workflow, run the `after` phase, and read the orchestrator: the job's pods, the key under the kubelet's directories and its mount, the job's last audit line, and the verdicts config map.
 
@@ -295,11 +295,11 @@ A job runs as a dynamic user in a unit with a private `/tmp`, over one connectio
       sudo grep -F '\"job\":\"$JOB\"' /var/log/aisec/tool-audit.jsonl | tail -n 1 | cut -c1-120;
       sudo k3s kubectl -n orchestration get configmap netbox-verdicts -o json" |
       python3 -I -c 'import json, sys
-    lines = sys.stdin.read().split("\n{", 1); print(lines[0])
-    keys = sorted(json.loads("{" + lines[1])["data"]); print(len(keys), "keys, the job:", sys.argv[1] + ".json" in keys)' "$JOB"
+    lines = sys.stdin.read().split("\n{\n", 1); print(lines[0])
+    keys = sorted(json.loads("{\n" + lines[1])["data"]); print(len(keys), "keys, the job:", sys.argv[1] + ".json" in keys)' "$JOB"
     ```
 
-    Expected: every probe `PASS` and `== 0 failed`: no instance, `0` private directories, no file, no process, no Goose, no dynamic user, no session, nothing in `/dev/shm`, the slot idle for 20 seconds, the journal's last job line `ended true`, systemd's `Consumed` line for the unit, and `0` files changed outside the paths the system writes on its own. On the orchestrator: the job's three pods `Succeeded`, `0` key files and `0` mounts, the audit's `revoke` line for the job with `allowed`, and the config map at 20 keys with the job's. A revoke of the job here would answer with its name for another hour, since the tool service keeps a revoked registration that long; the kept entry refuses its token as `revoked token`.
+    Expected: every probe `PASS` and `== 0 failed`: no instance, `0` private directories, no file, no process, no Goose, no dynamic user, no session, nothing in `/dev/shm`, the slot idle for 20 seconds, the journal's last job line `ended true`, systemd's `Consumed` line for the unit, and `0` files changed inside the private directories or outside them, the paths the system writes on its own left out. On the orchestrator: the job's three pods `Succeeded`, `0` key files and `0` mounts, the audit's `revoke` line for the job with `allowed`, and the config map at 20 keys with the job's. A revoke of the job here would answer with its name, since the tool service keeps a revoked registration for at least an hour past its seconds, until a later registration prunes it; the kept entry refuses its token as `revoked token`.
 
 24. Run every check with the targets checkout named ([validation](../validation/README.md)).
 

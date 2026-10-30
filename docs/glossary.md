@@ -12,6 +12,7 @@ The terms these docs use, what each means in this project, and the name it has i
 | Defense in depth | Each step between the agent's output and NetBox checks it again on the trusted side ([table](components/agent-job.md#after-the-output)) | |
 | Deterministic checks | Two code checks of an account's access: configured, from its permissions, and observed, from what its token returns | `N.14`, `N.17`, `netbox_access.py`, "the checks" |
 | Eval, eval set, eval run | Evaluation of the agent on held-out cases. The eval set is those cases, and an eval run is one pass over them | `collectors/netbox/cases.json`, "scored cases", "scored run" |
+| Fail side | A run of a check or drill against a broken input, or while the state it guards against holds, which has to fail before a pass counts | |
 | Fail closed | A step that stops on anything it cannot confirm, instead of going on | |
 | Ground truth | The deterministic checks' verdicts, which scoring takes as right | |
 | Guardrails | The checks around the model that it cannot change: the schema, the verification gate, the policy, the staging test, and the approval | |

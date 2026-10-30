@@ -15,7 +15,9 @@
 # Nothing is changed in either phase.
 #
 # Every probe prints its name, the expected value, the value read, and PASS or
-# FAIL, and the script exits 1 when any probe failed. Lines without a verdict
+# FAIL, and the script exits 1 when any probe failed. The changed files are
+# read in two parts: inside the unit's private directories, where a running
+# job's files are, and outside them, where a job can write nothing. Lines without a verdict
 # are for the record: the files in the unit's directories, the unit's
 # processes, the slot, systemd's lines about the unit, and the changed files.
 set -uo pipefail
@@ -80,8 +82,8 @@ reads() {
   echo "instance_state=$(systemctl list-units --all --no-legend "$UNITS" 2>/dev/null | awk '{print $3, $4}' | head -n 1)"
   echo "by_hand_unit=$(systemctl show aisec-agent-job -p LoadState --value 2>/dev/null)"
   echo "private_dirs=$(find /tmp /var/tmp -maxdepth 1 -name 'systemd-private-*-aisec-agent-job@*.service-*' 2>/dev/null | wc -l)"
-  echo "work_files=$(find /tmp/systemd-private-*-aisec-agent-job@*.service-*/tmp -type f 2>/dev/null | sed 's|.*/tmp/job/||' | sort | tr '\n' ' ')"
-  echo "work_present=$([ -n "$(find /tmp/systemd-private-*-aisec-agent-job@*.service-*/tmp -type f 2>/dev/null | head -n 1)" ] && echo present || echo none)"
+  echo "work_files=$(find /tmp/systemd-private-*-aisec-agent-job@*.service-*/tmp /var/tmp/systemd-private-*-aisec-agent-job@*.service-*/tmp -type f 2>/dev/null | sed 's|.*/tmp/job/||' | sort | tr '\n' ' ')"
+  echo "work_present=$([ -n "$(find /tmp/systemd-private-*-aisec-agent-job@*.service-*/tmp /var/tmp/systemd-private-*-aisec-agent-job@*.service-*/tmp -type f 2>/dev/null | head -n 1)" ] && echo present || echo none)"
   echo "job_account_processes=$(pgrep -c -u aisec-job 2>/dev/null)"
   echo "unit_processes=$(grep -l 'aisec-agent-job@' /proc/[0-9]*/cgroup 2>/dev/null | wc -l)"
   echo "unit_process_list=$(grep -l 'aisec-agent-job@' /proc/[0-9]*/cgroup 2>/dev/null | while read -r f; do p=${f#/proc/}; ps -o user:32=,comm= -p "${p%/cgroup}" 2>/dev/null | tr -s ' '; done | tr '\n' ';')"
@@ -98,7 +100,8 @@ print({k: s.get(k) for k in ("is_processing", "id_task", "n_prompt_tokens", "n_p
   echo "unit_lines=$(journalctl --no-pager -o short-iso -u "$UNITS" --since -2h 2>/dev/null | grep -E 'Started|Deactivated|Consumed|Failed|Stopping' | tail -n 4 | cut -c12- | tr '\n' ';')"
   echo "changed_since=$since"
   echo "changed_files=$(find / /tmp -xdev \( -false "${prune[@]}" \) -prune -o -type f -newermt "$since" -print 2>/dev/null | sort | tr '\n' ' ')"
-  echo "changed_count=$(find / /tmp -xdev \( -false "${prune[@]}" \) -prune -o -type f -newermt "$since" -print 2>/dev/null | wc -l)"
+  echo "changed_inside=$(find /tmp/systemd-private-*-aisec-agent-job@*.service-* /var/tmp/systemd-private-*-aisec-agent-job@*.service-* -type f -newermt "$since" 2>/dev/null | wc -l)"
+  echo "changed_outside=$(find / /tmp -xdev \( -false "${prune[@]}" -o -path '/tmp/systemd-private-*-aisec-agent-job@*' -o -path '/var/tmp/systemd-private-*-aisec-agent-job@*' \) -prune -o -type f -newermt "$since" -print 2>/dev/null | wc -l)"
 }
 
 case ${1:-} in
@@ -121,7 +124,8 @@ case ${1:-} in
     report "the slot processed a prompt within 20 s" true "$(value slot_busy)"
     note "  the slot" "$(value slot)"
     report "the journal's last job line" "before true" "$(value journal_last)"
-    report "files changed since the unit started" 0 "$(value changed_count)" not
+    report "files changed in the private directories" 0 "$(value changed_inside)" not
+    report "files changed outside them" 0 "$(value changed_outside)"
     note "  since" "$(value changed_since)"
     note "  the files" "$(value changed_files)"
     ;;
@@ -142,7 +146,8 @@ case ${1:-} in
     note "  the slot" "$(value slot)"
     report "the journal's last job line (G.10)" "ended true" "$(value journal_last)"
     note "  systemd's lines about the unit" "$(value unit_lines)"
-    report "files changed since the unit started" 0 "$(value changed_count)"
+    report "files changed in the private directories" 0 "$(value changed_inside)"
+    report "files changed outside them" 0 "$(value changed_outside)"
     note "  since" "$(value changed_since)"
     note "  the files" "$(value changed_files)"
     ;;
