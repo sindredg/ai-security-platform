@@ -265,3 +265,42 @@ No job on the seed finds a fix to propose ([#220](https://github.com/sindredg/ai
 21. Run every check with the targets checkout named ([validation](../validation/README.md)).
 
     Expected: `D.2` passes with the change commands in this checkout, and `D.3` with the proposals directory root's alone.
+
+## What a job leaves
+
+A job runs as a dynamic user in a unit with a private `/tmp`, over one connection to the job socket, and the job program erases the model server's slot before and after it ([ADR 0030](../decisions/0030-how-a-job-reaches-the-worker.md), [ADR 0032](../decisions/0032-erase-the-slot-before-each-job-and-refuse-on-failure.md)). The checks `G.3`, `G.4`, `G.9`, `G.10`, and `G.12` read the worker between jobs, where each shows nothing. The drill reads the same things while a job runs, where each has to show the job, and again after its workflow, where each has to show nothing again.
+
+22. Copy the drill to the worker, collect a job's evidence, submit the job, and while its agent works run the drill's `during` phase as root. Then read the orchestrator: the dispatch pod's copy of the dispatch key, in its memory-backed directory, and that directory's mount.
+
+    ```bash
+    STAMP=REPLACE_WITH_STAMP; JOB=nb-$STAMP-record
+    REPLACE_WITH_SSH aisec-worker 'cat > what-a-job-leaves.sh' < validation/drills/what-a-job-leaves.sh
+    REPLACE_WITH_SSH aisec-orchestrator "sudo collect-netbox-evidence $JOB"
+    argo submit --from workflowtemplate/investigate --name "$JOB" -p target=netbox -p seconds=1200 -p max-turns=8 \
+      -p task="$(cat REPLACE_WITH_PLATFORM_CHECKOUT/collectors/netbox/task.txt)"
+    sleep 100
+    REPLACE_WITH_SSH aisec-worker 'sudo bash what-a-job-leaves.sh during'
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo find /var/lib/kubelet/pods -name id_ed25519 | wc -l; sudo findmnt -rn -t tmpfs | grep -c empty-dir'
+    ```
+
+    Expected: every probe `PASS` and `== 0 failed`. One unit instance, `active running`; two private directories, with `recipe.json`, `out.json`, `err.txt`, and Goose's files under `config` and `goose` in the job's directory; processes of the job account and in the unit, one of them `goose`; one dynamic user; one session of the job account; nothing in `/dev/shm`; the slot processing a prompt within 20 seconds; the journal's last job line `before true`; and files changed since the unit started, all under the private directories. On the orchestrator, `1` and `1`.
+
+23. Wait for the workflow, run the `after` phase, and read the orchestrator: the job's pods, the key copy and its mount, a revoke of the job's registration, and the verdicts config map. The registration client is the copy from step 8.
+
+    ```bash
+    argo wait "$JOB"
+    REPLACE_WITH_SSH aisec-worker 'sudo bash what-a-job-leaves.sh after; rm -f what-a-job-leaves.sh'
+    REPLACE_WITH_SSH aisec-orchestrator "sudo k3s kubectl -n orchestration get pods -l workflows.argoproj.io/workflow=$JOB --no-headers -o custom-columns=NAME:.metadata.name,PHASE:.status.phase;
+      sudo find /var/lib/kubelet/pods -name id_ed25519 | wc -l; sudo findmnt -rn -t tmpfs | grep -c empty-dir;
+      sudo ~/feed/tool-service/platform/tool-service/register.sh revoke $JOB;
+      sudo k3s kubectl -n orchestration get configmap netbox-verdicts -o json" |
+      python3 -I -c 'import json, sys
+    lines = sys.stdin.read().split("\n{", 1); print(lines[0])
+    keys = sorted(json.loads("{" + lines[1])["data"]); print(len(keys), "keys, the job:", sys.argv[1] + ".json" in keys)' "$JOB"
+    ```
+
+    Expected: every probe `PASS` and `== 0 failed`: no instance, `0` private directories, no file, no process, no Goose, no dynamic user, no session, nothing in `/dev/shm`, the slot idle for 20 seconds, the journal's last job line `ended true`, systemd's `Consumed` line for the unit, and `0` files changed outside the paths the system writes on its own. On the orchestrator: the job's three pods `Succeeded`, `0` key copies and `0` mounts, `200 {"job": null}` (nothing left to revoke), and the config map at 20 keys with the job's.
+
+24. Run every check with the targets checkout named ([validation](../validation/README.md)).
+
+    Expected: `G.12` passes with `0 0 0`, and `G.3`, `G.4`, `G.9`, and `G.10` with it.
