@@ -15,7 +15,7 @@ In progress. The drills run in slices, each a pull request of code and expectati
 | Instructions embedded in advisories and tool results | **Verified**: the model called both accounts `excess`, citing a record name that says so, and proposed removing each one's only permission; the verification gate stopped both ([result](#the-injected-name)) |
 | Forged and stale target evidence | **Verified**: a stale item refused before the job, a forged item trusted to the verification gate and stopped there ([result](#stale-and-forged-checks-verdicts)) |
 | Cleanup verification and measured resource use per investigation | **Verified**: cleanup, the same reads showing a job during it and nothing after ([result](#slice-6-what-a-job-leaves)); resource use of the machine, the long-lived pods ([result](#resource-use-per-investigation)), and the dispatch pod ([#176](https://github.com/sindredg/ai-security-platform/issues/176), [result](#the-record-job-and-the-footprint)) |
-| The incident response runbook, run for three cases | **Planned**: after the drills without an apply |
+| The incident response runbook, run for three cases | **Verified**: containment, rotation, and restore for a compromised worker, a compromised target, and a leaked credential ([result](#the-result-for-the-three-cases)). **Written**: the replacement steps, each a rebuild ([runbook](../runbooks/incident-response.md)) |
 | An audit daemon and file integrity monitoring on both VMs, with a drill each | **Planned**: after the drills without an apply |
 | A rebuild of each VM from the current templates | **Planned**: last. An accepted gap if the subscription window ends first |
 | Operator sessions to the targets in the audit log (T04) | **Verified**: one session, one workspace row ([result](#operator-sessions-to-the-targets)) |
@@ -322,6 +322,26 @@ A leaked credential: the collector's token from the lab VM gets `403` with `Sour
 
 Reasoned and not observed before the run: whether NetBox's journal logs the refused request, the exact order of the two log lines of the stopped dispatch step, and the seed's users group reading two accounts beside the seed's four on both NetBoxes. Then every check passes with the targets checkout, `G.5` and `W.10` with the new key and `N.14` and `N.17` with the new tokens, the same count as the last run.
 
-### The result
+### The result for the three cases
 
-Not run yet.
+Result, 2026-10-30 23:08 to 23:18 UTC and 23:22 to 23:32 UTC, on the live system ([record](../evidence/2026-10-30-2308-incident-response.md)): every expectation met, with two of the runbook's commands corrected between the two runs and one answer worded otherwise than expected. The first run covered the compromised worker, the comparison and the copy's change and reset of the compromised target, and the detection and deletion of the leaked credential; the second the token hold and its undo, the steps after the deletion, and every check.
+
+A compromised worker. The job `nb-10302308-stopped` was dispatched at 23:10:32 and its agent's unit started at 23:10:36; at 23:12:18 the operator's revoke answered `200` with the job's name, the socket, the unit, and the model server stopped, and the deny went into Squid, parsed clean. The workflow ended `Failed` at 23:12:42 with the dispatch step's `refused: the job ended without a result, or another job is running` and `failed: the session ended without a result`, the exit handler's revoke `Succeeded`, and the audit's two `revoke` lines (`seq` 495 and 496) after the `register` (494).
+
+The unit left `Stopping`, `Deactivated successfully`, and `Consumed 351ms CPU time over 1min 46.272s wall clock time, 66.5M memory peak`, and no outcome line. The proxy answered `403 403` from the worker and the health read exit `7`; the edge's access log held 18 denied lines for the worker's address, this run's and the check runs' before it.
+
+The rotation changed the secret's digest from `e11cdfdf` to `3a2d3c57` and left the worker's key line with the new half's fingerprint, the socket `active`. The model server answered `{"status":"ok"}` within the minute, Squid's configuration went back with `0` parse errors and `0` incident lines, and the proxy answered `200 200`. Then `syn-10302308` ran `Succeeded` on the new key, 23:13:27 to 23:15:24 UTC, one call.
+
+A compromised target. The live NetBox against the seed read `4 groups compared, 0 differences`, with five groups `not readable with this token, as the seed grants`, devices `8 8`, addresses `7 7`, users `4 6` beside the probe and seeding accounts, and permissions `6 6`. One permission's users emptied on the staging copy gave `differs: inventory-reader: tenant-a inventory differs in users`, `1 differences`, exit `1`; the reset printed the dump's SHA-256 `63d640ec...`, equal to the recorded one, and the comparison then read `0 differences`.
+
+The hold ran in the second run, at 23:22: `0` tokens left and the two names in the holding directory on each host, the collect command `failed: configured: exit 1:` ending in `FileNotFoundError` for `aisec-collector` with `0` items written, and each half the same error for its token. With the tokens back, the observed half read `within` for both accounts and the configured half `missing` for both. The second run's hold came after the first run's deletion of the collector's token (step 16), so the configured half read the deleted token, as step 17 expects, and `within` again after the rotation.
+
+A leaked credential. The collector's token from the lab VM got `{"detail":"Source IP 10.50.0.36 is not permitted to authenticate using this token."} 403`, and NetBox's journal the web server's line `10.50.0.36 - "GET /api/status/ HTTP/2" 403`: the address and the status, not the reason. The seeding token was made at 23:18:19 (`root 600 58`), and the deletion answered `deleted token 38 of aisec-collector: 204` and `== 1 tokens of aisec-collector deleted`.
+
+The deleted token then got `{"detail":"Invalid v2 token"} 403`, not the expected `Invalid token`; the runbook's expected text has NetBox's wording now. The configured half gave `missing` for both accounts, with `users: 403 {'detail': 'Invalid v2 token'}` and `no permission grants view on dcim.device` and `on ipam.ipaddress` as its reasons. The seed run, 259 seconds after the seeding token's making, made three tokens and none for the delivery account; both halves then read `within` for both accounts, and the old token `Invalid v2 token` once more.
+
+Then every check passed with the targets checkout at `9b7c5bd`, 429 of 429, 23:23 to 23:32 UTC, `G.5` and `W.10` with the new key and `N.13` to `N.17` with the new tokens.
+
+The first run stopped at step 17 with two faults in the runbook's commands, both corrected before the second run. The token hold of step 9 moved nothing: the operator's shell cannot expand a pattern inside root's directory, the command's exit was its last step's, and step 10's collection passed and wrote an item for `nb-10302308-held`, which the collect command prunes after twenty jobs. The old token's read from the orchestrator in step 17 got no answer, since the orchestrator's shell names Squid as its proxy and NetBox's address is not among its exceptions; the command has `--noproxy` now, as the checks' own reads do.
+
+The run set has no bar on the milestone's chart: no job in it reached the verification gate.

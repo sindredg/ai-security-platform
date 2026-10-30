@@ -1,6 +1,6 @@
 # Incident response: operator procedure
 
-Status: Written on 2026-10-31. The containment, rotation, and restore steps have not run. The replacement steps (7, 14, and 20) are each a rebuild, written against the rebuild sections of other runbooks, and run only in the rebuild the [roadmap](../roadmap.md#6-operational-and-containment-drills) lists last.
+Status: Implemented on 2026-10-30, when steps 1 to 6, 8, 11, 12, 15, and 16 ran on the live system from 23:08 UTC, and steps 9, 10, 13, 17 to 19, and 21 in a second run from 23:22 UTC, after two command faults in the first: steps 9 and 13 moved nothing, and step 17 got no answer, both corrected below. Steps 7, 14, and 20 are each a rebuild, written against the rebuild sections of other runbooks, and run only in the rebuild the [roadmap](../roadmap.md#6-operational-and-containment-drills) lists last. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-7-the-incident-response-runbook).
 
 Three cases, in the same order each: detect, contain, verify, rotate or restore, undo what the drill changed, replace, record. The containment and rotation steps are reversible and are followed by the read that shows each took, and by its undo. The replacement steps destroy a VM.
 
@@ -65,7 +65,7 @@ The worker runs the agent and the model, and the design assumes it is compromise
 
    ```bash
    argo wait "$JOB"; argo get "$JOB" | grep -E "Status|Message|dispatch|revoke"
-   argo logs "$JOB" | tail -n 2
+   argo logs "$JOB" | grep -E "refused:|failed:"
    REPLACE_WITH_SSH aisec-orchestrator "sudo grep -F '$JOB' /var/log/aisec/tool-audit.jsonl | tail -n 3" | cut -c1-160
    REPLACE_WITH_SSH aisec-worker 'journalctl --no-pager -o cat -u "aisec-agent-job@*" --since -10min | grep -E "outcome|Stopping|Deactivated|Consumed" | cut -c1-120
      for h in archive.ubuntu.com security.ubuntu.com; do curl -s -o /dev/null -w "%{http_code} " -x http://10.45.0.4:3128 "http://$h/ubuntu/dists/resolute/InRelease"; done; echo
@@ -73,7 +73,7 @@ The worker runs the agent and the model, and the design assumes it is compromise
    REPLACE_WITH_SSH aisec-edge 'sudo grep -c " 10.40.0.36 TCP_DENIED/403 " /var/log/squid/access.log'
    ```
 
-   Expected: `Failed`, the dispatch step `Failed` and the exit handler's `revoke` node `Succeeded`; the step's last two log lines are the job runner's `refused: the job ended without a result, or another job is running`, carried over SSH, and `failed: the session ended without a result`. The audit's last lines for the job are the `revoke` allowed for the operator's registration pod and the exit handler's `revoke`, also allowed, since the tool service keeps a revoked registration for an hour ([containment drills](containment-drills.md), step 23).
+   Expected: `Failed`, the dispatch step `Failed` and the exit handler's `revoke` node `Succeeded`; the step's log holds the job runner's `refused: the job ended without a result, or another job is running`, carried over SSH, and its own `failed: the session ended without a result`. The audit's last lines for the job are the `revoke` allowed for the operator's registration pod and the exit handler's `revoke`, also allowed, since the tool service keeps a revoked registration for an hour ([containment drills](containment-drills.md), step 23).
 
    On the worker, no `outcome` line: the unit was stopped, so the job program never wrote one, and systemd's `Stopping`, `Deactivated`, and `Consumed` lines stand instead. Then `403 403` from the proxy, a health read that fails with exit `7`, and at least `2` denied lines for the worker's address on the edge; `G.7`, `S.2`, `P.6`, and `P.7` fail in this state.
 
@@ -137,12 +137,12 @@ A compromised NetBox VM can answer the collector with what it likes ([T23](../se
 9. Contain: move the platform's tokens for the target into a root-only directory on the orchestrator and on the lab VM, so that no collection, staging test, or check reads the target until they are back. Run no update run to the target meanwhile.
 
    ```bash
-   hold() { REPLACE_WITH_SSH "$1" 'sudo install -d -m 700 /etc/aisec/netbox/held && sudo mv /etc/aisec/netbox/tokens/* /etc/aisec/netbox/held/
-     sudo sh -c "ls /etc/aisec/netbox/tokens | wc -l; ls /etc/aisec/netbox/held"'; }
+   hold() { REPLACE_WITH_SSH "$1" 'sudo sh -c "install -d -m 700 /etc/aisec/netbox/held && mv /etc/aisec/netbox/tokens/* /etc/aisec/netbox/held/
+     ls /etc/aisec/netbox/tokens | wc -l; ls /etc/aisec/netbox/held"'; }
    hold aisec-orchestrator; hold aisec-lab
    ```
 
-   Expected: on the orchestrator `0`, then `aisec-address-probe` and `aisec-collector`; on the lab VM `0`, then `inventory-reader` and `inventory-reader-control`.
+   Expected: on the orchestrator `0`, then `aisec-address-probe` and `aisec-collector`; on the lab VM `0`, then `inventory-reader` and `inventory-reader-control`. The directory is root's alone, so the move runs in root's shell: the operator's shell cannot expand a pattern inside it.
 
 10. Verify that nothing reads the target: the collect command for a new job, and each deterministic check's half as `N.14` and `N.17` run them.
 
@@ -185,8 +185,8 @@ A compromised NetBox VM can answer the collector with what it likes ([T23](../se
 13. Put the tokens back on both hosts, and read both halves again.
 
     ```bash
-    unhold() { REPLACE_WITH_SSH "$1" 'sudo mv /etc/aisec/netbox/held/* /etc/aisec/netbox/tokens/ && sudo rmdir /etc/aisec/netbox/held
-      sudo sh -c "stat -c \"%U %a %n\" /etc/aisec/netbox/tokens /etc/aisec/netbox/tokens/*"'; }
+    unhold() { REPLACE_WITH_SSH "$1" 'sudo sh -c "mv /etc/aisec/netbox/held/* /etc/aisec/netbox/tokens/ && rmdir /etc/aisec/netbox/held
+      stat -c \"%U %a %n\" /etc/aisec/netbox/tokens /etc/aisec/netbox/tokens/*"'; }
     unhold aisec-orchestrator; unhold aisec-lab
     REPLACE_WITH_SSH aisec-orchestrator "sudo python3 -I -c $(printf %q "$code") configured --summary" < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json
     REPLACE_WITH_SSH aisec-lab "sudo python3 -I -c $(printf %q "$code") observed --summary" < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json
@@ -208,10 +208,10 @@ The collector's token is the credential this case takes: the platform's own toke
     OLD=$(REPLACE_WITH_SSH aisec-orchestrator 'sudo cat /etc/aisec/netbox/tokens/aisec-collector')
     printf 'Authorization: Bearer %s\n' "$OLD" |
       REPLACE_WITH_SSH aisec-lab 'curl -s --max-time 8 --cacert /etc/aisec/netbox/tls.crt -w " %{http_code}\n" -H @- https://10.50.0.4:8443/api/status/'
-    REPLACE_WITH_SSH aisec-netbox 'sudo journalctl --no-pager -o short-iso -u netbox --since -2min | grep -c -E "403|not permitted"'
+    REPLACE_WITH_SSH aisec-netbox 'sudo journalctl --no-pager -o cat -u netbox --since -2min | grep -F "10.50.0.36 - \"GET /api/status/" | tail -n 1'
     ```
 
-    Expected: `{"detail":"Source IP 10.50.0.36 is not permitted to authenticate using this token."} 403`, as `N.12` reads for the probe's token from the orchestrator. Then a count of at least `1`, if the web server logs the refused request to the journal: reasoned from the install's logging, not observed before the run. A `0` means the refusal is seen in the answer alone.
+    Expected: `{"detail":"Source IP 10.50.0.36 is not permitted to authenticate using this token."} 403`, as `N.12` reads for the probe's token from the orchestrator. Then the web server's request line in NetBox's journal, `10.50.0.36 - "GET /api/status/ HTTP/2" 403` with its time: the address and the status are logged on the target, and the reason is in the answer alone.
 
 16. Contain: delete the account's tokens on NetBox with the seeding token, which the NetBox VM makes ([NetBox runbook](netbox.md), step 15).
 
@@ -228,11 +228,11 @@ The collector's token is the credential this case takes: the platform's own toke
 
     ```bash
     printf 'Authorization: Bearer %s\n' "$OLD" |
-      REPLACE_WITH_SSH aisec-orchestrator 'curl -s --max-time 8 --cacert /etc/aisec/netbox/tls.crt -w " %{http_code}\n" -H @- https://10.50.0.4:8443/api/status/'
+      REPLACE_WITH_SSH aisec-orchestrator 'curl -s --noproxy "*" --max-time 8 --cacert /etc/aisec/netbox/tls.crt -w " %{http_code}\n" -H @- https://10.50.0.4:8443/api/status/'
     REPLACE_WITH_SSH aisec-orchestrator "sudo python3 -I -c $(printf %q "$code") configured" < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json | grep -E '"verdict"|"why"' | sort -u
     ```
 
-    Expected: `{"detail":"Invalid token"} 403`. The configured half gives `"verdict": "missing"` for both accounts with the reason `users: 403 {'detail': 'Invalid token'}`: a dead collector token reads as every account lacking everything, and `N.14` fails on it. A collection in this state writes `missing` against the observed half's `within`, and the verification gate stops the job on the disagreement.
+    Expected: `{"detail":"Invalid v2 token"} 403`; the orchestrator's shell names Squid as its proxy, which `--noproxy` leaves out. The configured half gives `"verdict": "missing"` for both accounts with the reason `users: 403 {'detail': 'Invalid v2 token'}`: a dead collector token reads as every account lacking everything, and `N.14` fails on it. A collection in this state writes `missing` against the observed half's `within`, and the verification gate stops the job on the disagreement.
 
 18. Rotate: the seed run, which deletes each seeded account's tokens and makes new ones, then the tokens to their hosts ([NetBox runbook](netbox.md), steps 16 and 17).
 
@@ -257,11 +257,11 @@ The collector's token is the credential this case takes: the platform's own toke
     REPLACE_WITH_SSH aisec-orchestrator "sudo python3 -I -c $(printf %q "$code") configured --summary" < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json
     REPLACE_WITH_SSH aisec-lab "sudo python3 -I -c $(printf %q "$code") observed --summary" < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json
     printf 'Authorization: Bearer %s\n' "$OLD" |
-      REPLACE_WITH_SSH aisec-orchestrator 'curl -s --max-time 8 --cacert /etc/aisec/netbox/tls.crt -w " %{http_code}\n" -H @- https://10.50.0.4:8443/api/status/'
+      REPLACE_WITH_SSH aisec-orchestrator 'curl -s --noproxy "*" --max-time 8 --cacert /etc/aisec/netbox/tls.crt -w " %{http_code}\n" -H @- https://10.50.0.4:8443/api/status/'
     unset OLD
     ```
 
-    Expected: `inventory-reader:within inventory-reader-control:within` twice, and `{"detail":"Invalid token"} 403`.
+    Expected: `inventory-reader:within inventory-reader-control:within` twice, and `{"detail":"Invalid v2 token"} 403`.
 
 20. Replace: nothing, since the token was the credential and step 18 made a new one. If the leak came from the orchestrator, which holds every credential that matters, the case is the orchestrator's rebuild ([platform compute runbook](platform-compute.md#rebuild-the-orchestrator)) and a rotation of everything it holds ([credentials](../security/credentials.md)), not run.
 
