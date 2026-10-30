@@ -2,7 +2,7 @@
 
 # Forbidden calls from the worker
 
-Milestone 6, 2026-10-30. [All run sets](README.md), [previous: Drills without an apply](2026-10-28-1747-drills-without-an-apply.md).
+Milestone 6, 2026-10-30. [All run sets](README.md), [previous: Drills without an apply](2026-10-28-1747-drills-without-an-apply.md), [next: Instructions in the evidence](2026-10-30-1502-instructions-in-the-evidence.md).
 
 **Tested:** Whether a job's sandbox can open a forbidden connection, read host files, edit a unit or kernel setting, or call the tool service without a live token.
 
