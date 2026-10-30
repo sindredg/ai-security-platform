@@ -256,7 +256,7 @@ No job on the seed finds a fix to propose ([#220](https://github.com/sindredg/ai
 20. Read the open pull requests of the targets repository against a bundle, from the operator's machine.
 
     ```bash
-    gh api 'repos/sindredg/ai-security-platform-test/pulls?state=open' |
+    gh api 'repos/sindredg/ai-security-platform-test/pulls?state=open&per_page=100' |
       python3 -I platform/change/open_fixes.py REPLACE_WITH_BUNDLE/proposal.json
     ```
 

@@ -14,9 +14,12 @@ from pathlib import Path
 from unittest import mock
 
 HERE = Path(__file__).resolve().parent.parent
+REPO = HERE.parent.parent
+sys.path.insert(0, str(REPO / "collectors" / "netbox"))
 sys.path.insert(0, str(HERE))
 
 import open_fixes
+import propose
 
 CHANGE = {
     "account": "inventory-reader",
@@ -58,6 +61,51 @@ class OpenFixes(unittest.TestCase):
         self.assertIn(
             "#14 fix/netbox-nb-1: `inventory-reader` loses permission 2 there", out
         )
+
+    def test_a_body_with_windows_line_endings_is_read_too(self):
+        # GitHub's web editor saves a body with CRLF.
+        body = f"## A fix\r\n\r\n{ROW}\r\n"
+        code, out = self.run_check([pull(14, body)])
+        self.assertEqual(code, 1)
+        self.assertIn("#14", out)
+
+    def test_the_row_pattern_matches_what_the_propose_command_writes(self):
+        # The two checks of ADR 0053 stay in step: a body pr_body writes is read.
+        bundle = {
+            "job": "nb-2",
+            "case": "seed",
+            "collected": "2026-10-30T18:00:00Z",
+            "source": "model",
+            "comparison": {
+                "accounts": [
+                    {
+                        "account": "inventory-reader",
+                        "configured": "excess",
+                        "observed": "excess",
+                        "model": "excess",
+                    }
+                ],
+                "proposals": [
+                    {
+                        "account": "inventory-reader",
+                        "action": "remove",
+                        "permission": 2,
+                        "references": ["ev-0002"],
+                    }
+                ],
+            },
+            "policy": {"allowed": True, "reasons": [], "changes": [CHANGE]},
+            "rehearsal": {
+                "passed": True,
+                "verdicts": {
+                    "inventory-reader": {"configured": "within", "observed": "within"}
+                },
+            },
+        }
+        body = propose.pr_body(bundle)
+        self.assertEqual(open_fixes.ROW.findall(body), [("inventory-reader", "2")])
+        code, _ = self.run_check([pull(14, body)])
+        self.assertEqual(code, 1)
 
     def test_another_permission_or_account_passes(self):
         rows = [

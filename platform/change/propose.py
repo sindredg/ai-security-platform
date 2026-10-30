@@ -255,7 +255,10 @@ def pr_body(bundle):
 def delivered(job):
     """Whether a delivery of the job's fix passed."""
     result = DELIVERIES / f"approve_netbox_{job}.json"
-    return result.exists() and json.loads(result.read_text()).get("passed") is True
+    if not result.exists():
+        return False
+    found = read_json(result)
+    return isinstance(found, dict) and found.get("passed") is True
 
 
 def duplicate_of(proposals):
@@ -267,8 +270,17 @@ def duplicate_of(proposals):
     for earlier in sorted(PROPOSALS.iterdir()):
         if not (earlier / "pr-body.md").exists():
             continue
-        bundle = json.loads((earlier / "proposal.json").read_text())
-        held = {(c["account"], c["permission_id"]) for c in bundle["policy"]["changes"]}
+        bundle = read_json(earlier / "proposal.json")
+        changes = (
+            bundle.get("policy", {}).get("changes", [])
+            if isinstance(bundle, dict)
+            else []
+        )
+        held = {
+            (c.get("account"), c.get("permission_id"))
+            for c in changes
+            if isinstance(c, dict)
+        }
         if held & wanted and not delivered(earlier.name):
             return earlier.name
     return None

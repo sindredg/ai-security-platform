@@ -34,11 +34,12 @@ def duplicates(changes, pulls):
     wanted = {(c["account"], int(c["permission_id"])) for c in changes}
     found = []
     for pull in pulls:
-        for account, permission in ROW.findall(pull.get("body") or ""):
+        # GitHub's web editor saves a body with CRLF line endings.
+        body = (pull.get("body") or "").replace("\r\n", "\n")
+        for account, permission in ROW.findall(body):
             if (account, int(permission)) in wanted:
-                found.append(
-                    (pull["number"], pull["head"]["ref"], account, int(permission))
-                )
+                ref = (pull.get("head") or {}).get("ref", "?")
+                found.append((pull.get("number"), ref, account, int(permission)))
     return found
 
 

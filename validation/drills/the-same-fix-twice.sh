@@ -17,7 +17,9 @@
 # proposals' output, three probes with PASS or FAIL, and exits 1 when any
 # failed. Nothing stays: the fixture bundle, the delivery result fixture,
 # the proposals file, and the bundle the second proposal wrote for JOB are
-# removed at the end.
+# removed at the end. A bundle with pr-body.md for JOB, from a proposal the
+# policy allowed, is not the drill's to remove: it stays, and the rule then
+# holds that fix until it is delivered.
 set -uo pipefail
 
 PROPOSALS=/var/lib/aisec/proposals
@@ -70,6 +72,7 @@ probe() {
 
 # The fixture bundle: an allowed, rehearsed fix, as the propose command
 # writes one, with pr-body.md marking it as the drill's.
+mkdir -m 700 "$PROPOSALS/$FIRST" || exit 2
 python3 -I -c 'import json, sys, time
 first, account, permission, pid = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
 proposal = {"account": account, "action": "remove", "permission": pid, "references": ["ev-0002"]}
@@ -83,7 +86,7 @@ bundle = {
 }
 json.dump(bundle, open(sys.argv[5] + "/proposal.json", "w"), indent=2)
 open(sys.argv[5] + "/pr-body.md", "w").write("## A fixture of the same fix twice drill\n")
-json.dump([proposal], open(sys.argv[6], "w"))' "$FIRST" "$ACCOUNT" "$PERMISSION" "$ID" "$(mkdir -m 700 "$PROPOSALS/$FIRST" && echo "$PROPOSALS/$FIRST")" "$work/proposals.json" || exit 2
+json.dump([proposal], open(sys.argv[6], "w"))' "$FIRST" "$ACCOUNT" "$PERMISSION" "$ID" "$PROPOSALS/$FIRST" "$work/proposals.json" || exit 2
 
 echo "-- the first proposal for $JOB, with the fixture undelivered"
 out=$(propose-netbox-fix "$JOB" --proposals "$work/proposals.json" 2>&1)
