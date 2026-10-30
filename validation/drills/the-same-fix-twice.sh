@@ -43,6 +43,8 @@ print(next(p["id"] for p in found if p["name"] == sys.argv[3]))' \
 echo "the fixture $FIRST removes $ACCOUNT from '$PERMISSION' (ID $ID)"
 
 work=$(mktemp -d /run/aisec-drill.XXXXXX)
+# Invoked by the trap below.
+# shellcheck disable=SC2329
 cleanup() {
   [[ $work =~ ^/run/aisec-drill\.[A-Za-z0-9]{6}$ ]] && rm -r -- "$work"
   [[ $FIRST =~ ^nb-[0-9]{8}-first$ ]] && rm -r -f -- "${PROPOSALS:?}/$FIRST"
@@ -53,6 +55,8 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
+
+indent() { while IFS= read -r line; do printf '   %s\n' "$line"; done; }
 
 probe() {
   local name=$1 expected=$2 got=$3
@@ -83,7 +87,7 @@ json.dump([proposal], open(sys.argv[6], "w"))' "$FIRST" "$ACCOUNT" "$PERMISSION"
 
 echo "-- the first proposal for $JOB, with the fixture undelivered"
 out=$(propose-netbox-fix "$JOB" --proposals "$work/proposals.json" 2>&1)
-echo "$out" | sed 's/^/   /'
+indent <<<"$out"
 case "$out" in
   *"the same fix as $FIRST, not delivered"*) echo "PASS  the proposal is refused as the same fix" ;;
   *) echo "FAIL  the proposal is refused as the same fix: not in the output"; failed=$((failed + 1)) ;;
@@ -95,7 +99,7 @@ printf '{"tag": "approve/netbox/%s", "passed": true, "source": "the same fix twi
 chmod 600 "$DELIVERIES/approve_netbox_$FIRST.json"
 echo "-- the second proposal, with a passed delivery result for the fixture"
 out=$(propose-netbox-fix "$JOB" --proposals "$work/proposals.json" 2>&1)
-echo "$out" | sed 's/^/   /'
+indent <<<"$out"
 case "$out" in
   *"the same fix"*) echo "FAIL  the proposal reaches the policy: still refused as the same fix"; failed=$((failed + 1)) ;;
   *"policy: refused"*) echo "PASS  the proposal reaches the policy: policy: refused, bundle $([ -f "$PROPOSALS/$JOB/proposal.json" ] && echo written || echo missing)" ;;
