@@ -189,7 +189,7 @@ The NetBox VM must exist and have had one update run, which installs Podman, Pos
     REPLACE_WITH_SSH aisec-orchestrator "sudo python3 -I ~/feed/netbox-seed/seed.py ~/feed/netbox-seed/seed.json $run"
     ```
 
-    Expected: `/run/aisec-netbox-tokens.` and six characters. The first run prints 32 `made` lines for the objects, then `made  token for` each of `inventory-reader`, `inventory-reader-control`, and `aisec-collector`. The second prints 32 `have` lines and makes three new tokens, which replace the first run's. A line that names a difference stops the run: NetBox holds an object the seed did not make.
+    Expected: `/run/aisec-netbox-tokens.` and six characters. The first run prints 36 `made` lines for the objects, then `made  token for` each of `inventory-reader`, `inventory-reader-control`, and `aisec-collector`. The second prints 36 `have` lines and makes three new tokens, which replace the first run's. A line that names a difference stops the run: NetBox holds an object the seed did not make.
 
 17. Put each token on its host, and the certificate on the lab VM. Then remove the run directory and the seeding token.
 
@@ -218,7 +218,9 @@ The NetBox VM must exist and have had one update run, which installs Podman, Pos
     REPLACE_WITH_SSH aisec-lab "sudo python3 -I -c $(printf %q "$code") observed" < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json
     ```
 
-    Expected: `configured` gives `inventory-reader` `excess`, for `view` on `dcim.device` and on `ipam.ipaddress` without a constraint, and `inventory-reader-control` `within`. `observed` gives `inventory-reader` `excess`, for the `b-` and `c-` devices and the `172.16.2.x` and `172.16.3.x` addresses, and `inventory-reader-control` `within`, with its three devices and three addresses. Every denial is `403` for both.
+    Expected: `configured` gives `within` for both accounts, each with `view` on `dcim.device` and on `ipam.ipaddress` constrained to `tenant-a`. `observed` gives `within` for both, each with the contract's four devices and three addresses. Every denial is `403` for both.
+
+    The seed held an unscoped permission for `inventory-reader` until the fix of 2026-10-27 ([worklog 0006](../worklogs/0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end)), and both methods gave `excess` for it then.
 
 19. Remove NetBox's directory from the NetBox VM, and the seed from the orchestrator.
 
