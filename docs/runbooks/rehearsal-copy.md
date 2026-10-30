@@ -249,17 +249,17 @@ Before this:
 
     Expected: the forced command runs instead, and its last line is the SHA-256 step 17 recorded, after about a minute.
 
-21. Run a staging test of the seed's fix once with the installed library.
+21. Run a staging test once with the installed library: a change that removes `inventory-reader` from its one permission.
 
     ```bash
     REPLACE_WITH_SSH aisec-orchestrator "sudo python3 -I -c 'import json, sys
     sys.path.insert(0, \"/usr/local/lib/aisec\")
     import rehearse
-    change = {\"account\": \"inventory-reader\", \"permission_id\": 0, \"permission\": \"inventory-reader: inventory\"}
+    change = {\"account\": \"inventory-reader\", \"permission_id\": 0, \"permission\": \"inventory-reader: tenant-a inventory\"}
     print(json.dumps(rehearse.rehearse([change], json.load(open(\"/etc/aisec/netbox/contract.json\")))))'"
     ```
 
-    Expected: `"passed": true`, the reset's SHA-256 twice, one change on the copy's own ID for `inventory-reader: inventory`, and both accounts `within` by both methods. The copy is reset again after the halves.
+    Expected: `"passed": false`, the reset's SHA-256 twice, one change on the copy's own ID for `inventory-reader: tenant-a inventory`, and `inventory-reader` `missing` by both methods: the seed holds the fix of 2026-10-27, so the removal leaves the account short. The copy is reset again after the halves, whatever happened between the two resets.
 
 ## Checks
 
