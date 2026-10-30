@@ -1,6 +1,6 @@
 # 0053. A fix is proposed once until it is delivered
 
-Status: Proposed
+Status: Accepted
 Date: 2026-10-30
 
 ## Context
