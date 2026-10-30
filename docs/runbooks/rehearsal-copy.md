@@ -178,7 +178,7 @@ Before this:
       python3 -I ~/feed/rehearsal-seed/seed.py ~/feed/rehearsal-seed/seed.json $RUN"
     ```
 
-    Expected: 35 `made` lines, then a `made  token` line for each of the four seeded accounts.
+    Expected: 36 `made` lines, then a `made  token` line for each of the four seeded accounts.
 
 15. Put each token on its host, then remove the run directory and the seeding token.
 
@@ -207,7 +207,7 @@ Before this:
       < REPLACE_WITH_TARGETS_CHECKOUT/netbox/contract.json
     ```
 
-    Expected: `inventory-reader:excess inventory-reader-control:within` from the first, and a report with the same verdicts from the second. The installer's last lines name `forcecommand /usr/local/sbin/aisec-observe`.
+    Expected: `inventory-reader:within inventory-reader-control:within` from the first, and a report with the same verdicts from the second. The seed gave `excess` for `inventory-reader` until the fix of 2026-10-27. The installer's last lines name `forcecommand /usr/local/sbin/aisec-observe`.
 
 ## The dump and the reset
 
