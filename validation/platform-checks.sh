@@ -132,6 +132,9 @@ audit="$here/../platform/host-audit"
 file_set() { sha256sum "$@" | cut -d " " -f 1 | sha256sum | cut -c1-16; }
 AUDIT_ORCH_SHA=$(file_set "$audit/orchestrator.rules" "$audit/aisec-syslog.conf")
 AUDIT_WORK_SHA=$(file_set "$audit/worker.rules" "$audit/aisec-syslog.conf")
+# The rules each file holds, which the kernel has to list, one line each.
+AUDIT_ORCH_RULES=$(grep -c "^-a " "$audit/orchestrator.rules")
+AUDIT_WORK_RULES=$(grep -c "^-a " "$audit/worker.rules")
 AIDE_ORCH_SHA=$(file_set "$audit/orchestrator.aide.conf" "$audit/aisec-aide-check" "$audit/aisec-aide-baseline" \
   "$audit/aisec-aide-check.service" "$audit/aisec-aide-check.timer")
 AIDE_WORK_SHA=$(file_set "$audit/worker.aide.conf" "$audit/aisec-aide-check" "$audit/aisec-aide-baseline" \
@@ -309,6 +312,8 @@ echo "monitor_hosts=$(awk "/^# BEGIN aisec-monitoring/ { on = 1; next } /^# END 
 # process, and AIDE's timer, files, baseline, and last check line.
 probe_host_audit='
 echo "audit_daemon=$(systemctl is-active auditd 2>/dev/null) $(auditctl -s 2>/dev/null | sed -n "s/^enabled //p") $(augenrules --check 2>&1 | grep -c "No change") $(pgrep -c -x audisp-syslog)"
+# The rules the kernel holds, one line each; "No rules" is one line too.
+echo "audit_rules_loaded=$(auditctl -l 2>/dev/null | grep -c .)"
 echo "audit_files=$(sha256sum /etc/audit/rules.d/50-aisec.rules /etc/audit/plugins.d/aisec-syslog.conf 2>/dev/null | cut -d " " -f 1 | sha256sum | cut -c1-16)"
 echo "aide_timer=$(systemctl is-active aisec-aide-check.timer 2>/dev/null) $(systemctl is-enabled aisec-aide-check.timer 2>/dev/null)"
 echo "aide_files=$(sha256sum /etc/aisec/aide.conf /usr/local/sbin/aisec-aide-check /usr/local/sbin/aisec-aide-baseline /etc/systemd/system/aisec-aide-check.service /etc/systemd/system/aisec-aide-check.timer 2>/dev/null | cut -d " " -f 1 | sha256sum | cut -c1-16)"
@@ -900,12 +905,13 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check O.1 "The log agent is installed and active on the orchestrator" "1 active" "$(value monitor_agent)"
   hosts_orchestrator=$(value monitor_hosts)
   # The host audit (ADR 0054). The daemon is active and enabled in the kernel,
-  # the loaded rules equal the file, the file and the plugin equal this
-  # checkout's, and the plugin runs. AIDE's timer runs with this checkout's
+  # the merged rules file equals the rules directory, the kernel lists as many
+  # rules as the file holds, the file and the plugin equal this checkout's,
+  # and the plugin runs. AIDE's timer runs with this checkout's
   # files, and the last check within a day found the machine at its baseline:
   # a machine with a change nobody did fails F.3 until someone looks.
   check F.1 "The audit daemon runs the rules in this checkout and sends its records to syslog" \
-    "active 1 1 1 $AUDIT_ORCH_SHA" "$(value audit_daemon) $(value audit_files)"
+    "active 1 1 1 $AUDIT_ORCH_RULES $AUDIT_ORCH_SHA" "$(value audit_daemon) $(value audit_rules_loaded) $(value audit_files)"
   check F.2 "The AIDE timer runs, with the configuration and commands in this checkout" \
     "active enabled $AIDE_ORCH_SHA" "$(value aide_timer) $(value aide_files)"
   check F.3 "The orchestrator is at its AIDE baseline, checked within a day" \
@@ -1037,7 +1043,7 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # worker's baseline is the one the orchestrator keeps a copy of, so a
   # baseline written on the worker alone, by root there, differs.
   check F.4 "The audit daemon runs the rules in this checkout and sends its records to syslog" \
-    "active 1 1 1 $AUDIT_WORK_SHA" "$(value audit_daemon) $(value audit_files)"
+    "active 1 1 1 $AUDIT_WORK_RULES $AUDIT_WORK_SHA" "$(value audit_daemon) $(value audit_rules_loaded) $(value audit_files)"
   check F.5 "The AIDE timer runs, with the configuration and commands in this checkout" \
     "active enabled $AIDE_WORK_SHA" "$(value aide_timer) $(value aide_files)"
   check F.6 "The worker is at its AIDE baseline, checked within a day" \

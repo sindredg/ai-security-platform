@@ -368,7 +368,7 @@ Reasoned and not observed before the run: the number of entries in each baseline
 
 ### The first run
 
-Result, 2026-10-31 05:32 to 05:52 UTC, on the live system. Before the install every check but the new ones passed, 429 of 437, with `F.1` to `F.7` failing on empty values and `O.18` on the source the apply of 05:14 UTC had not yet reached the check (`O.14` passed with the three new rules). The drill failed all eleven probes on both VMs, `== 11 failed` twice, each on `0` or `nothing`.
+Result, 2026-10-31 05:32 to 05:52 UTC, on the live system. Before the install every check but the new ones passed, 429 of 437, with `F.1` to `F.7` failing on empty values and `O.18` on its own query, which read the facility and the level as two lines (`O.14` passed with the three new rules). The drill failed all eleven probes on both VMs, `== 11 failed` twice, each on `0` or `nothing`.
 
 The install took 05:42 to 05:45 UTC for both VMs, with the archive serving `auditd 1:4.1.2-1ubuntu0.1` and `aide 0.19.2-3`, the first a security update past the index's `1build1`. Each VM read `enabled 1`, `lost 0`, `rules loaded: 24` and `27`, `syslog plugin: 1`, then a baseline of 31,458 entries on the orchestrator and 32,669 on the worker, and the worker's copy on the orchestrator hashed the same. `auditctl` printed its slower-watch warning for every `-w` rule, and `augenrules` the kernel's status three times.
 
@@ -384,11 +384,11 @@ The workspace held 4,419 `Syslog` rows on `local6` from the orchestrator by 05:5
 
 Result, 2026-10-31 06:15 UTC onward, on the live system, with the fixed files. On the worker the install loaded 27 rules with no warning, the new baseline held 32,670 entries, and the unit's check against it, started by hand, read `added=0 removed=0 changed=0`: the kernel modules were in the unit's view. The worker's new baseline was copied to the orchestrator, and the drill passed all eleven probes, `== 0 failed`, with `added=1 removed=0 changed=0` for the drill's file and `added=0 removed=0 changed=0` after its removal.
 
-On the orchestrator the install printed the two package lines, then `Bus error`, and stopped: the rules file was the new one and loaded, but the unit and the configuration stayed the first run's, which the drill then read as `changed=5` on both check lines and the unit's check as 7,246 removed. The kernel log and the journal held no line for the crash, and every command of the install passed when run one by one at 06:25 UTC. The install names the failed command now, and the orchestrator was done again in a third pass.
+On the orchestrator the install printed the two package lines, then `Bus error`, and stopped: the rules file was the new one and loaded, read on the orchestrator afterwards, but the unit and the configuration stayed the first run's, which the drill then read as `changed=5` on both check lines and the unit's check as 7,246 removed. The kernel log and the journal held no line for the crash, and every command of the install passed when run one by one at 06:25 UTC. The install names the failed command now, and the orchestrator was done again in a third pass.
 
 ### The third pass and the workspace
 
-Result, 2026-10-31 06:25 to 06:49 UTC, on the live system. The orchestrator's install went through with the two package lines, 24 rules, one plugin process, and the installed unit and configuration hashing as the checkout's. The new baseline held 31,428 entries, 31 fewer than the first with the agent's state out of scope, and the unit's check against it, started by hand, read `added=0 removed=0 changed=0`.
+Result, 2026-10-31 06:25 to 06:49 UTC, on the live system. The orchestrator's install went through with the two package lines, 24 rules, one plugin process, and the installed unit and configuration hashing as the checkout's. The new baseline held 31,428 entries, 30 fewer than the first with the agent's state out of scope, and the unit's check against it, started by hand, read `added=0 removed=0 changed=0`.
 
 The drill then passed all eleven probes on the orchestrator too, `== 0 failed`, with `added=1 removed=0 changed=0` for its file and `added=0 removed=0 changed=0` after the removal, at 06:26:29 and 06:26:33 UTC in the workspace's `Syslog` rows. Every check at 06:41 to 06:49 UTC passed but `O.18`, 436 of 437, with `F.1` to `F.7` and `O.14` among them. `O.18` read `local6` without the level: the CLI prints a list of two strings as two lines, and the check compared the first; with the query joining them, every check passed at 06:52 to 07:02 UTC, 437 of 437, before the two checks the login scripts added.
 
@@ -396,9 +396,11 @@ In the workspace by 06:40 UTC: 17,500 `Syslog` rows on `local6` from the orchest
 
 The orchestrator's `SYSCALL` rows carried the keys `aisec-root` 1,836 times, `aisec-config` 88, and `aisec-exec` 3; 564 carried none: the daemon's and `auditctl`'s own sends on the audit socket while the rules loaded, read from two of them. The worker's: `aisec-root` 1,045, `aisec-exec` 715, `aisec-config` 84, and 248 with none.
 
+Reasoned from the rules, not read: root's cron jobs carry a login user ID of 0 and fall under `aisec-exec` too, and on the orchestrator so do the pods' programs at 65532, which is not a dynamic user. The first full day's records say how much either adds.
+
 The three alert rules fired: `aide-report` at 05:46:03 UTC on the first run's check lines, `audit-config-write` at 05:46:24 on the install's writes, and `aide-check-missing` at 05:18:07, four minutes after the apply, with no check line yet. None had resolved by 06:49: the first two kept their condition through the three passes, and a stateful rule on an hourly schedule resolves only after its condition has been clear for several evaluations.
 
-The volume is the finding of the day. The 3 hours of `local6` rows billed 5.95 MB in `Syslog` and 23.7 MB in the worker's journal copy, where each record is one journal entry of about 1.6 KB with every field, and an event is seven records.
+The volume is the finding of the day. The `local6` rows of 05:42 to about 06:35 UTC, under an hour, billed 5.95 MB in `Syslog` and 23.7 MB in the worker's journal copy, where each record is one journal entry of about 1.6 KB with every field, and an event is seven records.
 
 On the worker 838 of the day's 2,757 `SYSCALL` records by 06:41 carried `aisec-exec`, most of them the message-of-the-day scripts that PAM runs as root at each login of the export account, every five minutes for the journal pull: about 70 records a pull, about 20,000 a day, which alone would pass the workspace's daily cap. The operator's commands, `aisec-root`, were 1,535 records on the worker and 2,860 on the orchestrator, most from the three check runs.
 

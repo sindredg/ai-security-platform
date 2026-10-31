@@ -37,7 +37,7 @@ The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../deci
 
    Expected: every probe `FAIL` on both VMs and `== 11 failed` twice. There is no daemon, no log, and no check command.
 
-3. Copy `platform/host-audit` to each VM and run the install as root, with the VM's role.
+3. Copy `platform/host-audit` to each VM and run the install as root, with the VM's role. The rules file for the role names every watched path and the three keys.
 
    ```bash
    for host in orchestrator worker; do

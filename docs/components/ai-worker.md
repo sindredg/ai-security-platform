@@ -23,7 +23,7 @@ The machine that runs the agent and the model. It reads advisories, target evide
 | The orchestrator, TCP 30443 | The [tool service (an MCP server)](../security/tool-service.md). Deployed, reached by `T.9` and the [round trip](../worklogs/0003-toolchain-integration.md#the-round-trip) |
 | The orchestrator, any other port | Nothing |
 
-It is not part of the cluster. It downloads nothing at first boot, because it has nothing to download from. First boot sets up only what cloud-init carries: the account the orchestrator pulls the journal through. The model server is pushed and built afterwards, from the orchestrator.
+It is not part of the cluster. First boot sets up what cloud-init carries, the two accounts the orchestrator logs in to, and installs the audit daemon and AIDE from Ubuntu's archive through Squid, its one way to a package ([host audit](../runbooks/host-audit.md)). The model server is pushed and built afterwards, from the orchestrator.
 
 ## What reaches it
 

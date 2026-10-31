@@ -30,9 +30,11 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
   -o DPkg::Lock::Timeout=120 auditd aide
 dpkg-query -W -f='${Package} ${Version}\n' auditd aide
 
-# The directories the worker's rules watch exist before the runbook steps that
-# fill them, so each watch is a directory watch, which covers what is written
-# under it later. Root's, as the steps make them.
+# The directories the rules watch exist before the rules load: the kernel
+# refuses a directory rule on a missing path (read on the worker on
+# 2026-10-31), and a worker's first boot has no /etc/aisec yet. Root's, as
+# the runbook steps that fill them make them.
+install -d -m 0755 -o root -g root /etc/aisec
 if [ "$role" = worker ]; then
   install -d -m 0755 -o root -g root /opt/aisec /home/aisec-job /home/aisec-feed /home/aisec-logexport
 fi

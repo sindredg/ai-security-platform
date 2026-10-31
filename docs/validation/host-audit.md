@@ -2,7 +2,7 @@
 
 The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)). The daemon records writes to the platform's own files and the programs jobs and the operator run, and sends each record to syslog; AIDE compares the file system with a baseline daily. The procedure is the [host audit runbook](../runbooks/host-audit.md), and the drill `validation/drills/host-audit.sh` shows each catching something.
 
-Status: **tested** on the live system on 2026-10-31. `F.1` to `F.7` failed before the install on empty values at 05:32 UTC and passed at 06:41 UTC after the third pass; `O.18` failed before the apply and again on its own query, which read the facility without the level, and passed after the fix; `F.8` and `F.9` read 11 executable scripts before the change at 07:07 UTC and `0` after, 439 of 439 at 07:34 UTC ([worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)).
+Status: **tested** on the live system on 2026-10-31. `F.1` to `F.7` failed before the install on empty values at 05:32 UTC and passed at 06:41 UTC after the third pass; `O.18` failed at 05:32 UTC on its own query, which read the facility and the level as two lines, and passed after the fix; `F.8` and `F.9` read 11 executable scripts before the change at 07:07 UTC and `0` after, 439 of 439 at 07:34 UTC ([worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)).
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
@@ -17,4 +17,4 @@ Status: **tested** on the live system on 2026-10-31. `F.1` to `F.7` failed befor
 
 ## Broken inputs
 
-Each check's probe, run before the install on 2026-10-31, read nothing: no daemon, no rules file, no timer, no baseline, no copy, and every one failed on its empty value. `O.18` before the apply read an empty value from the rule without the source, and its query without a source errors and reads empty, so the check fails either way. `F.3` and `F.6` read `changed=5` and `changed=3` during the first run, when the directories the drill wrote into had moved, and failed on that too.
+Each check's probe, run before the install on 2026-10-31, read nothing: no daemon, no rules file, no timer, no baseline, no copy, and every one failed on its empty value. `O.18`'s first form read the facility and the level as two lines and failed on the live rule at 05:32 UTC; its query with a source name the rule lacks errors and reads empty, run locally on 2026-10-31. `F.3` and `F.6` would fail on a check line with a count, as the first run's lines had; no check run saw that, since the first run stopped before its checks.
