@@ -1658,7 +1658,7 @@ for r in sorted(rules, key=lambda r: r['name']):
   # the source, the records stay on the orchestrator.
   check O.18 "The system collection rule collects the audit facility from info" "local6 Info" \
     "$(az monitor data-collection rule show -g "$RG" -n dcr-aisec-system \
-      --query "dataSources.syslog[?name=='audit'].[facilityNames[0], logLevels[0]] | [0]" -o tsv 2>/dev/null | tr "\t" " ")"
+      --query "dataSources.syslog[?name=='audit'] | [0] | join(' ', [facilityNames[0], logLevels[0]])" -o tsv 2>/dev/null)"
 fi
 
 echo
