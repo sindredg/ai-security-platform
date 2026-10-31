@@ -220,6 +220,20 @@
    "runs": [
     "2026-10-30-2308-incident-response"
    ]
+  },
+  {
+   "finding": "AIDE's first check from its sandboxed unit read every kernel module as removed, seconds after the baseline, and every directory the install wrote into as changed.",
+   "change": "The unit drops `ProtectKernelModules`, which hides `/usr/lib/modules`; directories compare mode, owner, and attributes only; the install enables the timer before the baseline and starts it after ([worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)).",
+   "runs": [
+    "2026-10-31-0532-host-audit"
+   ]
+  },
+  {
+   "finding": "PAM ran the message-of-the-day scripts as root at every login of the worker's machine accounts: about forty programs a login, every five minutes for the journal pull.",
+   "change": "The scripts under `/etc/update-motd.d` are non-executable on the orchestrator and the worker, at first boot too, read by `F.8` and `F.9` ([worklog](../worklogs/0007-operational-and-containment-drills.md#the-login-scripts)).",
+   "runs": [
+    "2026-10-31-0532-host-audit#syn-10310532"
+   ]
   }
  ]
 }

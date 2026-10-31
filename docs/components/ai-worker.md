@@ -23,11 +23,15 @@ The machine that runs the agent and the model. It reads advisories, target evide
 | The orchestrator, TCP 30443 | The [tool service (an MCP server)](../security/tool-service.md). Deployed, reached by `T.9` and the [round trip](../worklogs/0003-toolchain-integration.md#the-round-trip) |
 | The orchestrator, any other port | Nothing |
 
-It is not part of the cluster. It downloads nothing at first boot, because it has nothing to download from. First boot sets up only what cloud-init carries: the account the orchestrator pulls the journal through. The model server is pushed and built afterwards, from the orchestrator.
+It is not part of the cluster. First boot sets up what cloud-init carries, the two accounts the orchestrator logs in to, and installs the audit daemon and AIDE from Ubuntu's archive through Squid, its one way to a package ([host audit](../runbooks/host-audit.md)). The model server is pushed and built afterwards, from the orchestrator.
 
 ## What reaches it
 
 SSH from the orchestrator subnet, and nothing else. The administrator account takes only the operator's certificate ([ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md), `HW.17`). The orchestrator's feed key logs in to `aisec-feed`, which has no sudo and can only unpack staged files into its own directory ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md), `E.9` to `E.11`). Both since 2026-10-16. The orchestrator's log export key goes on the `aisec-logexport` account and can run only the journal export ([audit log](../security/audit-log.md#the-workers-journal)). In place since 2026-10-16 (`J.7`).
+
+## The host audit
+
+The audit daemon records writes to the platform's own files, the programs a job runs in the job account's session and as a dynamic user, and the operator's root commands, each to syslog, which leaves with the journal copy. AIDE compares the system's programs, `/etc`, `/usr/local`, `/opt/aisec`, and the three accounts' homes with a baseline daily, and the orchestrator keeps a copy of that baseline. Since 2026-10-31 (`F.4` to `F.7`, [host audit](../validation/host-audit.md), [ADR 0054](../decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)).
 
 ## The model server
 

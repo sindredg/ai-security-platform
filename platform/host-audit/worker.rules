@@ -1,0 +1,47 @@
+## Host audit rules for the worker (ADR 0054). Installed as
+## /etc/audit/rules.d/50-aisec.rules; augenrules reads the package's own
+## audit.rules first, which sets the buffer and the failure mode.
+
+## Writes to the platform's own files, which only a runbook step changes. The
+## alert audit-config-write fires on this key. A rule on a directory covers
+## everything under it; the -w form says the same and warns that it is slower.
+-a always,exit -F dir=/etc/aisec -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/ssh -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/systemd/system -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/sudoers -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/audit -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/apt -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/hosts -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/environment -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/sysctl.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/modprobe.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/pam.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/security -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/passwd -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/group -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/shadow -F perm=wa -k aisec-config
+-a always,exit -F dir=/usr/local -F perm=wa -k aisec-config
+## The model server, the agent, the model file, and the fixture; and the
+## three accounts the orchestrator logs in to, whose homes are root's and
+## hold the key lines (ADR 0019, ADR 0026, ADR 0030).
+-a always,exit -F dir=/opt/aisec -F perm=wa -k aisec-config
+-a always,exit -F dir=/home/aisec-job -F perm=wa -k aisec-config
+-a always,exit -F dir=/home/aisec-feed -F perm=wa -k aisec-config
+-a always,exit -F dir=/home/aisec-logexport -F perm=wa -k aisec-config
+
+## Programs run in a session of one of the orchestrator's accounts: the job
+## runner over the dispatch key, the feed command, and the journal export.
+## Each is a system account, so its login user ID is below 1000; a service
+## has none. Not by name, since the accounts come after first boot.
+-a always,exit -F arch=b64 -S execve -F auid<1000 -F auid!=unset -k aisec-exec
+-a always,exit -F arch=b32 -S execve -F auid<1000 -F auid!=unset -k aisec-exec
+## Programs run as a dynamic user (61184 to 65519): a job's unit, and the
+## model server's unit at its start.
+-a always,exit -F arch=b64 -S execve -F uid>=61184 -F uid<=65519 -k aisec-exec
+-a always,exit -F arch=b32 -S execve -F uid>=61184 -F uid<=65519 -k aisec-exec
+
+## Programs run as root in a login session: the operator's sudo. A service
+## has no login user ID, so the model server and the units are not here.
+-a always,exit -F arch=b64 -S execve -F euid=0 -F auid>=1000 -F auid!=unset -k aisec-root
+-a always,exit -F arch=b32 -S execve -F euid=0 -F auid>=1000 -F auid!=unset -k aisec-root

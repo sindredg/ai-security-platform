@@ -42,12 +42,13 @@ The script changes nothing. It opens connections that should fail, reads setting
 | [Audit log](audit-log.md) | `L`, `J` | The copier that stores the tool service's audit lines, the pull of the worker's journal, and the append-only files they write |
 | [Monitoring](monitoring.md) | `O` | The log agents, their hosts entries, the workspace and its scope, heartbeats, and the identities |
 | [Host hardening](host-hardening.md) | `HO`, `HW`, `HR`, `HE`, `HN`, `HL` | SSH daemon, kernel settings, file modes, on every VM |
+| [Host audit](host-audit.md) | `F` | The audit daemon's rules and syslog plugin, and AIDE's timer, files, and baseline, on the orchestrator and the worker |
 | [Azure policy](azure-policy.md) | `Z.1` to `Z.3`, `Z.10` to `Z.12` | Public addresses and the policy that refuses them |
 | [Investigation](investigation.md) | None: scored per job | Exercise 1's investigation on held-out cases, the rules that score it, and the run without the agent beside it |
 
 ## Last run
 
-From `f09ad0b`, ending at 23:32 UTC on 2026-10-30, after the dispatch key and the NetBox tokens were rotated: 429 of 429 passed ([worklog](../worklogs/0007-operational-and-containment-drills.md#the-result-for-the-three-cases)).
+From `bede4f1`, ending at 08:14 UTC on 2026-10-31, after the audit daemon and AIDE were installed on both VMs and the login scripts silenced: 439 of 439 passed, `F.1` to `F.9` and `O.18` new ([worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)).
 
 Each earlier run is in the worklog of its milestone, with what it was run for: [0002](../worklogs/0002-platform-compute.md), [0003](../worklogs/0003-toolchain-integration.md), [0004](../worklogs/0004-edge-network-and-monitoring.md), [0005](../worklogs/0005-netbox-target-and-exercise-1.md), [0006](../worklogs/0006-remediation-pull-requests-and-delivery.md), and [0007](../worklogs/0007-operational-and-containment-drills.md).
 

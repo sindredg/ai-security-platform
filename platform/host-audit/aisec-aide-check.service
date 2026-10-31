@@ -1,0 +1,44 @@
+# Compares the file system with AIDE's baseline (ADR 0054). Started by
+# aisec-aide-check.timer, and by hand through it in the runbook.
+[Unit]
+Description=Compare the file system with AIDE's baseline
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/aisec-aide-check
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=30min
+
+# Root reads every file in the scope, with the one capability that reads a
+# file root does not own. Nothing writable but the baseline directory, no
+# network, no devices, no new privileges. Not ProtectKernelModules: it hides
+# /usr/lib/modules, which is in the scope, and the check read every module
+# as removed on 2026-10-31. The bounding set leaves no CAP_SYS_MODULE anyway.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/aisec/aide
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelTunables=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+AmbientCapabilities=
+UMask=0077
+
+MemoryAccounting=yes
+MemoryMax=768M

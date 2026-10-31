@@ -1,0 +1,39 @@
+## Host audit rules for the orchestrator (ADR 0054). Installed as
+## /etc/audit/rules.d/50-aisec.rules; augenrules reads the package's own
+## audit.rules first, which sets the buffer and the failure mode.
+
+## Writes to the platform's own files, which only a runbook step changes. The
+## alert audit-config-write fires on this key. A rule on a directory covers
+## everything under it; the -w form says the same and warns that it is slower.
+-a always,exit -F dir=/etc/aisec -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/ssh -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/systemd/system -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/sudoers -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/audit -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/apt -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/hosts -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/environment -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/sysctl.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/modprobe.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/pam.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/security -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/passwd -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/group -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/shadow -F perm=wa -k aisec-config
+-a always,exit -F dir=/usr/local -F perm=wa -k aisec-config
+## K3s's configuration, and the two files its API server reads at start.
+-a always,exit -F dir=/etc/rancher -F perm=wa -k aisec-config
+-a always,exit -F path=/var/lib/rancher/k3s/server/audit.yaml -F perm=wa -k aisec-config
+-a always,exit -F path=/var/lib/rancher/k3s/server/psa.yaml -F perm=wa -k aisec-config
+
+## Programs run with a user ID in systemd's dynamic range, 61184 to 65519.
+## On the orchestrator that is the cluster's workload pods, which run as
+## 65532: the tool service, the Argo controller, and a workflow's pods.
+-a always,exit -F arch=b64 -S execve -F uid>=61184 -F uid<=65519 -k aisec-exec
+-a always,exit -F arch=b32 -S execve -F uid>=61184 -F uid<=65519 -k aisec-exec
+
+## Programs run as root in a login session: the operator's sudo. A service
+## has no login user ID, so K3s and the copiers are not recorded here.
+-a always,exit -F arch=b64 -S execve -F euid=0 -F auid>=1000 -F auid!=unset -k aisec-root
+-a always,exit -F arch=b32 -S execve -F euid=0 -F auid>=1000 -F auid!=unset -k aisec-root

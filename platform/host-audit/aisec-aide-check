@@ -1,0 +1,43 @@
+#!/bin/bash
+# Compares the file system with AIDE's baseline (ADR 0054) and logs one line
+# per run to local6, which reaches the workspace: from the orchestrator
+# through the log agent, from the worker in its journal copy. Started by
+# aisec-aide-check.timer daily and after boot; the host audit runbook and the
+# drill run it by hand.
+#   aisec-aide-check
+# Prints the report when something differs. Exits 0 whether or not something
+# differs, so a difference is one alert (aide-report) and not a second one
+# from failed-unit; exits with AIDE's own code when AIDE itself fails.
+set -uo pipefail
+conf=/etc/aisec/aide.conf
+db=/var/lib/aisec/aide/aide.db
+tag=aisec-aide
+
+if [ ! -r "$db" ]; then
+  logger -p local6.err -t "$tag" "check failed: no baseline at $db"
+  echo "no baseline at $db: run aisec-aide-baseline first" >&2
+  exit 17
+fi
+digest=$(sha256sum "$db" | cut -d " " -f 1)
+report=$(aide --config "$conf" --check 2>&1)
+rc=$?
+# 0 to 7 is a comparison: 1 for added, 2 for removed, 4 for changed entries,
+# added up. Anything above is AIDE failing.
+if [ "$rc" -gt 7 ]; then
+  logger -p local6.err -t "$tag" "check failed: aide exit $rc, database sha256:$digest"
+  printf '%s\n' "$report" | tail -n 20 >&2
+  exit "$rc"
+fi
+# The summary's count for one kind. If the report lacks the line, the exit
+# code's bit says whether there were any, and the count is unknown.
+count() { # Added|Removed|Changed BIT
+  local n
+  n=$(printf '%s\n' "$report" | sed -n "s/^ *$1 entries:[[:space:]]*\([0-9]*\).*/\1/p" | head -n 1)
+  if [ -n "$n" ]; then echo "$n"; elif (( rc & $2 )); then echo "?"; else echo 0; fi
+}
+added=$(count Added 1)
+removed=$(count Removed 2)
+changed=$(count Changed 4)
+logger -p local6.notice -t "$tag" "check added=$added removed=$removed changed=$changed database=sha256:$digest"
+[ "$rc" -eq 0 ] || printf '%s\n' "$report"
+exit 0

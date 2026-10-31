@@ -1,0 +1,25 @@
+#!/bin/bash
+# Writes AIDE's baseline from the file system as it is now (ADR 0054), and
+# logs the new database's SHA-256 to local6. Run as root after an install
+# step, once the check has reported that step's own changes and nothing else.
+# Not on a machine where something changed that nobody did: the change would
+# become the baseline.
+#   aisec-aide-baseline
+# The worker's new baseline is then copied to the orchestrator, which the
+# host audit runbook does from the workstation.
+set -euo pipefail
+conf=/etc/aisec/aide.conf
+dir=/var/lib/aisec/aide
+tag=aisec-aide
+
+[ "$(id -u)" -eq 0 ] || { echo "run as root" >&2; exit 1; }
+install -d -m 0700 -o root -g root "$dir"
+rm -f "$dir/aide.db.new"
+out=$(aide --config "$conf" --init 2>&1) || { printf '%s\n' "$out" | tail -n 20 >&2; exit 1; }
+entries=$(printf '%s\n' "$out" | sed -n "s/^ *Number of entries:[[:space:]]*\([0-9]*\).*/\1/p" | head -n 1)
+mv "$dir/aide.db.new" "$dir/aide.db"
+chmod 0600 "$dir/aide.db"
+digest=$(sha256sum "$dir/aide.db" | cut -d " " -f 1)
+line="baseline entries=${entries:-?} database=sha256:$digest"
+logger -p local6.notice -t "$tag" "$line"
+echo "$line"

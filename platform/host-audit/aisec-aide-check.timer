@@ -1,0 +1,13 @@
+# Daily, and a quarter of an hour after a boot. Persistent, so a day the
+# machine was off is checked at the next boot.
+[Unit]
+Description=Compare the file system with AIDE's baseline daily and after boot
+
+[Timer]
+OnBootSec=15min
+OnCalendar=daily
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

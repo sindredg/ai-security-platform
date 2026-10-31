@@ -41,6 +41,14 @@ locals {
         journal_pull_unit    = filebase64("${path.module}/../../platform/logs/aisec-journal-pull.service")
         journal_pull_timer   = filebase64("${path.module}/../../platform/logs/aisec-journal-pull.timer")
         journal_pull_install = filebase64("${path.module}/../../platform/logs/install-journal-pull.sh")
+        host_audit_rules     = filebase64("${path.module}/../../platform/host-audit/orchestrator.rules")
+        host_audit_plugin    = filebase64("${path.module}/../../platform/host-audit/aisec-syslog.conf")
+        host_audit_aide_conf = filebase64("${path.module}/../../platform/host-audit/orchestrator.aide.conf")
+        host_audit_check     = filebase64("${path.module}/../../platform/host-audit/aisec-aide-check")
+        host_audit_baseline  = filebase64("${path.module}/../../platform/host-audit/aisec-aide-baseline")
+        host_audit_service   = filebase64("${path.module}/../../platform/host-audit/aisec-aide-check.service")
+        host_audit_timer     = filebase64("${path.module}/../../platform/host-audit/aisec-aide-check.timer")
+        host_audit_install   = filebase64("${path.module}/../../platform/host-audit/install-host-audit.sh")
       })
     }
     worker = {
@@ -62,6 +70,15 @@ locals {
         # The account the feed key logs in to (ADR 0026).
         feed_receive_command = filebase64("${path.module}/../../worker/feed/aisec-feed-receive")
         feed_receive_install = filebase64("${path.module}/../../worker/feed/install-feed-account.sh")
+
+        host_audit_rules     = filebase64("${path.module}/../../platform/host-audit/worker.rules")
+        host_audit_plugin    = filebase64("${path.module}/../../platform/host-audit/aisec-syslog.conf")
+        host_audit_aide_conf = filebase64("${path.module}/../../platform/host-audit/worker.aide.conf")
+        host_audit_check     = filebase64("${path.module}/../../platform/host-audit/aisec-aide-check")
+        host_audit_baseline  = filebase64("${path.module}/../../platform/host-audit/aisec-aide-baseline")
+        host_audit_service   = filebase64("${path.module}/../../platform/host-audit/aisec-aide-check.service")
+        host_audit_timer     = filebase64("${path.module}/../../platform/host-audit/aisec-aide-check.timer")
+        host_audit_install   = filebase64("${path.module}/../../platform/host-audit/install-host-audit.sh")
       })
     }
     router = {

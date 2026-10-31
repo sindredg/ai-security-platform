@@ -244,6 +244,18 @@ resource "azurerm_monitor_data_collection_rule" "system" {
       streams        = ["Microsoft-Syslog"]
     }
 
+    # The audit daemon's records, which its syslog plugin sends at info on
+    # local6, and the AIDE check's lines at notice on the same facility (ADR
+    # 0054). The orchestrator is the one monitored VM with both; the worker's
+    # arrive in its journal copy, and the edge and the router write nothing
+    # on local6.
+    syslog {
+      name           = "audit"
+      facility_names = ["local6"]
+      log_levels     = ["Info", "Notice", "Warning", "Error", "Critical", "Alert", "Emergency"]
+      streams        = ["Microsoft-Syslog"]
+    }
+
     performance_counter {
       name                          = "load"
       streams                       = ["Microsoft-Perf"]

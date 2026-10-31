@@ -1,0 +1,90 @@
+{
+ "title": "The host audit",
+ "short": "Host audit",
+ "milestone": 6,
+ "tested": "Whether the audit daemon on both VMs records a drill's write, a dynamic user's program, the operator's and a job's programs, and whether AIDE reports an added file.",
+ "changed": "auditd and AIDE installed on the orchestrator and the worker with the rules, the syslog plugin, the configuration, the check and baseline commands, and the timer; the collection rule's `local6` source and three alert rules; the login scripts silenced, since `9f6b848`. Nothing in a job's path changed.",
+ "setup": [
+  [
+   "Model",
+   "Qwen3.5-4B, thinking off"
+  ],
+  [
+   "Agent",
+   "Goose 1.56.0"
+  ],
+  [
+   "Task",
+   "The fixture's question, on the synthetic target"
+  ],
+  [
+   "Limits",
+   "600 seconds and 8 turns"
+  ]
+ ],
+ "source": "Live system, 2026-10-31 05:32 to 07:34 UTC, in four passes. The workflow as Argo kept it, read as it ended, and the audit lines. The drills' and the daemon's own lines are in the worklog.",
+ "links": [
+  [
+   "Worklog",
+   "../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit"
+  ],
+  [
+   "Runbook",
+   "../runbooks/host-audit.md"
+  ]
+ ],
+ "jobs": [
+  {
+   "job": "syn-10310532",
+   "target": "synthetic",
+   "case": null,
+   "limits": {
+    "seconds": 600,
+    "turns": 8
+   },
+   "started": "2026-10-31T05:50:33Z",
+   "finished": "2026-10-31T05:52:21Z",
+   "phase": "Succeeded",
+   "message": "",
+   "steps": [
+    {
+     "step": "dispatch",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-31T05:50:33Z",
+     "finished": "2026-10-31T05:52:01Z"
+    },
+    {
+     "step": "revoke",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-31T05:52:11Z",
+     "finished": "2026-10-31T05:52:17Z"
+    }
+   ],
+   "result": {
+    "status": "completed",
+    "seconds": 82.6,
+    "agent_status": "completed",
+    "tool_calls": 1,
+    "tool_errors": 0,
+    "input_tokens": 2317,
+    "output_tokens": 50,
+    "slot_erased": true
+   },
+   "checks": null,
+   "comparison": null,
+   "calls": [
+    {
+     "at": "2026-10-31T05:51:47Z",
+     "tool": "get_evidence",
+     "argument": "ev-0001",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 312
+    }
+   ],
+   "answer": "Status: confirmed\nExcess: tenancy.contact, circuits.circuit"
+  }
+ ]
+}

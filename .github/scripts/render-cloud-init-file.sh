@@ -29,7 +29,9 @@ vars='{
   audit_copy_py = "", audit_copy_unit = "", audit_copy_install = "",
   journal_pull_py = "", journal_pull_unit = "", journal_pull_timer = "",
   journal_pull_install = "", log_export_command = "", log_export_install = "",
-  feed_receive_command = "", feed_receive_install = "", fetch_window = "", fetch_hosts = ""
+  feed_receive_command = "", feed_receive_install = "", fetch_window = "", fetch_hosts = "",
+  host_audit_rules = "", host_audit_plugin = "", host_audit_aide_conf = "", host_audit_check = "",
+  host_audit_baseline = "", host_audit_service = "", host_audit_timer = "", host_audit_install = ""
 }'
 
 # The overrides as an HCL object. A value is a JSON string, which HCL reads

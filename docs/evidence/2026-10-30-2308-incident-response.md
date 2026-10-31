@@ -2,7 +2,7 @@
 
 # The incident response runbook
 
-Milestone 6, 2026-10-30. [All run sets](README.md), [previous: What a job leaves](2026-10-30-2123-what-a-job-leaves.md).
+Milestone 6, 2026-10-30. [All run sets](README.md), [previous: What a job leaves](2026-10-30-2123-what-a-job-leaves.md), [next: Host audit](2026-10-31-0532-host-audit.md).
 
 **Tested:** Whether a running job's worker can be contained, the dispatch key rotated, the platform's reads of a target held and restored, and a leaked token revoked and replaced.
 

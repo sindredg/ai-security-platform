@@ -104,7 +104,7 @@ This builds the log store of [ADR 0021](../decisions/0021-monitoring-in-azure-mo
 
 ## Alert rules, flow logs, and drills
 
-9. Apply the platform root as the platform identity: the 13 alert rules, the workbook, and the drill file in the audit collection rule.
+9. Apply the platform root as the platform identity: the alert rules in `alerts.tf`, the workbook, and the drill file in the audit collection rule.
 
    ```bash
    cd REPLACE_WITH_CHECKOUT/infra/platform

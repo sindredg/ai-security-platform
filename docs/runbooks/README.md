@@ -23,3 +23,4 @@ One operator procedure per milestone, or per slice of a milestone that is built 
 | [Test evidence](test-evidence.md) | Any | Implemented on 2026-10-26. The records of 18 run sets, built from saved output and from the live system |
 | [Containment drills](containment-drills.md) | 6 | Ran on 2026-10-28 to 2026-10-30, on the live system |
 | [Incident response](incident-response.md) | 6 | Ran on 2026-10-30, on the live system, in two runs. The replacement steps are rebuilds, written and not run |
+| [Host audit](host-audit.md) | 6 | Ran on 2026-10-31, on the live system, in four passes. The removal and a rebuilt VM's first boot not run |

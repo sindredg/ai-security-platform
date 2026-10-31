@@ -222,6 +222,18 @@ jobs:
           docker run --rm --volume "${PWD}:/mnt:ro" --workdir /mnt "${SHELLCHECK_IMAGE}" \
             -x -P SCRIPTDIR "${scripts[@]}"
 
+      # The AIDE configurations run as root on both VMs. AIDE's own parser
+      # reads each one, from the same Ubuntu package the VMs install. The
+      # audit rules have no parser that runs without the kernel's audit
+      # subsystem: augenrules loads them on the VM and stops on a bad line.
+      - name: Check the AIDE configurations
+        run: |
+          sudo apt-get install -y -q --no-install-recommends aide
+          for conf in platform/host-audit/*.aide.conf; do
+            aide --config "$conf" --config-check
+            echo "$conf parses"
+          done
+
       # The first-boot scripts are written inline in the cloud-init templates,
       # with template expressions in them. Terraform renders each one with
       # placeholder values, and ShellCheck reads the result.
