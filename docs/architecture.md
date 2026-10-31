@@ -191,7 +191,7 @@ Each practice lands with the milestone that builds what it checks ([ADR 0010](de
 | Audit log of tool calls | Verified: an append-only copy on the orchestrator and in Azure Monitor (`L.1` to `L.7`, `O.1`). Root can edit it first ([audit log](security/audit-log.md)) |
 | Supply chain | Verified per artifact (`T.2`, `W.2`, `W.9`, `G.1`, `K.11`, `N.5`). No SBOM ([supply chain](security/supply-chain.md)) |
 | Monitoring | Verified: three agents over Private Link, each alert fired once on purpose (`O.1` to `O.17`). The targets have no agent ([monitoring](components/monitoring.md)) |
-| Host audit | Verified on 2026-10-31: the audit daemon's records and AIDE's check reach the workspace from both VMs, and each caught a drill's change (`F.1` to `F.7`, [worklog](worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)). Root on a VM can still stop both ([ADR 0054](decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)) |
+| Host audit | Verified on 2026-10-31: the audit daemon and AIDE on both VMs each caught a drill's change, in the workspace (`F.1` to `F.9`, [worklog](worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)). Root can stop both ([ADR 0054](decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)) |
 | Incident response runbook | Verified for containment and rotation in three cases on 2026-10-30, and a restore on the staging copy. The replacement steps are rebuilds, written and not run ([runbook](runbooks/incident-response.md)) |
 
 There is no compliance framework. ISO 27001 and SOC 2 describe an organisation, and this one has a single operator.
