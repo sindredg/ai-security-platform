@@ -1206,6 +1206,11 @@ probe_netbox='
 echo "units=$(systemctl is-active netbox netbox-worker postgresql valkey-server 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 echo "images=$(podman inspect --format "{{.Image}}" netbox netbox-worker 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 echo "container=$(podman inspect --format "{{.Config.User}} {{.HostConfig.ReadonlyRootfs}} {{.HostConfig.Privileged}}" netbox netbox-worker 2>/dev/null | tr "\n" ";" | sed "s/;$//")"
+# The kernel view of the first process in each container: its effective and
+# bounding capability sets, and the no-new-privileges flag. An empty bounding
+# set means no process under it can gain a capability back. A container that
+# is not running has no process, and prints nothing for its part.
+echo "caps=$(for c in netbox netbox-worker; do p=$(podman inspect --format "{{.State.Pid}}" "$c" 2>/dev/null); grep -E "^(CapEff|CapBnd|NoNewPrivs):" "/proc/${p:-none}/status" 2>/dev/null | cut -f 2 | paste -sd " " -; done | paste -sd ";" -)"
 if env=$(podman inspect --format "{{range .Config.Env}}{{println .}}{{end}}" netbox netbox-worker 2>/dev/null) && [ -n "$env" ]; then
   echo "env_secrets=$(printf "%s\n" "$env" | cut -d = -f 1 | grep -c -i -E "password|secret|pepper")"
 else
@@ -1222,6 +1227,8 @@ if probe=$($SSH "$NETBOX" 'sudo bash -s' <<<"$probe_netbox" 2>/dev/null) && [ -n
   check N.5 "Both containers run the image the targets checkout pins" "$NETBOX_IMAGE_ID $NETBOX_IMAGE_ID" "$(value images)"
   check N.6 "Both containers run as the image's netbox account, read-only and unprivileged" \
     "999:0 true false;999:0 true false" "$(value container)"
+  check N.24 "Both containers hold no capability, can gain none, and set no new privileges" \
+    "0000000000000000 0000000000000000 1;0000000000000000 0000000000000000 1" "$(value caps)"
   check N.7 "No secret in the containers' environment" 0 "$(value env_secrets)"
   # PostgreSQL and Valkey listen on loopback only.
   check N.8 "Only SSH and NetBox's port listen beyond loopback" "22 $NETBOX_PORT" "$(value listeners)"
@@ -1552,6 +1559,19 @@ EOF
   done
   check Z.25 "Only SSH from the orchestrator and the router, and NetBox's ports from the orchestrator and the consumer, are allowed into the target subnets" \
     "$want" "$got"
+  # The monitoring subnet holds the private endpoint and no VM, so no interface
+  # gives its effective rules (Z.4). Every configured rule is read, by name,
+  # priority, direction, access, protocol, source, destination, and port, and
+  # compared with infra/platform/main.tf and the network module's deny pair.
+  want="allow-agents-from-edge 1010 Inbound Allow Tcp 10.45.0.0/27 10.40.0.64/27 443, "
+  want="${want}allow-agents-from-orchestrator 1000 Inbound Allow Tcp 10.40.0.0/27 10.40.0.64/27 443, "
+  want="${want}allow-agents-from-router 1020 Inbound Allow Tcp 10.45.0.32/27 10.40.0.64/27 443, "
+  want="${want}deny-all-inbound 4096 Inbound Deny * * * *, deny-all-outbound 4096 Outbound Deny * * * *, "
+  want="${want}deny-from-targets 100 Inbound Deny * 10.50.0.0/20 * *"
+  check Z.31 "The monitoring subnet allows only the three log agents on 443, and denies the rest" "$want" \
+    "$(az network nsg rule list -g $RG --nsg-name nsg-aisec-platform-monitoring \
+      --query "[].[name, priority, direction, access, protocol, sourceAddressPrefix, destinationAddressPrefix, destinationPortRange]" \
+      -o tsv 2>/dev/null | sort | tr '\t' ' ' | paste -sd ',' - | sed 's/,/, /g')"
   check Z.19 "The edge network is in Denmark East" denmarkeast \
     "$(az network vnet show -g $RG -n vnet-aisec-edge --query location -o tsv 2>/dev/null)"
 

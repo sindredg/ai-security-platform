@@ -413,3 +413,26 @@ Result, 2026-10-31 07:07 to 07:34 UTC, on the live system. Each VM had 11 execut
 Then every check passed at 07:25 to 07:34 UTC, 439 of 439, with `F.8` and `F.9` new and `F.1` to `F.7` and `O.18` among them. The alerts had not been read again by then.
 
 The review of the pull request found that a worker's first boot would have stopped at the rules, since the kernel refuses a directory rule on a missing path and nothing made `/etc/aisec` there before the install, which was read on the worker: `auditctl` answers `No such file or directory` and takes the `-w` form instead. The install makes the directory first now, and `F.1` and `F.4` compare the kernel's rule count with the file's, where before they compared the two rules files. Every check passed again at 08:04 to 08:14 UTC, 439 of 439; the first boot itself stays not run.
+
+## Checks and cleanup for the close
+
+Two issues named a check that did not exist, and a third named two workflows left behind. Each was fixed before the close.
+
+### Two new checks
+
+`N.24` reads, from `/proc`, the effective and bounding capability sets and the no-new-privileges flag of each NetBox container's first process ([#186](https://github.com/sindredg/ai-security-platform/issues/186)). `Z.31` reads every configured rule of the monitoring subnet's security group, which no effective-rule check covered because the subnet holds no VM ([#178](https://github.com/sindredg/ai-security-platform/issues/178)). Each expected value was written from the code before the run: the Quadlet units drop every capability, and `infra/platform/main.tf` and the network module set six rules.
+
+Expected: both pass on the live system. Each fails on a copy of the script that reads something absent, a container or a group that does not exist, and on a copy whose answer has one field changed: the seccomp field read in place of the bounding set, and one rule's port changed to 8443. No other check fails on either copy.
+
+Result, 2026-10-31 09:26 to 10:00 UTC, on the live system, with copies of the script archived from `c800266`:
+
+| Copy | Result |
+| --- | --- |
+| As is | 441 of 441 passed, `N.24` and `Z.31` among them |
+| Absent | 439 passed, 2 failed: `N.24` with one container's part empty, `Z.31` with no answer |
+| Changed, first run | 440 passed, 1 failed: `N.24` only. The copy's edit had not applied: Azure separates the fields with tabs, and the edit looked for a space |
+| Changed, edit fixed | 439 passed, 2 failed: `N.24` read `0000000000000000 1 2` for each container, `Z.31` read 8443 for one rule |
+
+### Two refused workflows
+
+The two workflows the controller refused on 2026-10-21, `override-kc8ph` and `own-rgglb`, had no TTL and stayed in `orchestration` ([#206](https://github.com/sindredg/ai-security-platform/issues/206)). Both were read again at 10:00 UTC, `Error` with an empty `ttlStrategy`, and deleted. The workflows from the template stayed as they were.
