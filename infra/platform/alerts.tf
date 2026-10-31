@@ -190,6 +190,62 @@ locals {
         | where SyslogMessage has "Failed with result"
       KQL
     }
+
+    # The audit daemon's syslog plugin writes each record as one line (ADR
+    # 0054). The orchestrator's arrive through the log agent on local6, the
+    # worker's in its journal copy, where the record is the entry's MESSAGE
+    # field with its quotes escaped. A write to one of the platform's own
+    # files carries the key aisec-config. The install, and every runbook step
+    # that writes such a file, fires this on purpose.
+    audit-config-write = {
+      description = "The audit daemon recorded a write to one of the platform's own files on the orchestrator or the worker."
+      severity    = 2
+      frequency   = "PT5M"
+      window      = "PT15M"
+      query       = <<-KQL
+        union (Syslog | where Facility == "local6" and SyslogMessage has_cs "type=SYSCALL" and SyslogMessage has_cs "aisec-config"
+                 | project TimeGenerated, Computer, line = SyslogMessage),
+              (AisecWorkerJournal_CL | where RawData has_cs "type=SYSCALL" and RawData has_cs "aisec-config"
+                 | project TimeGenerated, Computer = "aisec-worker", line = RawData)
+      KQL
+    }
+
+    # The AIDE check logs one line per run with the tag aisec-aide. A check
+    # that found nothing reads "added=0 removed=0 changed=0"; anything else
+    # is a difference, a failed check, or a new baseline.
+    aide-report = {
+      description = "The AIDE check on the orchestrator or the worker found a difference from its baseline, failed, or a baseline was written."
+      severity    = 2
+      frequency   = "PT15M"
+      window      = "PT30M"
+      query       = <<-KQL
+        union (Syslog | where ProcessName == "aisec-aide" | project TimeGenerated, Computer, line = SyslogMessage),
+              (AisecWorkerJournal_CL | where RawData has_cs "\"SYSLOG_IDENTIFIER\":\"aisec-aide\""
+                 | project TimeGenerated, Computer = "aisec-worker", line = RawData)
+        | where not(line has_cs "added=0 removed=0 changed=0")
+      KQL
+    }
+
+    # The timer runs the check daily on both VMs, so a day without a line
+    # from one of them is a stopped timer, a stopped daemon's plugin on the
+    # orchestrator, a stopped journal copy from the worker, or a machine
+    # root has quieted. As heartbeat-missing: the rows are the machines
+    # without a line.
+    aide-check-missing = {
+      description = "No AIDE check line from the orchestrator or the worker for 26 hours. The timer runs daily."
+      severity    = 2
+      frequency   = "PT1H"
+      window      = "P2D"
+      query       = <<-KQL
+        datatable(Computer: string) ["${local.computer_name["orchestrator"]}", "${local.computer_name["worker"]}"]
+        | join kind=leftanti (
+            union (Syslog | where ProcessName == "aisec-aide" | project TimeGenerated, Computer, line = SyslogMessage),
+                  (AisecWorkerJournal_CL | where RawData has_cs "\"SYSLOG_IDENTIFIER\":\"aisec-aide\""
+                     | project TimeGenerated, Computer = "${local.computer_name["worker"]}", line = RawData)
+            | where TimeGenerated > ago(26h) and line has_cs "check "
+            | distinct Computer) on Computer
+      KQL
+    }
   }
 }
 

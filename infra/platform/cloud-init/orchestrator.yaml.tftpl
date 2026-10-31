@@ -249,6 +249,50 @@ write_files:
     permissions: "0700"
     content: ${journal_pull_install}
 
+  # The host audit (ADR 0054): the files from platform/host-audit/ in the
+  # repository, in base64. First boot installs the audit daemon and AIDE from
+  # them and writes the first baseline, once everything else is in place.
+
+  - path: /usr/local/lib/aisec/install/host-audit/orchestrator.rules
+    encoding: b64
+    permissions: "0644"
+    content: ${host_audit_rules}
+
+  - path: /usr/local/lib/aisec/install/host-audit/aisec-syslog.conf
+    encoding: b64
+    permissions: "0644"
+    content: ${host_audit_plugin}
+
+  - path: /usr/local/lib/aisec/install/host-audit/orchestrator.aide.conf
+    encoding: b64
+    permissions: "0644"
+    content: ${host_audit_aide_conf}
+
+  - path: /usr/local/lib/aisec/install/host-audit/aisec-aide-check
+    encoding: b64
+    permissions: "0755"
+    content: ${host_audit_check}
+
+  - path: /usr/local/lib/aisec/install/host-audit/aisec-aide-baseline
+    encoding: b64
+    permissions: "0755"
+    content: ${host_audit_baseline}
+
+  - path: /usr/local/lib/aisec/install/host-audit/aisec-aide-check.service
+    encoding: b64
+    permissions: "0644"
+    content: ${host_audit_service}
+
+  - path: /usr/local/lib/aisec/install/host-audit/aisec-aide-check.timer
+    encoding: b64
+    permissions: "0644"
+    content: ${host_audit_timer}
+
+  - path: /usr/local/lib/aisec/install/host-audit/install-host-audit.sh
+    encoding: b64
+    permissions: "0700"
+    content: ${host_audit_install}
+
   - path: /usr/local/sbin/aisec-first-boot
     permissions: "0700"
     content: |
@@ -336,6 +380,11 @@ write_files:
       retry test -d /var/log/pods
       /usr/local/lib/aisec/install/install-audit-copy.sh
       /usr/local/lib/aisec/install/install-journal-pull.sh
+
+      # The audit daemon, with its records to syslog, and AIDE's first
+      # baseline over what is installed by now (ADR 0054). The runbook steps
+      # that install the rest write a new baseline after them.
+      /usr/local/lib/aisec/install/host-audit/install-host-audit.sh orchestrator
 
       # The key the orchestrator uses to feed the other machines. It is made
       # here so the private half never passes through Terraform or its state.

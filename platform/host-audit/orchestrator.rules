@@ -1,0 +1,39 @@
+## Host audit rules for the orchestrator (ADR 0054). Installed as
+## /etc/audit/rules.d/50-aisec.rules; augenrules reads the package's own
+## audit.rules first, which sets the buffer and the failure mode.
+
+## Writes to the platform's own files, which only a runbook step changes. The
+## alert audit-config-write fires on this key. A watch on a directory covers
+## everything under it.
+-w /etc/aisec -p wa -k aisec-config
+-w /etc/ssh -p wa -k aisec-config
+-w /etc/systemd/system -p wa -k aisec-config
+-w /etc/sudoers -p wa -k aisec-config
+-w /etc/sudoers.d -p wa -k aisec-config
+-w /etc/audit -p wa -k aisec-config
+-w /etc/apt -p wa -k aisec-config
+-w /etc/hosts -p wa -k aisec-config
+-w /etc/environment -p wa -k aisec-config
+-w /etc/sysctl.d -p wa -k aisec-config
+-w /etc/modprobe.d -p wa -k aisec-config
+-w /etc/pam.d -p wa -k aisec-config
+-w /etc/security -p wa -k aisec-config
+-w /etc/passwd -p wa -k aisec-config
+-w /etc/group -p wa -k aisec-config
+-w /etc/shadow -p wa -k aisec-config
+-w /usr/local -p wa -k aisec-config
+## K3s's configuration, and the two files its API server reads at start.
+-w /etc/rancher -p wa -k aisec-config
+-w /var/lib/rancher/k3s/server/audit.yaml -p wa -k aisec-config
+-w /var/lib/rancher/k3s/server/psa.yaml -p wa -k aisec-config
+
+## Programs run with a user ID in systemd's dynamic range, 61184 to 65519.
+## On the orchestrator that is the cluster's workload pods, which run as
+## 65532: the tool service, the Argo controller, and a workflow's pods.
+-a always,exit -F arch=b64 -S execve -F uid>=61184 -F uid<=65519 -k aisec-exec
+-a always,exit -F arch=b32 -S execve -F uid>=61184 -F uid<=65519 -k aisec-exec
+
+## Programs run as root in a login session: the operator's sudo. A service
+## has no login user ID, so K3s and the copiers are not recorded here.
+-a always,exit -F arch=b64 -S execve -F euid=0 -F auid>=1000 -F auid!=unset -k aisec-root
+-a always,exit -F arch=b32 -S execve -F euid=0 -F auid>=1000 -F auid!=unset -k aisec-root

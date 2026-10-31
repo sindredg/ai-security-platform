@@ -125,6 +125,17 @@ logs="$here/../platform/logs"
 COPY_SHA=$(cat "$logs/aisec_audit_copy.py" "$logs/aisec-audit-copy.service" | sha256sum | cut -d " " -f 1)
 PULL_SHA=$(cat "$logs/aisec_journal_pull.py" "$logs/aisec-journal-pull.service" "$logs/aisec-journal-pull.timer" |
   sha256sum | cut -d " " -f 1)
+# The host audit (ADR 0054): each VM's audit rules with the syslog plugin
+# file, and the AIDE configuration, the two commands, the unit, and the timer,
+# in install order. The probes hash the installed files the same way.
+audit="$here/../platform/host-audit"
+file_set() { sha256sum "$@" | cut -d " " -f 1 | sha256sum | cut -c1-16; }
+AUDIT_ORCH_SHA=$(file_set "$audit/orchestrator.rules" "$audit/aisec-syslog.conf")
+AUDIT_WORK_SHA=$(file_set "$audit/worker.rules" "$audit/aisec-syslog.conf")
+AIDE_ORCH_SHA=$(file_set "$audit/orchestrator.aide.conf" "$audit/aisec-aide-check" "$audit/aisec-aide-baseline" \
+  "$audit/aisec-aide-check.service" "$audit/aisec-aide-check.timer")
+AIDE_WORK_SHA=$(file_set "$audit/worker.aide.conf" "$audit/aisec-aide-check" "$audit/aisec-aide-baseline" \
+  "$audit/aisec-aide-check.service" "$audit/aisec-aide-check.timer")
 # The update run's command on the orchestrator, from this checkout.
 TARGET_RUN_SHA=$(sha256sum "$here/../platform/target-update/aisec-target-update-run" | cut -d " " -f 1)
 # The update key's one command on the targets, from the targets checkout.
@@ -293,7 +304,20 @@ echo "monitor_agent=$(dpkg-query -W -f="\${Status}" azuremonitoragent 2>/dev/nul
 echo "monitor_hosts=$(awk "/^# BEGIN aisec-monitoring/ { on = 1; next } /^# END aisec-monitoring/ { on = 0 } on" /etc/hosts | sort | sha256sum | cut -d " " -f 1)"
 '
 
+# The host audit (ADR 0054), on the orchestrator and the worker: the daemon,
+# its loaded rules against the file, the installed files, the plugin's
+# process, and AIDE's timer, files, baseline, and last check line.
+probe_host_audit='
+echo "audit_daemon=$(systemctl is-active auditd 2>/dev/null) $(auditctl -s 2>/dev/null | sed -n "s/^enabled //p") $(augenrules --check 2>&1 | grep -c "No change") $(pgrep -c -x audisp-syslog)"
+echo "audit_files=$(sha256sum /etc/audit/rules.d/50-aisec.rules /etc/audit/plugins.d/aisec-syslog.conf 2>/dev/null | cut -d " " -f 1 | sha256sum | cut -c1-16)"
+echo "aide_timer=$(systemctl is-active aisec-aide-check.timer 2>/dev/null) $(systemctl is-enabled aisec-aide-check.timer 2>/dev/null)"
+echo "aide_files=$(sha256sum /etc/aisec/aide.conf /usr/local/sbin/aisec-aide-check /usr/local/sbin/aisec-aide-baseline /etc/systemd/system/aisec-aide-check.service /etc/systemd/system/aisec-aide-check.timer 2>/dev/null | cut -d " " -f 1 | sha256sum | cut -c1-16)"
+echo "aide_baseline=$(stat -c "%U %a" /var/lib/aisec/aide/aide.db 2>/dev/null) $(sha256sum /var/lib/aisec/aide/aide.db 2>/dev/null | cut -c1-16)"
+echo "aide_last_check=$(journalctl -t aisec-aide --since -25h -o cat 2>/dev/null | grep "^check " | tail -n 1 | cut -d " " -f 1-4)"
+'
+
 probe_orchestrator="$probe_common"'
+echo "worker_aide_copy=$(sha256sum /var/lib/aisec/aide/worker-aide.db 2>/dev/null | cut -c1-16)"
 echo "unit_k3s=$(systemctl is-active k3s)"
 echo "node_ready=$(k3s kubectl get nodes --no-headers 2>/dev/null | grep -c " Ready ")"
 echo "pods_not_running=$(count -v -c " Running " -- k3s kubectl get pods -A -l "!workflows.argoproj.io/workflow" --no-headers)"
@@ -506,7 +530,7 @@ import base64, json, sys
 data = json.load(sys.stdin)[\"data\"]
 print(\" \".join(sorted(data)), base64.b64decode(data[\"known_hosts\"]).decode().strip())
 " 2>/dev/null)"
-'
+'"$probe_host_audit"
 
 probe_worker="$probe_common"'
 code() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 "$@"; }
@@ -570,7 +594,7 @@ echo "job_instances=$(systemctl list-units --all --no-legend "aisec-agent-job@*"
 echo "slot_erased=$(journalctl --no-pager -o cat -u "aisec-agent-job@*" 2>/dev/null | sed -n "s/.*\"slot_erased\": \([a-z]*\).*/\1/p" | tail -n 1)"
 echo "job_left=$(pgrep -c -u aisec-job 2>/dev/null) $(loginctl list-sessions --no-legend 2>/dev/null | grep -c -w aisec-job) $(find /run/systemd/dynamic-uid -maxdepth 1 -name "*aisec-agent-job*" 2>/dev/null | wc -l)"
 echo "host_key=$(cut -d " " -f 1,2 /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null)"
-'
+'"$probe_host_audit"
 
 probe_router="$probe_common"'
 echo "unit_tailscaled=$(systemctl is-active tailscaled)"
@@ -872,6 +896,18 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check J.10 "The journal puller installed is the one in this checkout" "$PULL_SHA" "$(value journal_pull_code)"
   check O.1 "The log agent is installed and active on the orchestrator" "1 active" "$(value monitor_agent)"
   hosts_orchestrator=$(value monitor_hosts)
+  # The host audit (ADR 0054). The daemon is active and enabled in the kernel,
+  # the loaded rules equal the file, the file and the plugin equal this
+  # checkout's, and the plugin runs. AIDE's timer runs with this checkout's
+  # files, and the last check within a day found the machine at its baseline:
+  # a machine with a change nobody did fails F.3 until someone looks.
+  check F.1 "The audit daemon runs the rules in this checkout and sends its records to syslog" \
+    "active 1 1 1 $AUDIT_ORCH_SHA" "$(value audit_daemon) $(value audit_files)"
+  check F.2 "The AIDE timer runs, with the configuration and commands in this checkout" \
+    "active enabled $AIDE_ORCH_SHA" "$(value aide_timer) $(value aide_files)"
+  check F.3 "The orchestrator is at its AIDE baseline, checked within a day" \
+    "root 600 check added=0 removed=0 changed=0" "$(value aide_baseline | cut -d " " -f 1,2) $(value aide_last_check)"
+  WORKER_AIDE_COPY=$(value worker_aide_copy)
   common_checks HO
 else
   check A.1 "Reachable through the router with the operator certificate" yes no
@@ -993,6 +1029,17 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check U.5 "No security update is pending on the worker" "0 0" "$(value security_updates_pending)"
   # The worker ships nothing (ADR 0021). Its journal leaves with the orchestrator.
   check O.4 "No log agent on the worker" 0 "$(value monitor_agent | cut -d " " -f 1)"
+  # The host audit (ADR 0054), as F.1 to F.3 on the orchestrator. F.7: the
+  # worker's baseline is the one the orchestrator keeps a copy of, so a
+  # baseline written on the worker alone, by root there, differs.
+  check F.4 "The audit daemon runs the rules in this checkout and sends its records to syslog" \
+    "active 1 1 1 $AUDIT_WORK_SHA" "$(value audit_daemon) $(value audit_files)"
+  check F.5 "The AIDE timer runs, with the configuration and commands in this checkout" \
+    "active enabled $AIDE_WORK_SHA" "$(value aide_timer) $(value aide_files)"
+  check F.6 "The worker is at its AIDE baseline, checked within a day" \
+    "root 600 check added=0 removed=0 changed=0" "$(value aide_baseline | cut -d " " -f 1,2) $(value aide_last_check)"
+  check F.7 "The worker's AIDE baseline is the copy the orchestrator holds" \
+    "${WORKER_AIDE_COPY:-no copy on the orchestrator}" "$(value aide_baseline | cut -d " " -f 3)"
   common_checks HW
 else
   check A.6 "Reachable through the subnet router with the operator certificate" yes no
@@ -1606,6 +1653,12 @@ for r in sorted(rules, key=lambda r: r['name']):
   # platform's rows.
   check O.17 "Traffic analytics wrote flows from both flow logs in the last hour" "fl-aisec-edge fl-aisec-platform" \
     "$(kql "NTANetAnalytics | where TimeGenerated > ago(1h) and SubType == 'FlowLog' | extend log = tostring(split(FlowLogResourceId, '/')[-1]) | distinct log | order by log asc")"
+  # The audit daemon's facility (ADR 0054): the system rule collects local6
+  # from info, so the orchestrator's records reach the Syslog table. Without
+  # the source, the records stay on the orchestrator.
+  check O.18 "The system collection rule collects the audit facility from info" "local6 Info" \
+    "$(az monitor data-collection rule show -g "$RG" -n dcr-aisec-system \
+      --query "dataSources.syslog[?name=='audit'].[facilityNames[0], logLevels[0]] | [0]" -o tsv 2>/dev/null | tr "\t" " ")"
 fi
 
 echo

@@ -57,6 +57,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0051](0051-a-netbox-jobs-schema-names-each-account-of-the-job.md) | A NetBox job's schema requires a verdict under the name of each of the job's accounts, which the dispatch step reads from the checks' verdicts and names in the job line. Changes the schema of 0049 and the job line of 0030 | Accepted |
 | [0052](0052-a-smaller-prompt-batch-so-a-cancel-reaches-the-model-server-in-time.md) | The model server's prompt batch is 512 tokens, so a cancel reaches it inside the job program's erase wait, and the waits stay | Accepted |
 | [0053](0053-a-fix-is-proposed-once-until-it-is-delivered.md) | A fix an earlier allowed and rehearsed bundle holds is refused until that bundle's delivery passed, and the operator's machine reads the open pull requests before publishing | Accepted |
+| [0054](0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md) | The audit daemon on both VMs records writes to the platform's files, programs run by jobs and by the operator, and sends each record to syslog; AIDE checks a baseline daily; three alert rules | Accepted |
 
 ## Format
 

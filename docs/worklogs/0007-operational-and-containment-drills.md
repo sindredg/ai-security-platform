@@ -345,3 +345,23 @@ Then every check passed with the targets checkout at `9b7c5bd`, 429 of 429, 23:2
 The first run stopped at step 17 with two faults in the runbook's commands, both corrected before the second run. The token hold of step 9 moved nothing: the operator's shell cannot expand a pattern inside root's directory, the command's exit was its last step's, and step 10's collection passed and wrote an item for `nb-10302308-held`, which the collect command prunes after twenty jobs. The old token's read from the orchestrator in step 17 got no answer, since the orchestrator's shell names Squid as its proxy and NetBox's address is not among its exceptions; the command has `--noproxy` now, as the checks' own reads do.
 
 The run set has no bar on the milestone's chart: no job in it reached the verification gate.
+
+## Slice 8: the host audit
+
+The code and the expectations are in this slice's pull request, and the live run fills in the results. The procedure is the [host audit runbook](../runbooks/host-audit.md), and the decision [ADR 0054](../decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md).
+
+### What is installed
+
+`auditd` and `aide` from Ubuntu's archive, `1:4.1.2-1build1` and `0.19.2-3` as the package index listed them for Ubuntu 26.04 on 2026-10-31, not pinned like every Ubuntu package ([ADR 0011](../decisions/0011-package-proxy-for-the-worker.md)); the versions the VMs install are read in the run. The files are `platform/host-audit/`: one rules file per VM with three keys, the syslog plugin file for `local6`, one AIDE configuration per VM, the check and baseline commands, the unit and the timer, and the install script, which first boot also runs from both cloud-init templates. The collection rule gains the `local6` source and the workspace three alert rules.
+
+The drill `validation/drills/host-audit.sh` runs as root on a VM: eleven probes in four groups. A file made and removed under `/etc/aisec` leaves records with the key `aisec-config`, in the daemon's log and in the journal, one naming the file; a program run as a dynamic user leaves one with `aisec-exec`; the drill's own commands leave records with `aisec-root`; and a file added under `/usr/local/lib/aisec` makes the AIDE check report `added=1`, then `added=0` once it is removed. Its fail side is a VM without the install, where every probe fails.
+
+### Expected
+
+Before the install, the drill fails every probe on both VMs, `== 11 failed`, and `F.1` to `F.7` fail with empty values. The plan reads `3 to add, 1 to change`, and after the apply `O.18` passes and `aide-check-missing` fires, since no check line exists yet.
+
+After the install: `rules loaded: 24` on the orchestrator and `27` on the worker, one plugin process each, a baseline line with an entry count and a SHA-256 each, and the worker's copy on the orchestrator with the same SHA-256. The drill passes every probe on both, `== 0 failed`, with `added=1 removed=0 changed=0` and then `added=0 removed=0 changed=0`. A synthetic job `Succeeded`, and the worker's records with `aisec-exec` show the job runner in the job account's session and the unit's `python3` and `goose` as a dynamic user.
+
+In the workspace: `Syslog` rows on `local6` from the orchestrator, worker journal rows with facility `22`, `audit-config-write` and `aide-report` fired, `aide-check-missing` resolved. Then every check passes, 437 of 437, eight more than the last run.
+
+Reasoned and not observed before the run: the number of entries in each baseline and the time the orchestrator's takes over `/usr/lib`; the syslog identifier of the plugin's lines; the shape of AIDE's summary lines the check parses; whether the unit's private `/dev` leaves `/dev/log` to `logger`; which of the system's files the first daily check reports as changed; the day's volume of records against the cap.
