@@ -92,6 +92,7 @@ The risk column describes what an attacker could do, or what could fail, because
 | NetBox's database and cache passwords, secret key, and token pepper are in Podman's secret store on the NetBox VM, a plain file readable by root ([ADR 0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md)) | Made on the VM, and never on another machine. A rebuild makes new ones, and the data is synthetic | Root on the VM reads every secret, and a disk snapshot holds them | A secret manager that issues them to the service, with rotation |
 | Locally redundant remote state; bootstrap state kept locally with a manual remote copy | The lab has rebuild runbooks | A missed upload leaves a stale backup. Restoration has not been tested (T31) | Geo-redundant remote state with tested recovery |
 | Each VM rebuilt separately; no full-system rebuild | Each VM passed the validation checks after its rebuild | Recovery from an empty subscription has not been tested | Scheduled recovery exercises with a recovery time objective |
+| A gate passes on the behavior it names, with no numeric threshold ([ADR 0055](../decisions/0055-acceptance-is-each-gates-result-with-no-numeric-thresholds.md)) | A few runs on one model and one worker set no line worth holding | Worse verdicts or slower jobs pass while each gate's behavior holds | Thresholds set from repeated baseline runs, compared after each change |
 
 ## What production does not fix
 

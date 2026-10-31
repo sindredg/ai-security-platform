@@ -2,7 +2,7 @@
 
 Status: Implemented on 2026-10-30, when steps 1 to 6, 8, 11, 12, 15, and 16 ran on the live system from 23:08 UTC, and steps 9, 10, 13, 17 to 19, and 21 in a second run from 23:22 UTC, after two command faults in the first: steps 9 and 13 moved nothing, and step 17 got no answer, both corrected below. The read commands of steps 3 (the step's log lines and the denied count) and 15 (the journal line) were changed after the run and have not run as written.
 
-Steps 7, 14, and 20 are each a rebuild, written against the rebuild sections of other runbooks, and run only in the rebuild the [roadmap](../roadmap.md#6-operational-and-containment-drills) lists last. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-7-the-incident-response-runbook).
+Steps 7, 14, and 20 are each a rebuild, written against the rebuild sections of other runbooks, and not run: [milestone 6](../roadmap.md#6-operational-and-containment-drills) accepted the rebuild as a gap. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-7-the-incident-response-runbook).
 
 Three cases, in the same order each: detect, contain, verify, rotate or restore, undo what the drill changed, replace, record. The containment and rotation steps are reversible and are followed by the read that shows each took, and by its undo. The replacement steps destroy a VM.
 
@@ -118,7 +118,7 @@ The worker runs the agent and the model, and the design assumes it is compromise
 
    Expected: `Succeeded`, with the dispatch step and the exit handler's revoke `Succeeded`.
 
-7. Replace, not run: a rebuild of the worker destroys the model, and the [roadmap](../roadmap.md#6-operational-and-containment-drills) lists the rebuild last. In order, the [platform compute runbook](platform-compute.md#rebuild-the-worker), steps 22 to 25, which replace the VM and its host key; the [model server runbook](model-server.md), steps 4 to 6, and the [agent runtime runbook](agent-runtime.md), steps 2 to 4 and 8, from the staged files the orchestrator keeps; then step 4 above with the new host key.
+7. Replace, not run: a rebuild of the worker destroys the model, and [milestone 6](../roadmap.md#6-operational-and-containment-drills) accepted the rebuild as a gap. In order, the [platform compute runbook](platform-compute.md#rebuild-the-worker), steps 22 to 25, which replace the VM and its host key; the [model server runbook](model-server.md), steps 4 to 6, and the [agent runtime runbook](agent-runtime.md), steps 2 to 4 and 8, from the staged files the orchestrator keeps; then step 4 above with the new host key.
 
    The audit log and the worker's journal copy on the orchestrator keep what the compromised worker did ([audit log](../security/audit-log.md)).
 

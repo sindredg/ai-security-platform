@@ -4,7 +4,7 @@ The stack, one page per part. Each page says what the part does, where it is def
 
 The [architecture](../architecture.md) is the overview: trust, flows, and boundaries. This folder is the detail.
 
-![The stack on the orchestrator and the worker: both share the private network, Ubuntu 26.04, and host hardening, on two machine sizes. The orchestrator runs K3s with the tool service and Argo Workflows, is not on the mesh VPN, and has no way out of its own. The worker runs the model server and the agent runtime](../diagrams/stack.svg)
+![The stack on the orchestrator and the worker: both share the private network, Ubuntu 26.04, and host hardening with the audit daemon and AIDE, on two machine sizes. The orchestrator runs K3s with the tool service and Argo Workflows, is not on the mesh VPN, and has no way out of its own. The worker runs the model server and the agent runtime](../diagrams/stack.svg)
 
 The diagram source is [`diagrams/stack.html`](../diagrams/stack.html).
 

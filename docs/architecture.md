@@ -182,15 +182,15 @@ Each practice lands with the milestone that builds what it checks ([ADR 0010](de
 
 | Practice | State |
 | --- | --- |
-| Threat model | Current after milestone 5, revised with each milestone ([threat model](security/threat-model.md)) |
+| Threat model | Current through the milestone 6 drills, revised with each milestone ([threat model](security/threat-model.md)) |
 | Repository protection | Verified: required checks refuse commits the operator's key did not sign, in both repositories, and unapproved seed changes in the targets one ([pipeline](components/pipeline.md#repository-settings)). Push protection: configured, not tested |
 | Static checks on pull requests | Built, with no cloud credentials ([pipeline](components/pipeline.md#checks-on-every-pull-request)). Trivy fails SSH from any source, and the network module refuses it at plan |
 | Dependency updates | Verified for the tool service's packages: Dependabot's [#190](https://github.com/sindredg/ai-security-platform/pull/190) failed the [signature check](components/pipeline.md#the-signature-check) as designed, and was redone signed in [#193](https://github.com/sindredg/ai-security-platform/pull/193). None yet for an action or a provider |
 | Hardening baselines | kube-bench and Lynis on the platform VMs, findings triaged ([hardening](security/hardening.md#benchmarks)), one unexplained ([#127](https://github.com/sindredg/ai-security-platform/issues/127)). Lynis not run on the targets. No CIS profile for Ubuntu 26.04: accepted |
-| Credential inventory | Every credential through milestone 5. The GitHub App key was never made. Most rotation procedures have not been run ([inventory](security/credentials.md)) |
+| Credential inventory | Every credential through the milestone 6 drills. The GitHub App key was never made. Most rotation procedures have not been run ([inventory](security/credentials.md)) |
 | Audit log of tool calls | Verified: an append-only copy on the orchestrator and in Azure Monitor (`L.1` to `L.7`, `O.1`). Root can edit it first ([audit log](security/audit-log.md)) |
 | Supply chain | Verified per artifact (`T.2`, `W.2`, `W.9`, `G.1`, `K.11`, `N.5`). No SBOM ([supply chain](security/supply-chain.md)) |
-| Monitoring | Verified: three agents over Private Link, each alert fired once on purpose (`O.1` to `O.17`). The targets have no agent ([monitoring](components/monitoring.md)) |
+| Monitoring | Verified: three agents over Private Link, each alert fired once on purpose (`O.1` to `O.18`). The targets have no agent ([monitoring](components/monitoring.md)) |
 | Host audit | Verified on 2026-10-31: the audit daemon and AIDE on both VMs each caught a drill's change, in the workspace (`F.1` to `F.9`, [worklog](worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)). Root can stop both ([ADR 0054](decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)) |
 | Incident response runbook | Verified for containment and rotation in three cases on 2026-10-30, and a restore on the staging copy. The replacement steps are rebuilds, written and not run ([runbook](runbooks/incident-response.md)) |
 
@@ -232,7 +232,6 @@ Each gets a decision record before the milestone that depends on it.
 | --- | --- |
 | Cloud identity for K3s workloads | A collector that reads from Azure |
 | Worker isolation beyond VM separation | Connecting real target evidence |
-| Acceptance thresholds for quality, recovery, and cost | Operational drills |
 
 ## Limitations
 
@@ -244,4 +243,4 @@ Each gets a decision record before the milestone that depends on it.
 - The platform identity can create a public IP resource in its own group, which the NAT gateway needs, and cannot attach it to a machine ([worklog](worklogs/0002-platform-compute.md#public-address-policy)).
 - The orchestrator's way out is filtered by hostname, not by content, and TLS is not inspected (T40).
 - With the edge VM or the router down, the way in is Azure run command, which needs the Owner account (T03).
-- The [threat model](security/threat-model.md) is the designer's, with no outside review. Controls for milestone 6 and later are planned or open.
+- The [threat model](security/threat-model.md) is the designer's, with no outside review. Controls for exercises 2 and 3 are planned.

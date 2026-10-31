@@ -1,6 +1,6 @@
 # AI-specific threats
 
-Status: current after milestone 5. States use the [threat model's](threat-model.md#scope-and-method) words, and each names its evidence.
+Status: current through the milestone 6 drills. States use the [threat model's](threat-model.md#scope-and-method) words, and each names its evidence.
 
 These threats exist because a model reads untrusted text and can act on it. They sit on top of the boundary threats in the [threat model](threat-model.md), and most of their controls are in the [tool service](tool-service.md). Each threat ends with its OWASP LLM entry by name, its OWASP agentic entry (ASI), and its MITRE ATLAS technique.
 
