@@ -3,29 +3,29 @@
 ## audit.rules first, which sets the buffer and the failure mode.
 
 ## Writes to the platform's own files, which only a runbook step changes. The
-## alert audit-config-write fires on this key. A watch on a directory covers
-## everything under it.
--w /etc/aisec -p wa -k aisec-config
--w /etc/ssh -p wa -k aisec-config
--w /etc/systemd/system -p wa -k aisec-config
--w /etc/sudoers -p wa -k aisec-config
--w /etc/sudoers.d -p wa -k aisec-config
--w /etc/audit -p wa -k aisec-config
--w /etc/apt -p wa -k aisec-config
--w /etc/hosts -p wa -k aisec-config
--w /etc/environment -p wa -k aisec-config
--w /etc/sysctl.d -p wa -k aisec-config
--w /etc/modprobe.d -p wa -k aisec-config
--w /etc/pam.d -p wa -k aisec-config
--w /etc/security -p wa -k aisec-config
--w /etc/passwd -p wa -k aisec-config
--w /etc/group -p wa -k aisec-config
--w /etc/shadow -p wa -k aisec-config
--w /usr/local -p wa -k aisec-config
+## alert audit-config-write fires on this key. A rule on a directory covers
+## everything under it; the -w form says the same and warns that it is slower.
+-a always,exit -F dir=/etc/aisec -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/ssh -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/systemd/system -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/sudoers -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/sudoers.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/audit -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/apt -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/hosts -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/environment -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/sysctl.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/modprobe.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/pam.d -F perm=wa -k aisec-config
+-a always,exit -F dir=/etc/security -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/passwd -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/group -F perm=wa -k aisec-config
+-a always,exit -F path=/etc/shadow -F perm=wa -k aisec-config
+-a always,exit -F dir=/usr/local -F perm=wa -k aisec-config
 ## K3s's configuration, and the two files its API server reads at start.
--w /etc/rancher -p wa -k aisec-config
--w /var/lib/rancher/k3s/server/audit.yaml -p wa -k aisec-config
--w /var/lib/rancher/k3s/server/psa.yaml -p wa -k aisec-config
+-a always,exit -F dir=/etc/rancher -F perm=wa -k aisec-config
+-a always,exit -F path=/var/lib/rancher/k3s/server/audit.yaml -F perm=wa -k aisec-config
+-a always,exit -F path=/var/lib/rancher/k3s/server/psa.yaml -F perm=wa -k aisec-config
 
 ## Programs run with a user ID in systemd's dynamic range, 61184 to 65519.
 ## On the orchestrator that is the cluster's workload pods, which run as

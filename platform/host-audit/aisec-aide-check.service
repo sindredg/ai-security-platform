@@ -13,7 +13,9 @@ TimeoutStartSec=30min
 
 # Root reads every file in the scope, with the one capability that reads a
 # file root does not own. Nothing writable but the baseline directory, no
-# network, no devices, no new privileges.
+# network, no devices, no new privileges. Not ProtectKernelModules: it hides
+# /usr/lib/modules, which is in the scope, and the check read every module
+# as removed on 2026-10-31. The bounding set leaves no CAP_SYS_MODULE anyway.
 NoNewPrivileges=yes
 ProtectSystem=strict
 ReadWritePaths=/var/lib/aisec/aide
@@ -22,7 +24,6 @@ PrivateTmp=yes
 PrivateDevices=yes
 PrivateNetwork=yes
 ProtectKernelTunables=yes
-ProtectKernelModules=yes
 ProtectKernelLogs=yes
 ProtectControlGroups=yes
 ProtectClock=yes

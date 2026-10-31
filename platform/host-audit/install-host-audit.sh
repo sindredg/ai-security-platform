@@ -37,10 +37,11 @@ fi
 # The rules, which augenrules reads after the package's own file, and the
 # plugin that sends every record to syslog. The package's syslog.conf stays
 # inactive. A reload starts the plugin; a failed rule stops the script here.
+# augenrules prints the kernel's status after loading; its errors still show.
 install -m 0640 -o root -g root "$here/$role.rules" /etc/audit/rules.d/50-aisec.rules
 install -m 0640 -o root -g root "$here/aisec-syslog.conf" /etc/audit/plugins.d/aisec-syslog.conf
 systemctl enable --now auditd
-augenrules --load
+augenrules --load >/dev/null
 systemctl reload-or-restart auditd
 auditctl -s | grep -E "^(enabled|pid|lost) "
 echo "rules loaded: $(auditctl -l | grep -c .)"
@@ -54,8 +55,12 @@ install -m 0755 -o root -g root "$here/aisec-aide-check" "$here/aisec-aide-basel
 install -m 0644 -o root -g root "$here/aisec-aide-check.service" "$here/aisec-aide-check.timer" /etc/systemd/system/
 aide --config /etc/aisec/aide.conf --config-check
 systemctl daemon-reload
+# Enabled before the baseline: the link it writes under /etc/systemd/system is
+# in the scope. Started after it: the timer is persistent, so its first start
+# runs the check at once, against the baseline just written.
+systemctl enable aisec-aide-check.timer
 if [ ! -e /var/lib/aisec/aide/aide.db ]; then
   /usr/local/sbin/aisec-aide-baseline
 fi
-systemctl enable --now aisec-aide-check.timer
+systemctl start aisec-aide-check.timer
 systemctl list-timers --no-legend aisec-aide-check.timer
