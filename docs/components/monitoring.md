@@ -4,7 +4,7 @@ Logs and load from the orchestrator, the edge, and the router, kept in a Log Ana
 
 | | |
 | --- | --- |
-| State | Built on 2026-10-17 and 2026-10-18. Verified by `O.1` to `O.17` ([validation](../validation/monitoring.md), [worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring)). Each alert rule fired once on purpose ([drills](../worklogs/0004-edge-network-and-monitoring.md#the-drills)), `denied-flow-to-internet` last, on 2026-10-21 ([worklog](../worklogs/0003-toolchain-integration.md#the-alert-fires)). `daily-cap` fired on 2026-10-19, and the cap is set from the day measured then ([the measured day](../worklogs/0004-edge-network-and-monitoring.md#the-measured-day-and-the-daily-cap)). Traffic analytics processes the platform network's flow log since 2026-10-20. `denied-flow-to-internet` matched no public address until a fix on 2026-10-21 ([troubleshooting 13](../troubleshooting/13-the-denied-flow-alert-matches-no-public-address.md)) |
+| State | Built on 2026-10-17 and 2026-10-18. Verified by `O.1` to `O.17` ([validation](../validation/monitoring.md), [worklog](../worklogs/0004-edge-network-and-monitoring.md#monitoring)). Each alert rule fired once on purpose ([drills](../worklogs/0004-edge-network-and-monitoring.md#the-drills)), `denied-flow-to-internet` on 2026-10-21 ([worklog](../worklogs/0003-toolchain-integration.md#the-alert-fires)), and the three host audit rules on 2026-10-31 ([worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)). `daily-cap` fired on 2026-10-19, and the cap is set from the day measured then ([the measured day](../worklogs/0004-edge-network-and-monitoring.md#the-measured-day-and-the-daily-cap)). Traffic analytics processes the platform network's flow log since 2026-10-20. `denied-flow-to-internet` matched no public address until a fix on 2026-10-21 ([troubleshooting 13](../troubleshooting/13-the-denied-flow-alert-matches-no-public-address.md)) |
 | Runs on | The Azure Monitor Agent on the orchestrator, the edge, and the router. The workspace, the Private Link Scope, and both collection endpoints are Azure resources in the platform group |
 | Software | Azure Monitor Agent, extension `1.45`. Azure served `1.45.1` on 2026-10-17 |
 | Version | The minor version is pinned in `monitor_agent_version`, with automatic upgrades off. Azure picks the patch release within it, which the extension cannot pin |
@@ -21,6 +21,7 @@ Logs and load from the orchestrator, the edge, and the router, kept in a Log Ana
 | Orchestrator | `/var/log/aisec/worker-journal.jsonl`, the worker's journal copy | `AisecWorkerJournal_CL` |
 | Edge | `/var/log/squid/access.log`, both clients, refusals included | `AisecSquidAccess_CL` |
 | All three | `auth` and `authpriv` from info, `user` from notice, `kern` and `daemon` from warning | `Syslog` |
+| Orchestrator | `local6` from info: the audit daemon's records and the AIDE check's lines ([host audit](../validation/host-audit.md)). The worker's are in its journal copy | `Syslog` |
 | All three | CPU, memory, and disk use, every 60 seconds | `Perf` |
 | All three | The agent's own heartbeat | `Heartbeat` |
 
@@ -53,8 +54,11 @@ In `infra/platform/alerts.tf`, on the workspace. Each fires once when its condit
 | `daily-cap` | The daily cap was reached | 1 | 15 min, 15 min |
 | `disk-or-memory` | `/`, `/boot`, or `/boot/efi` over 85 percent, or memory over 90 percent | 2 | 15 min, 15 min |
 | `failed-unit` | A systemd unit failed | 2 | 5 min, 15 min |
+| `audit-config-write` | The audit daemon recorded a write to one of the platform's own files, on either VM | 2 | 5 min, 15 min |
+| `aide-report` | The AIDE check found a difference, failed, or a baseline was written, on either VM | 2 | 15 min, 30 min |
+| `aide-check-missing` | No AIDE check line from the orchestrator or the worker for 26 hours | 2 | 1 h, 2 days |
 
-A check run fires `squid-refused-orchestrator`, `ssh-login-accepted`, and `denied-flow-to-internet` on purpose: `P.15`, the logins themselves, and the connections to `1.1.1.1:443` in `C.1` and `E.12`.
+A check run fires `squid-refused-orchestrator`, `ssh-login-accepted`, and `denied-flow-to-internet` on purpose: `P.15`, the logins themselves, and the connections to `1.1.1.1:443` in `C.1` and `E.12`. An install step that writes a platform file fires `audit-config-write`, and a new AIDE baseline `aide-report` ([host audit runbook](../runbooks/host-audit.md)).
 
 The audit lines that fire `audit-sequence` and `copy-marker` in a drill go to `/var/log/aisec/alert-drill.jsonl`, which the same rule collects into the audit table. Their `start` begins with `drill-`. The real copy keeps no false line.
 

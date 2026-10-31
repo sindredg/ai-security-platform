@@ -1,8 +1,8 @@
 # Host audit: operator procedure
 
-Status: Written on 2026-10-31, not run. The live run fills in this line.
+Status: Implemented on 2026-10-31, when steps 1 to 8 ran on the live system in three passes from 05:14 UTC: the first found three faults in step 3's files, which were fixed and installed again on the worker at 06:15 UTC and on the orchestrator at 06:25 UTC, after a first attempt there stopped on a bus error. Step 9 ran at 07:07 UTC and step 10 as the new baselines; steps 11 and 12 have not run. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit).
 
-The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)). Steps 1 to 8 install both on a built machine and show each catching something; steps 9 to 11 are what comes after: a new baseline, a rebuilt VM, and the removal. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit).
+The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)). Steps 1 to 8 install both on a built machine and show each catching something; steps 9 to 12 are what comes after: the login scripts, a new baseline, a rebuilt VM, and the removal. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit).
 
 ## Inputs and access
 
@@ -46,7 +46,7 @@ The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../deci
    done
    ```
 
-   Expected, on each: the two package lines, `auditd 1:4.1.2-1build1` and `aide 0.19.2-3` as the archive served them on 2026-10-31; `enabled 1`, a `pid`, and `lost 0`; `rules loaded: 24` on the orchestrator and `27` on the worker; `syslog plugin: 1`; nothing from the configuration check; `baseline entries=N database=sha256:...`; and the timer's next run. The install's own writes under `/etc/audit`, `/etc/aisec`, `/usr/local/sbin`, and `/etc/systemd/system` are the first records with the key `aisec-config`, and fire `audit-config-write` within 15 minutes.
+   Expected, on each: the two package lines, `auditd 1:4.1.2-1ubuntu0.1` and `aide 0.19.2-3` as the archive served them on 2026-10-31; `enabled 1`, a `pid`, and `lost 0`; `rules loaded: 24` on the orchestrator and `27` on the worker; `syslog plugin: 1`; nothing from the configuration check; `baseline entries=N database=sha256:...`; and the timer's next run. The install's own writes under `/etc/audit`, `/etc/aisec`, `/usr/local/sbin`, and `/etc/systemd/system` are the first records with the key `aisec-config`, and fire `audit-config-write` within 15 minutes. On a machine with the install already, the baseline is kept, and a check against it reads `added=0 removed=0 changed=0` only if nothing changed since.
 
 4. Copy the worker's baseline to the orchestrator, and compare.
 
@@ -79,7 +79,7 @@ The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../deci
      sed "s/.* \(auid=[^ ]*\) \(uid=[^ ]*\).* \(comm=[^ ]*\).*/\1 \2 \3/" | sort | uniq -c'
    ```
 
-   Expected: `Succeeded`, and `SYSCALL` records with the key `aisec-exec` in two shapes: the job runner in the job account's session (`auid=aisec-job`), and the job's unit as a dynamic user (`python3` and `goose`, with a numeric `uid` in 61184 to 65519 and no login user ID). The names and their counts are read here for the first time.
+   Expected: `Succeeded`, and `SYSCALL` records with the key `aisec-exec` in three shapes, as read on 2026-10-31: the job runner and `bash` as `aisec-job` in the job account's session; about forty programs as root in the same session, `run-parts`, `landscape-sysinfo`, and the scripts under `/etc/update-motd.d`, which PAM runs at every login; and the job's unit as the dynamic user `aisec-agent-job`, `python3` and `goose`, with no login user ID.
 
 7. Read the workspace and the alerts, about 15 minutes after step 5.
 
@@ -94,15 +94,27 @@ The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../deci
      --query "value[?contains(properties.essentials.alertRule, 'audit-config') || contains(properties.essentials.alertRule, 'aide')].[properties.essentials.alertRule, properties.essentials.monitorCondition, properties.essentials.startDateTime]" -o tsv
    ```
 
-   Expected: `Syslog` rows from `aisec-orchestrator` on `local6` from the plugin and from `aisec-aide`, the orchestrator's four check and baseline lines among them; worker journal rows with facility `22` from the same two identifiers; `audit-config-write` and `aide-report` `Fired`, and `aide-check-missing` `Resolved`. The plugin's identifier is read here for the first time.
+   Expected: `Syslog` rows from `aisec-orchestrator` on `local6` from `audispd`, the plugin's identifier, and from `aisec-aide`, the orchestrator's baseline and check lines among them; worker journal rows with facility `22` from the same two identifiers, about five minutes behind; `audit-config-write` and `aide-report` `Fired`. `aide-check-missing` fired after step 1 and stays `Fired` for some hours after the first check lines: a stateful rule on an hourly schedule resolves only after its condition has been clear for several evaluations.
 
 8. Run every check with the targets checkout named ([validation](../validation/README.md)).
 
-   Expected: `F.1` to `F.7`, `O.14`, and `O.18` pass, and every other check with them.
+   Expected: `F.1` to `F.7`, `O.14`, and `O.18` pass, and every other check with them, 437 in all.
+
+## The message-of-the-day scripts
+
+9. Make the scripts under `/etc/update-motd.d` non-executable on both VMs, then write a new baseline on each as in step 10. PAM runs every executable script there as root at each login, the journal pull's every five minutes included, and the daemon recorded about forty programs a login on 2026-10-31; first boot does this on a rebuilt VM.
+
+   ```bash
+   for host in aisec-orchestrator aisec-worker; do
+     REPLACE_WITH_SSH $host 'sudo chmod 644 /etc/update-motd.d/*; find /etc/update-motd.d -type f -perm /111 | wc -l'
+   done
+   ```
+
+   Expected: `0` on each, and the next check reports the scripts as changed, mode only, until the new baseline. The next pull's session on the worker leaves `sh`, `env`, `run-parts`, `bash`, and `journalctl` in the record, and no script, and `F.8` and `F.9` pass. The router, the edge, and the targets keep their scripts: no audit daemon runs there.
 
 ## After an install step, or a package upgrade
 
-9. Run the check, read the report against the step's files or the upgrade log, then write the new baseline. For the worker, copy it to the orchestrator as in step 4.
+10. Run the check, read the report against the step's files or the upgrade log, then write the new baseline. For the worker, copy it to the orchestrator as in step 4.
 
    ```bash
    HOST=REPLACE_WITH_HOST
@@ -117,13 +129,13 @@ The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../deci
 
 ## A rebuilt VM
 
-10. First boot installs both and writes a baseline over what exists then. After the runbook steps that install the rest, the model server and the agent runtime on the worker, the copiers and the collection on the orchestrator, run step 3 for that VM again, so the rules load with every watched directory in place, then step 9, and for the worker step 4.
+11. First boot installs both and writes a baseline over what exists then. After the runbook steps that install the rest, the model server and the agent runtime on the worker, the copiers and the collection on the orchestrator, run step 3 for that VM again, so the rules load with every watched directory in place, then steps 9 and 10, and for the worker step 4.
 
-    Expected: as steps 3, 9, and 4.
+    Expected: as steps 3, 9, 10, and 4.
 
 ## Remove
 
-11. Stop the timer, remove the files and the packages, and revert the Terraform change of step 1.
+12. Stop the timer, remove the files and the packages, and revert the Terraform change of step 1.
 
     ```bash
     HOST=REPLACE_WITH_HOST
@@ -136,4 +148,4 @@ The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../deci
       sudo DEBIAN_FRONTEND=noninteractive apt-get remove -y -q auditd aide'
     ```
 
-    Expected: `F.1` to `F.7` fail on absence, and `O.14` and `O.18` until the revert is applied. Not run.
+    Expected: `F.1` to `F.7` fail on absence, and `O.14` and `O.18` until the revert is applied. `F.8` and `F.9` stay. Not run.

@@ -9,13 +9,16 @@ The terms these docs use, what each means in this project, and the name it has i
 | Agent runtime | Goose and the job program that runs it on the AI worker | `worker/agent-runtime/` |
 | Agent's output | What the agent returns. For a NetBox job, a structured output, from which the job program writes the lines the verification gate reads | The result's `answer` field, "the answer" |
 | Assume breach | The design treats the AI worker as compromised from the start, and limits its credentials and network access | |
+| Baseline (AIDE) | The database the daily check compares the file system with, written by hand after an install step. The worker's has a copy on the orchestrator | `/var/lib/aisec/aide/aide.db`, `aisec-aide-baseline` |
 | Defense in depth | Each step between the agent's output and NetBox checks it again on the trusted side ([table](components/agent-job.md#after-the-output)) | |
 | Deterministic checks | Two code checks of an account's access: configured, from its permissions, and observed, from what its token returns | `N.14`, `N.17`, `netbox_access.py`, "the checks" |
 | Eval, eval set, eval run | Evaluation of the agent on held-out cases. The eval set is those cases, and an eval run is one pass over them | `collectors/netbox/cases.json`, "scored cases", "scored run" |
+| File integrity monitoring (FIM) | A daily comparison of the file system with a baseline: mode, owner, size, times, a hash, and attributes of each file in scope. AIDE on both VMs ([ADR 0054](decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)) | `platform/host-audit/`, "AIDE" |
 | Fail side | A run of a check or drill against a broken input, or while the state it guards against holds, which has to fail before a pass counts | |
 | Fail closed | A step that stops on anything it cannot confirm, instead of going on | |
 | Ground truth | The deterministic checks' verdicts, which scoring takes as right | |
 | Guardrails | The checks around the model that it cannot change: the schema, the verification gate, the policy, the staging test, and the approval | |
+| Host audit | The audit daemon's records on a VM: writes to the platform's own files, programs run by jobs, and programs run as root by the operator, each sent to syslog | `platform/host-audit/`, the keys `aisec-config`, `aisec-exec`, `aisec-root` |
 | Held-out cases | Variants of the access specification that the task was never tuned on | The case names in `cases.json` |
 | Human-in-the-loop approval | The operator's tag, signed with the approval key, on the exact commit. The only approval | `approve/netbox/NAME` tags |
 | JIT egress window | Just-in-time egress: an operator command opens code and package hosts on the edge VM for at most 60 minutes | `aisec-fetch-window`, `edge/fetch-hosts`, "fetch window" |

@@ -16,7 +16,7 @@ In progress. The drills run in slices, each a pull request of code and expectati
 | Forged and stale target evidence | **Verified**: a stale item refused before the job, a forged item trusted to the verification gate and stopped there ([result](#stale-and-forged-checks-verdicts)) |
 | Cleanup verification and measured resource use per investigation | **Verified**: cleanup, the same reads showing a job during it and nothing after ([result](#slice-6-what-a-job-leaves)); resource use of the machine, the long-lived pods ([result](#resource-use-per-investigation)), and the dispatch pod ([#176](https://github.com/sindredg/ai-security-platform/issues/176), [result](#the-record-job-and-the-footprint)) |
 | The incident response runbook, run for three cases | **Verified**: containment and rotation for a compromised worker, a compromised target, and a leaked credential, and a restore on the staging copy ([result](#the-result-for-the-three-cases)). **Written**: the replacement steps, each a rebuild ([runbook](../runbooks/incident-response.md)) |
-| An audit daemon and file integrity monitoring on both VMs, with a drill each | **Planned**: after the drills without an apply |
+| An audit daemon and file integrity monitoring on both VMs, with a drill each | **Verified**: on both VMs the daemon recorded a drill's write, a dynamic user's program, and the operator's commands, and AIDE reported a drill's file, each in the workspace ([result](#the-third-pass-and-the-workspace)) |
 | A rebuild of each VM from the current templates | **Planned**: last. An accepted gap if the subscription window ends first |
 | Operator sessions to the targets in the audit log (T04) | **Verified**: one session, one workspace row ([result](#operator-sessions-to-the-targets)) |
 | The KV-cache clear after a job that timed out ([#199](https://github.com/sindredg/ai-security-platform/issues/199)) | **Verified**: the slot erased 14 seconds after the cancel ([result](#a-job-that-times-out)) |
@@ -365,3 +365,47 @@ After the install: `rules loaded: 24` on the orchestrator and `27` on the worker
 In the workspace: `Syslog` rows on `local6` from the orchestrator, worker journal rows with facility `22`, `audit-config-write` and `aide-report` fired, `aide-check-missing` resolved. Then every check passes, 437 of 437, eight more than the last run.
 
 Reasoned and not observed before the run: the number of entries in each baseline and the time the orchestrator's takes over `/usr/lib`; the syslog identifier of the plugin's lines; the shape of AIDE's summary lines the check parses; whether the unit's private `/dev` leaves `/dev/log` to `logger`; which of the system's files the first daily check reports as changed; the day's volume of records against the cap.
+
+### The first run
+
+Result, 2026-10-31 05:32 to 05:52 UTC, on the live system. Before the install every check but the new ones passed, 429 of 437, with `F.1` to `F.7` failing on empty values and `O.18` on the source the apply of 05:14 UTC had not yet reached the check (`O.14` passed with the three new rules). The drill failed all eleven probes on both VMs, `== 11 failed` twice, each on `0` or `nothing`.
+
+The install took 05:42 to 05:45 UTC for both VMs, with the archive serving `auditd 1:4.1.2-1ubuntu0.1` and `aide 0.19.2-3`, the first a security update past the index's `1build1`. Each VM read `enabled 1`, `lost 0`, `rules loaded: 24` and `27`, `syslog plugin: 1`, then a baseline of 31,458 entries on the orchestrator and 32,669 on the worker, and the worker's copy on the orchestrator hashed the same. `auditctl` printed its slower-watch warning for every `-w` rule, and `augenrules` the kernel's status three times.
+
+The drill then passed all eight audit probes on both VMs: four `SYSCALL` records with `aisec-config` and three `PATH` records naming the file, one `aisec-exec` record for `true`, and `aisec-root` records for `install`, in the daemon's log and in the journal alike. The AIDE probe failed on both check lines: `added=2 removed=0 changed=6` and then `added=1 removed=0 changed=6` on the orchestrator, `changed=3` on the worker.
+
+Three causes, read from the reports. The timer is persistent, so its first start ran the check four seconds after the baseline, and `systemctl enable` had just written the timer's link under `/etc/systemd/system`, the added entry that stayed; that first check also read 7,246 and 9,040 entries as removed, since `ProtectKernelModules` hides `/usr/lib/modules` from the unit. The changed entries were the directories the drill and the install wrote into, whose size and times move with every entry, and on the orchestrator the log agent's working state under its configuration directory.
+
+The synthetic job `syn-10310532` ran 05:50:33 to 05:52:21 UTC and `Succeeded`, with `register`, one `call`, and `revoke` as `seq` 502 to 504 in the audit file. The worker recorded 60 `SYSCALL` records with `aisec-exec` in that window: the job runner and `bash` in the job account's session, `python3` and `goose` as the dynamic user `aisec-agent-job`, and about forty programs run as root in the same session, `run-parts`, `landscape-sysinfo`, and every script under `/etc/update-motd.d`. The login's PAM session runs the message-of-the-day scripts as root for the dispatch login, which nothing displays.
+
+The workspace held 4,419 `Syslog` rows on `local6` from the orchestrator by 05:52 UTC, from `audispd`, and four from `aisec-aide`: the plugin's identifier is `audispd`, not the reasoned `audisp-syslog`. The run's own third query failed on a syntax error, and the script stopped there, before the alert read and the checks after. The fixes went into the next commit: the unit without `ProtectKernelModules`, a directory rule without size, times, link count, or hash, the timer enabled before the baseline and started after it, the agent's state out of the orchestrator's scope, the rules in the `-F dir=` form, and the query's two columns renamed.
+
+### The second run
+
+Result, 2026-10-31 06:15 UTC onward, on the live system, with the fixed files. On the worker the install loaded 27 rules with no warning, the new baseline held 32,670 entries, and the unit's check against it, started by hand, read `added=0 removed=0 changed=0`: the kernel modules were in the unit's view. The worker's new baseline was copied to the orchestrator, and the drill passed all eleven probes, `== 0 failed`, with `added=1 removed=0 changed=0` for the drill's file and `added=0 removed=0 changed=0` after its removal.
+
+On the orchestrator the install printed the two package lines, then `Bus error`, and stopped: the rules file was the new one and loaded, but the unit and the configuration stayed the first run's, which the drill then read as `changed=5` on both check lines and the unit's check as 7,246 removed. The kernel log and the journal held no line for the crash, and every command of the install passed when run one by one at 06:25 UTC. The install names the failed command now, and the orchestrator was done again in a third pass.
+
+### The third pass and the workspace
+
+Result, 2026-10-31 06:25 to 06:49 UTC, on the live system. The orchestrator's install went through with the two package lines, 24 rules, one plugin process, and the installed unit and configuration hashing as the checkout's. The new baseline held 31,428 entries, 31 fewer than the first with the agent's state out of scope, and the unit's check against it, started by hand, read `added=0 removed=0 changed=0`.
+
+The drill then passed all eleven probes on the orchestrator too, `== 0 failed`, with `added=1 removed=0 changed=0` for its file and `added=0 removed=0 changed=0` after the removal, at 06:26:29 and 06:26:33 UTC in the workspace's `Syslog` rows. Every check at 06:41 to 06:49 UTC passed but `O.18`, 436 of 437, with `F.1` to `F.7` and `O.14` among them. `O.18` read `local6` without the level: the CLI prints a list of two strings as two lines, and the check compared the first; with the query joining them, every check passed at 06:52 to 07:02 UTC, 437 of 437, before the two checks the login scripts added.
+
+In the workspace by 06:40 UTC: 17,500 `Syslog` rows on `local6` from the orchestrator, 17,486 from `audispd` and 14 from `aisec-aide`, and 14,734 rows with facility `22` in the worker's journal copy, 14,724 from the plugin and 10 from `aisec-aide`. Each VM's baseline and check lines were among them, the worker's about five minutes after their time.
+
+The orchestrator's `SYSCALL` rows carried the keys `aisec-root` 1,836 times, `aisec-config` 88, and `aisec-exec` 3; 564 carried none: the daemon's and `auditctl`'s own sends on the audit socket while the rules loaded, read from two of them. The worker's: `aisec-root` 1,045, `aisec-exec` 715, `aisec-config` 84, and 248 with none.
+
+The three alert rules fired: `aide-report` at 05:46:03 UTC on the first run's check lines, `audit-config-write` at 05:46:24 on the install's writes, and `aide-check-missing` at 05:18:07, four minutes after the apply, with no check line yet. None had resolved by 06:49: the first two kept their condition through the three passes, and a stateful rule on an hourly schedule resolves only after its condition has been clear for several evaluations.
+
+The volume is the finding of the day. The 3 hours of `local6` rows billed 5.95 MB in `Syslog` and 23.7 MB in the worker's journal copy, where each record is one journal entry of about 1.6 KB with every field, and an event is seven records.
+
+On the worker 838 of the day's 2,757 `SYSCALL` records by 06:41 carried `aisec-exec`, most of them the message-of-the-day scripts that PAM runs as root at each login of the export account, every five minutes for the journal pull: about 70 records a pull, about 20,000 a day, which alone would pass the workspace's daily cap. The operator's commands, `aisec-root`, were 1,535 records on the worker and 2,860 on the orchestrator, most from the three check runs.
+
+### The login scripts
+
+A `.hushlogin` in the export account's root-owned home, written at 06:53 UTC, changed nothing: the two pulls after it left the same `landscape-sysinfo`, `run-parts`, and script records as the two before, so PAM's update run does not read that file. The fix with a precedent here is the one [#124](https://github.com/sindredg/ai-security-platform/issues/124) took for the release check: the scripts under `/etc/update-motd.d` lose their execute bit on both VMs, at first boot too, and `F.8` and `F.9` read that none has one. The checks read what the scripts showed, and the router, the edge, and the targets keep theirs.
+
+Result, 2026-10-31 07:07 to 07:34 UTC, on the live system. Each VM had 11 executable scripts under `/etc/update-motd.d`, and `0` after the change; the AIDE check then reported 12 changed entries, the scripts' modes and change times, and the new baselines, 31,428 and 32,670 entries, read `added=0 removed=0 changed=0` from the unit, with the worker's copy equal. The two pulls after the change left `sh`, `env`, `run-parts`, `bash`, the export command, and `journalctl` in the record, and no script; the pull before them, the full set once more.
+
+Then every check passed at 07:25 to 07:34 UTC, 439 of 439, with `F.8` and `F.9` new and `F.1` to `F.7` and `O.18` among them. The alerts had not been read again by then.

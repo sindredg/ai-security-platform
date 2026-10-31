@@ -29,6 +29,10 @@ It is not part of the cluster. It downloads nothing at first boot, because it ha
 
 SSH from the orchestrator subnet, and nothing else. The administrator account takes only the operator's certificate ([ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md), `HW.17`). The orchestrator's feed key logs in to `aisec-feed`, which has no sudo and can only unpack staged files into its own directory ([ADR 0026](../decisions/0026-the-feed-key-gets-its-own-account-on-the-worker.md), `E.9` to `E.11`). Both since 2026-10-16. The orchestrator's log export key goes on the `aisec-logexport` account and can run only the journal export ([audit log](../security/audit-log.md#the-workers-journal)). In place since 2026-10-16 (`J.7`).
 
+## The host audit
+
+The audit daemon records writes to the platform's own files, the programs a job runs in the job account's session and as a dynamic user, and the operator's root commands, each to syslog, which leaves with the journal copy. AIDE compares the system's programs, `/etc`, `/usr/local`, `/opt/aisec`, and the three accounts' homes with a baseline daily, and the orchestrator keeps a copy of that baseline. Since 2026-10-31 (`F.4` to `F.7`, [host audit](../validation/host-audit.md), [ADR 0054](../decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)).
+
 ## The model server
 
 llama.cpp v0.7.0, build `b11669`, serves Qwen3.5-4B, quantized to `Q4_K_M`, on `127.0.0.1:8080`. Nothing outside the worker can reach it. The model was kept after an evaluation against two others ([ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md)).
