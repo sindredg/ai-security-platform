@@ -324,7 +324,11 @@ write_files:
       systemctl stop motd-news.timer update-notifier-motd.timer
       systemctl mask esm-cache.service apt-news.service motd-news.timer motd-news.service \
         update-notifier-motd.timer update-notifier-motd.service
-      chmod 644 /etc/update-motd.d/91-release-upgrade
+      # No message-of-the-day script runs at a login: PAM ran each of them as
+      # root at every login, the machine accounts' included, and the audit
+      # daemon recorded about forty programs a login (ADR 0054). The checks
+      # read what the scripts showed.
+      chmod 644 /etc/update-motd.d/*
 
       # K3s. The binary and the install script are both checked before either
       # runs. Both come through the edge, so a fetch window has to be open.

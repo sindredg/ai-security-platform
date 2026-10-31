@@ -314,6 +314,9 @@ echo "aide_timer=$(systemctl is-active aisec-aide-check.timer 2>/dev/null) $(sys
 echo "aide_files=$(sha256sum /etc/aisec/aide.conf /usr/local/sbin/aisec-aide-check /usr/local/sbin/aisec-aide-baseline /etc/systemd/system/aisec-aide-check.service /etc/systemd/system/aisec-aide-check.timer 2>/dev/null | cut -d " " -f 1 | sha256sum | cut -c1-16)"
 echo "aide_baseline=$(stat -c "%U %a" /var/lib/aisec/aide/aide.db 2>/dev/null) $(sha256sum /var/lib/aisec/aide/aide.db 2>/dev/null | cut -c1-16)"
 echo "aide_last_check=$(journalctl -t aisec-aide --since -25h -o cat 2>/dev/null | grep "^check " | tail -n 1 | cut -d " " -f 1-4)"
+# PAM runs every executable script here as root at each login, for the
+# machine accounts too, and the audit daemon records each (ADR 0054).
+echo "motd_scripts=$(find /etc/update-motd.d -type f -perm /111 2>/dev/null | wc -l)"
 '
 
 probe_orchestrator="$probe_common"'
@@ -907,6 +910,7 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
     "active enabled $AIDE_ORCH_SHA" "$(value aide_timer) $(value aide_files)"
   check F.3 "The orchestrator is at its AIDE baseline, checked within a day" \
     "root 600 check added=0 removed=0 changed=0" "$(value aide_baseline | cut -d " " -f 1,2) $(value aide_last_check)"
+  check F.8 "No message-of-the-day script runs at a login on the orchestrator" 0 "$(value motd_scripts)"
   WORKER_AIDE_COPY=$(value worker_aide_copy)
   common_checks HO
 else
@@ -1040,6 +1044,7 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
     "root 600 check added=0 removed=0 changed=0" "$(value aide_baseline | cut -d " " -f 1,2) $(value aide_last_check)"
   check F.7 "The worker's AIDE baseline is the copy the orchestrator holds" \
     "${WORKER_AIDE_COPY:-no copy on the orchestrator}" "$(value aide_baseline | cut -d " " -f 3)"
+  check F.9 "No message-of-the-day script runs at a login on the worker" 0 "$(value motd_scripts)"
   common_checks HW
 else
   check A.6 "Reachable through the subnet router with the operator certificate" yes no

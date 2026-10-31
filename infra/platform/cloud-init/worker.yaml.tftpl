@@ -170,7 +170,10 @@ runcmd:
   # first: masking the service under a running timer leaves the timer failed.
   - [systemctl, stop, motd-news.timer, update-notifier-motd.timer]
   - [systemctl, mask, esm-cache.service, apt-news.service, motd-news.timer, motd-news.service, update-notifier-motd.timer, update-notifier-motd.service]
-  - [chmod, "644", /etc/update-motd.d/91-release-upgrade]
+  # No message-of-the-day script runs at a login: PAM ran each of them as
+  # root at every login, the journal pull's every five minutes included, and
+  # the audit daemon recorded about forty programs a login (ADR 0054).
+  - [sh, -c, "chmod 644 /etc/update-motd.d/*"]
   - [/usr/local/lib/aisec/install/install-log-export.sh]
   - [/usr/local/lib/aisec/install/install-feed-account.sh]
   # The audit daemon, with its records to syslog, and AIDE's first baseline
