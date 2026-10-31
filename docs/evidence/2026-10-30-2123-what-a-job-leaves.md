@@ -2,7 +2,7 @@
 
 # What a job leaves
 
-Milestone 6, 2026-10-30. [All run sets](README.md), [previous: Instructions in the evidence](2026-10-30-1502-instructions-in-the-evidence.md).
+Milestone 6, 2026-10-30. [All run sets](README.md), [previous: Instructions in the evidence](2026-10-30-1502-instructions-in-the-evidence.md), [next: Incident response](2026-10-30-2308-incident-response.md).
 
 **Tested:** Whether a dispatched job leaves a unit, files, processes, a session, a dynamic user, a slot, or a key copy on either machine after its workflow ends.
 

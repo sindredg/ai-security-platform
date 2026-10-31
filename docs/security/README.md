@@ -16,15 +16,8 @@ The method is in [ADR 0010](../decisions/0010-threat-model-and-security-checks-p
 | [Supply chain](supply-chain.md) | Which artifacts are pinned, where each pin is checked before the artifact runs, and which signatures are checked | Read from the code and the release pages. No SBOM |
 | [Accepted risks and open items](accepted-risks.md) | Risks carried on purpose, and threats that no decision covers yet | Current. The converter's seven advisories are accepted on a search of its source, not a traced run |
 | [Audit log](audit-log.md) | Where the tool service (an MCP server)'s audit lines are stored, and who can change them | Verified: both copies on the orchestrator (`L`, `J` checks) and in Azure Monitor |
-| [Lab against production](lab-vs-production.md) | Controls to retain, lab limitations, and risks that production infrastructure cannot remove | Current through milestone 5 |
-
-## Planned topics
-
-No page yet. Each gets one when the milestone that builds it starts.
-
-| Topic | Question it answers | Milestone |
-| --- | --- | --- |
-| Incident response | What to do about a compromised worker, a compromised target, or a leaked credential | 6 |
+| [Lab against production](lab-vs-production.md) | Controls to retain, lab limitations, and risks that production infrastructure cannot remove | Current through milestone 5, with the incident response row of milestone 6 |
+| [Incident response](../runbooks/incident-response.md) | What to do about a compromised worker, a compromised target, or a leaked credential: detect, contain, rotate or restore, replace | Containment and rotation run once on 2026-10-30, with a restore on the staging copy. Replacement is a rebuild, written and not run |
 
 ## Validation evidence
 

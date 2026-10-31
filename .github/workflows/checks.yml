@@ -429,6 +429,13 @@ jobs:
           cd platform/change
           PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
 
+      # The incident response drills read NetBox through the collector's
+      # client, from the directory it is installed in on the orchestrator.
+      - name: Test the drills that read NetBox
+        run: |
+          cd validation/drills
+          PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
+
   dispatch-tests:
     name: Dispatch tests
     runs-on: ubuntu-26.04

@@ -1,0 +1,134 @@
+{
+ "title": "The incident response runbook",
+ "short": "Incident response",
+ "milestone": 6,
+ "tested": "Whether a running job's worker can be contained, the dispatch key rotated, the platform's reads of a target held and restored, and a leaked token revoked and replaced.",
+ "changed": "The incident response runbook and two drills that read NetBox through the collector's client, since `81e52e4`. Nothing in the platform's code changed.",
+ "setup": [
+  [
+   "Model",
+   "Qwen3.5-4B, thinking off"
+  ],
+  [
+   "Agent",
+   "Goose 1.56.0"
+  ],
+  [
+   "Task",
+   "`collectors/netbox/task.txt` at `f09ad0b` for the NetBox job, on the seed's access specification with the device; the fixture's question for the synthetic job"
+  ],
+  [
+   "Limits",
+   "1200 seconds and 8 turns for the NetBox job, 600 and 8 for the synthetic one"
+  ]
+ ],
+ "source": "Live system, 2026-10-30 23:08 to 23:18 UTC and 23:22 to 23:32 UTC. Each workflow as Argo kept it, read as it ended, the collect command's output, and the audit lines. The drills' own lines are in the worklog.",
+ "links": [
+  [
+   "Worklog",
+   "../worklogs/0007-operational-and-containment-drills.md#slice-7-the-incident-response-runbook"
+  ],
+  [
+   "Runbook",
+   "../runbooks/incident-response.md"
+  ]
+ ],
+ "jobs": [
+  {
+   "job": "nb-10302308-stopped",
+   "target": "netbox",
+   "case": null,
+   "limits": {
+    "seconds": 1200,
+    "turns": 8
+   },
+   "started": "2026-10-30T23:10:32Z",
+   "finished": "2026-10-30T23:12:42Z",
+   "phase": "Failed",
+   "message": "child 'nb-10302308-stopped-2922585471' failed",
+   "steps": [
+    {
+     "step": "dispatch",
+     "phase": "Failed",
+     "message": "main: Error (exit code 1)",
+     "started": "2026-10-30T23:10:32Z",
+     "finished": "2026-10-30T23:12:22Z"
+    },
+    {
+     "step": "revoke",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-30T23:12:32Z",
+     "finished": "2026-10-30T23:12:37Z"
+    }
+   ],
+   "result": null,
+   "checks": {
+    "inventory-reader": [
+     "within",
+     "within"
+    ],
+    "inventory-reader-control": [
+     "within",
+     "within"
+    ]
+   },
+   "comparison": null,
+   "calls": [],
+   "answer": "",
+   "note": "Stopped by the operator at 23:12 UTC as the containment of a compromised worker: the registration revoked, then the job's unit stopped under it ([runbook](../runbooks/incident-response.md#a-compromised-worker), step 2). The dispatch step failed on the closed session, 110 seconds in, before the agent's first tool call."
+  },
+  {
+   "job": "syn-10302308",
+   "target": "synthetic",
+   "case": null,
+   "limits": {
+    "seconds": 600,
+    "turns": 8
+   },
+   "started": "2026-10-30T23:13:27Z",
+   "finished": "2026-10-30T23:15:24Z",
+   "phase": "Succeeded",
+   "message": "",
+   "steps": [
+    {
+     "step": "dispatch",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-30T23:13:27Z",
+     "finished": "2026-10-30T23:15:04Z"
+    },
+    {
+     "step": "revoke",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-10-30T23:15:14Z",
+     "finished": "2026-10-30T23:15:18Z"
+    }
+   ],
+   "result": {
+    "status": "completed",
+    "seconds": 92.1,
+    "agent_status": "completed",
+    "tool_calls": 1,
+    "tool_errors": 0,
+    "input_tokens": 2317,
+    "output_tokens": 115,
+    "slot_erased": true
+   },
+   "checks": null,
+   "comparison": null,
+   "calls": [
+    {
+     "at": "2026-10-30T23:14:39Z",
+     "tool": "get_evidence",
+     "argument": "ev-0001",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 312
+    }
+   ],
+   "answer": "The finding is confirmed. The token 'consumer-readonly' has granted access to four object types (dcim.device, ipam.prefix, tenancy.contact, circuits.circuit) but only needs access to two (dcim.device, ipam.prefix). It has unnecessary access to tenancy.contact and circuits.circuit.\n\nStatus: confirmed\nExcess: tenancy.contact, circuits.circuit"
+  }
+ ]
+}

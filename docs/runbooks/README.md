@@ -22,3 +22,4 @@ One operator procedure per milestone, or per slice of a milestone that is built 
 | [Evidence collection and the verification gate for a NetBox job](evidence-collection.md) | 4 | Implemented on 2026-10-25. Run once, on the live system, from two scripts, and the install and one collection again after fixes from a review. The verification gate's steps ran the same day. Undo and the steps after a rebuild not run |
 | [Test evidence](test-evidence.md) | Any | Implemented on 2026-10-26. The records of 18 run sets, built from saved output and from the live system |
 | [Containment drills](containment-drills.md) | 6 | Ran on 2026-10-28 to 2026-10-30, on the live system |
+| [Incident response](incident-response.md) | 6 | Ran on 2026-10-30, on the live system, in two runs. The replacement steps are rebuilds, written and not run |

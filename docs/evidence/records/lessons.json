@@ -199,6 +199,27 @@
     "2026-10-30-2123-what-a-job-leaves#nb-10302123-record"
    ],
    "change": "None in the service: a kept entry refuses its token as `revoked token`. The containment drills runbook reads the audit log's revoke line instead of revoking again ([worklog](../worklogs/0007-operational-and-containment-drills.md#slice-6-what-a-job-leaves))."
+  },
+  {
+   "finding": "A job's unit stopped under it wrote no outcome line. The dispatch step failed on the closed session, and the token had been revoked before the stop.",
+   "change": "None in the code. The incident response runbook revokes first, then stops the unit, and reads systemd's lines in place of the job program's ([runbook](../runbooks/incident-response.md#a-compromised-worker)).",
+   "runs": [
+    "2026-10-30-2308-incident-response#nb-10302308-stopped"
+   ]
+  },
+  {
+   "finding": "NetBox's journal holds the web server's request line for a refused token: the address and the status. The reason came in the answer.",
+   "change": "None. The runbook reads the request line on the target and the reason from the answer ([runbook](../runbooks/incident-response.md#a-leaked-credential)).",
+   "runs": [
+    "2026-10-30-2308-incident-response"
+   ]
+  },
+  {
+   "finding": "The first run's token hold moved nothing: the operator's shell could not expand a pattern inside root's directory, the command's exit was its last step's, and the collection passed.",
+   "change": "The hold and its undo run in root's shell, and the runbook says why ([runbook](../runbooks/incident-response.md#a-compromised-target)).",
+   "runs": [
+    "2026-10-30-2308-incident-response"
+   ]
   }
  ]
 }
