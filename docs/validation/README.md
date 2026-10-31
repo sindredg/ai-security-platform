@@ -48,7 +48,7 @@ The script changes nothing. It opens connections that should fail, reads setting
 
 ## Last run
 
-From `78e778f`, ending at 07:34 UTC on 2026-10-31, after the audit daemon and AIDE were installed on both VMs and the login scripts silenced: 439 of 439 passed, `F.1` to `F.9` and `O.18` new ([worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)).
+From `bede4f1`, ending at 08:14 UTC on 2026-10-31, after the audit daemon and AIDE were installed on both VMs and the login scripts silenced: 439 of 439 passed, `F.1` to `F.9` and `O.18` new ([worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)).
 
 Each earlier run is in the worklog of its milestone, with what it was run for: [0002](../worklogs/0002-platform-compute.md), [0003](../worklogs/0003-toolchain-integration.md), [0004](../worklogs/0004-edge-network-and-monitoring.md), [0005](../worklogs/0005-netbox-target-and-exercise-1.md), [0006](../worklogs/0006-remediation-pull-requests-and-delivery.md), and [0007](../worklogs/0007-operational-and-containment-drills.md).
 
