@@ -9,6 +9,9 @@
 # It writes the baseline only where there is none. After an install step the
 # new baseline is aisec-aide-baseline, run by hand.
 set -euo pipefail
+# A failed command stops the script, and this names it: on 2026-10-31 a
+# second install on the orchestrator printed "Bus error" and nothing else.
+trap 'echo "install-host-audit.sh: failed at line $LINENO: $BASH_COMMAND" >&2' ERR
 here="$(cd "$(dirname "$0")" && pwd)"
 role=${1:-$(hostname -s)}
 role=${role#aisec-}
@@ -36,7 +39,8 @@ fi
 
 # The rules, which augenrules reads after the package's own file, and the
 # plugin that sends every record to syslog. The package's syslog.conf stays
-# inactive. A reload starts the plugin; a failed rule stops the script here.
+# inactive. Ubuntu's unit has no reload, so reload-or-restart restarts the
+# daemon, which starts the plugin; a failed rule stops the script here.
 # augenrules prints the kernel's status after loading; its errors still show.
 install -m 0640 -o root -g root "$here/$role.rules" /etc/audit/rules.d/50-aisec.rules
 install -m 0640 -o root -g root "$here/aisec-syslog.conf" /etc/audit/plugins.d/aisec-syslog.conf
