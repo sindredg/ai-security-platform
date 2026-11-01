@@ -2,7 +2,7 @@
 
 # The closing run
 
-Milestone 6, 2026-11-01. [All run sets](README.md), [previous: Worker rebuild](2026-11-01-1516-the-worker-rebuild.md).
+Milestone 6, 2026-11-01. [All run sets](README.md), [previous: Worker rebuild](2026-11-01-1516-the-worker-rebuild.md), [next: After the update](2026-11-01-1828-after-the-netbox-update.md).
 
 **Tested:** Whether an exercise 1 job on the live NetBox still matches the deterministic checks after the worker rebuild and the fixes from the second audit.
 

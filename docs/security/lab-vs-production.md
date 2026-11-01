@@ -82,7 +82,7 @@ The risk column describes what an attacker could do, or what could fail, because
 | The targets ship no logs: no log agent, and no path to the workspace (`VN.19`, `VL.19`) | No standing path out of the target network, and a weak target is expected to be compromised | What happens on a target is seen only on the target, and is lost with a rebuild. Operator sessions to the targets are logged on the router, not seen in the workspace yet (T04) | A log collector inside the target network, or a pull from the trusted side as for the worker |
 | Incident response by hand, from a runbook run once for three cases ([runbook](../runbooks/incident-response.md)) | One operator, one worker, and a target that a rebuild replaces | Containment takes an operator's minutes, and no rebuild has run from the runbook | Automated isolation of a host, and a rebuild pipeline |
 | Lynis audit instead of the planned CIS benchmark | No tool has a CIS profile for the pinned OS release | No CIS benchmark result for the operating system | An OS release with a supported benchmark profile |
-| Some version pins are updated manually | One operator and a short list | Software receives no security fix until its pin is updated | Automated update remediation proposals and scheduled image rebuilds |
+| Some version pins are updated manually | One operator and a short list | Software receives no security fix until its pin is updated. NetBox's image is scanned on each change to the targets repository, not on a schedule (T63) | Automated update remediation proposals, scheduled image rebuilds, and a scheduled scan of every pinned image |
 
 ### Data, repository, and recovery
 

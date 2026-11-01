@@ -32,6 +32,7 @@ The terms these docs use, what each means in this project, and the name it has i
 | Policy as code | The policy check is a program: `platform/change/policy.py` decides whether a proposal goes on | |
 | Prompt injection | Instructions planted in evidence, an advisory, or a tool result, which the model may follow | Threat A1 |
 | Remediation proposal | The agent's proposed fix: one permission to remove from one over-privileged account | `Proposal:` lines, "proposal" |
+| Software bill of materials (SBOM) | The list of every package in an image, with its version. The targets pipeline writes one for NetBox's pinned image, in the CycloneDX format | `netbox-sbom.cdx.json` in the "NetBox image scan" job's artifact |
 | Staging copy, staging test | A second NetBox on the lab VM, reset from a dump before and after each test. A staging test applies a proposal there and runs both deterministic checks | `rehearse.py`, `aisec-rehearse`, `aisec-rehearsal-reset`, the `rehearsal` subnet, "rehearsal" |
 | Structured output | The agent's output in a JSON schema, which Goose checks and the job program checks again | `recipe__final_output`, "final output" |
 | System prompt | The instructions every job starts with | `worker/agent-runtime/system.txt`, "system text" |

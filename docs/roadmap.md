@@ -17,7 +17,7 @@ Security work has no milestone of its own. Each practice is part of the criteria
 | 5. Remediation, pull requests, and delivery | Done | Pipeline tests only: a wider fix refused. Configured, not tested: the copy's routing at first boot. Accepted gap: no held-out case has a fix left to propose ([#220](https://github.com/sindredg/ai-security-platform/issues/220)) | [Worklog](worklogs/0006-remediation-pull-requests-and-delivery.md), [evidence](evidence/README.md) |
 | 6. Operational and containment drills | In progress | Verified: the worker rebuilt from its current template ([worklog](worklogs/0007-operational-and-containment-drills.md#the-worker-rebuild)). Accepted gap: the other five VMs not rebuilt, so their first boot is untested | [Worklog](worklogs/0007-operational-and-containment-drills.md) |
 | 7. Exercise 2: excess network access | Not done | Accepted gap: not run. The subscription window ends about 2026-11-09, and exercise 3 takes the days left | |
-| 8. Exercise 3: vulnerable image or dependency | Planned | | |
+| 8. Exercise 3: vulnerable image or dependency | In progress | Every criterion tested, the review left. Accepted gap: exercise 2 never ran, so its results cannot be rechecked | [Worklog](worklogs/0008-exercise-3-vulnerable-image.md) |
 
 ## 0. Documentation baseline and preflight
 
