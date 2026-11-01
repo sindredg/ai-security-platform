@@ -8,8 +8,10 @@ bundle's proposal.json and the targets repository's open pull requests, as
 the GitHub API lists them, on standard input. Each body is read for the rows
 the propose command writes, one per account with `remove NAME (ID N)`, and a
 row naming an account and permission ID of this bundle's changes is the same
-fix. Nothing is fetched here, and nothing in a body is trusted beyond that
-pattern.
+fix. Only a pull request whose branch is in the targets repository itself
+counts: the repository is public, so anyone can open one from a fork with the
+same rows, and a branch in the repository takes write access. Nothing is
+fetched here, and nothing in a body is trusted beyond that pattern.
 
 Exits 0 when no open pull request holds this fix, 1 when one does, and 2 for
 a call without the proposal or without a JSON list on standard input.
@@ -28,12 +30,24 @@ ROW = re.compile(
 )
 
 
+def same_repository(pull):
+    """Whether the pull request's branch is in the repository it targets. A
+    fork's, or a deleted fork's (GitHub lists its repository as null), is not."""
+    head = (pull.get("head") or {}).get("repo") or {}
+    base = (pull.get("base") or {}).get("repo") or {}
+    name = head.get("full_name")
+    return isinstance(name, str) and name != "" and name == base.get("full_name")
+
+
 def duplicates(changes, pulls):
     """Each open pull request's row that removes an account from a permission
-    the changes remove it from too: number, branch, account, permission ID."""
+    the changes remove it from too: number, branch, account, permission ID.
+    Pull requests from another repository are left out."""
     wanted = {(c["account"], int(c["permission_id"])) for c in changes}
     found = []
     for pull in pulls:
+        if not same_repository(pull):
+            continue
         # GitHub's web editor saves a body with CRLF line endings.
         body = (pull.get("body") or "").replace("\r\n", "\n")
         for account, permission in ROW.findall(body):
@@ -53,7 +67,11 @@ def main(argv, stdin=None):
         print("standard input is not a list of pull requests", file=sys.stderr)
         return 2
     found = duplicates(changes, pulls)
-    print(f"{len(pulls)} open pull request{'' if len(pulls) == 1 else 's'} read")
+    others = sum(1 for pull in pulls if not same_repository(pull))
+    print(
+        f"{len(pulls)} open pull request{'' if len(pulls) == 1 else 's'} read"
+        + (f", {others} from another repository not counted" if others else "")
+    )
     for number, ref, account, permission in found:
         print(
             f"#{number} {ref}: `{account}` loses permission {permission} there already"
