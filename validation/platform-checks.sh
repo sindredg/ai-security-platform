@@ -582,6 +582,7 @@ model_file=$(systemctl show '"$MODEL_UNIT"' -p ExecStart --value 2>/dev/null | s
 echo "model_batch=$(systemctl show '"$MODEL_UNIT"' -p ExecStart --value 2>/dev/null | sed -n "s/.* --batch-size \([0-9]*\) .*/\1/p")"
 # The file the running server process was started with, from its command line.
 echo "model_loaded=$(tr "\0" " " 2>/dev/null < "/proc/$(systemctl show '"$MODEL_UNIT"' -p MainPID --value 2>/dev/null)/cmdline" | sed -n "s/.* --model \([^ ]*\) .*/\1/p")"
+echo "model_reasoning=$(tr "\0" " " 2>/dev/null < "/proc/$(systemctl show '"$MODEL_UNIT"' -p MainPID --value 2>/dev/null)/cmdline" | sed -n "s/.* --reasoning \([^ ]*\) .*/\1/p")"
 echo "model_sum=$(cd "$(dirname "$model_file")" 2>/dev/null && grep "  $(basename "$model_file")\$" SHA256SUMS 2>/dev/null | sha256sum --check --strict --status 2>/dev/null && echo match || echo differ)"
 tool() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 -X POST -d "{}" "$@"; }
 echo "tool_port=$(tcp '"$ORCH_IP"' '"$TOOL_PORT"')"
@@ -993,6 +994,9 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # A cancel reaches the server between prompt batches. A batch longer than the
   # job program's erase wait leaves a timed-out job's prompt in the slot (#199).
   check S.8 "The model server's prompt batch is 512 tokens" 512 "$(value model_batch)"
+  # Thinking is off: the agent runtime sends no switch for it, so the server's
+  # flag decides, read from the running process (ai-worker component page).
+  check S.10 "The model server runs with thinking off" off "$(value model_reasoning)"
   check T.9 "The worker reaches the tool port" open "$(value tool_port)"
   # Through TLS with the pinned certificate and the name in it, to a refusal:
   # the service answers, and wants a token.
