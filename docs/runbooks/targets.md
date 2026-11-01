@@ -131,7 +131,7 @@ Run at provisioning, at the start of each exercise, before each milestone's chec
     REPLACE_WITH_SSH aisec-orchestrator 'sudo aisec-target-update-run lab'
     ```
 
-    Expected, for each: `start target=...`, apt reading `http://azure.archive.ubuntu.com/ubuntu` with no `Err:` line, then `security_updates_pending=0`, `reboot_required=yes` or `no`, and `end target=... status=0`. On the first run the NetBox VM installs `podman`, `postgresql-18`, and `valkey-server`. An `Err:` line with `403` is a host the target port refuses.
+    Expected, for each: `start target=...`, apt reading `http://azure.archive.ubuntu.com/ubuntu` with no `Err:` line, then `security_updates_pending=0`, `reboot_required=yes` or `no`, and `end target=... status=0`. On the first run the NetBox VM installs `podman`, `postgresql-18`, and `valkey-server`. An `Err:` line with `403` is a host the target port refuses. The target's output, its errors included, reaches the terminal and the journal with each control or format character replaced by `�`, so a compromised target cannot send escape sequences to the operator's terminal.
 
 11. Read the run in the orchestrator's journal and in Squid's log.
 

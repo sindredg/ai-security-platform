@@ -690,3 +690,17 @@ Result, 2026-11-01 14:58 to 15:30 UTC, on the live system, from a script with th
 | Every check from `c6f05c0` | All pass, `P.30` among them | 445 of 446, ending at 15:43 UTC. `P.19` read the new template. `O.11` failed: the workspace was over its cap |
 
 Not observed: the forwarding itself. No address with a reverse name of an allowed host was at hand, so Squid's match on such a name is its documented behaviour, not a result here.
+
+## Fixes from the second audit
+
+A source-only review of the change path and the trust edges, at `c6f05c0`, left three leads, each read again by a second reviewer who had not written it. Each fix came with a test written first, which failed on the code before the fix. A test that needs root runs the script as root in a user namespace.
+
+| Lead | Before the fix | After |
+| --- | --- | --- |
+| The feed key can replace a staged file between root's check and root's use of it (T44) | `install-agent.sh` followed a swapped archive's `./goose` link and changed a file outside from mode 600 to 755. `build-model.sh` ran the swapped archive's server | Both copy the stage into a directory only root can write, refuse links, and check and use the copy |
+| The update run passes a target's bytes raw to the terminal and the journal (T62) | A stub target's title change, clipboard write, carriage return, and C1 control sequence reached standard output unchanged | `printable()` replaces control and format characters, as dispatch does for model text |
+| The duplicate check counts a matching row in any fork's pull request (T59) | A fork's pull request made the check exit 1 and name it as the fix | Only branches of the targets repository count |
+
+The swaps happen in a `sha256sum` stub that replaces the staged archive right after the check reads it, so the race is certain instead of timed.
+
+Result, 2026-11-01 16:20 to 16:55 UTC, on the workstation with Python 3.12 and `unshare -r`: the eight installer tests, the four update-run tests, and the change commands' 96 tests pass, and each new test failed before its fix. The pipeline runs the namespace tests with `sudo`, where a skip fails the step. Not run on the worker or the orchestrator: no install and no update run is planned before the teardown, and the orchestrator keeps the update run it has.

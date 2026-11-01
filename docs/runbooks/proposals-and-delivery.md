@@ -63,7 +63,7 @@ Before this:
      python3 -I platform/change/open_fixes.py REPLACE_WITH_BUNDLE/proposal.json
    ```
 
-   Expected: `no open pull request with this fix`. One that holds it is listed with its number and branch, and the command exits 1: deliver that one first, or close it.
+   Expected: `no open pull request with this fix`. One that holds it is listed with its number and branch, and the command exits 1: deliver that one first, or close it. Only a branch in the targets repository counts. A pull request from a fork is counted on the first line as `from another repository not counted`, whatever its body says.
 
 4. Commit with the commit signing key, push, and open the pull request with `pr-body.md` as its body.
 

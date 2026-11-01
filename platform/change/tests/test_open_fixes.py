@@ -30,8 +30,18 @@ BUNDLE = {"job": "nb-2", "policy": {"allowed": True, "changes": [CHANGE]}}
 ROW = "| `inventory-reader` | excess, excess | excess | remove `inventory-reader: inventory` (ID 2) |"
 
 
-def pull(number, body, ref="fix/netbox-nb-1"):
-    return {"number": number, "head": {"ref": ref}, "title": "fix: x", "body": body}
+TARGETS = "owner/targets"
+
+
+def pull(number, body, ref="fix/netbox-nb-1", head_repo=TARGETS):
+    head = {"ref": ref, "repo": None if head_repo is None else {"full_name": head_repo}}
+    return {
+        "number": number,
+        "head": head,
+        "base": {"ref": "main", "repo": {"full_name": TARGETS}},
+        "title": "fix: x",
+        "body": body,
+    }
 
 
 class OpenFixes(unittest.TestCase):
@@ -61,6 +71,28 @@ class OpenFixes(unittest.TestCase):
         self.assertIn(
             "#14 fix/netbox-nb-1: `inventory-reader` loses permission 2 there", out
         )
+
+    def test_a_pull_request_from_a_fork_does_not_count(self):
+        # The targets repository is public, so anyone can open a pull request
+        # from a fork with the same rows in its body. Only a branch of the
+        # targets repository itself, which takes write access, holds a fix.
+        code, out = self.run_check([pull(15, f"{ROW}\n", head_repo="outsider/fork")])
+        self.assertEqual(code, 0)
+        self.assertIn("1 from another repository not counted", out)
+        self.assertIn("no open pull request with this fix", out)
+
+    def test_a_pull_request_whose_fork_is_gone_does_not_count(self):
+        # GitHub lists a deleted fork's head repository as null.
+        code, out = self.run_check([pull(16, f"{ROW}\n", head_repo=None)])
+        self.assertEqual(code, 0)
+        self.assertNotIn("#16", out)
+
+    def test_a_fork_does_not_hide_a_same_repository_pull_request(self):
+        pulls = [pull(15, f"{ROW}\n", head_repo="outsider/fork"), pull(14, f"{ROW}\n")]
+        code, out = self.run_check(pulls)
+        self.assertEqual(code, 1)
+        self.assertIn("#14 fix/netbox-nb-1", out)
+        self.assertNotIn("#15", out)
 
     def test_a_body_with_windows_line_endings_is_read_too(self):
         # GitHub's web editor saves a body with CRLF.

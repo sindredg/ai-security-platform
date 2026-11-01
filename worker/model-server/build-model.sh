@@ -17,6 +17,25 @@ if [[ ! -f $models ]]; then
   exit 1
 fi
 
+# The stage is the feed account's, so the feed key can replace a staged file at
+# any moment, also between the check below and root's use of it. Root copies
+# the stage first, without following links, into a directory only root can
+# write, refuses anything in it that is not a plain file or a directory, and
+# checks and uses that copy and nothing else. The converter's account reads it
+# through a read-only bind. The copy needs as much free disk as the stage. It
+# is under /var/lib, not /var/tmp, which the converter's unit replaces with a
+# private one. sudo drops TMPDIR, so only a test moves it.
+taken=$(mktemp -d -p "${TMPDIR:-/var/lib}" aisec-model-stage.XXXXXX)
+trap 'rm -rf "$taken"' EXIT
+chmod 0755 "$taken"
+cp -R --no-dereference --no-preserve=all "$stage/." "$taken/"
+odd=$(cd "$taken" && find . -mindepth 1 ! -type f ! -type d | sed 's|^\./||')
+if [[ -n $odd ]]; then
+  printf 'not a plain file or directory in the stage:\n%s\n' "$odd" >&2
+  exit 1
+fi
+stage=$taken
+
 # The lists come from the operator's checkout, and the files they name from
 # the orchestrator (ADR 0026). This check catches a transfer that damaged or
 # dropped a file, and an orchestrator that changed one. The converter takes a
@@ -67,7 +86,7 @@ echo "== build the model file"
 # script leaves it running, and an account with live processes is not removed.
 cleanup() {
   systemctl stop aisec-model-build.service 2> /dev/null || true
-  rm -rf /var/lib/aisec-model-build
+  rm -rf /var/lib/aisec-model-build "$taken"
   if id -u aisec-build > /dev/null 2>&1; then
     userdel aisec-build || echo "could not remove the aisec-build account" >&2
   fi
