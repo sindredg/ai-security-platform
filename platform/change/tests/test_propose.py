@@ -435,5 +435,104 @@ class Main(unittest.TestCase):
                 self.assertEqual(propose.main(argv), 2)
 
 
+FIXTURE = json.loads(
+    (REPO / "collectors" / "netbox" / "tests" / "network.json").read_text(
+        encoding="utf-8"
+    )
+)
+
+
+class ViewpointFix(unittest.TestCase):
+    """A job whose one excess is a viewpoint (ADR 0056): no staging test, the
+    rules judged without the change, and the rules' pull request body."""
+
+    bundle = Main.bundle
+
+    def setUp(self):
+        Main.setUp(self)
+        job = self.state / "nb-1"
+        contract = dict(CONTRACT, network=FIXTURE["network"])
+        header = {"job": "nb-1", "collected": "2026-10-27T10:00:00Z"}
+        (job / "ev-0001.json").write_text(
+            json.dumps({"reference": "ev-0001", **header, **contract})
+        )
+        (self.tmp / "contract.json").write_text(json.dumps(contract))
+        (job / "rules.json").write_text(
+            json.dumps(
+                {"commit": "c" * 40, "sha256": "d" * 64, "rules": FIXTURE["rules"]}
+            )
+        )
+        within = json.loads(json.dumps(CONFIGURED))
+        within["accounts"]["inventory-reader"]["permissions"] = [
+            p
+            for p in within["accounts"]["inventory-reader"]["permissions"]
+            if p["id"] != 2
+        ]
+        (job / "configured.json").write_text(json.dumps(within))
+        compared = comparison(proposals=[])
+        compared["accounts"] = [
+            row("inventory-reader", "within"),
+            row("inventory-reader-control", "within"),
+            row("viewpoint-consumer", "within"),
+            row("viewpoint-staging", "excess"),
+        ]
+        compared["proposals"] = [
+            {
+                "account": "viewpoint-staging",
+                "action": "remove",
+                "permission": 1120,
+                "references": ["ev-0004", "ev-0005"],
+            }
+        ]
+        self.workflow_file.write_text(json.dumps(workflow(compared=compared)))
+
+    def test_an_allowed_fix_writes_the_bundle(self):
+        self.assertEqual(propose.main(["propose-netbox-fix", "nb-1"]), 0)
+        bundle = self.bundle()
+        self.assertEqual(bundle["case"], "seed")
+        self.assertTrue(bundle["policy"]["allowed"], bundle["policy"]["reasons"])
+        self.assertEqual(self.rehearsed, [], "no staging test for a rule")
+        judged = bundle["rehearsal"]
+        self.assertTrue(judged["passed"])
+        self.assertIn("no staging test", judged["method"])
+        self.assertEqual(
+            judged["verdicts"]["viewpoint-staging"],
+            {"configured": "within", "observed": "not tested"},
+        )
+        body = (self.tmp / "proposals" / "nb-1" / "pr-body.md").read_text()
+        self.assertIn("NetBox's port rules", body)
+        self.assertIn(
+            "remove `allow-netbox-from-rehearsal` (Inbound, 1120) from `netbox`", body
+        )
+        self.assertIn("(Outbound, 1120) from `rehearsal`", body)
+        self.assertIn("c" * 40, body)
+        self.assertIn("No staging test", body)
+
+    def test_a_refused_rule_is_not_judged(self):
+        found = json.loads(self.workflow_file.read_text())
+        node = found["status"]["nodes"]["b"]["outputs"]["parameters"][0]
+        compared = json.loads(node["value"])
+        compared["proposals"][0]["permission"] = 1110
+        node["value"] = json.dumps(compared)
+        self.workflow_file.write_text(json.dumps(found))
+        self.assertEqual(propose.main(["propose-netbox-fix", "nb-1"]), 1)
+        bundle = self.bundle()
+        self.assertFalse(bundle["policy"]["allowed"])
+        self.assertFalse(bundle["rehearsal"]["passed"])
+        self.assertFalse((self.tmp / "proposals" / "nb-1" / "pr-body.md").exists())
+
+    def test_the_same_rule_from_a_second_job_is_refused(self):
+        self.assertEqual(propose.main(["propose-netbox-fix", "nb-1"]), 0)
+        second = self.state / "nb-2"
+        shutil.copytree(self.state / "nb-1", second)
+        found = json.loads(self.workflow_file.read_text())
+        found["metadata"]["name"] = "nb-2"
+        node = found["status"]["nodes"]["b"]["outputs"]["parameters"][0]
+        node["value"] = json.dumps(dict(json.loads(node["value"]), job="nb-2"))
+        self.workflow_file.write_text(json.dumps(found))
+        self.assertEqual(propose.main(["propose-netbox-fix", "nb-2"]), 1)
+        self.assertFalse((self.tmp / "proposals" / "nb-2").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

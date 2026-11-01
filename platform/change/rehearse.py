@@ -88,7 +88,9 @@ def wanted_users(live, changes):
 
 def halves(contract):
     """Both methods' reports from the copy, checked as the collect command
-    checks a job's."""
+    checks a job's. The contract's network part, if any, stays out: the copy
+    has no viewpoints of its own (ADR 0056)."""
+    contract = {k: v for k, v in contract.items() if k != "network"}
     text = json.dumps(contract)
     copy_env = [
         "/usr/bin/env",

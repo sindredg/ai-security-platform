@@ -24,7 +24,9 @@ for file in "$here/propose.py" "$here/policy.py" "$here/rehearse.py" "$here/netb
   "$collectors/collect_evidence.py"; do
   [ -f "$file" ] || { echo "missing: $file" >&2; exit 1; }
 done
-[ -f "$lib/netbox_access.py" ] || { echo "no collector in $lib: run install-collector.sh first" >&2; exit 1; }
+for file in netbox_access.py netbox_rules.py; do
+  [ -f "$lib/$file" ] || { echo "no $file in $lib: run install-collector.sh first" >&2; exit 1; }
+done
 [ -f /etc/aisec/netbox/observe/known_hosts ] || { echo "no pinned lab VM host key" >&2; exit 1; }
 
 install -d -m 0755 -o root -g root "$lib"

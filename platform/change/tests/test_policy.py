@@ -221,5 +221,164 @@ class ImpliedFix(unittest.TestCase):
         self.assertEqual(policy.implied_fix([CONTROL], CONTRACT), [])
 
 
+FIXTURE = json.loads(
+    (REPO / "collectors" / "netbox" / "tests" / "network.json").read_text(
+        encoding="utf-8"
+    )
+)
+NETWORK_CONTRACT = dict(CONTRACT, network=FIXTURE["network"])
+RULES = {"commit": "c" * 40, "sha256": "d" * 64, "rules": FIXTURE["rules"]}
+WITHIN = {
+    "check": "configured",
+    "accounts": {
+        "inventory-reader": {"verdict": "within", "permissions": [SCOPED]},
+        "inventory-reader-control": {"verdict": "within", "permissions": [CONTROL]},
+    },
+}
+
+
+def viewpoints(*proposals, staging="excess", accounts="within"):
+    return {
+        "job": "nb-1",
+        "outcome": "match",
+        "reasons": [],
+        "accounts": [
+            row("inventory-reader", accounts),
+            row("inventory-reader-control", "within"),
+            row("viewpoint-consumer", "within"),
+            row("viewpoint-staging", staging),
+        ],
+        "proposals": list(proposals),
+        "unread_proposals": 0,
+    }
+
+
+class Viewpoints(unittest.TestCase):
+    """A fix for NetBox's port rules (ADR 0056)."""
+
+    assert_refused = Policy.assert_refused
+
+    def test_the_seeds_rule_and_its_outbound_half_are_allowed(self):
+        result = policy.check(
+            viewpoints(proposal("viewpoint-staging", 1120)),
+            WITHIN,
+            NETWORK_CONTRACT,
+            RULES,
+        )
+        self.assertTrue(result["allowed"], result["reasons"])
+        (change,) = result["changes"]
+        self.assertEqual(
+            (change["account"], change["rule"], change["priority"], change["commit"]),
+            ("viewpoint-staging", "allow-netbox-from-rehearsal", 1120, "c" * 40),
+        )
+        self.assertEqual(
+            [(r["subnet"], r["direction"]) for r in change["removed"]],
+            [("netbox", "Inbound"), ("rehearsal", "Outbound")],
+        )
+
+    def test_the_consumers_rule_is_refused(self):
+        self.assert_refused(
+            policy.check(
+                viewpoints(proposal("viewpoint-staging", 1110)),
+                WITHIN,
+                NETWORK_CONTRACT,
+                RULES,
+            ),
+            "does not let staging in",
+        )
+
+    def test_a_priority_that_names_no_rule_is_refused(self):
+        self.assert_refused(
+            policy.check(
+                viewpoints(proposal("viewpoint-staging", 1130)),
+                WITHIN,
+                NETWORK_CONTRACT,
+                RULES,
+            ),
+            "no inbound rule of priority 1130",
+        )
+
+    def test_a_rule_whose_removal_cuts_another_viewpoint_is_refused(self):
+        rules = json.loads(json.dumps(RULES))
+        # One wide rule lets both in: removing it cuts the consumer too.
+        wide = dict(rules["rules"]["netbox"][1], source_address_prefix="10.50.0.0/20")
+        rules["rules"]["netbox"] = [wide]
+        self.assert_refused(
+            policy.check(
+                viewpoints(proposal("viewpoint-staging", 1120)),
+                WITHIN,
+                NETWORK_CONTRACT,
+                rules,
+            ),
+            "viewpoint-consumer is missing, not within",
+        )
+
+    def test_a_rule_that_leaves_the_viewpoint_open_is_refused(self):
+        rules = json.loads(json.dumps(RULES))
+        # A second pair of rules keeps the path open without the first.
+        for subnet, at in (("netbox", 1), ("rehearsal", 0)):
+            second = dict(
+                rules["rules"][subnet][at], name="allow-netbox-again", priority=1130
+            )
+            rules["rules"][subnet].append(second)
+        self.assert_refused(
+            policy.check(
+                viewpoints(proposal("viewpoint-staging", 1120)),
+                WITHIN,
+                NETWORK_CONTRACT,
+                rules,
+            ),
+            "without rule 1120 it is excess, not within",
+        )
+
+    def test_a_viewpoint_the_checks_do_not_call_excess_is_refused(self):
+        self.assert_refused(
+            policy.check(
+                viewpoints(proposal("viewpoint-consumer", 1110), staging="within"),
+                WITHIN,
+                NETWORK_CONTRACT,
+                RULES,
+            ),
+            "the checks do not call it excess",
+        )
+
+    def test_a_job_without_its_rules_is_refused(self):
+        self.assert_refused(
+            policy.check(
+                viewpoints(proposal("viewpoint-staging", 1120)),
+                WITHIN,
+                NETWORK_CONTRACT,
+                None,
+            ),
+            "no rules",
+        )
+
+    def test_another_action_is_refused(self):
+        self.assert_refused(
+            policy.check(
+                viewpoints(proposal("viewpoint-staging", 1120, action="add")),
+                WITHIN,
+                NETWORK_CONTRACT,
+                RULES,
+            ),
+            "not remove",
+        )
+
+    def test_a_fix_for_permissions_and_rules_together_is_refused(self):
+        self.assert_refused(
+            policy.check(
+                viewpoints(
+                    proposal("viewpoint-staging", 1120),
+                    proposal("inventory-reader", 2),
+                    accounts="excess",
+                ),
+                CONFIGURED,
+                NETWORK_CONTRACT,
+                RULES,
+            ),
+            "not both",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
