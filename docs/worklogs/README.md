@@ -12,3 +12,4 @@ One worklog per milestone: what was done, the commands that were run, and the ev
 | [0005](0005-netbox-target-and-exercise-1.md) | NetBox target and exercise 1 investigation |
 | [0006](0006-remediation-pull-requests-and-delivery.md) | Remediation, pull requests, and delivery |
 | [0007](0007-operational-and-containment-drills.md) | Operational and containment drills |
+| [0008](0008-exercise-3-vulnerable-image.md) | Exercise 3: vulnerable image or dependency |

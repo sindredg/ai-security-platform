@@ -1,29 +1,29 @@
 # 0007. Operational and containment drills
 
-Date: 2026-10-28 to
+Date: 2026-10-28 to 2026-11-01
 Milestone: 6, operational and containment drills
 
 ## Summary
 
-In progress. The drills run in slices, each a pull request of code and expectations and then one live run whose results land here, with its records in the [test evidence](../evidence/README.md). The milestone's own gate is below, and after it the gate for every high threat, which the [roadmap](../roadmap.md#6-operational-and-containment-drills) requires.
+Each part of each criterion is tested, configured and not tested, or an accepted gap, as the table names it, after an independent review of these claims ([the review](#the-review-for-the-close)). The drills ran in slices, each a pull request of code and expectations and then one live run whose results land here, with its records in the [test evidence](../evidence/README.md). The milestone's own gate is below, and after it the gate for every high threat, which the [roadmap](../roadmap.md#6-operational-and-containment-drills) requires.
 
 | Gate | Result |
 | --- | --- |
-| Worker and orchestrator interruption without duplicate changes | **Verified** for a terminated workflow ([#174](https://github.com/sindredg/ai-security-platform/issues/174), [result](#a-terminated-workflow)) and a staging test that fails after its apply ([result](#the-drill-on-the-copy)). **Built**: the delivery's failure path, installed (`D.2`) and tested with stubs ([tests](#the-two-failure-paths), [#216](https://github.com/sindredg/ai-security-platform/issues/216)) |
-| Duplicate findings without duplicate pull requests | **Verified**: a fix an undelivered bundle holds is refused, and a passed delivery result (a fixture) lifts it ([result](#the-drill-on-the-orchestrator)). **Built**: the operator's open pull requests read, with stubs ([0053](../decisions/0053-a-fix-is-proposed-once-until-it-is-delivered.md)) |
-| Forbidden tool calls, storage reads, network connections, and policy edits from a worker | **Verified**: 42 probes during a job, 31 from a job's sandbox and 11 as root: no connection open, every edit failed, and the tool service gave no document without the job's own live token ([result](#slice-2-forbidden-calls-from-the-worker)) |
-| Instructions embedded in advisories and tool results | **Verified**: the model called both accounts `excess`, citing a record name that says so, and proposed removing each one's only permission; the verification gate stopped both ([result](#the-injected-name)) |
-| Forged and stale target evidence | **Verified**: a stale item refused before the job, a forged item trusted to the verification gate and stopped there ([result](#stale-and-forged-checks-verdicts)) |
-| Cleanup verification and measured resource use per investigation | **Verified**: cleanup, the same reads showing a job during it and nothing after ([result](#slice-6-what-a-job-leaves)); resource use of the machine, the long-lived pods ([result](#resource-use-per-investigation)), and the dispatch pod ([#176](https://github.com/sindredg/ai-security-platform/issues/176), [result](#the-record-job-and-the-footprint)) |
-| The incident response runbook, run for three cases | **Verified**: containment and rotation for a compromised worker, a compromised target, and a leaked credential, and a restore on the staging copy ([result](#the-result-for-the-three-cases)). **Verified**: the worker's replacement, as a rebuild ([result](#the-worker-rebuild)). **Written**: the target's and the orchestrator's ([runbook](../runbooks/incident-response.md)) |
-| An audit daemon and file integrity monitoring on both VMs, with a drill each | **Verified**: on both VMs the daemon recorded a drill's write, a dynamic user's program, and the operator's commands, and AIDE reported a drill's file, each in the workspace ([result](#the-third-pass-and-the-workspace)) |
-| A rebuild of each VM from the current templates | **Verified** for the worker: replaced from its template, put back by the runbooks, then a synthetic job and every check ([result](#the-worker-rebuild)). **Accepted gap** for the other five: rebuilding the orchestrator means reinstalling milestones 3 to 5, which the subscription window leaves no room for. Untested at their first boot: the K3s image archive step, the host audit install, the message-of-the-day change |
-| Operator sessions to the targets in the audit log (T04) | **Verified**: one session, one workspace row ([result](#operator-sessions-to-the-targets)) |
-| The KV-cache clear after a job that timed out ([#199](https://github.com/sindredg/ai-security-platform/issues/199)) | **Verified**: the slot erased 14 seconds after the cancel ([result](#a-job-that-times-out)) |
+| Worker and orchestrator interruption without duplicate changes | **Tested** for a terminated workflow ([#174](https://github.com/sindredg/ai-security-platform/issues/174), [result](#a-terminated-workflow)) and a staging test that fails after its apply ([result](#the-drill-on-the-copy)). **Configured, not tested** live: the delivery's failure path, installed (`D.2`) and tested with stubs ([tests](#the-two-failure-paths), [#216](https://github.com/sindredg/ai-security-platform/issues/216)). **Accepted gap**: no orchestrator or K3s restart during a job, for the subscription window, which ends on 2026-11-02 |
+| Duplicate findings without duplicate pull requests | **Tested**: a fix an undelivered bundle holds is refused, and a passed delivery result (a fixture) lifts it ([result](#the-drill-on-the-orchestrator)). **Configured, not tested** live: the operator's open pull requests read, with stubs ([0053](../decisions/0053-a-fix-is-proposed-once-until-it-is-delivered.md)) |
+| Forbidden tool calls, storage reads, network connections, and policy edits from a worker | **Tested**: 42 probes during a job, 31 from a job's sandbox and 11 as root: no connection open, every edit failed, and the tool service gave no document without the job's own live token ([result](#slice-2-forbidden-calls-from-the-worker)) |
+| Instructions embedded in advisories and tool results | **Tested** for a tool result: the model called both accounts `excess`, citing a record name that says so, and the verification gate stopped both ([result](#the-injected-name)). **Accepted gap** for advisories: no job reads one, since exercise 2 was not run and exercise 3 ran without the model |
+| Forged and stale target evidence | **Tested**: a stale item refused before the job, a forged item trusted to the verification gate and stopped there ([result](#stale-and-forged-checks-verdicts)) |
+| Cleanup verification and measured resource use per investigation | **Tested**: cleanup, the same reads showing a job during it and nothing after ([result](#slice-6-what-a-job-leaves)); resource use of the machine, the long-lived pods ([result](#resource-use-per-investigation)), and the dispatch pod ([#176](https://github.com/sindredg/ai-security-platform/issues/176), [result](#the-record-job-and-the-footprint)) |
+| The incident response runbook, run for three cases | **Tested**: containment and rotation for a compromised worker, a compromised target, and a leaked credential, a restore on the staging copy ([result](#the-result-for-the-three-cases)), and the worker's replacement, as a rebuild ([result](#the-worker-rebuild)). **Accepted gap**: the target's and the orchestrator's replacement, steps 14 and 20, written and not run, for the reason in the rebuild row ([runbook](../runbooks/incident-response.md)) |
+| An audit daemon and file integrity monitoring on both VMs, with a drill each | **Tested**: on both VMs the daemon recorded a drill's write, a dynamic user's program, and the operator's commands, and AIDE reported a drill's file, each in the workspace ([result](#the-third-pass-and-the-workspace)) |
+| A rebuild of each VM from the current templates | **Tested** for the worker: replaced from its template, put back by the runbooks, then a synthetic job and every check ([result](#the-worker-rebuild)). **Accepted gap** for the other five, for the subscription window, which ends on 2026-11-02: the orchestrator's means reinstalling milestones 3 to 5, and each of the others a runbook and its checks. Untested at their first boot: the K3s image archive step, the host audit install, the message-of-the-day change |
+| Operator sessions to the targets in the audit log (T04) | **Tested**: one session, one workspace row ([result](#operator-sessions-to-the-targets)) |
+| The KV-cache clear after a job that timed out ([#199](https://github.com/sindredg/ai-security-platform/issues/199)) | **Tested**: the slot erased 14 seconds after the cancel ([result](#a-job-that-times-out)) |
 
 ## The gate for the high threats
 
-Each threat the [threat model](../security/threat-model.md) rates high has a drill in this milestone, or an [accepted risk](../security/accepted-risks.md#accepted-risks). The state column is the threat model's, read on 2026-10-28, and moves with the drills.
+Each threat the [threat model](../security/threat-model.md) rates high has a drill in this milestone, or an [accepted risk](../security/accepted-risks.md#accepted-risks). The state column is the threat model's, read on 2026-11-01, and moves with the drills.
 
 | Threat | State | Drill or accepted risk | Evidence |
 | --- | --- | --- | --- |
@@ -63,6 +63,9 @@ Each threat the [threat model](../security/threat-model.md) rates high has a dri
 | A1 prompt injection | Verified | Injected instructions drill, slice 3 | [The injected name](#the-injected-name), [record](../evidence/2026-10-30-1502-instructions-in-the-evidence.md) |
 | A2 excessive agency | Verified | Forbidden calls drill, slice 2 | [Result](#the-drill), [AI threats](../security/ai-threats.md) |
 | A3 wrong and convincing | Verified | None needed | [Records](../evidence/2026-10-27-0653-scored-proposals.md) |
+| A4 poisoned model, runtime, or tool server | Verified | None needed | Provenance for llama.cpp and Goose, `G.1`, `T.2` ([supply chain](../security/supply-chain.md)) |
+| A5 evidence published in proposal text | Verified | None needed | Targets #15's body holds checked fields only ([worklog 0006](0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end)) |
+| T63 known vulnerability in the target's image | Verified | Exercise 3 | The scan failed on v4.7.3 and passed on v4.7.4, then the update ([worklog 0008](0008-exercise-3-vulnerable-image.md)) |
 
 ## Slice 1: drills without an apply
 
@@ -704,3 +707,48 @@ A source-only review of the change path and the trust edges, at `c6f05c0`, left 
 The swaps happen in a `sha256sum` stub that replaces the staged archive right after the check reads it, so the race is certain instead of timed.
 
 Result, 2026-11-01 16:20 to 16:55 UTC, on the workstation with Python 3.12 and `unshare -r`: the eight installer tests, the four update-run tests, and the change commands' 96 tests pass, and each new test failed before its fix. The pipeline runs the namespace tests with `sudo`, where a skip fails the step. Not run on the worker or the orchestrator: no install and no update run is planned before the teardown, and the orchestrator keeps the update run it has.
+
+## The closing run
+
+After the fixes merged, the orchestrator got the update run with `printable()`, installed the way `install-target-update.sh` installs it. Then one exercise 1 job ran on the live NetBox, and every check ran from `main`.
+
+Written before the run: root 700 and the checkout's SHA-256 for the update run; `within/within` for both accounts in the collection, then `Succeeded` with the comparison's `match`. A stop at the verification gate would be recorded as well. No refused write under the `aisec-config` audit key by `aisec-job` on the worker during the job.
+
+Result, 2026-11-01 17:02 to 17:28 UTC, on the live system ([record](../evidence/2026-11-01-1704-the-closing-run.md)):
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| The update run on the orchestrator | Root 700, `b43241bb...`, the checkout's | As expected, 17:02 UTC. It was `315c63ec...` before |
+| The collection | `within/within` for both accounts | As expected, visible to the tool service after 68 seconds |
+| Job `nb-11011704-close` | `Succeeded`, the comparison's `match` | As expected: 712 seconds, three calls and the structured output, the slot erased before and after |
+| Refused writes on the worker | None by `aisec-job` | None by anyone since the job's start |
+| Every check from `69aa526` | All pass | 446 of 446, ending at 17:28 UTC, `E.17` and `O.11` among them |
+
+The workspace's billable volume from 2026-10-31 17:00 to 2026-11-01 17:00 UTC was 232.65 MB before ingestion stopped at about 15:17 UTC, over the 210 MB cap ([troubleshooting 20](../troubleshooting/20-a-rebuilt-workers-journal-fills-the-workspace-cap.md)). The day held the legal-notice mark, the experiments' 18 jobs, 7 through the workflow and 11 without one, and the worker rebuild, so it was not a normal day. In the 13 quiet hours from 17:00 to 06:00 UTC, audit lines came to 20.24 MB, about 1.56 MB an hour: an idle day at that rate is about 37 MB, reasoned, not observed.
+
+## Not verified at the close
+
+What the milestone leaves unshown, beyond the accepted gaps in the gate table:
+
+- `N.24` and `Z.31` failed only on copies of the check script ([two new checks](#two-new-checks)). Nothing on the system was changed to make them fail.
+- The host audit's removal, its alerts' resolution, a day of package upgrades in AIDE's report, and a full normal day's audit volume ([the closing run](#the-closing-run)).
+- The fixes from the second audit on the hosts, apart from the update run: the installers run again only at the next install ([fixes](#fixes-from-the-second-audit)).
+- The forbidden calls drill left UDP, other orchestrator ports, the model server, and `/proc` unprobed ([#229](https://github.com/sindredg/ai-security-platform/issues/229)).
+- The staging copy's container privileges, secrets, and cache password have no check ([#241](https://github.com/sindredg/ai-security-platform/issues/241)).
+- Squid's forwarding of an IP-literal URL whose reverse name is an allowed host: documented behaviour, not observed ([the change](#an-ip-literal-url-through-squid)).
+
+## The review for the close
+
+Date: 2026-11-01, 18:55 to 19:12 UTC. An independent review read milestones 6 and 8 against the code and the running system, with one check run from `main`, 446 of 446. Each finding was checked, then fixed before the close or opened as an issue.
+
+| Finding | What was done |
+| --- | --- |
+| The high-threat gate missed A4, A5, and T63 | Three rows added, the reading date moved |
+| Gate rows claimed more than was tested | Each part labelled tested, configured and not tested, or an accepted gap with its reason, and the roadmap row lists them |
+| T63 read as if the image scan blocked a merge | T63, the pipeline page, and worklog 0008 say it is not required |
+| The accepted risks page did not cover milestone 8 | A section for the five findings left with a fix, an open item for the 54 without, and the musl acceptance read again |
+| Stale lines: the SBOM, the planned checks, exercise controls, the last run, the targets' sessions, the live dump | Each moved to what is true now |
+| The close page's injected-instruction count, approval claim, and four untraced numbers | Corrected, each with its source |
+| The reassessment of the finding had no command | A step in the update runbook, with its expected output |
+| Milestone 7's reason did not match the dates | The window's end, 2026-11-02, on the roadmap and the gate rows |
+| Plan only: the scan's report script has no committed tests, and the SBOMs expire on 2027-01-30 | [#250](https://github.com/sindredg/ai-security-platform/issues/250), [#251](https://github.com/sindredg/ai-security-platform/issues/251). The update runbook's gaps, the experiments' job count, and two rebuild claims fixed here |

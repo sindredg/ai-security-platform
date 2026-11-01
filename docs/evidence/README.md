@@ -10,6 +10,8 @@ Each run set is a batch of agent jobs, or model calls, that tested one thing. It
 
 ![NetBox jobs at the comparison in milestone 6, per run set: matches, stops by their cause, and failures](../diagrams/test-outcomes-6.svg)
 
+![NetBox jobs at the comparison in milestone 8, per run set: matches, stops by their cause, and failures](../diagrams/test-outcomes-8.svg)
+
 | Run set | Date | Tested | Jobs | Outcomes |
 | --- | --- | --- | --- | --- |
 | [First jobs over the worker's socket](2026-10-20-1927-first-jobs-over-the-socket.md) | 2026-10-20 | Whether a job sent to the worker's socket by hand reaches the tool service and returns an answer, and whether a cancel stops it. | 2 | 1 completed, 1 cancelled |
@@ -51,5 +53,7 @@ Each run set is a batch of agent jobs, or model calls, that tested one thing. It
 | [The same jobs without Goose](2026-11-01-1232-without-goose.md) | 2026-11-01 | Whether a job's answer fits the schema, with right verdicts, when a loop on the model server's chat API takes Goose's place, and how long a job takes. | 5 | 2 match, 2 stop, 1 time limit reached |
 | [One request, without an agent](2026-11-01-1405-one-request-without-an-agent.md) | 2026-11-01 | Whether the model gives right verdicts on the six held-out cases when it chooses no reads and calls no tool, and how long a job takes. | 6 | 3 match, 3 stop |
 | [The worker rebuild](2026-11-01-1516-the-worker-rebuild.md) | 2026-11-01 | Whether a worker replaced from its current template and put back by the runbooks runs a dispatched job through the new dispatch key, certificate, Goose, and model. | 1 | 1 completed |
+| [The closing run](2026-11-01-1704-the-closing-run.md) | 2026-11-01 | Whether an exercise 1 job on the live NetBox still matches the deterministic checks after the worker rebuild and the fixes from the second audit. | 1 | 1 match |
+| [After the NetBox update](2026-11-01-1828-after-the-netbox-update.md) | 2026-11-01 | Whether an exercise 1 job on the live NetBox still matches the deterministic checks after NetBox's update to v4.7.4. | 1 | 1 match |
 
 Each run set has one record in [`records/`](records/), built from each workflow and the tool service's audit log by [`record.py`](../../validation/evidence/record.py). The pages are generated from the records, and the pipeline fails when a page and its record differ. How a run set is recorded is in the [runbook](../runbooks/test-evidence.md).

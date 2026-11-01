@@ -184,7 +184,7 @@ A compromised NetBox VM can answer the collector with what it likes ([T23](../se
         --token /etc/aisec/netbox-rehearsal/tokens/aisec-collector | tail -n 1; echo "exit ${PIPESTATUS[0]}"'
     ```
 
-    Expected: the dump's SHA-256 twice, the same, after about a minute; then `== 4 groups compared, 0 differences` and `exit 0`. The live NetBox has no dump: its restore is step 14.
+    Expected: the dump's SHA-256 twice, the same, after about a minute; then `== 4 groups compared, 0 differences` and `exit 0`. The live NetBox's one dump is from before its update to v4.7.4, and restoring it needs the old image too ([update runbook](netbox-update.md), step 22). Otherwise its restore is step 14.
 
 13. Put the tokens back on both hosts, and read both halves again.
 

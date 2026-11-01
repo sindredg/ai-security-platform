@@ -29,13 +29,22 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 4. A policy check and a staging test on a copy of the target vet the fix. The pull request carries checked fields only, never the model's output.
 5. A tag signed with a separate approval key approves that exact commit, once. Delivery applies it and checks the target again before the merge.
 
+The one fix a model proposed on the live seed, as its pull request ([targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)):
+
+![Targets pull request 15, merged: a fix for NetBox from job nb-10262214-p2. A table shows both checks and the model calling inventory-reader excess and the control account within, the change removing one permission, the policy allowed, the staging test passed, and the approval tag the merge required](docs/images/targets-15-conversation.png)
+
+The exact change it made, one line of the seed:
+
+![The pull request's diff: in netbox/seed.json, the permission's users list changes from inventory-reader to an empty list](docs/images/targets-15-files.png)
+
 ## Status
 
 | | |
 | --- | --- |
-| Milestone | 6, operational and containment drills, in progress: every drill has run, and the milestone review is left ([roadmap](docs/roadmap.md#status)) |
+| Milestones | 0 to 6 and 8 done, 7 not done. The system runs until its teardown ([roadmap](docs/roadmap.md#status), [project close](docs/close.md)) |
 | Works | A fix the deterministic checks imply goes from the model's proposal to delivery: policy check, staging test, pull request, and signed approval, then a rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md)) |
-| Not yet | Exercise 3, a vulnerable image. Exercise 2, excess network access, was cut for time. Of the six VMs, only the worker has been rebuilt from its current template |
+| Also works | A vulnerable NetBox image, found by a scan in the targets pipeline, replaced through a staging test with a tested recovery ([worklog](docs/worklogs/0008-exercise-3-vulnerable-image.md)) |
+| Not yet | Exercise 2, excess network access, was cut for time. Of the six VMs, only the worker has been rebuilt from its current template |
 
 ## Why it looks like this
 
@@ -64,7 +73,7 @@ Three exercises test this on a NetBox target ([ADR 0004](docs/decisions/0004-net
 
 | Topic | Page |
 | --- | --- |
-| Status and milestones | [Roadmap](docs/roadmap.md#status) |
+| Status and milestones | [Roadmap](docs/roadmap.md#status), [project close](docs/close.md) |
 | How it is built | [Architecture](docs/architecture.md), [components](docs/components/README.md) |
 | Why each choice | [Decision records](docs/decisions/README.md) |
 | The terms, and their older names | [Glossary](docs/glossary.md) |
