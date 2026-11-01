@@ -139,6 +139,70 @@ class OpenFixes(unittest.TestCase):
         code, _ = self.run_check([pull(14, body)])
         self.assertEqual(code, 1)
 
+    def test_a_rule_fix_matches_the_rows_the_propose_command_writes(self):
+        # ADR 0056: a fix for NetBox's port rules, by the inbound rule's priority.
+        removed = [
+            {
+                "name": "allow-netbox-from-rehearsal",
+                "direction": direction,
+                "priority": 1120,
+                "subnet": subnet,
+            }
+            for direction, subnet in (("Inbound", "netbox"), ("Outbound", "rehearsal"))
+        ]
+        change = {
+            "account": "viewpoint-staging",
+            "rule": "allow-netbox-from-rehearsal",
+            "priority": 1120,
+            "removed": removed,
+            "commit": "c" * 40,
+            "sha256": "d" * 64,
+        }
+        bundle = {
+            "job": "nb-3",
+            "case": "seed",
+            "collected": "2026-11-01T21:18:00Z",
+            "source": "model",
+            "comparison": {
+                "accounts": [
+                    {
+                        "account": "viewpoint-staging",
+                        "configured": "excess",
+                        "observed": "excess",
+                        "model": "excess",
+                    }
+                ],
+                "proposals": [
+                    {
+                        "account": "viewpoint-staging",
+                        "action": "remove",
+                        "permission": 1120,
+                        "references": ["ev-0004"],
+                    }
+                ],
+            },
+            "policy": {"allowed": True, "reasons": [], "changes": [change]},
+            "rehearsal": {
+                "passed": True,
+                "verdicts": {"viewpoint-staging": {"configured": "within"}},
+            },
+        }
+        body = propose.rules_pr_body(bundle)
+        self.assertEqual(open_fixes.rows(body), [("viewpoint-staging", 1120)])
+        self.bundle.write_text(json.dumps(bundle))
+        code, out = self.run_check([pull(15, body, ref="fix/exercise-2-nb-1")])
+        self.assertEqual(code, 1)
+        self.assertIn(
+            "#15 fix/exercise-2-nb-1: `viewpoint-staging` loses rule 1120 there already",
+            out,
+        )
+        other = body.replace("(Inbound, 1120)", "(Inbound, 1130)")
+        self.assertEqual(self.run_check([pull(16, other)])[0], 0)
+        # A permission's row with the same number is another fix.
+        self.assertEqual(
+            self.run_check([pull(17, ROW.replace("ID 2", "ID 1120"))])[0], 0
+        )
+
     def test_another_permission_or_account_passes(self):
         rows = [
             ROW.replace("(ID 2)", "(ID 1)"),
