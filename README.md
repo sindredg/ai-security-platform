@@ -35,7 +35,7 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 | --- | --- |
 | Milestone | 6, operational and containment drills, in progress: every drill has run, and the milestone review is left ([roadmap](docs/roadmap.md#status)) |
 | Works | A fix the deterministic checks imply goes from the model's proposal to delivery: policy check, staging test, pull request, and signed approval, then a rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md)) |
-| Not yet | Exercises 2 and 3: excess network access and a vulnerable image. No VM has been rebuilt from its current template |
+| Not yet | Exercise 3, a vulnerable image. Exercise 2, excess network access, was cut for time. No VM has been rebuilt from its current template |
 
 ## Why it looks like this
 

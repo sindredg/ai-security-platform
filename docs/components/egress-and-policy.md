@@ -53,7 +53,9 @@ The diagram source is [`diagrams/network-flows.html`](../diagrams/network-flows.
 | Monitoring | Inbound | Allow | TCP 443 from the orchestrator subnet, the edge subnet, and the router subnet, to the private endpoint | `allow-agents-from-orchestrator`, `allow-agents-from-edge`, `allow-agents-from-router` |
 | All five | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
 
-The table is read from `infra/platform/main.tf` and `infra/platform/edge.tf` on 2026-10-24. `Z.4`, `Z.5`, `Z.16`, and `Z.20` compare the effective rules on each VM's interface with its group's configured ones. The monitoring group protects a private endpoint, not a VM, and no check compares its rules ([#178](https://github.com/sindredg/ai-security-platform/issues/178)). `Z.21` counts what is allowed into the edge, and `Z.22` and `Z.23` test the orchestrator's paths.
+The table is read from `infra/platform/main.tf` and `infra/platform/edge.tf` on 2026-10-24. `Z.4`, `Z.5`, `Z.16`, and `Z.20` compare the effective rules on each VM's interface with its group's configured ones.
+
+The monitoring group protects a private endpoint, not a VM, so `Z.31` compares its configured rules with Terraform's instead. `Z.21` counts what is allowed into the edge, and `Z.22` and `Z.23` test the orchestrator's paths.
 
 Administration arrives from the router subnet, translated to the router's address. The router has no inbound allow: its mesh tunnel is opened outbound (`Z.17`).
 

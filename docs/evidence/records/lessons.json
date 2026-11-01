@@ -234,6 +234,13 @@
    "runs": [
     "2026-10-31-0532-host-audit#syn-10310532"
    ]
+  },
+  {
+   "finding": "pam_motd tried to mark the legal notice shown in two root-owned homes at every login: a denied write that fired `audit-config-write` for each job and check run.",
+   "change": "The host audit install makes the mark root's in the job, feed, and export homes, read by `F.10` ([worklog](../worklogs/0007-operational-and-containment-drills.md#logins-that-tried-a-write)).",
+   "runs": [
+    "2026-10-31-0532-host-audit#syn-10310532"
+   ]
   }
  ]
 }

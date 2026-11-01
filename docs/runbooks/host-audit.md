@@ -1,6 +1,6 @@
 # Host audit: operator procedure
 
-Status: Implemented on 2026-10-31, when steps 1 to 8 ran on the live system in three passes from 05:14 UTC: the first found three faults in step 3's files, which were fixed and installed again on the worker at 06:15 UTC and on the orchestrator at 06:25 UTC, after a first attempt there stopped on a bus error. Step 9 ran at 07:07 UTC and step 10 as the new baselines; steps 11 and 12 have not run. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit).
+Status: Implemented on 2026-10-31, when steps 1 to 8 ran on the live system in three passes from 05:14 UTC: the first found three faults in step 3's files, which were fixed and installed again on the worker at 06:15 UTC and on the orchestrator at 06:25 UTC, after a first attempt there stopped on a bus error. Step 9 ran at 07:07 UTC and step 10 as the new baselines; step 3 ran again on the worker on 2026-11-01 for the legal-notice mark, with step 10 after it, and steps 11 and 12 have not run. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit).
 
 The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)). Steps 1 to 8 install both on a built machine and show each catching something; steps 9 to 12 are what comes after: the login scripts, a new baseline, a rebuilt VM, and the removal. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit).
 
@@ -47,6 +47,8 @@ The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../deci
    ```
 
    Expected, on each: the two package lines, `auditd 1:4.1.2-1ubuntu0.1` and `aide 0.19.2-3` as the archive served them on 2026-10-31; `enabled 1`, a `pid`, and `lost 0`; `rules loaded: 24` on the orchestrator and `27` on the worker; `syslog plugin: 1`; nothing from the configuration check; `baseline entries=N database=sha256:...`; and the timer's next run. The install's own writes under `/etc/audit`, `/etc/aisec`, `/usr/local/sbin`, and `/etc/systemd/system` are the first records with the key `aisec-config`, and fire `audit-config-write` within 15 minutes. On a machine with the install already, the baseline is kept, and a check against it reads `added=0 removed=0 changed=0` only if nothing changed since.
+
+   On the worker, the job, feed, and export homes each hold a root-owned `.cache/motd.legal-displayed`, so their logins write nothing there (`F.10`).
 
 4. Copy the worker's baseline to the orchestrator, and compare.
 
@@ -120,12 +122,14 @@ The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../deci
    HOST=REPLACE_WITH_HOST
    REPLACE_WITH_SSH $HOST 'sudo systemctl start aisec-aide-check.service
      sudo journalctl -u aisec-aide-check.service -t aisec-aide --since -10min -o cat --no-pager
-     sudo tail -n 20 /var/log/unattended-upgrades/unattended-upgrades.log'
+     sudo grep -h -E " (install|upgrade|remove|purge) " /var/log/dpkg.log.1 /var/log/dpkg.log | tail -n 20'
    REPLACE_WITH_SSH $HOST 'sudo aisec-aide-baseline && sudo systemctl start aisec-aide-check.service &&
      sudo journalctl -t aisec-aide --since -5min -o cat --no-pager'
    ```
 
-   Expected: the report lists the step's files, or the files of the packages the log names, and nothing else. A file neither explains is a change nobody made: stop here, and start with the [incident response runbook](incident-response.md). Then `baseline entries=N database=sha256:...`, which fires `aide-report` once, and a check line `added=0 removed=0 changed=0`, after which `F.3` or `F.6` passes again.
+   Expected: the report lists the step's files, or the files of the packages the log names, and nothing else. The command reads the previous log too: logrotate moves `dpkg.log` on the first of each month, at 00:06 and 00:41 UTC on 2026-11-01.
+
+   A file neither explains is a change nobody made: stop here, and start with the [incident response runbook](incident-response.md). Then `baseline entries=N database=sha256:...`, which fires `aide-report` once, and a check line `added=0 removed=0 changed=0`, after which `F.3` or `F.6` passes again.
 
 ## A rebuilt VM
 

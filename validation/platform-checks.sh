@@ -96,6 +96,11 @@ agent="$here/../worker/agent-runtime"
 read -r GOOSE_BIN GOOSE_BIN_SHA FIXTURE_DIR < <(. "$agent/pins.env" &&
   echo "$GOOSE_DIR/goose $GOOSE_BINARY_SHA256 $FIXTURE_DIR")
 FIXTURE_FILES="check_answer.py evidence_tool.py question.txt system.txt"
+# The model file the server is to load, from this checkout's pins with the
+# default model. AISEC_MODEL names another model only for a build (ADR 0031).
+# shellcheck source=../worker/model-server/pins.env
+MODEL_FILE_PIN=$(unset AISEC_MODEL; . "$here/../worker/model-server/pins.env" && echo "$MODEL_FILE")
+MODEL_FILE_PIN=${MODEL_FILE_PIN:-the model pins did not load}
 # The system text is one file in the checkout, beside the fixture, and the
 # worker has a copy of it in the fixture directory.
 # shellcheck disable=SC2086 # the file names are one word each
@@ -572,6 +577,8 @@ echo "model_health=$(code http://127.0.0.1:'"$MODEL_PORT"'/health)"
 echo "model_exposure=$(LC_ALL=C systemd-analyze security --no-pager '"$MODEL_UNIT"'.service 2>/dev/null | sed -n "s/.*Overall exposure level for [^:]*: \([0-9.]*\).*/\1/p")"
 model_file=$(systemctl show '"$MODEL_UNIT"' -p ExecStart --value 2>/dev/null | sed -n "s/.* --model \([^ ]*\) .*/\1/p")
 echo "model_batch=$(systemctl show '"$MODEL_UNIT"' -p ExecStart --value 2>/dev/null | sed -n "s/.* --batch-size \([0-9]*\) .*/\1/p")"
+# The file the running server process was started with, from its command line.
+echo "model_loaded=$(tr "\0" " " 2>/dev/null < "/proc/$(systemctl show '"$MODEL_UNIT"' -p MainPID --value 2>/dev/null)/cmdline" | sed -n "s/.* --model \([^ ]*\) .*/\1/p")"
 echo "model_sum=$(cd "$(dirname "$model_file")" 2>/dev/null && grep "  $(basename "$model_file")\$" SHA256SUMS 2>/dev/null | sha256sum --check --strict --status 2>/dev/null && echo match || echo differ)"
 tool() { curl -s -o /dev/null -w "%{http_code}" --max-time 8 -X POST -d "{}" "$@"; }
 echo "tool_port=$(tcp '"$ORCH_IP"' '"$TOOL_PORT"')"
@@ -602,6 +609,10 @@ echo "job_instances=$(systemctl list-units --all --no-legend "aisec-agent-job@*"
 echo "slot_erased=$(journalctl --no-pager -o cat -u "aisec-agent-job@*" 2>/dev/null | sed -n "s/.*\"slot_erased\": \([a-z]*\).*/\1/p" | tail -n 1)"
 echo "job_left=$(pgrep -c -u aisec-job 2>/dev/null) $(loginctl list-sessions --no-legend 2>/dev/null | grep -c -w aisec-job) $(find /run/systemd/dynamic-uid -maxdepth 1 -name "*aisec-agent-job*" 2>/dev/null | wc -l)"
 echo "host_key=$(cut -d " " -f 1,2 /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null)"
+# pam_motd marks the legal notice shown in .cache under the home at the first
+# login. These homes are root owned, so root makes the mark; without it each
+# login is a denied write that the audit daemon records (ADR 0054).
+echo "legal_marks=$(stat -c "%U %G %a" /home/aisec-job/.cache/motd.legal-displayed /home/aisec-feed/.cache/motd.legal-displayed /home/aisec-logexport/.cache/motd.legal-displayed 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 '"$probe_host_audit"
 
 probe_router="$probe_common"'
@@ -971,6 +982,9 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # The file named on the unit's command line, against the line for it in the
   # SHA256SUMS the build wrote. No line for that file is "differ", not a pass.
   check S.7 "The model file the server loads matches its checksum from the build" match "$(value model_sum)"
+  # S.7 passes for any file with a line in SHA256SUMS, and the worker keeps
+  # three (ADR 0031). The process's own command line, against the pins.
+  check S.9 "The model server runs the model file this checkout pins" "$MODEL_FILE_PIN" "$(value model_loaded)"
   # A cancel reaches the server between prompt batches. A batch longer than the
   # job program's erase wait leaves a timed-out job's prompt in the slot (#199).
   check S.8 "The model server's prompt batch is 512 tokens" 512 "$(value model_batch)"
@@ -1051,6 +1065,8 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check F.7 "The worker's AIDE baseline is the copy the orchestrator holds" \
     "${WORKER_AIDE_COPY:-no copy on the orchestrator}" "$(value aide_baseline | cut -d " " -f 3)"
   check F.9 "No message-of-the-day script runs at a login on the worker" 0 "$(value motd_scripts)"
+  check F.10 "Root has marked the legal notice shown in the job, feed, and export homes, so their logins write nothing there" \
+    "root root 644 root root 644 root root 644" "$(value legal_marks)"
   common_checks HW
 else
   check A.6 "Reachable through the subnet router with the operator certificate" yes no

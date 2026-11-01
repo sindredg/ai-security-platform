@@ -120,14 +120,14 @@ The first target is NetBox with synthetic inventory ([ADR 0004](decisions/0004-n
 | --- | --- |
 | NetBox VM | NetBox from one image pinned by digest, under Podman, with PostgreSQL and Valkey from Ubuntu ([ADR 0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md), [ADR 0039](decisions/0039-netbox-takes-a-clients-address-from-the-connection.md)) |
 | Authorized consumer | Reads one tenant's devices and addresses with a read-only token limited to its address. Two accounts on the lab VM: the consumer and a control ([ADR 0037](decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)) |
-| Unintended viewpoint | A source that policy says must not reach NetBox. Comes with exercise 2 |
+| Unintended viewpoint | A subnet that policy says must not reach NetBox. Nothing runs in it: exercise 2 was not run ([roadmap](roadmap.md#status)) |
 | Staging copy | A second NetBox on the lab VM, with its own interface and credentials, reset from a dump. Only the orchestrator reaches it over the network ([ADR 0044](decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)) |
 
 The viewpoints and the staging copy share one lab VM, one network interface per viewpoint subnet, because of [capacity](#capacity). Neither target VM reaches anything, and packages arrive only during an update run from the orchestrator ([ADR 0036](decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)).
 
 ### Exercises
 
-Three exercises, in order, on the same service and access specification.
+Three exercises, in order, on the same service and access specification. Exercise 2 was not run ([roadmap](roadmap.md#status)).
 
 | Order | Finding | Correct outcome | Change surface |
 | --- | --- | --- | --- |
@@ -191,7 +191,7 @@ Each practice lands with the milestone that builds what it checks ([ADR 0010](de
 | Audit log of tool calls | Verified: an append-only copy on the orchestrator and in Azure Monitor (`L.1` to `L.7`, `O.1`). Root can edit it first ([audit log](security/audit-log.md)) |
 | Supply chain | Verified per artifact (`T.2`, `W.2`, `W.9`, `G.1`, `K.11`, `N.5`). No SBOM ([supply chain](security/supply-chain.md)) |
 | Monitoring | Verified: three agents over Private Link, each alert fired once on purpose (`O.1` to `O.18`). The targets have no agent ([monitoring](components/monitoring.md)) |
-| Host audit | Verified on 2026-10-31: the audit daemon and AIDE on both VMs each caught a drill's change, in the workspace (`F.1` to `F.9`, [worklog](worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)). Root can stop both ([ADR 0054](decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)) |
+| Host audit | Verified on 2026-10-31: the audit daemon and AIDE on both VMs each caught a drill's change, in the workspace ([`F` checks](validation/host-audit.md), [worklog](worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)). Root can stop both ([ADR 0054](decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)) |
 | Incident response runbook | Verified for containment and rotation in three cases on 2026-10-30, and a restore on the staging copy. The replacement steps are rebuilds, written and not run ([runbook](runbooks/incident-response.md)) |
 
 There is no compliance framework. ISO 27001 and SOC 2 describe an organisation, and this one has a single operator.

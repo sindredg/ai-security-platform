@@ -414,9 +414,31 @@ Then every check passed at 07:25 to 07:34 UTC, 439 of 439, with `F.8` and `F.9` 
 
 The review of the pull request found that a worker's first boot would have stopped at the rules, since the kernel refuses a directory rule on a missing path and nothing made `/etc/aisec` there before the install, which was read on the worker: `auditctl` answers `No such file or directory` and takes the `-w` form instead. The install makes the directory first now, and `F.1` and `F.4` compare the kernel's rule count with the file's, where before they compared the two rules files. Every check passed again at 08:04 to 08:14 UTC, 439 of 439; the first boot itself stays not run.
 
+### The first day
+
+The timer ran its first check at 00:00 UTC on 2026-11-01. Its expected result was written at 07:10 UTC, after it ran and before its line was read at 07:11, from the package logs on both VMs. No package had changed since the baselines of 07:34 UTC the day before: `dpkg.log.1` ended at 05:42 and 05:43 UTC on 2026-10-31, the install, and `dpkg.log` was empty since logrotate moved it at 00:06 and 00:41 UTC.
+
+Expected: on each VM one check at 00:00 UTC, reading `added=0 removed=0 changed=0` against its baseline's SHA-256, and no `aide-report`. Result, read from the workspace and both journals: the orchestrator's line at 00:00:18 UTC, the worker's at 00:01:37 UTC, each `added=0 removed=0 changed=0` with `d40e6f8b...` and `b8688ef6...`. The worker's reached its copy table at 00:03:12 UTC.
+
+The three alerts the install fired all resolved on 2026-10-31: `aide-check-missing` at 07:19 UTC, `audit-config-write` at 07:57, and `aide-report` at 08:17. `audit-config-write` fired twice more, at 08:11 and 09:31 UTC, with nobody changing a platform file.
+
+### Logins that tried a write
+
+The records behind both fires were ten denied `mkdirat` calls on `/home/aisec-feed/.cache`, two at each login to the feed account, one in each check run. A job's login to `aisec-job` did the same at 05:53 UTC. Ubuntu's `pam_motd` marks the legal notice shown in `~/.cache` at an account's first login, and these homes are root's, so every login tried again ([troubleshooting 19](../troubleshooting/19-a-login-to-a-root-owned-home-fires-the-config-write-alert.md)).
+
+The install now makes a root-owned mark in the job, feed, and export homes, and `F.10` reads the three. The export account had its own mark from before its home became root's, so the journal pull never fired the alert; on a rebuilt worker it would have, every five minutes.
+
+Expected, from the run's script, written before it: `F.10` fails before the change and nothing else does; each feed login leaves two denied records; the install keeps the baseline and leaves the three marks `root root 644`; AIDE then reports the job and feed homes' new `.cache` and mark as added, the export account's two as changed, and the files the install rewrote; after a new baseline, a feed login and a journal pull leave no denied record; every check passes.
+
+Result, 2026-11-01 07:38 to 08:04 UTC, on the live worker. Before the change, a run without Azure and the workstation gave 387 passed and 1 failed, `F.10`, reading `aisec-logexport aisec-logexport 644`, and that run's feed login and one more left four denied records. The install read `lost 0`, `rules loaded: 27`, and `syslog plugin: 1`, kept the baseline, and left the three marks `root root 644`.
+
+AIDE reported `added=4 removed=0 changed=9`: the four new entries, the export account's `.cache` and mark with a new owner, and seven files the install rewrites with the same content, their times only. The new baseline, 32,674 entries (`1591e95d...`), read `added=0 removed=0 changed=0` from the unit, with the orchestrator's copy equal.
+
+By 08:05 UTC two feed logins and four journal pulls had left no denied record. Every check passed at 07:54 to 08:04 UTC, 442 of 442, `HR.1` and `HE.1` among them. No job ran, so the job account's login after the change is reasoned from the same PAM session.
+
 ## Checks and cleanup for the close
 
-Two issues named a check that did not exist, and a third named two workflows left behind. Each was fixed before the close.
+Two issues named a check that did not exist, and a third named two workflows left behind. [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) named one more: nothing checked which model file the server runs. Each was fixed before the close.
 
 ### Two new checks
 
@@ -432,6 +454,20 @@ Result, 2026-10-31 09:26 to 10:00 UTC, on the live system, with copies of the sc
 | Absent | 439 passed, 2 failed: `N.24` with one container's part empty, `Z.31` with no answer |
 | Changed, first run | 440 passed, 1 failed: `N.24` only. The copy's edit had not applied: Azure separates the fields with tabs, and the edit looked for a space |
 | Changed, edit fixed | 439 passed, 2 failed: `N.24` read `0000000000000000 1 2` for each container, `Z.31` read 8443 for one rule |
+
+### The model file the server runs
+
+The worker keeps three model files, each with its line in `SHA256SUMS`, so `S.7` passes whichever one the unit names. `S.9` reads the path after `--model` from the running process's command line and compares it with `MODEL_FILE` from the model server's pins, with the default model.
+
+Expected, written before the run: `S.9` passes on the live system with the rest. It fails on a copy of the script that reads a unit that does not exist, with an empty answer, and on a copy whose pin names Qwen3.5-2B, a file the worker holds with its own line, while `S.7` passes. No other check fails on either copy.
+
+Result, 2026-11-01 08:06 to 08:22 UTC, on the live system, with copies of the script archived from `6b5a9bf`:
+
+| Copy | Result |
+| --- | --- |
+| As is | 443 of 443 passed, `S.7`, `S.9`, `F.10`, `HR.1`, and `HE.1` among them |
+| Absent, without Azure and the workstation | 388 passed, 1 failed: `S.9`, with an empty answer |
+| Changed, without Azure and the workstation | 388 passed, 1 failed: `S.9`, expecting the 2B file and reading the 4B file. `S.7` passed |
 
 ### Two refused workflows
 
