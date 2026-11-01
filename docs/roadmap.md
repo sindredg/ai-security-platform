@@ -16,8 +16,8 @@ Security work has no milestone of its own. Each practice is part of the criteria
 | 4. NetBox target and exercise 1 investigation | Done | Accepted gap: no case whose documents disagree ([#205](https://github.com/sindredg/ai-security-platform/issues/205)). An inconclusive verdict stopped a workflow live once, with a document withheld ([record](evidence/2026-11-01-1211-a-withheld-document.md)) | [Worklog](worklogs/0005-netbox-target-and-exercise-1.md), [evidence](evidence/README.md) |
 | 5. Remediation, pull requests, and delivery | Done | Pipeline tests only: a wider fix refused. Configured, not tested: the copy's routing at first boot. Accepted gap: no held-out case has a fix left to propose ([#220](https://github.com/sindredg/ai-security-platform/issues/220)) | [Worklog](worklogs/0006-remediation-pull-requests-and-delivery.md), [evidence](evidence/README.md) |
 | 6. Operational and containment drills | Done | Accepted gap, for the subscription window: five VMs not rebuilt, no orchestrator restart during a job, no advisory read by a job. Configured, not tested: the delivery's failure path | [Worklog](worklogs/0007-operational-and-containment-drills.md) |
-| 7. Exercise 2: excess network access | Not done | Accepted gap: not run. The subscription window ends on 2026-11-02, and the drills and exercise 3 came first | |
-| 8. Exercise 3: vulnerable image or dependency | Done | Accepted gap: exercise 2 never ran, so it cannot be rechecked. Configured, not tested: the live recovery. The scan is not required or scheduled, and 54 findings stay open | [Worklog](worklogs/0008-exercise-3-vulnerable-image.md) |
+| 7. Exercise 2: excess network access | Not done | Accepted gap: no job answered within its 1200 seconds, so no fix was proposed, delivered, or probed after ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). Configured, not tested: a port rule's fix, unit tests only | [Worklog](worklogs/0009-exercise-2-excess-network-access.md), [evidence](evidence/2026-11-01-2108-exercise-2.md) |
+| 8. Exercise 3: vulnerable image or dependency | Done | Accepted gap: exercise 2 has no result to recheck ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). Configured, not tested: the live recovery. The scan is not required or scheduled, and 54 findings stay open | [Worklog](worklogs/0008-exercise-3-vulnerable-image.md) |
 
 ## 0. Documentation baseline and preflight
 
@@ -191,4 +191,5 @@ If no suitable affected and fixed artifact pair turns up, this exercise is recor
 
 - A Container Apps target and a Windows client target.
 - More models, where measurement justifies them.
+- Scheduled investigation: a timer that collects and runs a NetBox job, where collection and dispatch now wait for the operator. The operator still opens each pull request.
 - A managed Kubernetes profile with more capacity.
