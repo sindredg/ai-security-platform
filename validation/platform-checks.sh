@@ -460,7 +460,10 @@ echo "tool_image=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-se
 echo "tool_pod_security=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{.items[0].spec.automountServiceAccountToken} {.items[0].spec.securityContext.runAsNonRoot} {.items[0].spec.containers[0].securityContext.readOnlyRootFilesystem} {.items[0].spec.containers[0].securityContext.allowPrivilegeEscalation} {.items[0].spec.containers[0].securityContext.capabilities.drop[0]}")"
 echo "tool_evidence=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{range .items[0].spec.containers[0].volumeMounts[?(@.mountPath!=\"/aisec\")]}{.name}:{.mountPath}:{.readOnly} {end}{range .items[0].spec.volumes[?(@.configMap)]}{.configMap.name} {end}{.items[0].spec.containers[0].env[0].name}={.items[0].spec.containers[0].env[0].value}")"
 echo "pod_security_admission=$(k get namespace tool-services orchestration -o jsonpath="{range .items[*]}{.metadata.labels.pod-security\.kubernetes\.io/enforce} {end}" | sed "s/ $//")"
-echo "default_deny=$({ k get networkpolicy default-deny -n tool-services -o name; k get networkpolicy default-deny -n orchestration -o name; } | tr "\n" " " | sed "s/ $//")"
+# The default-deny policy of each namespace: every pod, both directions, and
+# no rule that allows anything. A policy of that name with one direction or
+# one rule passed the name alone (#63).
+echo "default_deny=$(for ns in tool-services orchestration; do k get networkpolicy default-deny -n "$ns" -o jsonpath="{.metadata.namespace} {.spec.podSelector} {.spec.policyTypes} ingress={.spec.ingress} egress={.spec.egress};"; done)"
 echo "tool_cert_14_days=$(openssl x509 -in /etc/aisec/tool-service/tls.crt -noout -checkend 1209600 >/dev/null 2>&1 && echo yes || echo no)"
 audit=/var/log/aisec/tool-audit.jsonl
 echo "audit_copy_active=$(systemctl is-active aisec-audit-copy 2>/dev/null)"
@@ -852,7 +855,9 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check T.14 "The tool service mounts each target's evidence read-only, NetBox's from the collect command's config map" \
     "evidence-synthetic:/evidence/synthetic:true evidence-netbox:/evidence/netbox:true tool-service-evidence tool-service-evidence-netbox AISEC_EVIDENCE=/evidence" \
     "$(value tool_evidence)"
-  check T.5 "Both namespaces deny by default" "networkpolicy.networking.k8s.io/default-deny networkpolicy.networking.k8s.io/default-deny" "$(value default_deny)"
+  check T.5 "Both namespaces deny by default" \
+    'tool-services {} ["Ingress","Egress"] ingress= egress=;orchestration {} ["Ingress","Egress"] ingress= egress=;' \
+    "$(value default_deny)"
   check T.7 "The tool service certificate has more than 14 days left" yes "$(value tool_cert_14_days)"
   # From inside the pod. K3s enforces network policies with kube-router, which
   # rejects with an ICMP port unreachable, so a blocked connection is
