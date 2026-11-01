@@ -302,6 +302,14 @@
    "runs": [
     "2026-11-01-1232-without-goose#sites-3"
    ]
+  },
+  {
+   "finding": "In one request with no agent, Qwen3.5-4B matched 3 of 5 cases whose checks agree, each in under five minutes. Goose matched 10 of 10.",
+   "change": "None: the verification gate stopped the wrong `excess` and the `inconclusive` ([worklog](../worklogs/0007-operational-and-containment-drills.md#without-an-agent)).",
+   "runs": [
+    "2026-11-01-1405-one-request-without-an-agent#sites-1",
+    "2026-11-01-1405-one-request-without-an-agent#devices-only-1"
+   ]
   }
  ]
 }

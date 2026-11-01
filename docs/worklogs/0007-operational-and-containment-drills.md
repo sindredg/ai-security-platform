@@ -519,7 +519,7 @@ Result: `Z.32` passed in the full run at 09:24:55 UTC with the renamed checks. A
 
 ## Experiments for the close
 
-Five experiments ask what the model and its agent runtime add beside the deterministic checks, on the live system on 2026-11-01. Each one's expected result was written before its run. None changed the platform's code: three changed the model server and put it back, one removed a document from a job's evidence, and one ran jobs with a loop in Goose's place.
+Six experiments ask what the model and its agent runtime add beside the deterministic checks, on the live system on 2026-11-01. Each one's expected result was written before its run. None changed the platform's code: three changed the model server and put it back, one removed a document from a job's evidence, and two ran jobs outside the workflow, with a loop in Goose's place and with no agent.
 
 ### The case whose checks disagree
 
@@ -619,3 +619,24 @@ Qwen3.5-2B answered both cases through the loop, where with Goose it gave no str
 With thinking on, no request started over: the slot held 1,627, 2,519, and 2,954 tokens after the first three, and 7,226 at the cancel. So the restart seen with Goose in [Thinking on](#thinking-on) was not what ran out the time: on this case, the request after the three documents did not finish within the limit, with or without Goose. The cancel reached the model server when the loop closed the connection, and the slot was erased after it.
 
 Nothing changed on the platform. The loop ran without the controls around a job, so it shows what the model does without Goose, not a replacement for it.
+
+### Without an agent
+
+Exercise 1 always reads the same three documents, so the model's choice of reads may add only turns. The question is whether the verdicts stay right with the documents in the prompt and one request, and how long a job takes.
+
+The loop of [Without Goose](#without-goose) ran in a mode where the program reads `ev-0001` to `ev-0003` in order, as tool calls and results it writes, and the model gets one request with constrained decoding and no tool list. The system prompt, the task, and the model server were unchanged, with one job per held-out case. The expected values were written before the run, reasoned, not observed.
+
+Result, 2026-11-01 14:05 to 14:34 UTC ([record](../evidence/2026-11-01-1405-one-request-without-an-agent.md)):
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| Every job | One request, an answer that fits the schema | As expected: 6 of 6 |
+| The five cases whose checks agree | `match` on all, at most one wrong, likeliest `change` | 3 of 5, `change` among them. `sites` gave `excess` where the checks say `missing`, and `devices-only` `inconclusive` where they say `excess` |
+| `two-of-three` | A stop, the checks disagreeing, with `excess` for both | A stop as expected, but `within` for both, unlike every earlier answer |
+| The proposals on `devices-only` | One per account | None: an `inconclusive` verdict proposes nothing |
+| Time | 3.5 to 6 minutes a job | 2.6 to 4.6 minutes, against Goose's 9 to 13 |
+| The slot and the server | Erased before and after each job. The 4B file and `--reasoning off` before and after | As expected |
+
+The two wrong answers misread the documents. On `sites`, the analysis said the specification grants no `dcim.site` view, which it does, and took a device the specification lists for an excess one. On `devices-only`, it called an allowed request that the specification expects denied a disagreement between documents, where the task calls it an excess.
+
+The verification gate stopped both. Against Goose's 10 of 10 on these cases on 2026-10-27, one request is the fastest of the three shapes and the least accurate, on one run per case. What made the difference is not isolated: in the loop, the model chose its reads and wrote its answer as a tool call before any constraint, and here it did neither.
