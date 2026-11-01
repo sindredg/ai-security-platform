@@ -70,7 +70,7 @@ Three things in the subscription stay on purpose. `NetworkWatcherRG` is Azure's 
    terraform apply REPLACE_WITH_KEEP/platform-destroy.tfplan
    ```
 
-   Expected: every resource in `rg-aisec-platform`, the six VMs and the workspace among them. The workspace stays recoverable for 14 days after its delete, as Azure keeps it.
+   Expected: every resource in `rg-aisec-platform`, the four VMs (orchestrator, worker, edge, router) and the workspace among them. The two target VMs went with step 4. The workspace stays recoverable for 14 days after its delete, as Azure keeps it.
 
 6. Prepare the bootstrap root's destroy in a branch. Remove the `lifecycle { prevent_destroy = true }` block from the state accounts in `infra/bootstrap/main.tf`. Remove the two `data` blocks and the `azurerm_network_watcher_flow_log` block from `infra/bootstrap/monitoring.tf`: step 3 destroyed the flow logs, and the data sources would read a workspace and networks that no longer exist. Then take the provider registrations out of the state, so the destroy leaves them registered.
 
