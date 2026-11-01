@@ -1,8 +1,8 @@
 #!/bin/bash
 # Installs NetBox's collect command on the orchestrator (ADR 0040). Run as
-# root, from a folder that holds netbox_access.py, collect_evidence.py, and
-# cases.json from this directory, and contract.json from the targets
-# repository's netbox/. cases.json holds the held-out cases (ADR 0042).
+# root, from a folder that holds netbox_access.py, netbox_rules.py,
+# collect_evidence.py, and cases.json from this directory, and contract.json
+# from the targets repository's netbox/. cases.json holds the held-out cases (ADR 0042).
 #
 #   install-collector.sh
 #
@@ -17,7 +17,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 
 [ "$(id -u)" -eq 0 ] || { echo "run as root" >&2; exit 1; }
 [ "$#" -eq 0 ] || { echo "usage: install-collector.sh" >&2; exit 2; }
-for file in netbox_access.py collect_evidence.py contract.json cases.json; do
+for file in netbox_access.py netbox_rules.py collect_evidence.py contract.json cases.json; do
   [ -f "$here/$file" ] || { echo "missing: $here/$file" >&2; exit 1; }
 done
 python3 -I -c 'import json, sys; [json.load(open(f)) for f in sys.argv[1:]]' \
@@ -38,6 +38,8 @@ chmod 0644 "$dir/known_hosts"
 
 install -d -m 0755 -o root -g root /usr/local/lib/aisec
 install -m 0644 -o root -g root "$here/netbox_access.py" /usr/local/lib/aisec/netbox_access.py
+# The rules module the collect command and the policy import (ADR 0056).
+install -m 0644 -o root -g root "$here/netbox_rules.py" /usr/local/lib/aisec/netbox_rules.py
 install -m 0755 -o root -g root "$here/collect_evidence.py" /usr/local/sbin/collect-netbox-evidence
 install -m 0644 -o root -g root "$here/contract.json" /etc/aisec/netbox/contract.json
 install -m 0644 -o root -g root "$here/cases.json" /etc/aisec/netbox/cases.json

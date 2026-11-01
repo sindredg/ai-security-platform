@@ -10,4 +10,14 @@ Give each account in the contract one verdict.
 
 For each account whose verdict is excess, find the one change that removes the excess: the permission to take from that account. Only a permission that ev-0002 lists for that account may be named.
 
-When you have read the three documents, give the answer by calling the final_output tool, on its own. In the analysis, cite the evidence each conclusion rests on, and say where the evidence disagrees. Give the verdict for each account under its name, as the schema lists them, with the evidence the verdict rests on, and one proposal for each account whose verdict is excess, with the permission's id from ev-0002.
+When ev-0001 has a network part, it also lists viewpoints: an address in a target subnet, and whether a connection from it should reach NetBox's port (open) or not (closed). ev-0004 is the security rules about NetBox's port in each target subnet, from the targets repository. In a subnet, the rule with the lowest priority that matches a connection decides, and a connection no rule allows is denied. A connection from a viewpoint reaches the port only when its own subnet allows it out and NetBox's subnet allows it in. ev-0005 is what a connection from each viewpoint's address gave: open, timeout, refused, or error.
+
+Give each viewpoint one verdict too, under viewpoint-NAME, with the viewpoint's name from ev-0001.
+- excess: the contract says closed, and a rule in ev-0004 lets the connection through, or the connection in ev-0005 was open.
+- missing: the contract says open, and the rules stop the connection, or it timed out.
+- within: the rules and the connection both give what the contract says.
+- inconclusive: the evidence does not settle it, or ev-0004 and ev-0005 disagree.
+
+For each viewpoint whose verdict is excess, the change is the inbound rule on NetBox's subnet in ev-0004 that lets the viewpoint in: give its priority where the schema asks for the permission's id, under the viewpoint's name.
+
+When you have read every document, ev-0001 to ev-0003, and ev-0004 and ev-0005 when ev-0001 has a network part, give the answer by calling the final_output tool, on its own. In the analysis, cite the evidence each conclusion rests on, and say where the evidence disagrees. Give the verdict for each account and viewpoint under its name, as the schema lists them, with the evidence the verdict rests on, and one proposal for each one whose verdict is excess, with the permission's id from ev-0002, or for a viewpoint the rule's priority from ev-0004.

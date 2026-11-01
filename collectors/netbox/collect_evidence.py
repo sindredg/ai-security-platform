@@ -17,6 +17,13 @@ returns and each denial's status. Names, reasons, and other free text from
 NetBox are left out. The verdicts and both full reports stay here, under the
 job's directory, for the workflow's comparison and for the operator.
 
+A contract with a network part (ADR 0056) adds a verdict for each of its
+viewpoints, under the name viewpoint-NAME, and two documents: ev-0004 NetBox's
+port rules from the targets repository at the commit the orchestrator's mirror
+holds as main, and ev-0005 what a connection from each viewpoint's address
+gave. The configured half of a viewpoint is netbox_rules.py's judgment of
+those rules, here. The observed half is the connection, from the lab VM.
+
 The documents go into the tool service's ConfigMap for NetBox, keyed
 `JOB.REFERENCE.json`, which the pod mounts as a directory. The verdicts go
 into the ConfigMap `netbox-verdicts` in `orchestration`, keyed `JOB.json`,
@@ -27,6 +34,7 @@ service's directory. A job ID is collected once.
 Standard library only.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -36,6 +44,12 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+
+# -I leaves the script's own folder off the path. The rules module is
+# installed beside the collector.
+sys.path.insert(0, os.environ.get("AISEC_LIB", "/usr/local/lib/aisec"))
+
+import netbox_rules
 
 STATE = Path(os.environ.get("AISEC_STATE", "/var/lib/aisec/evidence/netbox"))
 CONTRACT = Path(os.environ.get("AISEC_CONTRACT", "/etc/aisec/netbox/contract.json"))
@@ -48,6 +62,14 @@ WAIT = int(os.environ.get("AISEC_WAIT", "180"))
 # How long each half may take. NetBox and the lab VM are target side, and
 # neither chooses how long the orchestrator waits for its answer.
 TIMEOUT = int(os.environ.get("AISEC_TIMEOUT", "120"))
+
+# The targets repository's mirror, which the delivery command fetches in a
+# fetch window (ADR 0046). Its main is what the rules are read from.
+MIRROR = Path(os.environ.get("AISEC_MIRROR", "/var/lib/aisec/delivery/targets.git"))
+GIT = os.environ.get("AISEC_GIT", "/usr/bin/git")
+RULES = "infra/targets/netbox-rules.json"
+COMMIT = re.compile(r"[0-9a-f]{40}")
+RESULTS = ("open", "timeout", "refused", "error")
 
 KEY = "/etc/aisec/netbox/observe/id_ed25519"
 KNOWN_HOSTS = "/etc/aisec/netbox/observe/known_hosts"
@@ -188,6 +210,23 @@ def report(text, check, contract, what):
             )
         if not good:
             raise Failed(f"{what}: {name} is not in the {check} report's shape")
+    network = contract.get("network")
+    if "viewpoints" in found or (check == "observed" and network):
+        views = found.get("viewpoints")
+        if not (
+            network
+            and isinstance(views, dict)
+            and set(views) == set(network["viewpoints"])
+        ):
+            raise Failed(f"{what}: not the contract's viewpoints")
+        for name, view in views.items():
+            if not (
+                isinstance(view, dict)
+                and view.get("verdict") in VERDICTS
+                and view.get("result") in RESULTS
+                and view.get("address") == network["viewpoints"][name]["address"]
+            ):
+                raise Failed(f"{what}: viewpoint {name} is not in the report's shape")
     return found
 
 
@@ -197,7 +236,50 @@ def header(reference, job, collected):
 
 def facts_contract(contract, job, collected):
     fields = ("accounts", "viewpoint", "grants", "reads", "denials")
-    return header("ev-0001", job, collected) | {f: contract[f] for f in fields}
+    facts = header("ev-0001", job, collected) | {f: contract[f] for f in fields}
+    if "network" in contract:
+        facts["network"] = contract["network"]
+    return facts
+
+
+def facts_rules(rules, job, collected):
+    return header("ev-0004", job, collected) | {
+        "commit": rules["commit"],
+        "subnets": netbox_rules.facts(rules["rules"]),
+    }
+
+
+def facts_probes(observed, job, collected):
+    return header("ev-0005", job, collected) | {
+        "viewpoints": {
+            name: {"address": view["address"], "result": view["result"]}
+            for name, view in observed["viewpoints"].items()
+        }
+    }
+
+
+def git(*args):
+    return run([GIT, "--git-dir", str(MIRROR), *args], None, "the targets mirror", 30)
+
+
+def read_rules(network):
+    """The rules at the mirror's main, the commit, and each viewpoint's
+    configured verdict. The mirror is fetched from the targets repository,
+    which is target side, so the file is read with limits."""
+    commit = git("rev-parse", "--verify", "refs/remotes/origin/main^{commit}").strip()
+    if not COMMIT.fullmatch(commit):
+        raise Failed("the targets mirror's main is not a commit")
+    text = git("show", f"{commit}:{RULES}")
+    try:
+        rules = netbox_rules.load(text)
+    except netbox_rules.Invalid as error:
+        raise Failed(f"the rules at {commit[:12]}: {error}") from None
+    return {
+        "commit": commit,
+        "sha256": hashlib.sha256(text.encode()).hexdigest(),
+        "rules": rules,
+        "viewpoints": netbox_rules.configured(rules, network),
+    }
 
 
 def facts_configured(configured, job, collected):
@@ -238,14 +320,21 @@ def facts_observed(observed, job, collected):
     return header("ev-0003", job, collected) | {"accounts": accounts}
 
 
-def verdicts(configured, observed):
-    return {
+def verdicts(configured, observed, rules=None):
+    found = {
         name: {
             "configured": configured["accounts"][name]["verdict"],
             "observed": observed["accounts"][name]["verdict"],
         }
         for name in configured["accounts"]
     }
+    if rules is not None:
+        for name, view in rules["viewpoints"].items():
+            found[netbox_rules.VIEWPOINT + name] = {
+                "configured": view["verdict"],
+                "observed": observed["viewpoints"][name]["verdict"],
+            }
+    return found
 
 
 def write(path, document):
@@ -334,6 +423,14 @@ def collect(job, case=None):
     contract = contract_for(case)
     if case is not None:
         print(f"{job}: case {case}", flush=True)
+    network = contract.get("network")
+    if network is not None and not netbox_rules.network_in_shape(network):
+        raise Failed("the contract's network part is not in shape")
+    if network is not None and any(
+        a.startswith(netbox_rules.VIEWPOINT) for a in contract["accounts"]
+    ):
+        raise Failed("an account's name is a viewpoint's")
+    rules = read_rules(network) if network is not None else None
     sent = json.dumps(contract)
     halves = {
         "configured": [sys.executable, "-I", COLLECTOR, "configured"],
@@ -351,6 +448,9 @@ def collect(job, case=None):
         "ev-0002": facts_configured(reports["configured"], job, collected),
         "ev-0003": facts_observed(reports["observed"], job, collected),
     }
+    if rules is not None:
+        documents["ev-0004"] = facts_rules(rules, job, collected)
+        documents["ev-0005"] = facts_probes(reports["observed"], job, collected)
     for reference, document in documents.items():
         size = len(json.dumps(document, indent=2, sort_keys=True).encode())
         if size > RESULT_BYTES:
@@ -358,7 +458,7 @@ def collect(job, case=None):
                 f"{reference} is larger than the tool service hands back: "
                 f"{size} bytes, the limit is {RESULT_BYTES}"
             )
-    found = verdicts(reports["configured"], reports["observed"])
+    found = verdicts(reports["configured"], reports["observed"], rules)
     STATE.mkdir(mode=0o700, parents=True, exist_ok=True)
     try:
         (STATE / job).mkdir(mode=0o700)
@@ -368,6 +468,7 @@ def collect(job, case=None):
         ("verdicts.json", found),
         ("configured.json", reports["configured"]),
         ("observed.json", reports["observed"]),
+        *((("rules.json", rules),) if rules is not None else ()),
         *((f"{ref}.json", doc) for ref, doc in documents.items()),
     ):
         write(STATE / job / name, document)
@@ -387,7 +488,7 @@ def collect(job, case=None):
     )
     seconds = wait_visible(job)
     print(
-        f"{job}: ev-0001 ev-0002 ev-0003, visible to the tool service after {seconds} s"
+        f"{job}: {' '.join(documents)}, visible to the tool service after {seconds} s"
     )
     print(" ".join(f"{a}:{v['configured']}/{v['observed']}" for a, v in found.items()))
     print(f"verdicts for the comparison in {VERDICTS_NAMESPACE}/{VERDICTS_CONFIGMAP}")

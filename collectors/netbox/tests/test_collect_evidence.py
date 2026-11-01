@@ -7,9 +7,11 @@ writes the keys into the pod's volume directory, as the kubelet does some
 seconds later on the orchestrator.
 """
 
+import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -128,6 +130,7 @@ class Collect(unittest.TestCase):
             "AISEC_KUBECTL": str(self.fake / "kubectl"),
             "AISEC_KUBELET": str(self.tmp / "kubelet"),
             "AISEC_WAIT": "5",
+            "AISEC_LIB": str(HERE.parent),
         }
 
     def answer(self, half, report):
@@ -591,3 +594,226 @@ REFERENCES = ("ev-0001", "ev-0002", "ev-0003")
 
 if __name__ == "__main__":
     unittest.main()
+
+
+NETWORK_FIXTURE = json.loads((HERE / "network.json").read_text(encoding="utf-8"))
+SEEDED_RULES, NETWORK = NETWORK_FIXTURE["rules"], NETWORK_FIXTURE["network"]
+RULES_PATH = "infra/targets/netbox-rules.json"
+GIT_ENV = {
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_AUTHOR_NAME": "test",
+    "GIT_AUTHOR_EMAIL": "test@example.com",
+    "GIT_COMMITTER_NAME": "test",
+    "GIT_COMMITTER_EMAIL": "test@example.com",
+}
+
+
+class NetworkCollect(unittest.TestCase):
+    """A contract with a network part (platform ADR 0056): the rules from a
+    mirror of the targets repository, the connections from the lab VM's
+    report, and a verdict for each viewpoint."""
+
+    answer = Collect.answer
+    configmap = Collect.configmap
+    stored = Collect.stored
+    run_command = Collect.run_command
+    kubectl_calls = Collect.kubectl_calls
+    assert_nothing_written = Collect.assert_nothing_written
+
+    def setUp(self):
+        Collect.setUp(self)
+        self.git = shutil.which("git")
+        self.contract(dict(REPORTS["contract"], network=NETWORK))
+        self.observed({"consumer": "open", "staging": "open"})
+        self.mirror = self.tmp / "targets.git"
+        self.commit = self.mirror_with(netbox_rules_text(SEEDED_RULES))
+        self.env |= GIT_ENV | {
+            "AISEC_MIRROR": str(self.mirror),
+            "AISEC_GIT": self.git,
+            "AISEC_LIB": str(HERE.parent),
+        }
+
+    def contract(self, contract):
+        (self.tmp / "contract.json").write_text(json.dumps(contract))
+
+    def observed(self, results, **change):
+        report = json.loads(json.dumps(REPORTS["observed"]))
+        verdicts = {
+            ("consumer", "open"): "within",
+            ("staging", "open"): "excess",
+            ("staging", "timeout"): "within",
+            ("consumer", "timeout"): "missing",
+        }
+        report["viewpoints"] = {
+            name: {
+                "verdict": verdicts.get((name, result), "unknown"),
+                "reasons": [],
+                "address": NETWORK["viewpoints"]
+                .get(name, {})
+                .get("address", "10.50.0.68"),
+                "result": result,
+            }
+            for name, result in results.items()
+        }
+        for name, fields in change.items():
+            report["viewpoints"][name].update(fields)
+        self.answer("observed", report)
+
+    def mirror_with(self, text):
+        work = self.tmp / "work"
+        env = dict(os.environ, **GIT_ENV)
+        if not work.exists():
+            subprocess.run([self.git, "init", "-q", str(work)], check=True, env=env)  # noqa: S603
+            subprocess.run(  # noqa: S603
+                [self.git, "init", "-q", "--bare", str(self.mirror)],
+                check=True,
+                env=env,
+            )
+        (work / "infra" / "targets").mkdir(parents=True, exist_ok=True)
+        (work / RULES_PATH).write_text(text)
+        for args in (("add", RULES_PATH), ("commit", "-q", "-m", "rules")):
+            subprocess.run([self.git, "-C", str(work), *args], check=True, env=env)  # noqa: S603
+        subprocess.run(  # noqa: S603
+            [
+                self.git,
+                "-C",
+                str(work),
+                "push",
+                "-q",
+                str(self.mirror),
+                "HEAD:refs/remotes/origin/main",
+                "--force",
+            ],
+            check=True,
+            env=env,
+        )
+        return subprocess.run(  # noqa: S603
+            [self.git, "-C", str(work), "rev-parse", "HEAD"],
+            check=True,
+            env=env,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    def test_a_collection_adds_the_rules_the_connections_and_a_verdict_each(self):
+        code, out, err = self.run_command("job-1")
+        self.assertEqual(code, 0, err)
+        data = self.stored()["data"]
+        references = ("ev-0001", "ev-0002", "ev-0003", "ev-0004", "ev-0005")
+        self.assertEqual(set(data), {f"job-1.{ref}.json" for ref in references})
+        rules = json.loads(data["job-1.ev-0004.json"])
+        self.assertEqual(
+            (rules["reference"], rules["commit"]), ("ev-0004", self.commit)
+        )
+        self.assertEqual(rules["subnets"]["netbox"][1]["source"], "10.50.1.0/27")
+        self.assertNotIn("description", json.dumps(rules))
+        probes = json.loads(data["job-1.ev-0005.json"])
+        self.assertEqual(
+            probes["viewpoints"],
+            {
+                "consumer": {"address": "10.50.0.36", "result": "open"},
+                "staging": {"address": "10.50.1.4", "result": "open"},
+            },
+        )
+        self.assertNotIn("verdict", json.dumps(probes))
+        self.assertEqual(json.loads(data["job-1.ev-0001.json"])["network"], NETWORK)
+        verdicts = json.loads((self.state / "job-1" / "verdicts.json").read_text())
+        self.assertEqual(
+            verdicts["viewpoint-staging"],
+            {"configured": "excess", "observed": "excess"},
+        )
+        self.assertEqual(
+            verdicts["viewpoint-consumer"],
+            {"configured": "within", "observed": "within"},
+        )
+        kept = json.loads((self.state / "job-1" / "rules.json").read_text())
+        self.assertEqual((kept["commit"], kept["rules"]), (self.commit, SEEDED_RULES))
+        self.assertEqual(
+            kept["sha256"],
+            hashlib.sha256(netbox_rules_text(SEEDED_RULES).encode()).hexdigest(),
+        )
+        self.assertIn("ev-0004 ev-0005", out)
+
+    def test_the_rules_at_main_decide_the_configured_verdict(self):
+        fixed = json.loads(json.dumps(SEEDED_RULES))
+        fixed["netbox"] = [r for r in fixed["netbox"] if r["priority"] != 1120]
+        fixed["rehearsal"] = []
+        self.mirror_with(netbox_rules_text(fixed))
+        self.observed({"consumer": "open", "staging": "timeout"})
+        code, _, err = self.run_command("job-1")
+        self.assertEqual(code, 0, err)
+        verdicts = json.loads((self.state / "job-1" / "verdicts.json").read_text())
+        self.assertEqual(
+            verdicts["viewpoint-staging"],
+            {"configured": "within", "observed": "within"},
+        )
+
+    def test_reports_without_the_contracts_viewpoints_are_refused(self):
+        report = json.loads(json.dumps(REPORTS["observed"]))
+        cases = {
+            "no viewpoints": lambda: self.answer("observed", report),
+            "one missing": lambda: self.observed({"consumer": "open"}),
+            "another name": lambda: self.observed(
+                {"consumer": "open", "staging": "open", "lab": "open"}
+            ),
+            "another address": lambda: self.observed(
+                {"consumer": "open", "staging": "open"},
+                staging={"address": "10.50.0.36"},
+            ),
+            "a result out of its set": lambda: self.observed(
+                {"consumer": "open", "staging": "open"}, staging={"result": "maybe"}
+            ),
+            "a verdict out of its set": lambda: self.observed(
+                {"consumer": "open", "staging": "open"},
+                staging={"verdict": "inconclusive"},
+            ),
+        }
+        for job, (why, write) in enumerate(cases.items()):
+            with self.subTest(why):
+                write()
+                code, _, err = self.run_command(f"job-{job}")
+                self.assertEqual(code, 1, why)
+                self.assertRegex(err, r"^failed: observed: .*viewpoint")
+                self.assert_nothing_written(f"job-{job}")
+
+    def test_no_mirror_fails_before_anything_is_written(self):
+        code, _, err = self.run_command(
+            "job-1", AISEC_MIRROR=str(self.tmp / "none.git")
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("the targets mirror", err)
+        self.assert_nothing_written("job-1")
+
+    def test_rules_out_of_shape_at_main_are_refused(self):
+        self.mirror_with('{"netbox": [{"name": "x"}]}\n')
+        code, _, err = self.run_command("job-1")
+        self.assertEqual(code, 1)
+        self.assertIn("a rule without the rule fields", err)
+        self.assert_nothing_written("job-1")
+
+    def test_a_network_part_out_of_shape_is_refused(self):
+        self.contract(dict(REPORTS["contract"], network=dict(NETWORK, port="8443")))
+        code, _, err = self.run_command("job-1")
+        self.assertEqual(code, 1)
+        self.assertIn("network part is not in shape", err)
+        self.assert_nothing_written("job-1")
+
+    def test_an_account_named_as_a_viewpoint_is_refused(self):
+        contract = dict(REPORTS["contract"], network=NETWORK)
+        contract["accounts"] = [*contract["accounts"], "viewpoint-staging"]
+        self.contract(contract)
+        code, _, err = self.run_command("job-1")
+        self.assertEqual(code, 1)
+        self.assertIn("a viewpoint's", err)
+
+    def test_viewpoints_in_a_report_for_a_contract_without_a_network_part(self):
+        self.contract(REPORTS["contract"])
+        code, _, err = self.run_command("job-1")
+        self.assertEqual(code, 1)
+        self.assertIn("not the contract's viewpoints", err)
+        self.assert_nothing_written("job-1")
+
+
+def netbox_rules_text(rules):
+    return json.dumps(rules, indent=2) + "\n"

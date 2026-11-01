@@ -23,11 +23,19 @@ answers are the target's, and a compromised target shapes them: this script
 follows no link and no redirect from them, builds every URL itself, and holds
 no answer and no list longer than the limits below.
 
+With a network part in the contract (platform ADR 0056), the observed half
+also tries a TCP connection to NetBox's port from each viewpoint's address,
+bound to it, so the lab VM's second interface stands in for the staging
+subnet. It reports open, timeout, refused, or an error, and the verdict the
+contract's reach gives it. The configured half of that is netbox_rules.py, on
+the orchestrator.
+
 Usage: netbox_access.py configured|observed [--summary] < contract.json
 """
 
 import json
 import os
+import socket
 import ssl
 import sys
 import urllib.error
@@ -274,6 +282,58 @@ def observed(contract):
     return accounts
 
 
+# How long a connection from a viewpoint may take. A security rule that
+# denies drops the packets, so a denied path is a timeout.
+PROBE_SECONDS = 3
+
+
+def probe(source, address, port, seconds=PROBE_SECONDS):
+    """A TCP connection from source to address:port: open, timeout, refused,
+    or error, for an address the host cannot bind or another failure."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(seconds)
+        try:
+            s.bind((source, 0))
+        except OSError:
+            return "error"
+        try:
+            s.connect((address, port))
+        except TimeoutError:
+            return "timeout"
+        except ConnectionRefusedError:
+            return "refused"
+        except OSError:
+            return "error"
+    return "open"
+
+
+def judge_probe(result, reach):
+    """The observed verdict for a viewpoint. A refused connection crossed the
+    rules and found nothing listening, so it settles nothing."""
+    if result not in ("open", "timeout"):
+        why = f"the connection gave {result}"
+        return [{"kind": "unknown", "why": why}]
+    if result == "open" and reach == "closed":
+        return [{"kind": "excess", "why": "the connection reached the port"}]
+    if result == "timeout" and reach == "open":
+        return [{"kind": "missing", "why": "the connection timed out"}]
+    return []
+
+
+def observed_network(network):
+    viewpoints = {}
+    for name, view in network["viewpoints"].items():
+        result = probe(view["address"], network["address"], network["port"])
+        reasons = judge_probe(result, view["reach"])
+        viewpoints[name] = {
+            "verdict": verdict(reasons),
+            "reasons": reasons,
+            "address": view["address"],
+            "result": result,
+        }
+    return viewpoints
+
+
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
     if mode not in ("configured", "observed") or sys.argv[2:] not in (
@@ -285,10 +345,13 @@ def main():
         )
     contract = json.load(sys.stdin)
     accounts = configured(contract) if mode == "configured" else observed(contract)
+    report = {"check": mode, "accounts": accounts}
+    if mode == "observed" and "network" in contract:
+        report["viewpoints"] = observed_network(contract["network"])
     if sys.argv[2:]:
         print(" ".join(f"{a}:{v['verdict']}" for a, v in accounts.items()))
     else:
-        print(json.dumps({"check": mode, "accounts": accounts}, indent=2))
+        print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":

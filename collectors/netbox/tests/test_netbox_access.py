@@ -365,6 +365,100 @@ class Transport(unittest.TestCase):
                 self.assertLess(len(answer), 200)
 
 
+NETWORK = {
+    "address": "10.50.0.4",
+    "port": 8443,
+    "subnet": "netbox",
+    "viewpoints": {
+        "consumer": {"address": "10.50.0.36", "subnet": "consumer", "reach": "open"},
+        "staging": {"address": "10.50.1.4", "subnet": "rehearsal", "reach": "closed"},
+    },
+}
+
+
+class Probe(unittest.TestCase):
+    """The viewpoints' connections (platform ADR 0056), on this host's
+    loopback, and with a socket stand-in for a timeout."""
+
+    def test_a_listening_port_is_open(self):
+        with socket_server() as port:
+            self.assertEqual(collector.probe("127.0.0.1", "127.0.0.1", port), "open")
+
+    def test_a_closed_port_is_refused(self):
+        with socket_server() as port:
+            pass
+        self.assertEqual(collector.probe("127.0.0.1", "127.0.0.1", port), "refused")
+
+    def test_an_address_the_host_does_not_hold_is_an_error(self):
+        # 192.0.2.0/24 is for documentation, and no host holds it.
+        self.assertEqual(collector.probe("192.0.2.1", "127.0.0.1", 9), "error")
+
+    def test_a_dropped_connection_is_a_timeout(self):
+        fake = mock.MagicMock()
+        fake.__enter__.return_value.connect.side_effect = TimeoutError
+        with mock.patch.object(collector.socket, "socket", return_value=fake):
+            self.assertEqual(collector.probe("10.50.1.4", "10.50.0.4", 8443), "timeout")
+        fake.__enter__.return_value.bind.assert_called_once_with(("10.50.1.4", 0))
+        fake.__enter__.return_value.settimeout.assert_called_once_with(3)
+
+    def test_each_result_against_each_reach(self):
+        cases = {
+            ("open", "open"): "within",
+            ("open", "closed"): "excess",
+            ("timeout", "closed"): "within",
+            ("timeout", "open"): "missing",
+            ("refused", "closed"): "unknown",
+            ("refused", "open"): "unknown",
+            ("error", "closed"): "unknown",
+        }
+        for (result, reach), want in cases.items():
+            with self.subTest(result=result, reach=reach):
+                found = collector.verdict(collector.judge_probe(result, reach))
+                self.assertEqual(found, want)
+
+    def test_the_observed_report_has_a_viewpoint_for_each(self):
+        results = {"10.50.0.36": "open", "10.50.1.4": "open"}
+        with mock.patch.object(
+            collector, "probe", side_effect=lambda source, *_: results[source]
+        ):
+            found = collector.observed_network(NETWORK)
+        self.assertEqual(
+            {n: (v["verdict"], v["result"], v["address"]) for n, v in found.items()},
+            {
+                "consumer": ("within", "open", "10.50.0.36"),
+                "staging": ("excess", "open", "10.50.1.4"),
+            },
+        )
+
+    def test_main_adds_the_viewpoints_only_for_a_network_part(self):
+        for contract, has in (({"network": NETWORK}, True), ({}, False)):
+            with (
+                mock.patch.object(collector, "observed", return_value={}),
+                mock.patch.object(collector, "probe", return_value="timeout"),
+                mock.patch.object(sys, "argv", ["x", "observed"]),
+                mock.patch.object(
+                    sys, "stdin", mock.Mock(read=lambda c=contract: json.dumps(c))
+                ),
+                mock.patch("builtins.print") as printed,
+            ):
+                collector.main()
+            report = json.loads(printed.call_args[0][0])
+            self.assertEqual("viewpoints" in report, has)
+
+
+class socket_server:
+    """A listening socket on loopback, and its port."""
+
+    def __enter__(self):
+        self.sock = collector.socket.socket()
+        self.sock.bind(("127.0.0.1", 0))
+        self.sock.listen(1)
+        return self.sock.getsockname()[1]
+
+    def __exit__(self, *exc):
+        self.sock.close()
+
+
 class Main(unittest.TestCase):
     def test_the_summary_line(self):
         accounts = {"reader": {"verdict": "excess"}, "control": {"verdict": "within"}}
