@@ -341,6 +341,42 @@ class TheProposals(unittest.TestCase):
         self.assertEqual(result["proposals"], [KEPT])
         self.assertEqual(result["unread_proposals"], 0)
 
+    def test_a_viewpoint_and_its_rule_go_through_as_an_account_does(self):
+        # Exercise 2 (ADR 0056): the checks name viewpoint-NAME beside the
+        # accounts, and a fix names the inbound rule's priority where a
+        # permission's ID goes.
+        within = {"configured": "within", "observed": "within"}
+        found = {
+            "inventory-reader": within,
+            "inventory-reader-control": within,
+            "viewpoint-consumer": within,
+            "viewpoint-staging": {"configured": "excess", "observed": "excess"},
+        }
+        lines = (
+            "Verdict: inventory-reader within ev-0002 ev-0003\n"
+            "Verdict: inventory-reader-control within ev-0003\n"
+            "Verdict: viewpoint-consumer within ev-0004 ev-0005\n"
+        )
+        right = lines + "Verdict: viewpoint-staging excess ev-0004 ev-0005\n"
+        rule = "Proposal: viewpoint-staging remove 1120 ev-0004\n"
+        result = compare.compare("nb-1", found, right + rule)
+        self.assertEqual(result["outcome"], "match")
+        self.assertEqual(
+            result["proposals"],
+            [
+                {
+                    "account": "viewpoint-staging",
+                    "action": "remove",
+                    "permission": 1120,
+                    "references": ["ev-0004"],
+                }
+            ],
+        )
+        wrong = lines + "Verdict: viewpoint-staging within ev-0004 ev-0005\n"
+        result = compare.compare("nb-1", found, wrong)
+        self.assertEqual(result["outcome"], "stop")
+        self.assertIn("viewpoint-staging", result["reasons"][0])
+
     def test_proposals_never_change_the_outcome(self):
         stop = "Verdict: inventory-reader within ev-0003\n" + CONTROL
         for answer in (RIGHT, stop):
