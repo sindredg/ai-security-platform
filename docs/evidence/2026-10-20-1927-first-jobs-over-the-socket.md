@@ -22,7 +22,7 @@ Milestone 3, 2026-10-20. [All run sets](README.md), [next: Slot erase](2026-10-2
 | [hand-1](#hand-1) | Completed | No checks | 1 | Not known |
 | [hand-2](#hand-2) | Cancelled | No checks | 1 | Not known |
 
-Verdicts right counts the accounts whose two checks agree. Minutes run from the workflow's start to its end.
+Verdicts right counts the accounts whose two checks agree. Minutes run from the job's start to its end.
 
 **Source:** Live system, 2026-10-20 19:27 to 19:31 UTC. The result the job program wrote, the worker's job lines, and the tool service's audit lines.
 

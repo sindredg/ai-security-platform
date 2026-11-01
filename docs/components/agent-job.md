@@ -39,7 +39,7 @@ Goose works in turns. Each turn sends the model the system prompt, the task, the
 
 A NetBox job ends when Goose accepts a structured output. A call that does not fit the schema gets its validation errors back, and a turn that ends without one gets a reminder to call it. These are the only retries: nothing from after the job reaches the model.
 
-The job stops at its turn limit or its time limit, both set per workflow: 8 turns and 1200 seconds for the evaluation (eval) jobs. The model server holds 8,192 tokens of context, and thinking is off ([#36](https://github.com/sindredg/ai-security-platform/issues/36)).
+The job stops at its turn limit or its time limit, both set per workflow: 8 turns and 1200 seconds for the evaluation (eval) jobs. The model server holds 8,192 tokens of context, and thinking is off, read by `S.10` ([#36](https://github.com/sindredg/ai-security-platform/issues/36), [with it on](../worklogs/0007-operational-and-containment-drills.md#thinking-on)).
 
 ## One job
 

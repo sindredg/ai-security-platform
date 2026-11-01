@@ -179,6 +179,14 @@ def outcome(job):
     result = job.get("result") or {}
     message = job.get("message") or ""
     if job["phase"] is None:
+        # No workflow ran the job. A comparison run on its answer by hand
+        # says more than the runner's status, unless the job ran out of time.
+        if result.get("status") == "timeout":
+            return "Time limit reached"
+        if comparison and comparison["outcome"] == "match":
+            return "Match"
+        if comparison:
+            return "Stop: " + ", ".join(stop_causes(comparison))
         return {"completed": "Completed", "cancelled": "Cancelled"}.get(
             result.get("status"), "Not known"
         )
@@ -257,11 +265,13 @@ def call_table(job):
             "refused": f"Refused: {call['reason']}",
             "goose": "Goose's own tool. The tool service never saw it",
             "missing": "Not in the audit log",
+            "accepted": "Accepted as the answer",
         }[call["decision"]]
         at = f"{clock(call['at']):%H:%M:%S}" if call["at"] else "Not logged"
         # The final output's argument is the whole answer (ADR 0049), and the
-        # page quotes the lines written from it below.
-        if call["tool"] == "recipe__final_output":
+        # page quotes the lines written from it below. Goose names the tool
+        # recipe__final_output; a loop without Goose names it final_output.
+        if call["tool"] in ("recipe__final_output", "final_output"):
             argument = f"The answer in the schema's form, {len(call['argument'].encode()):,} bytes"
         else:
             argument = f"`{call['argument']}`"
@@ -433,11 +443,14 @@ def jobs_body(run_set):
     ]
     out = ["## Outcomes", ""]
     out += [table(["Job", "Outcome", "Verdicts right", "Calls", "Minutes"], rows), ""]
+    # Jobs that no workflow ran take their start and end from the source.
+    span = (
+        "the workflow's start to its end"
+        if any(j["phase"] for j in jobs)
+        else "the job's start to its end"
+    )
     out += [
-        (
-            "Verdicts right counts the accounts whose two checks agree. Minutes run "
-            "from the workflow's start to its end."
-        ),
+        f"Verdicts right counts the accounts whose two checks agree. Minutes run from {span}.",
         "",
     ]
     fixed = [j for j in jobs if j.get("proposal") or j.get("deliveries")]
