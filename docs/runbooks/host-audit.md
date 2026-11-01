@@ -1,6 +1,6 @@
 # Host audit: operator procedure
 
-Status: Implemented on 2026-10-31, when steps 1 to 8 ran on the live system in three passes from 05:14 UTC: the first found three faults in step 3's files, which were fixed and installed again on the worker at 06:15 UTC and on the orchestrator at 06:25 UTC, after a first attempt there stopped on a bus error. Step 9 ran at 07:07 UTC and step 10 as the new baselines; step 3 ran again on the worker on 2026-11-01 for the legal-notice mark, with step 10 after it, and steps 11 and 12 have not run. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit).
+Status: Implemented on 2026-10-31, when steps 1 to 8 ran on the live system in three passes from 05:14 UTC: the first found three faults in step 3's files, which were fixed and installed again on the worker at 06:15 UTC and on the orchestrator at 06:25 UTC, after a first attempt there stopped on a bus error. Step 9 ran at 07:07 UTC and step 10 as the new baselines; step 3 ran again on the worker on 2026-11-01 for the legal-notice mark, with step 10 after it. Step 11 ran on 2026-11-01 for a worker rebuilt from its template ([worklog](../worklogs/0007-operational-and-containment-drills.md#the-worker-rebuild)), and step 12 has not run. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit).
 
 The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)). Steps 1 to 8 install both on a built machine and show each catching something; steps 9 to 12 are what comes after: the login scripts, a new baseline, a rebuilt VM, and the removal. Results are in the [milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit).
 
@@ -135,7 +135,7 @@ The audit daemon and AIDE on the orchestrator and the worker ([ADR 0054](../deci
 
 11. First boot installs both and writes a baseline over what exists then. After the runbook steps that install the rest, the model server and the agent runtime on the worker, the copiers and the collection on the orchestrator, run step 3 for that VM again, so the rules load with every watched directory in place, then steps 9 and 10, and for the worker step 4.
 
-    Expected: as steps 3, 9, 10, and 4.
+    Expected: as steps 3, 9, 10, and 4. The first check reports the first update's packages and the installs since first boot as changes: `added=95 removed=5 changed=463` on the worker on 2026-11-01. The check after the new baseline reads `added=0 removed=0 changed=0`.
 
 ## Remove
 

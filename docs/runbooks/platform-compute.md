@@ -1,6 +1,6 @@
 # Platform compute: operator procedure
 
-Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild was run once on 2026-10-11, and the orchestrator rebuild once on 2026-10-13. Steps 16 and 19 ran in their current form on 2026-10-19, from a script with the same commands. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). On 2026-10-16 the logins changed to SSH certificates and the feed key to an account of its own on the worker ([SSH certificates runbook](ssh-certificates.md)). Steps 12, 14, 19, 24, and 29 and the feed key and operator key rotations were rewritten for that and have not been run in that form. On 2026-10-17 the mesh VPN moved to a router VM ([router runbook](mesh-router.md)), and the orchestrator's template no longer joins the mesh. The mesh steps below describe the build as it was run. They are superseded, not rewritten: the notes at each say what changes. Later on 2026-10-17 the package proxy moved to an edge VM and the orchestrator's NAT gateway was removed ([edge runbook](edge-vm.md)). Steps 21 and 25 to 31 are superseded the same way. Steps 32 and 33 ran on 2026-10-23, from a script with the same commands ([worklog](../worklogs/0003-toolchain-integration.md#installed-k3ss-system-images-from-the-releases-archive)). Step 34 has not run.
+Status: Implemented on 2026-10-11. Built once. Every step was run during that build, and each rotation was run once. The worker rebuild ran on 2026-10-11, and again on 2026-11-01 from the current template, with step 25's order after it. The orchestrator rebuild ran once, on 2026-10-13. Steps 16 and 19 ran in their current form on 2026-10-19, from a script with the same commands. A rebuild of everything from scratch has not been run. Results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). On 2026-10-16 the logins changed to SSH certificates and the feed key to an account of its own on the worker ([SSH certificates runbook](ssh-certificates.md)). Steps 12, 14, 19, 24, and 29 and the feed key and operator key rotations were rewritten for that. Of them, step 24 ran in that form on 2026-11-01. On 2026-10-17 the mesh VPN moved to a router VM ([router runbook](mesh-router.md)), and the orchestrator's template no longer joins the mesh. The mesh steps below describe the build as it was run. They are superseded, not rewritten: the notes at each say what changes. Later on 2026-10-17 the package proxy moved to an edge VM and the orchestrator's NAT gateway was removed ([edge runbook](edge-vm.md)). Steps 21 and 25 to 31 are superseded the same way. Steps 32 and 33 ran on 2026-10-23, from a script with the same commands ([worklog](../worklogs/0003-toolchain-integration.md#installed-k3ss-system-images-from-the-releases-archive)). Step 34 has not run.
 
 Run these steps to build milestone 2: the public address policy, the NAT gateway, the orchestrator and AI worker VMs, the mesh VPN, and K3s. Never commit local values, plans, state, keys, or raw output.
 
@@ -324,18 +324,20 @@ Most of what follows is also in `validation/platform-checks.sh`, which runs abou
 
 ## Rebuild the worker
 
-Run once, on 2026-10-11, while the worker was empty. The commands are that run, condensed. A rebuild destroys everything on the worker: after milestone 3 that includes the model.
+Run on 2026-10-11, while the worker was empty, and on 2026-11-01 from the current template, with step 25's order after it, from a script with the same commands ([milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#the-worker-rebuild)). A rebuild destroys everything on the worker: its models, its AIDE baseline, and its journal since the last pull. The orchestrator keeps the staged inputs and a copy of the journal.
 
-22. Replace the VM. Run in `infra/platform` as the platform identity. Read the plan before applying it.
+22. Check that no job runs, pull the worker's journal once more, then replace the VM. Run in `infra/platform` as the platform identity. Read the plan before applying it.
 
     ```bash
+    ssh $SSH_OPTS aisec@10.40.0.4 'sudo k3s kubectl -n orchestration get workflows --no-headers | grep -c Running
+      sudo systemctl start aisec-journal-pull.service'
     source "$CRED_DIR/platform.env"
     terraform plan -replace='azurerm_linux_virtual_machine.vm["worker"]' -out=platform.tfplan
     terraform apply platform.tfplan
     rm -f platform.tfplan
     ```
 
-    Expected: `1 to add, 0 to change, 1 to destroy`, and the only resource is the worker VM. About two minutes. If the plan names anything else, stop.
+    Expected: `0` running workflows. Then `1 to add, 0 to change, 1 to destroy`, and the only resource is the worker VM, with a changed `custom_data` when the template moved since the last build. About three minutes: on 2026-11-01 the destroy took 1m29s and the create 54s. If the plan names anything else, stop.
 
 23. Take the new host key from the serial log and replace the old one. Run as the operator. First boot takes about 80 seconds, and the fingerprint is not in the log before that.
 
@@ -349,7 +351,7 @@ Run once, on 2026-10-11, while the worker was empty. The commands are that run, 
     ssh $SSH_OPTS aisec@10.40.0.36 'cloud-init status'
     ```
 
-    Expected: the worker's fingerprint from the scan equals the one from the serial log, and `status: done`.
+    Expected: the worker's fingerprint from the scan equals the one from the serial log, and `status: done`. On 2026-11-01 the fingerprint was in the log about three minutes after the apply returned, after the host audit's first baseline.
 
 24. Let the orchestrator copy files to the new worker. The orchestrator still holds the old host key, so remove it first.
 
@@ -366,13 +368,23 @@ Run once, on 2026-10-11, while the worker was empty. The commands are that run, 
 
     Expected: `refused: not a feed request` and `exit 2`.
 
-25. Run step 21 for the first update, then every check.
+25. Run step 21 for the first update. Then put back what the worker held, in this order, and run every check.
+
+    | Order | Runbook and steps | What it puts back |
+    | --- | --- | --- |
+    | 1 | [Audit log](audit-log.md#after-a-worker-rebuild), step 13 | The journal puller's cursor set aside, so the first pull copies the new journal from boot |
+    | 2 | [Model server](model-server.md), steps 2 to 8 and 10 | llama.cpp and the model, built again from the orchestrator's stage. Step 3 needs a JIT egress window |
+    | 3 | [Agent runtime](agent-runtime.md), steps 2 to 7 | Goose and the fixture |
+    | 4 | [Tool service](tool-service.md#give-the-worker-the-certificate), steps 7 and 8 | The tool service's certificate |
+    | 5 | [Workflows](workflows.md#the-dispatch-key), step 8 | A new dispatch key, pinned to the new host key, and the job socket |
+    | 6 | [Audit log](audit-log.md#the-journal-pull), steps 7 to 10 | The export account's key, and the puller pinned to the new host key |
+    | 7 | [Host audit](host-audit.md), step 11 | The audit rules over every watched directory, the legal-notice marks, and a new baseline with its copy |
 
     ```bash
     validation/platform-checks.sh
     ```
 
-    Expected: `0` packages left from the security suite, and every check passes. The environment the script needs is in [validation](../validation/README.md).
+    Expected: `0` packages left from the security suite, then each step's own expected result, and every check passes. The environment the script needs is in [validation](../validation/README.md). Then a synthetic job, as in step 6 of the [incident response runbook](incident-response.md), which crosses the new dispatch key, the job socket, the certificate, Goose, and the model.
 
 ## Rebuild the orchestrator
 
