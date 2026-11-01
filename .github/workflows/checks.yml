@@ -441,6 +441,16 @@ jobs:
           cd platform/change
           PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
 
+      # The target update run copies what a target prints to the operator's
+      # terminal and the journal through its filter. The whole run is tested
+      # as root in a user namespace, so the tests run with sudo, where unshare
+      # works, and AISEC_REQUIRE_UNSHARE turns a skip into a failure.
+      - name: Test the target update run's output filter
+        run: |
+          cd platform/target-update
+          sudo env AISEC_REQUIRE_UNSHARE=1 PYTHONDONTWRITEBYTECODE=1 \
+            /usr/bin/python3 -I -S -m unittest discover -s tests -v
+
       # The incident response drills read NetBox through the collector's
       # client, from the directory it is installed in on the orchestrator.
       - name: Test the drills that read NetBox
@@ -472,6 +482,16 @@ jobs:
           [ "${version%.*}" = "${HOST_PYTHON}" ]
           cd worker/agent-runtime/job
           PYTHONDONTWRITEBYTECODE=1 /usr/bin/python3 -I -S -m unittest discover -s tests -v
+
+      # The installers that run as root on the worker, against a stage the
+      # feed key can still write (ADR 0026). They run as root in a user
+      # namespace, so with sudo, and a skip fails the step.
+      - name: Test the root installers against a writable stage
+        run: |
+          for dir in worker/agent-runtime worker/model-server; do
+            (cd "$dir" && sudo env AISEC_REQUIRE_UNSHARE=1 PYTHONDONTWRITEBYTECODE=1 \
+              /usr/bin/python3 -I -S -m unittest discover -s tests -v)
+          done
 
       - name: Test the dispatch step against it
         run: |
