@@ -83,6 +83,12 @@ NetBox logs `LOGIN_REQUIRED is deprecated and will be removed in NetBox v5.0` at
 
 ## The live update
 
+The change, as targets #20 merged it: the pin's four lines, and the scan job in the targets pipeline. The report script it runs is in the same pull request.
+
+![The pull request's diff of netbox/image.env: the tag and three digests move from v4.7.3-5.1.1 to v4.7.4-5.1.1](../images/targets-20-image-env.png)
+
+![The pull request's diff of .github/workflows/checks.yml: the netbox-image job, which scans the pinned image by its index digest, writes the SBOM and the report, runs the report script, and keeps both files](../images/targets-20-scan-job.png)
+
 After the staging test, [targets #20](https://github.com/sindredg/ai-security-platform-test/pull/20) merged as `35a3e0f`, and the live NetBox took the new pin from `main`, from a script with the runbook's steps 15 to 18 and 20.
 
 Result, 2026-11-01 18:16 to 18:28 UTC, on the live system:

@@ -33,6 +33,10 @@ The one fix a model proposed on the live seed, as its pull request ([targets #15
 
 ![Targets pull request 15, merged: a fix for NetBox from job nb-10262214-p2. A table shows both checks and the model calling inventory-reader excess and the control account within, the change removing one permission, the policy allowed, the staging test passed, and the approval tag the merge required](docs/images/targets-15-conversation.png)
 
+The exact change it made, one line of the seed:
+
+![The pull request's diff: in netbox/seed.json, the permission's users list changes from inventory-reader to an empty list](docs/images/targets-15-files.png)
+
 ## Status
 
 | | |

@@ -19,9 +19,9 @@ A finding goes from collection to delivery in five steps. Deterministic checks g
 | A vulnerable target image is found and replaced through a staging test | 42 critical and high findings found by a scan, cleared by a new pin after a staging test with a recovery ([worklog](worklogs/0008-exercise-3-vulnerable-image.md)) |
 | Every claim the checks make holds on the live system | 446 of 446 from `69aa526`, with the targets at `35a3e0f`, after the NetBox update ([last run](validation/README.md#last-run)) |
 
-The fix the model proposed was one line of the seed, the permission's users list emptied:
+The NetBox update changed four lines of the targets repository's pin, from v4.7.3 to v4.7.4 ([targets #20](https://github.com/sindredg/ai-security-platform-test/pull/20)):
 
-![The pull request's diff: one line of netbox/seed.json, users changed from inventory-reader to an empty list](images/targets-15-files.png)
+![The pull request's diff of netbox/image.env: the tag, the index digest, the linux/amd64 manifest digest, and the image ID move from v4.7.3-5.1.1 to v4.7.4-5.1.1](images/targets-20-image-env.png)
 
 Each test run set has a page of its own, with each job's verdicts, calls, and answer ([test evidence](evidence/README.md)). What the runs taught is on the [lessons](evidence/lessons.md) page.
 
