@@ -1,0 +1,218 @@
+{
+  "title": "Thinking on, with the structured output",
+  "short": "Thinking on",
+  "milestone": 6,
+  "tested": "Whether the model's verdicts are right and cited with thinking on and the structured output's schema, and what thinking costs in time, on `sites`.",
+  "changed": "The model server ran without `--reasoning off` from 11:13 to 12:01 UTC, installed from a copy of `worker/model-server` without that line, and with it again after. Nothing else changed. `S.10` failed during the change, as written before it.",
+  "setup": [
+    [
+      "Model",
+      "Qwen3.5-4B, thinking on"
+    ],
+    [
+      "Agent",
+      "Goose 1.56.0"
+    ],
+    [
+      "Task",
+      "`collectors/netbox/task.txt` at `fafe39b`"
+    ],
+    [
+      "Limits",
+      "1200 seconds and 8 turns"
+    ],
+    [
+      "Case",
+      "`sites` from `collectors/netbox/cases.json` at `92a21a0`, twice"
+    ]
+  ],
+  "source": "Live system, 2026-11-01 11:13 to 12:10 UTC. Each workflow as Argo kept it, read as it ended, the collect command's output, the worker's job lines, the model server's timing lines, and the tool service's audit lines. A job at its time limit keeps no transcript.",
+  "links": [
+    [
+      "Worklog",
+      "../worklogs/0007-operational-and-containment-drills.md#thinking-on"
+    ],
+    [
+      "Thinking on and off",
+      "2026-10-25-2211-thinking-on-and-off.md"
+    ],
+    [
+      "#36",
+      "https://github.com/sindredg/ai-security-platform/issues/36"
+    ]
+  ],
+  "jobs": [
+    {
+      "job": "nb-11011117-sites-1",
+      "target": "netbox",
+      "case": "sites",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-11-01T11:18:56Z",
+      "finished": "2026-11-01T11:39:22Z",
+      "phase": "Failed",
+      "message": "child 'nb-11011117-sites-1-2475397026' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1)",
+          "started": "2026-11-01T11:18:56Z",
+          "finished": "2026-11-01T11:39:01Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-11-01T11:39:11Z",
+          "finished": "2026-11-01T11:39:17Z"
+        }
+      ],
+      "result": {
+        "status": "timeout",
+        "seconds": 1200.5,
+        "agent_status": null,
+        "tool_calls": null,
+        "tool_errors": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "missing",
+          "missing"
+        ],
+        "inventory-reader-control": [
+          "missing",
+          "missing"
+        ]
+      },
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-11-01T11:24:34Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1762
+        },
+        {
+          "at": "2026-11-01T11:26:31Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 843
+        },
+        {
+          "at": "2026-11-01T11:27:39Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1573
+        },
+        {
+          "at": "2026-11-01T11:30:55Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1762
+        }
+      ],
+      "answer": "",
+      "note": "No answer: the job reached its 1200-second limit, and the slot was erased after the cancel. The model read the three documents, then the access specification again, writing 138 to 564 tokens a turn. The slot held 4,648 tokens when the cancel came, eight minutes into the fifth request, fewer than the 6,389 after the fourth: that request's prompt did not continue the one before."
+    },
+    {
+      "job": "nb-11011117-sites-2",
+      "target": "netbox",
+      "case": "sites",
+      "limits": {
+        "seconds": 1200,
+        "turns": 8
+      },
+      "started": "2026-11-01T11:40:29Z",
+      "finished": "2026-11-01T12:00:55Z",
+      "phase": "Failed",
+      "message": "child 'nb-11011117-sites-2-538554595' failed",
+      "steps": [
+        {
+          "step": "dispatch",
+          "phase": "Failed",
+          "message": "main: Error (exit code 1)",
+          "started": "2026-11-01T11:40:29Z",
+          "finished": "2026-11-01T12:00:35Z"
+        },
+        {
+          "step": "revoke",
+          "phase": "Succeeded",
+          "message": "",
+          "started": "2026-11-01T12:00:45Z",
+          "finished": "2026-11-01T12:00:49Z"
+        }
+      ],
+      "result": {
+        "status": "timeout",
+        "seconds": 1200.6,
+        "agent_status": null,
+        "tool_calls": null,
+        "tool_errors": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "slot_erased": true
+      },
+      "checks": {
+        "inventory-reader": [
+          "missing",
+          "missing"
+        ],
+        "inventory-reader-control": [
+          "missing",
+          "missing"
+        ]
+      },
+      "comparison": null,
+      "calls": [
+        {
+          "at": "2026-11-01T11:46:11Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1762
+        },
+        {
+          "at": "2026-11-01T11:48:54Z",
+          "tool": "get_evidence",
+          "argument": "ev-0002",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 843
+        },
+        {
+          "at": "2026-11-01T11:51:07Z",
+          "tool": "get_evidence",
+          "argument": "ev-0003",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1573
+        },
+        {
+          "at": "2026-11-01T11:55:06Z",
+          "tool": "get_evidence",
+          "argument": "ev-0001",
+          "decision": "allowed",
+          "reason": null,
+          "bytes": 1762
+        }
+      ],
+      "answer": "",
+      "note": "No answer, the same limit and the same path: the three documents, then the access specification again, 156 to 760 tokens a turn. The slot held 3,778 tokens when the cancel came, five and a half minutes into the fifth request, fewer than the 6,887 after the fourth."
+    }
+  ]
+}

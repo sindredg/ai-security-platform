@@ -9,6 +9,7 @@ The terms these docs use, what each means in this project, and the name it has i
 | Agent runtime | Goose and the job program that runs it on the AI worker | `worker/agent-runtime/` |
 | Agent's output | What the agent returns. For a NetBox job, a structured output, from which the job program writes the lines the verification gate reads | The result's `answer` field, "the answer" |
 | Assume breach | The design treats the AI worker as compromised from the start, and limits its credentials and network access | |
+| Constrained decoding | The model server lets the model generate only tokens that keep the reply valid against a JSON schema. The model measure's verdict turn uses it. Goose's jobs do not | `response_format` with `json_schema` |
 | Baseline (AIDE) | The database the daily check compares the file system with, written by hand after an install step. The worker's has a copy on the orchestrator | `/var/lib/aisec/aide/aide.db`, `aisec-aide-baseline` |
 | Defense in depth | Each step between the agent's output and NetBox checks it again on the trusted side ([table](components/agent-job.md#after-the-output)) | |
 | Deterministic checks | Two code checks of an account's access: configured, from its permissions, and observed, from what its token returns | `N.14`, `N.17`, `netbox_access.py`, "the checks" |
