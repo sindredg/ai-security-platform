@@ -2,7 +2,7 @@
 
 # After the NetBox update
 
-Milestone 8, 2026-11-01. [All run sets](README.md), [previous: Closing run](2026-11-01-1704-the-closing-run.md).
+Milestone 8, 2026-11-01. [All run sets](README.md), [previous: Closing run](2026-11-01-1704-the-closing-run.md), [next: Exercise 2](2026-11-01-2108-exercise-2.md).
 
 **Tested:** Whether an exercise 1 job on the live NetBox still matches the deterministic checks after NetBox's update to v4.7.4.
 

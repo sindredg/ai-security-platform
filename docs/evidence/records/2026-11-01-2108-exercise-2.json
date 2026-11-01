@@ -1,0 +1,301 @@
+{
+ "title": "Exercise 2: the staging subnet reaches NetBox's port",
+ "short": "Exercise 2",
+ "milestone": 7,
+ "tested": "Whether a NetBox job calls the staging viewpoint excess and names the seed's port rule, as both deterministic checks do.",
+ "changed": "A pair of port rules, `allow-netbox-from-rehearsal` at priority 1120, lets the staging subnet reach NetBox's port. The collector judges each viewpoint and gives the job `ev-0004`, the rules, and `ev-0005`, the connections. The third job's task is shorter (`a902bfc`).",
+ "setup": [
+  [
+   "Model",
+   "Qwen3.5-4B, thinking off, file 777b1489..."
+  ],
+  [
+   "Agent",
+   "Goose 1.56.0"
+  ],
+  [
+   "Task",
+   "`collectors/netbox/task.txt` at `178bab1`, 3,251 bytes, for the first two jobs, and at `a902bfc`, 2,214 bytes, for the third"
+  ],
+  [
+   "Target",
+   "NetBox v4.7.4, `netbox-docker` 5.1.1, image `9f5bc18e...`, with the seed's pair of port rules"
+  ],
+  [
+   "Limits",
+   "1200 seconds and 12 turns"
+  ]
+ ],
+ "source": "Live system, 2026-11-01 21:19 to 22:33 UTC. The workflows as Argo kept them, read as each ended, the collect command's output, and the audit lines. Every check after the first two jobs, from `c071900` with the targets at `978de95`, 22:01 to 22:11 UTC: 446 passed, 2 failed, `N.25` and `Z.25`, which the seed fails.",
+ "links": [
+  [
+   "Worklog",
+   "../worklogs/0009-exercise-2-excess-network-access.md#the-jobs"
+  ],
+  [
+   "Runbook",
+   "../runbooks/exercise-2.md"
+  ],
+  [
+   "Decision",
+   "../decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md"
+  ]
+ ],
+ "jobs": [
+  {
+   "job": "nb-11012108-e2",
+   "target": "netbox",
+   "case": null,
+   "limits": {
+    "seconds": 1200,
+    "turns": 12
+   },
+   "started": "2026-11-01T21:19:49Z",
+   "finished": "2026-11-01T21:40:15Z",
+   "phase": "Failed",
+   "message": "child 'nb-11012108-e2-3584918166' failed",
+   "steps": [
+    {
+     "step": "dispatch",
+     "phase": "Failed",
+     "message": "main: Error (exit code 1)",
+     "started": "2026-11-01T21:19:49Z",
+     "finished": "2026-11-01T21:39:55Z"
+    },
+    {
+     "step": "revoke",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-11-01T21:40:05Z",
+     "finished": "2026-11-01T21:40:10Z"
+    }
+   ],
+   "result": {
+    "status": "timeout",
+    "seconds": 1200.5,
+    "agent_status": null,
+    "tool_calls": null,
+    "tool_errors": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "slot_erased": true
+   },
+   "checks": {
+    "inventory-reader": [
+     "within",
+     "within"
+    ],
+    "inventory-reader-control": [
+     "within",
+     "within"
+    ],
+    "viewpoint-consumer": [
+     "within",
+     "within"
+    ],
+    "viewpoint-staging": [
+     "excess",
+     "excess"
+    ]
+   },
+   "comparison": null,
+   "calls": [
+    {
+     "at": "2026-11-01T21:27:51Z",
+     "tool": "get_evidence",
+     "argument": "ev-0001",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 1890
+    },
+    {
+     "at": "2026-11-01T21:29:46Z",
+     "tool": "get_evidence",
+     "argument": "ev-0002",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 838
+    },
+    {
+     "at": "2026-11-01T21:30:40Z",
+     "tool": "get_evidence",
+     "argument": "ev-0003",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 1788
+    }
+   ],
+   "answer": ""
+  },
+  {
+   "job": "nb-11012108-e2b",
+   "target": "netbox",
+   "case": null,
+   "limits": {
+    "seconds": 1200,
+    "turns": 12
+   },
+   "started": "2026-11-01T21:41:00Z",
+   "finished": "2026-11-01T22:01:26Z",
+   "phase": "Failed",
+   "message": "child 'nb-11012108-e2b-3754992404' failed",
+   "steps": [
+    {
+     "step": "dispatch",
+     "phase": "Failed",
+     "message": "main: Error (exit code 1)",
+     "started": "2026-11-01T21:41:00Z",
+     "finished": "2026-11-01T22:01:06Z"
+    },
+    {
+     "step": "revoke",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-11-01T22:01:16Z",
+     "finished": "2026-11-01T22:01:21Z"
+    }
+   ],
+   "result": {
+    "status": "timeout",
+    "seconds": 1200.6,
+    "agent_status": null,
+    "tool_calls": null,
+    "tool_errors": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "slot_erased": true
+   },
+   "checks": {
+    "inventory-reader": [
+     "within",
+     "within"
+    ],
+    "inventory-reader-control": [
+     "within",
+     "within"
+    ],
+    "viewpoint-consumer": [
+     "within",
+     "within"
+    ],
+    "viewpoint-staging": [
+     "excess",
+     "excess"
+    ]
+   },
+   "comparison": null,
+   "calls": [
+    {
+     "at": "2026-11-01T21:49:02Z",
+     "tool": "get_evidence",
+     "argument": "ev-0001",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 1891
+    },
+    {
+     "at": "2026-11-01T21:51:03Z",
+     "tool": "get_evidence",
+     "argument": "ev-0002",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 839
+    },
+    {
+     "at": "2026-11-01T21:52:03Z",
+     "tool": "get_evidence",
+     "argument": "ev-0003",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 1789
+    }
+   ],
+   "answer": ""
+  },
+  {
+   "job": "nb-11012211-e2c",
+   "target": "netbox",
+   "case": null,
+   "limits": {
+    "seconds": 1200,
+    "turns": 12
+   },
+   "started": "2026-11-01T22:12:30Z",
+   "finished": "2026-11-01T22:33:01Z",
+   "phase": "Failed",
+   "message": "child 'nb-11012211-e2c-2243895300' failed",
+   "steps": [
+    {
+     "step": "dispatch",
+     "phase": "Failed",
+     "message": "main: Error (exit code 1)",
+     "started": "2026-11-01T22:12:30Z",
+     "finished": "2026-11-01T22:32:41Z"
+    },
+    {
+     "step": "revoke",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-11-01T22:32:51Z",
+     "finished": "2026-11-01T22:32:55Z"
+    }
+   ],
+   "result": {
+    "status": "timeout",
+    "seconds": 1206.0,
+    "agent_status": null,
+    "tool_calls": null,
+    "tool_errors": null,
+    "input_tokens": null,
+    "output_tokens": null,
+    "slot_erased": true
+   },
+   "checks": {
+    "inventory-reader": [
+     "within",
+     "within"
+    ],
+    "inventory-reader-control": [
+     "within",
+     "within"
+    ],
+    "viewpoint-consumer": [
+     "within",
+     "within"
+    ],
+    "viewpoint-staging": [
+     "excess",
+     "excess"
+    ]
+   },
+   "comparison": null,
+   "calls": [
+    {
+     "at": "2026-11-01T22:19:54Z",
+     "tool": "get_evidence",
+     "argument": "ev-0001",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 1891
+    },
+    {
+     "at": "2026-11-01T22:21:45Z",
+     "tool": "get_evidence",
+     "argument": "ev-0002",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 839
+    },
+    {
+     "at": "2026-11-01T22:22:38Z",
+     "tool": "get_evidence",
+     "argument": "ev-0003",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 1789
+    }
+   ],
+   "answer": ""
+  }
+ ]
+}

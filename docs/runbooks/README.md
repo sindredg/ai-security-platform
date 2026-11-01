@@ -25,4 +25,5 @@ One operator procedure per milestone, or per slice of a milestone that is built 
 | [Incident response](incident-response.md) | 6 | Ran on 2026-10-30, on the live system, in two runs. The replacement steps are rebuilds, written and not run |
 | [Host audit](host-audit.md) | 6 | Ran on 2026-10-31, on the live system, in four passes. The removal and a rebuilt VM's first boot not run |
 | [NetBox image update](netbox-update.md) | 8 | Ran on 2026-11-01, on the live system, from two scripts: the staging copy with its recovery, then the live NetBox. The live recovery not run |
+| [Exercise 2](exercise-2.md) | 7 | Ran on 2026-11-01, on the live system, to step 10: the seed, the install, and three jobs, none of which answered in time. The proposal and the fix not run |
 | [Teardown](teardown.md) | Any | Written, not run |
