@@ -103,7 +103,7 @@ A workflow hands a job to this machine over SSH, with a key that can only run th
 
 - **Everything on it has to be built for Arm64.**
 - **Platform endpoints stay reachable.** The instance metadata service returns a VM's custom data, so no secret goes into the worker's custom data.
-- **A rebuild loses everything on it.** The worker was rebuilt from the current template on 2026-10-11, while it was still empty. Now it carries a model, and a rebuild means pushing the inputs and building the model file again, about fifteen minutes.
+- **A rebuild loses everything on it.** The rebuild from the current template on 2026-11-01 took about 25 minutes from the apply to the last install, the model build eight of them ([worklog](../worklogs/0007-operational-and-containment-drills.md#the-worker-rebuild)). The model file it built differs from the one before in its checksum, from the same pins.
 - **Six tokens per second.** A turn that reads a long prompt takes minutes. This size proves the integration, not the speed.
 - **The model port has no key.** Any process on the worker can call it.
 

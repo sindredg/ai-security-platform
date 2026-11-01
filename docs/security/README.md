@@ -17,7 +17,7 @@ The method is in [ADR 0010](../decisions/0010-threat-model-and-security-checks-p
 | [Accepted risks and open items](accepted-risks.md) | Risks carried on purpose, and threats that no decision covers yet | Current. The converter's seven advisories are accepted on a search of its source, not a traced run |
 | [Audit log](audit-log.md) | Where the tool service (an MCP server)'s audit lines are stored, and who can change them | Verified: both copies on the orchestrator (`L`, `J` checks) and in Azure Monitor |
 | [Lab against production](lab-vs-production.md) | Controls to retain, lab limitations, and risks that production infrastructure cannot remove | Current through the milestone 6 drills |
-| [Incident response](../runbooks/incident-response.md) | What to do about a compromised worker, a compromised target, or a leaked credential: detect, contain, rotate or restore, replace | Containment and rotation run once on 2026-10-30, with a restore on the staging copy. Replacement is a rebuild, written and not run |
+| [Incident response](../runbooks/incident-response.md) | What to do about a compromised worker, a compromised target, or a leaked credential: detect, contain, rotate or restore, replace | Containment and rotation run once on 2026-10-30, with a restore on the staging copy. Replacement is a rebuild: the worker's ran on 2026-11-01, the others are written and not run |
 
 ## Validation evidence
 
@@ -38,4 +38,4 @@ The short list, for a reader who opens only this page. Detail is in the topic pa
 4. **The repository is the approval channel.** A ruleset requires a pull request, its required checks, and the operator's signature on every commit. A tag signed with a separate approval key approves one delivery, once. That key sits on the same machine as the GitHub session (T10, T11, T56).
 5. **A remediation proposal is a data path to a public page.** The worker reads evidence and proposes a fix. The pull request carries checked fields only, never the model's output, but a permission's name comes from NetBox (A5).
 6. **Monitoring is incomplete.** Logs reach a workspace that no VM can read or delete from, and alert rules show in the portal and send nothing ([monitoring](../components/monitoring.md)). The targets ship no logs.
-7. **The platform has never been rebuilt as a whole.** No VM has booted from its current template, which [milestone 6](../roadmap.md#6-operational-and-containment-drills) accepts as a gap. A rebuild from an empty subscription has not run, which the lab [accepts](lab-vs-production.md).
+7. **The platform has never been rebuilt as a whole.** Only the worker has booted from its current template ([worklog](../worklogs/0007-operational-and-containment-drills.md#the-worker-rebuild)). The other VMs have not, which [milestone 6](../roadmap.md#6-operational-and-containment-drills) accepts as a gap. A rebuild from an empty subscription has not run, which the lab [accepts](lab-vs-production.md).
