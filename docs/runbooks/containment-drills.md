@@ -303,4 +303,4 @@ A job runs as a dynamic user in a unit with a private `/tmp`, over one connectio
 
 24. Run every check with the targets checkout named ([validation](../validation/README.md)).
 
-    Expected: `G.12` passes with `0 0 0`, and `G.3`, `G.4`, `G.9`, and `G.10` with it. During the job, `G.4` would read `2`, `G.9` `1`, and `G.12` `2 1 1`.
+    Expected: `G.12` passes with `0 0 0 0`, and `G.3`, `G.4`, `G.9`, and `G.10` with it. During the job, `G.4` would read `2`, `G.9` `1 0`, and `G.12` `2 1 0 1`: the count of `systemctl` and of `loginctl` is followed by its exit status (reasoned from the probe, not seen during a job).

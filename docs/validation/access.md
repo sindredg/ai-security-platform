@@ -23,14 +23,18 @@ No VM has a public address. The only way in is the mesh VPN to the router, then 
 | `A.18` | The edge is not on the mesh VPN | [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md) keeps the mesh node on the router alone | The package's status, from `dpkg-query`, does not end in `ok installed` |
 | `A.10` | The administrator on the worker forwards nothing | The tunnel is for the orchestrator only | The same query on the worker shows `no` and `any`. The `any` is the default `PermitOpen`, which `no` makes moot. Before the rollout it passed already. Its fail side was seen with a configuration given on standard input that allows the forward: the probe printed `local 127.0.0.1:6443` |
 | `M.1` | The mesh policy allows SSH to the orchestrator | Administration | A TCP connection from the workstation to port 22 |
-| `M.2` | The mesh policy drops the Kubernetes API | `kubectl` goes through an SSH tunnel to the orchestrator (`A.8`). Over the mesh, a stolen operator device would reach the API without a certificate that expires | A TCP connection to port 6443 times out. The API server listens there (`K.1`) |
-| `M.3` | The mesh policy drops the proxy port on the edge | A mesh device has no business on the proxy | A TCP connection to `10.45.0.4:3128` times out. Squid listens there (`P.2`), so `refused` would mean the packet arrived. Until 2026-10-17 this read the orchestrator |
-| `M.9` | The mesh policy drops the target port on the edge | As `M.3`, for the targets' package port | A TCP connection to `10.45.0.4:3129` times out. Squid listens there (`P.2`) |
-| `M.4` | The mesh policy drops the kubelet port | The kubelet API is not an administration interface | A TCP connection to port 10250 times out |
-| `M.5` | The mesh policy drops the tool port | The tool port is for the worker | A TCP connection to the orchestrator's private address on port 30443 times out. Not seen to fail: changing the mesh policy is not a read-only step. Port 22 on the same address is `open`, so the probe can see a connection |
+| `M.2` | The Kubernetes API is closed to the mesh | `kubectl` goes through an SSH tunnel to the orchestrator (`A.8`). Over the mesh, a stolen operator device would reach the API without a certificate that expires | A TCP connection to port 6443 times out. The API server listens there (`K.1`) |
+| `M.3` | The proxy port on the edge is closed to the mesh | A mesh device has no business on the proxy | A TCP connection to `10.45.0.4:3128` times out. Squid listens there (`P.2`), so `refused` would mean the packet arrived. Until 2026-10-17 this read the orchestrator |
+| `M.9` | The target port on the edge is closed to the mesh | As `M.3`, for the targets' package port | A TCP connection to `10.45.0.4:3129` times out. Squid listens there (`P.2`) |
+| `M.4` | The kubelet port is closed to the mesh | The kubelet API is not an administration interface | A TCP connection to port 10250 times out |
+| `M.5` | The tool port is closed to the mesh | The tool port is for the worker | A TCP connection to the orchestrator's private address on port 30443 times out. Port 22 on the same address is `open`, so the probe can see a connection. Not seen to fail: that needs the mesh policy and two security groups changed together |
 | `M.6` | The mesh policy allows SSH to the router | Administration of the router | A TCP connection to port 22 on the router's mesh name |
 | `M.7` | The mesh policy drops another port on the router | The grant to the router is one port | A TCP connection to port 80 times out. Nothing listens there, so `refused` would mean the policy let the packet in |
 | `M.8` | The mesh policy allows SSH to the edge | Administration of the edge, and the JIT egress window | A TCP connection to `10.45.0.4:22` |
+
+`M.2` to `M.5` and `M.9` claim a closed port, not the layer that closed it. A routed session leaves the router from `10.45.0.36`, and two layers drop these ports: the mesh policy on the router, then the security groups, the router subnet's `deny-all-outbound` (`Z.32`) and the destination subnet's `deny-all-inbound`. Both drop without a reply, so a timeout looks the same from either ([#64](https://github.com/sindredg/ai-security-platform/issues/64)).
+
+Only `M.7`, to the router itself, has no security group in its path, so it is the one check that tests the policy's drop with traffic.
 
 ## The router
 

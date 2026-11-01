@@ -37,7 +37,7 @@ Nothing dials in. Both ends open their connections outbound, which is why the ro
 | --- | --- | --- |
 | Control | Each agent keeps one connection to the coordination service. It hands out peer keys, the access policy, and node signatures, and carries no traffic. The protocol encrypts itself and runs over TCP 80 here | `ss`: one connection from `tailscaled` on port 80. `tailscale lock status`: enabled, node signed |
 | Tunnel | WireGuard between the two agents, encrypted end to end. Each agent sends it inside TLS on port 443 to a relay server, which forwards ciphertext | `tailscale status`: the workstation is `active; relay`. `ss`: two connections from `tailscaled` on port 443. `tailscale netcheck`: `UDP: false` |
-| Filter | The router's agent drops anything the access policy does not allow, for itself and for the routed networks | Checks `M.1` to `M.7` test it with traffic |
+| Filter | The router's agent drops anything the access policy does not allow, for itself and for the routed networks | `M.7` tests the drop with traffic, to the router itself. For the routed networks the security groups drop the same ports, so `M.2` to `M.5` and `M.9` show a closed port, not which layer closed it ([access checks](../validation/access.md)) |
 | Clamp | Routed TCP handshakes get a maximum segment size of 1240 | `tailscale0` has MTU 1280, and the rule is loaded (`R.2`) |
 | Translate | The source address becomes `10.45.0.36`. The machines behind the router never see a mesh address, so their security groups name the router subnet | `NoSNAT` is `false`, `ts-postrouting` holds the masquerade rule, and an SSH login shows `10.45.0.36` as the client on the worker and the orchestrator |
 | Forward | `allow-ssh-from-router` on the orchestrator, the worker, the edge, and each target subnet. The router's own rules allow TCP 22 out to the three networks | The rules are in [egress and policy](egress-and-policy.md#rules-on-the-platform-side) |
@@ -93,7 +93,7 @@ The grant to `tag:aisec-router` itself is not in ADR 0025, which names the route
 
 The tests name single ports, because the policy language takes no port range in a test. Each operator device also runs with `shields-up`, which refuses every incoming connection whatever the policy says. That is a device setting, and no check reads it.
 
-The provider's default policy allows everything, and that default was in place until 2026-10-11. Checks `M.3`, `M.4`, and `M.7` fail if it comes back. The console's default rule for the provider's own SSH feature is left as it was. It applies to a user's own devices and not to the tagged router.
+The provider's default policy allows everything, and that default was in place until 2026-10-11. `M.7` fails if it comes back. The other checks that expect a timeout would still pass, because the security groups drop those ports too. The console's default rule for the provider's own SSH feature is left as it was. It applies to a user's own devices and not to the tagged router.
 
 ## Validation
 
