@@ -2,14 +2,6 @@
 
 An AI agent on a self-hosted model investigates security findings on a target service it cannot reach directly, and proposes fixes that are tested before review. No change reaches the target service without human-in-the-loop approval of that exact change.
 
-## How a fix gets made
-
-1. Collectors on the trusted orchestrator gather a job's evidence, and deterministic checks give their own verdicts.
-2. The agent, on its own VM with no credentials, reads the evidence through one tool and returns structured output: a verdict per account, and the permission to remove from each over-privileged (`excess`) account ([the agent's job](docs/components/agent-job.md)).
-3. A verification gate compares each verdict with the deterministic checks', and fails closed: any difference stops the workflow for the operator.
-4. A policy check and a staging test on a copy of the target vet the fix. The pull request carries checked fields only, never the model's output.
-5. A tag signed with a separate approval key approves that exact commit, once. Delivery applies it and checks the target again before the merge.
-
 ## Architecture
 
 Detailed breakdown in [Architecture](docs/architecture.md).
@@ -28,6 +20,14 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 | Just-in-time (JIT) egress window | A time-limited allowlist: an operator command on the edge VM that opens code and package hosts for at most 60 minutes |
 
 </details>
+
+## How a fix gets made
+
+1. Collectors on the trusted orchestrator gather a job's evidence, and deterministic checks give their own verdicts.
+2. The agent, on its own VM with no credentials, reads the evidence through one tool and returns structured output: a verdict per account, and the permission to remove from each over-privileged (`excess`) account ([the agent's job](docs/components/agent-job.md)).
+3. A verification gate compares each verdict with the deterministic checks', and fails closed: any difference stops the workflow for the operator.
+4. A policy check and a staging test on a copy of the target vet the fix. The pull request carries checked fields only, never the model's output.
+5. A tag signed with a separate approval key approves that exact commit, once. Delivery applies it and checks the target again before the merge.
 
 ## Status
 
