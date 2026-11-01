@@ -16,7 +16,7 @@ Security work has no milestone of its own. Each practice is part of the criteria
 | 4. NetBox target and exercise 1 investigation | Done | Accepted gap: no case whose documents disagree ([#205](https://github.com/sindredg/ai-security-platform/issues/205)). An inconclusive verdict stopped a workflow in tests only | [Worklog](worklogs/0005-netbox-target-and-exercise-1.md), [evidence](evidence/README.md) |
 | 5. Remediation, pull requests, and delivery | Done | Pipeline tests only: a wider fix refused. Configured, not tested: the copy's routing at first boot. Accepted gap: no held-out case has a fix left to propose ([#220](https://github.com/sindredg/ai-security-platform/issues/220)) | [Worklog](worklogs/0006-remediation-pull-requests-and-delivery.md), [evidence](evidence/README.md) |
 | 6. Operational and containment drills | In progress | Accepted gap: no VM rebuilt from its current template, so its first boot is untested ([worklog](worklogs/0007-operational-and-containment-drills.md#summary)) | [Worklog](worklogs/0007-operational-and-containment-drills.md) |
-| 7. Exercise 2: excess network access | Planned | | |
+| 7. Exercise 2: excess network access | Not done | Accepted gap: not run. The subscription window ends about 2026-11-09, and exercise 3 takes the days left | |
 | 8. Exercise 3: vulnerable image or dependency | Planned | | |
 
 ## 0. Documentation baseline and preflight

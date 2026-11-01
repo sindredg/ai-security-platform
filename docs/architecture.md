@@ -120,14 +120,14 @@ The first target is NetBox with synthetic inventory ([ADR 0004](decisions/0004-n
 | --- | --- |
 | NetBox VM | NetBox from one image pinned by digest, under Podman, with PostgreSQL and Valkey from Ubuntu ([ADR 0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md), [ADR 0039](decisions/0039-netbox-takes-a-clients-address-from-the-connection.md)) |
 | Authorized consumer | Reads one tenant's devices and addresses with a read-only token limited to its address. Two accounts on the lab VM: the consumer and a control ([ADR 0037](decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)) |
-| Unintended viewpoint | A source that policy says must not reach NetBox. Comes with exercise 2 |
+| Unintended viewpoint | A subnet that policy says must not reach NetBox. Nothing runs in it: exercise 2 was not run ([roadmap](roadmap.md#status)) |
 | Staging copy | A second NetBox on the lab VM, with its own interface and credentials, reset from a dump. Only the orchestrator reaches it over the network ([ADR 0044](decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)) |
 
 The viewpoints and the staging copy share one lab VM, one network interface per viewpoint subnet, because of [capacity](#capacity). Neither target VM reaches anything, and packages arrive only during an update run from the orchestrator ([ADR 0036](decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)).
 
 ### Exercises
 
-Three exercises, in order, on the same service and access specification.
+Three exercises, in order, on the same service and access specification. Exercise 2 was not run ([roadmap](roadmap.md#status)).
 
 | Order | Finding | Correct outcome | Change surface |
 | --- | --- | --- | --- |
