@@ -2,11 +2,11 @@
 
 The same settings on every VM, from cloud-init. They came out of the Lynis audit in [milestone 2](../worklogs/0002-platform-compute.md#operating-system-audit). The checks are the same list on each: `HO` on the orchestrator, `HW` on the worker, `HR` on the router, `HE` on the edge, `HN` on the NetBox VM, and `HL` on the lab VM. The targets take the same settings from their own template in the targets repository.
 
-Each check was seen to fail. `.21` failed live on all four VMs before the rollout of 2026-10-19, and on a misspelled unit name. `.17` to `.20` failed live before the rollout of 2026-10-16. The rest failed on 2026-10-18: `.2` to `.6` against Ubuntu's default SSH configuration on the edge, `.7`, `.8`, and `.10` to `.14` on a machine that is not hardened, and `.1`, `.9`, `.15`, and `.16` with stubbed commands ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-of-the-edge-checks)). `HN` and `HL` run the same code and were not made to fail on the targets. They passed on their first run, on 2026-10-24.
+Each check was seen to fail. `.21` failed live on all four VMs before the rollout of 2026-10-19, and on a misspelled unit name. `.17` to `.20` failed live before the rollout of 2026-10-16. The rest failed on 2026-10-18: `.2` to `.6` against Ubuntu's default SSH configuration on the edge, `.7`, `.8`, and `.10` to `.14` on a machine that is not hardened, and `.1`, `.9`, `.15`, and `.16` with stubbed commands ([worklog](../worklogs/0004-edge-network-and-monitoring.md#the-fail-side-of-the-edge-checks)). `HN` and `HL` run the same code and passed on their first run, on 2026-10-24. `.1` and `.15` also failed on 2026-11-01 on all six hosts, the targets included, on a copy of the script whose counted command fails: `0 1` each ([worklog](../worklogs/0007-operational-and-containment-drills.md#counted-commands-that-fail)).
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |
-| `.1` | No failed systemd unit | A unit that failed at boot is the first sign of a broken rebuild | `systemctl --failed` |
+| `.1` | No failed systemd unit | A unit that failed at boot is the first sign of a broken rebuild | `systemctl --failed` lists nothing and exits 0: `0 0` |
 | `.2` | No root login over SSH | One named account, and `sudo` from there | `sshd -T` |
 | `.3` | No password login | Keys only. No account has a password | `sshd -T` |
 | `.4` | No TCP forwarding | An SSH session is not a tunnel into either network. The exceptions are the administrator on the orchestrator (`A.8`) and the update account on the targets (`VN.4`, `VL.4`) | `sshd -T` |
@@ -18,7 +18,7 @@ Each check was seen to fail. `.21` failed live on all four VMs before the rollou
 | `.10` | The BPF JIT is hardened | Less help for a local exploit | `sysctl` |
 | `.11`, `.12`, `.13` | `/etc/crontab`, `sshd_config`, and `/etc/cron.d` are closed to group and world | Only root reads what root schedules | `stat` |
 | `.14` | No assembler, linker, or compiler | Nothing on the machine builds a tool it was not given | `command -v` |
-| `.15` | Unused network protocols and USB storage are not loaded | Less kernel surface | `lsmod` |
+| `.15` | Unused network protocols and USB storage are not loaded | Less kernel surface | `lsmod` exits 0 without one of them: `0 0` |
 | `.16` | The clock is synchronized | Tokens and certificates depend on it. The worker has no internet and still syncs, from the hypervisor | `timedatectl` |
 | `.17` | The administrator account takes only a certificate | A plain key, a copied one included, works until someone removes it everywhere. [ADR 0022](../decisions/0022-short-lived-ssh-certificates-for-the-operator.md) | `sshd -T -C user=aisec,...` shows `authorizedkeysfile none` and the authority, principals, and revocation files |
 | `.18` | The certificate authority is the operator's | Whoever holds the key in that file can sign a login | The fingerprint of `/etc/ssh/aisec-user-ca.pub`, which holds one key, equals that of the file `AISEC_USER_CA` names on the workstation. Without that variable the check fails |

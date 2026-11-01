@@ -4,7 +4,7 @@ The NetBox VM and the lab VM. Each runs what a lab target needs and reaches noth
 
 The checks are the same list on each VM: `VN` on the NetBox VM, `VL` on the lab VM. The hardening checks on the same VMs are `HN` and `HL` on [host hardening](host-hardening.md). The orchestrator's side of the same paths is `E.15` and `E.16` on [containment](containment.md#the-orchestrators-side), and the effective rules on each interface are `Z.27` to `Z.29`.
 
-Each check was seen to fail on 2026-10-24, on the live system, with a copy of the script that fed it a broken input: another file, another account, a port that listens, or a field it does not compare ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-checks-for-the-targets)). `.20`, `U.14`, and `U.15` failed on the live system before the first update run, and passed after it ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-update-run)). The pending count and the reboot field of `U.14` and `U.15` have not been seen to fail on their own.
+Each check was seen to fail on 2026-10-24, on the live system, with a copy of the script that fed it a broken input: another file, another account, a port that listens, or a field it does not compare ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-checks-for-the-targets)). `.20`, `U.14`, and `U.15` failed on the live system before the first update run, and passed after it ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-update-run)). The pending count and the reboot field of `U.14` and `U.15` have not been seen to fail on their own. `.12` also failed on 2026-11-01 on both targets, `0 255`, on a copy of the script whose `ss` fails ([worklog](../worklogs/0007-operational-and-containment-drills.md#counted-commands-that-fail)).
 
 Each `Q` and `D` check, and `N.20` to `N.22` as changed for the copy, was seen to fail on 2026-10-26 or 2026-10-27, on the live system, with a copy of the script that fed it a broken input. `D.1` also failed while the approval key did not exist, and `D.4` while a standing delivery token was still on the orchestrator. `N.14`, `N.17`, and `N.23` failed on a seed without the unscoped copy ([worklog](../worklogs/0006-remediation-pull-requests-and-delivery.md#the-checks)).
 
@@ -35,7 +35,7 @@ The orchestrator's update key logs in to `aisec-update`. The limits are set twic
 | --- | --- | --- | --- |
 | `.10` | apt's timers and unattended upgrades are masked | Between update runs there is no path to a mirror, so each run could only fail | `systemctl is-enabled` reads `masked` for `apt-daily.timer`, `apt-daily-upgrade.timer`, their two services, and `unattended-upgrades.service` |
 | `.11` | apt uses the port an update run forwards | apt reaches the mirror through the orchestrator's session, and through nothing else | `apt-config dump` holds `Acquire::http::Proxy "http://127.0.0.1:3129"` once |
-| `.12` | Nothing listens on the forwarded port between update runs | A listener there is a session left open, or a process in the forward's place that apt would trust | `ss` lists no listener on port 3129 |
+| `.12` | Nothing listens on the forwarded port between update runs | A listener there is a session left open, or a process in the forward's place that apt would trust | `ss` exits 0 with no listener on port 3129: `0 0` |
 
 | ID | Claim | Why it matters | How it is checked |
 | --- | --- | --- | --- |

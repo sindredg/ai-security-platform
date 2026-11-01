@@ -276,7 +276,7 @@ count() {
   out=$("$@" 2>/dev/null); rc=$?
   if [ -n "$out" ]; then echo "$(grep "${args[@]}" <<< "$out") $rc"; else echo "0 $rc"; fi
 }
-echo "failed_units=$(systemctl --failed --no-legend | wc -l)"
+echo "failed_units=$(count -c "" -- systemctl --failed --no-legend)"
 echo "sshd_root=$(sshd_opt permitrootlogin)"
 echo "sshd_password=$(sshd_opt passwordauthentication)"
 echo "sshd_tcp_forwarding=$(sshd_opt allowtcpforwarding)"
@@ -290,7 +290,7 @@ echo "mode_crontab=$(stat -c %a /etc/crontab)"
 echo "mode_sshd_config=$(stat -c %a /etc/ssh/sshd_config)"
 echo "mode_cron_d=$(stat -c %a /etc/cron.d)"
 echo "toolchain=$(command -v as ld gcc cc 2>/dev/null | wc -l)"
-echo "unused_modules=$(lsmod | grep -c -E "^(dccp|sctp|rds|tipc|usb_storage) ")"
+echo "unused_modules=$(count -c -E "^(dccp|sctp|rds|tipc|usb_storage) " -- lsmod)"
 echo "time_synced=$(timedatectl show -p NTPSynchronized --value)"
 # Fetches from Canonical hosts that the image makes by itself: masked, and the
 # login release check not executable. A missing unit reads not-found.
@@ -335,7 +335,7 @@ echo "unit_k3s=$(systemctl is-active k3s)"
 echo "node_ready=$(k3s kubectl get nodes --no-headers 2>/dev/null | grep -c " Ready ")"
 echo "pods_not_running=$(count -v -c " Running " -- k3s kubectl get pods -A -l "!workflows.argoproj.io/workflow" --no-headers)"
 echo "secrets_encryption=$(k3s secrets-encrypt status 2>/dev/null | sed -n "s/^Encryption Status: //p")"
-echo "cert_modes_not_600=$(stat -c %a /var/lib/rancher/k3s/server/tls/*.crt | grep -v -c "^600$")"
+echo "cert_modes_not_600=$(count -v -c "^600$" -- stat -c %a /var/lib/rancher/k3s/server/tls/*.crt)"
 echo "default_sa_automount=$(count -v -c "^false$" -- k3s kubectl get sa -A --field-selector metadata.name=default -o jsonpath="{range .items[*]}{.automountServiceAccountToken}{\"\n\"}{end}")"
 echo "apiserver_anonymous=$(journalctl -u k3s --no-pager 2>/dev/null | grep "Running kube-apiserver" | tail -n 1 | grep -o -- "--anonymous-auth=[a-z]*")"
 echo "kubelet_auth=$(k3s kubectl get --raw "/api/v1/nodes/$(hostname)/proxy/configz" 2>/dev/null | python3 -I -c "
@@ -460,7 +460,10 @@ echo "tool_image=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-se
 echo "tool_pod_security=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{.items[0].spec.automountServiceAccountToken} {.items[0].spec.securityContext.runAsNonRoot} {.items[0].spec.containers[0].securityContext.readOnlyRootFilesystem} {.items[0].spec.containers[0].securityContext.allowPrivilegeEscalation} {.items[0].spec.containers[0].securityContext.capabilities.drop[0]}")"
 echo "tool_evidence=$(k get pods -n tool-services -l app.kubernetes.io/name=tool-service -o jsonpath="{range .items[0].spec.containers[0].volumeMounts[?(@.mountPath!=\"/aisec\")]}{.name}:{.mountPath}:{.readOnly} {end}{range .items[0].spec.volumes[?(@.configMap)]}{.configMap.name} {end}{.items[0].spec.containers[0].env[0].name}={.items[0].spec.containers[0].env[0].value}")"
 echo "pod_security_admission=$(k get namespace tool-services orchestration -o jsonpath="{range .items[*]}{.metadata.labels.pod-security\.kubernetes\.io/enforce} {end}" | sed "s/ $//")"
-echo "default_deny=$({ k get networkpolicy default-deny -n tool-services -o name; k get networkpolicy default-deny -n orchestration -o name; } | tr "\n" " " | sed "s/ $//")"
+# The default-deny policy of each namespace: every pod, both directions, and
+# no rule that allows anything. A policy of that name with one direction or
+# one rule passed the name alone (#63).
+echo "default_deny=$(for ns in tool-services orchestration; do k get networkpolicy default-deny -n "$ns" -o jsonpath="{.metadata.namespace} {.spec.podSelector} {.spec.policyTypes} ingress={.spec.ingress} egress={.spec.egress};"; done)"
 echo "tool_cert_14_days=$(openssl x509 -in /etc/aisec/tool-service/tls.crt -noout -checkend 1209600 >/dev/null 2>&1 && echo yes || echo no)"
 audit=/var/log/aisec/tool-audit.jsonl
 echo "audit_copy_active=$(systemctl is-active aisec-audit-copy 2>/dev/null)"
@@ -605,9 +608,9 @@ echo "job_account=$(id -nG aisec-job 2>/dev/null) $(sudo -n -l -U aisec-job 2>/d
 echo "job_session=$(grep -c "pam_succeed_if.so quiet user != aisec-job$" /etc/pam.d/common-session 2>/dev/null) $(cat /etc/security/aisec-light-session.conf 2>/dev/null)"
 echo "job_socket=$(systemctl is-active aisec-agent-job.socket 2>/dev/null) $(stat -c "%U %G %a" /run/aisec-job/agent.sock 2>/dev/null)"
 echo "job_programs=$(cat /usr/local/sbin/aisec-job-runner /usr/local/lib/aisec/job/agent_job.py /usr/local/lib/aisec/job/system.txt /etc/systemd/system/aisec-agent-job.socket /etc/systemd/system/aisec-agent-job@.service 2>/dev/null | sha256sum | cut -d " " -f 1)"
-echo "job_instances=$(systemctl list-units --all --no-legend "aisec-agent-job@*" 2>/dev/null | wc -l)"
+echo "job_instances=$(count -c "" -- systemctl list-units --all --no-legend "aisec-agent-job@*")"
 echo "slot_erased=$(journalctl --no-pager -o cat -u "aisec-agent-job@*" 2>/dev/null | sed -n "s/.*\"slot_erased\": \([a-z]*\).*/\1/p" | tail -n 1)"
-echo "job_left=$(pgrep -c -u aisec-job 2>/dev/null) $(loginctl list-sessions --no-legend 2>/dev/null | grep -c -w aisec-job) $(find /run/systemd/dynamic-uid -maxdepth 1 -name "*aisec-agent-job*" 2>/dev/null | wc -l)"
+echo "job_left=$(pgrep -c -u aisec-job 2>/dev/null) $(count -c -w aisec-job -- loginctl list-sessions --no-legend) $(find /run/systemd/dynamic-uid -maxdepth 1 -name "*aisec-agent-job*" 2>/dev/null | wc -l)"
 echo "host_key=$(cut -d " " -f 1,2 /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null)"
 # pam_motd marks the legal notice shown in .cache under the home at the first
 # login. These homes are root owned, so root makes the mark; without it each
@@ -680,7 +683,7 @@ echo "update_sudo=$(sudo -n -l -U aisec-update 2>/dev/null | sed -n "/may run/,\
 echo "update_command=$(stat -c "%U %a" /usr/local/sbin/aisec-target-update 2>/dev/null) $(sha256sum /usr/local/sbin/aisec-target-update 2>/dev/null | cut -d " " -f 1)"
 echo "apt_timers=$(systemctl is-enabled apt-daily.timer apt-daily-upgrade.timer apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 echo "apt_proxy=$(apt-config dump 2>/dev/null | grep -c "Acquire::http::Proxy \"http://127.0.0.1:3129\"")"
-echo "forward_listener=$(ss -Hltn "sport = :3129" 2>/dev/null | wc -l)"
+echo "forward_listener=$(count -c "" -- ss -Hltn "sport = :3129")"
 echo "internet=$(tcp 1.1.1.1 443)"
 echo "azure_dns=$(tcp 168.63.129.16 53) $(udp_dns)"
 echo "edge_proxy=$(tcp '"$EDGE_IP"' 3128) $(tcp '"$EDGE_IP"' 3129)"
@@ -695,7 +698,7 @@ echo "last_update=$([ "$stamp" -nt /var/lib/aisec-first-boot.done ] && [ $(( $(d
 '
 
 common_checks() { # prefix
-  check "$1.1" "No failed systemd unit" 0 "$(value failed_units)"
+  check "$1.1" "No failed systemd unit" "0 0" "$(value failed_units)"
   check "$1.2" "SSH: no root login" no "$(value sshd_root)"
   check "$1.3" "SSH: no password login" no "$(value sshd_password)"
   check "$1.4" "SSH: no TCP forwarding" no "$(value sshd_tcp_forwarding)"
@@ -709,7 +712,7 @@ common_checks() { # prefix
   check "$1.12" "/etc/ssh/sshd_config is 600" 600 "$(value mode_sshd_config)"
   check "$1.13" "/etc/cron.d is 700" 700 "$(value mode_cron_d)"
   check "$1.14" "No assembler, linker, or compiler" 0 "$(value toolchain)"
-  check "$1.15" "Unused network and USB storage modules not loaded" 0 "$(value unused_modules)"
+  check "$1.15" "Unused network and USB storage modules not loaded" "0 0" "$(value unused_modules)"
   check "$1.16" "Clock is synchronized" yes "$(value time_synced)"
   check "$1.17" "SSH: the administrator takes only a certificate" \
     "none /etc/ssh/aisec-user-ca.pub /etc/ssh/aisec-principals /etc/ssh/aisec-revoked.krl" "$(value sshd_admin_auth)"
@@ -734,7 +737,7 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   # A workflow's pods end Completed or Error. The workflow's status says which.
   check K.3 "Every pod outside workflows is Running" "0 0" "$(value pods_not_running)"
   check K.4 "Secrets encryption is enabled" Enabled "$(value secrets_encryption)"
-  check K.5 "Every certificate file is 600" 0 "$(value cert_modes_not_600)"
+  check K.5 "Every certificate file is 600" "0 0" "$(value cert_modes_not_600)"
   check K.6 "No default service account mounts a token" "0 0" "$(value default_sa_automount)"
   check K.7 "The API server refuses anonymous requests" "--anonymous-auth=false" "$(value apiserver_anonymous)"
   # The kubelet's running configuration, as it reports it, so a later file in
@@ -852,7 +855,9 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
   check T.14 "The tool service mounts each target's evidence read-only, NetBox's from the collect command's config map" \
     "evidence-synthetic:/evidence/synthetic:true evidence-netbox:/evidence/netbox:true tool-service-evidence tool-service-evidence-netbox AISEC_EVIDENCE=/evidence" \
     "$(value tool_evidence)"
-  check T.5 "Both namespaces deny by default" "networkpolicy.networking.k8s.io/default-deny networkpolicy.networking.k8s.io/default-deny" "$(value default_deny)"
+  check T.5 "Both namespaces deny by default" \
+    'tool-services {} ["Ingress","Egress"] ingress= egress=;orchestration {} ["Ingress","Egress"] ingress= egress=;' \
+    "$(value default_deny)"
   check T.7 "The tool service certificate has more than 14 days left" yes "$(value tool_cert_14_days)"
   # From inside the pod. K3s enforces network policies with kube-router, which
   # rejects with an ICMP port unreachable, so a blocked connection is
@@ -1030,7 +1035,7 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check G.6 "The job account has no other group, no sudo, and not its own home" "aisec-job 0 root" "$(value job_account)"
   check G.7 "The job socket listens, and only root and the job account may use it" "active root aisec-job 660" "$(value job_socket)"
   check G.8 "The worker runs the job runner, program, and units in this checkout" "$JOB_SHA" "$(value job_programs)"
-  check G.9 "No dispatched job's unit is loaded between jobs" 0 "$(value job_instances)"
+  check G.9 "No dispatched job's unit is loaded between jobs" "0 0" "$(value job_instances)"
   # The job program erases the model server's slot after each job (#32), and
   # its last line says whether the server did. A worker that has run no job
   # fails this.
@@ -1043,7 +1048,8 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   # What a job leaves besides its unit: the job runner's process as the job
   # account, the account's login session, and the unit's dynamic user. Each
   # goes with the job. During one, each reads 1 or more (the same drill).
-  check G.12 "No process, session, or dynamic user of a job is left between jobs" "0 0 0" "$(value job_left)"
+  # loginctl's exit status follows the session count (#204).
+  check G.12 "No process, session, or dynamic user of a job is left between jobs" "0 0 0 0" "$(value job_left)"
   # The dispatch secret, read in the orchestrator's section, holds the key and
   # the worker's host key, and that host key is this worker's.
   check W.10 "The dispatch secret pins this worker's host key" \
@@ -1189,7 +1195,7 @@ target_checks() { # letter name host other-target-address update-check-ID
     check "V$1.11" "apt uses the port an update run forwards" 1 "$(value apt_proxy)"
     # A listener here between runs is a session left open, or a process in
     # the forward's place.
-    check "V$1.12" "Nothing listens on the forwarded port between update runs" 0 "$(value forward_listener)"
+    check "V$1.12" "Nothing listens on the forwarded port between update runs" "0 0" "$(value forward_listener)"
     # Every far end listens: 1.1.1.1 on 443, Azure DNS (it answers the edge),
     # Squid on both ports (P.2), sshd on the orchestrator, the worker, and the
     # other target. A timeout is a drop.
@@ -1352,17 +1358,23 @@ if [ "$workstation" = 1 ]; then
   echo "== Workstation, through the mesh VPN"
   eval "$tcp_fn"
   check M.1 "The mesh policy allows SSH to the orchestrator" open "$(tcp $ORCH_IP 22 6)"
-  # The API server listens on this address (K.1). The policy no longer grants
-  # it: kubectl goes through an SSH tunnel to the orchestrator (A.8).
-  check M.2 "The mesh policy drops the Kubernetes API" timeout "$(tcp $ORCH_IP 6443 6)"
+  # Routed sessions leave the router from 10.45.0.36, and two layers drop
+  # every port but 22 on the way: the mesh policy on the router, then the
+  # security groups (the router subnet's deny-all-outbound, Z.32, and the
+  # destination subnet's deny-all-inbound; Z.21 lists what the edge allows).
+  # A timeout cannot say which layer dropped the packet, so the five below
+  # claim the port is closed, not which layer closed it (#64). "refused"
+  # would mean the packet reached the VM.
+  # The API server listens on this address (K.1). kubectl goes through an SSH
+  # tunnel to the orchestrator instead (A.8).
+  check M.2 "The Kubernetes API is closed to the mesh" timeout "$(tcp $ORCH_IP 6443 6)"
   # Squid listens on the edge (P.2), and the kubelet on the orchestrator (C.8
-  # above). The mesh drops what its policy does not grant, so a timeout is the
-  # policy. "refused" would mean the packet reached the VM.
-  check M.3 "The mesh policy drops the proxy port on the edge" timeout "$(tcp $EDGE_IP 3128 6)"
-  check M.9 "The mesh policy drops the target port on the edge" timeout "$(tcp $EDGE_IP 3129 6)"
+  # above).
+  check M.3 "The proxy port on the edge is closed to the mesh" timeout "$(tcp $EDGE_IP 3128 6)"
+  check M.9 "The target port on the edge is closed to the mesh" timeout "$(tcp $EDGE_IP 3129 6)"
   check M.8 "The mesh policy allows SSH to the edge" open "$(tcp $EDGE_IP 22 6)"
-  check M.4 "The mesh policy drops the kubelet port" timeout "$(tcp $ORCH_IP 10250 6)"
-  check M.5 "The mesh policy drops the tool port" timeout "$(tcp $ORCH_IP $TOOL_PORT 6)"
+  check M.4 "The kubelet port is closed to the mesh" timeout "$(tcp $ORCH_IP 10250 6)"
+  check M.5 "The tool port is closed to the mesh" timeout "$(tcp $ORCH_IP $TOOL_PORT 6)"
   check M.6 "The mesh policy allows SSH to the router" open "$(tcp "$ROUTER" 22 6)"
   # Nothing listens on the router's port 80. If the policy let the packet in,
   # the router would answer with a reset. Only a timeout shows the drop.
@@ -1509,6 +1521,9 @@ print("\n".join(sorted(lines)))
   check Z.8 "Worker to the proxy on the edge is allowed by its own rule" "Allow allow-package-proxy-to-edge" "$(flow $EDGE_IP:3128)"
   check Z.9 "Worker to the Kubernetes API is denied" "Deny deny-all-outbound" "$(flow $ORCH_IP:6443)"
   check Z.13 "Worker to the tool port is allowed by its own rule" "Allow allow-tool-service-to-orchestrator" "$(flow $ORCH_IP:$TOOL_PORT)"
+  # Routed sessions leave the router from its own address, so this is the
+  # security group behind the mesh policy for M.5.
+  check Z.32 "Router to the tool port is denied" "Deny deny-all-outbound" "$(flow $ORCH_IP:$TOOL_PORT router $ROUTER_IP)"
   check Z.22 "Orchestrator to the internet is denied by its own rule" "Deny deny-to-internet" "$(flow 1.1.1.1:443 orchestrator $ORCH_IP)"
   check Z.23 "Orchestrator to the proxy on the edge is allowed by its own rule" "Allow allow-proxy-to-edge" "$(flow $EDGE_IP:3128 orchestrator $ORCH_IP)"
   check Z.26 "Orchestrator to the target port on the edge is allowed by its own rule" "Allow allow-target-packages-to-edge" "$(flow $EDGE_IP:3129 orchestrator $ORCH_IP)"

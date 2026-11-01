@@ -48,6 +48,7 @@ A timeout proves a packet was dropped. It does not say which rule dropped it. Th
 | `Z.8` | Worker to the proxy on the edge is allowed by `allow-package-proxy-to-edge` | IP flow verify |
 | `Z.9` | Worker to the Kubernetes API is denied by `deny-all-outbound` | IP flow verify |
 | `Z.13` | Worker to the tool port is allowed by `allow-tool-service-to-orchestrator` | IP flow verify. See [tool service](tool-service.md) |
+| `Z.32` | Router to the tool port is denied by `deny-all-outbound` | IP flow verify from the router's address, the source of every routed session. The security group behind the mesh policy for `M.5` ([access](access.md)) |
 | `Z.14` | The target network is in Poland Central | The network's location, not the group's: the group stays in Denmark East ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)) |
 | `Z.15` | Both halves of the peering are connected | `peeringState` of each half. A rebuilt network leaves the other half `Disconnected` ([troubleshooting 06](../troubleshooting/06-rebuilt-network-leaves-peering-disconnected.md)) |
 | `Z.17` | Nothing is allowed into the router | Inbound allow rules among the router's effective rules, counted once `Z.16` got an answer. `0`. Its tunnel is opened outbound, so no subnet needs a way in ([ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md)) |

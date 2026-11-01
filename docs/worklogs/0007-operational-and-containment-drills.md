@@ -48,7 +48,7 @@ Each threat the [threat model](../security/threat-model.md) rates high has a dri
 | T17 worker reaches a target or the internet | Verified | Forbidden connections drill, slice 2 | `P.5` to `P.11`, `C.1` to `C.10`, [result](#the-drill) |
 | T18 worker as another job | Verified | Another job's token, slice 2 | [Result](#the-drill), [record](../evidence/2026-10-21-1511-first-workflows.md) |
 | T21 worker edits its audit record | Verified | None needed | `L.1` to `L.7` |
-| T22 tool service exploited | Verified | None needed | `T.3` to `T.5`, `T.8`, `T.9`, `M.5`, `Z.13`, `E.8` |
+| T22 tool service exploited | Verified | None needed | `T.3` to `T.5`, `T.8`, `T.9`, `M.5`, `Z.13`, `Z.32`, `E.8` |
 | T23 target reports false evidence | Verified | Stale and forged items, slice 1. The cloud API and network comparison: accepted risk | [Stale and forged items](#stale-and-forged-checks-verdicts) |
 | T24 target attacks the collector | Verified | Injected instructions drill, slice 3 | [The injected name](#the-injected-name), [record](../evidence/2026-10-30-1502-instructions-in-the-evidence.md) |
 | T25 target side removes containment | Verified | None needed | `Z.10`, `Z.11` |
@@ -472,3 +472,47 @@ Result, 2026-11-01 08:06 to 08:22 UTC, on the live system, with copies of the sc
 ### Two refused workflows
 
 The two workflows the controller refused on 2026-10-21, `override-kc8ph` and `own-rgglb`, had no TTL and stayed in `orchestration` ([#206](https://github.com/sindredg/ai-security-platform/issues/206)). Both were read again at 10:00 UTC, `Error` with an empty `ttlStrategy`, and deleted. The workflows from the template stayed as they were.
+
+## Fail sides for the close
+
+Four issues named a check that had passed and never been seen to fail on a changed input: [#204](https://github.com/sindredg/ai-security-platform/issues/204), [#63](https://github.com/sindredg/ai-security-platform/issues/63), [#195](https://github.com/sindredg/ai-security-platform/issues/195), and [#64](https://github.com/sindredg/ai-security-platform/issues/64).
+
+### Counted commands that fail
+
+Sixteen checks counted the lines a command printed, as the ten of #173 had, and passed on `0` when the command failed: `.1` and `.15` on the six hosts, `K.5`, `G.9`, `VN.12`, and `VL.12`. `G.12`'s session count had the same fault and was not in the issue. The six probes now count through the `count` helper, which prints the command's exit status after the count, and each check expects `0 0`, `G.12` `0 0 0 0`.
+
+Two copies of the check script give each counted command an option it does not know, or for `K.5` a glob that matches nothing. Nothing on the hosts changed. Written before the run: the branch's copy fails exactly the seventeen with a count of `0` and a nonzero status, `0 1` from `systemctl`, `lsmod`, and `stat`, `0 255` from `ss`, and `0 0 1 0` for `G.12`, reasoned from exit codes seen locally. The copy from before the change passes them.
+
+Result, 2026-11-01 09:03 to 09:20 UTC, on the live system, with copies of the script archived from `87c3d55` and `95ae06c`:
+
+| Copy | Result |
+| --- | --- |
+| As is, every check | 443 of 443 passed, the seventeen among them |
+| The branch's, commands broken, without Azure and the workstation | 372 passed, 17 failed: the seventeen, each with the value written above |
+| From before the change, the same commands broken | 389 of 389 passed. The seventeen passed on commands that had failed, the fault #204 names |
+
+### The tool service's fields
+
+`T.3` to `T.5` had failed only on absence, before the deployment, and `T.14` never ([#63](https://github.com/sindredg/ai-security-platform/issues/63), [#195](https://github.com/sindredg/ai-security-platform/issues/195)). `T.5` read only the names of the two `default-deny` policies, so a policy of that name with one direction passed it. It now reads each policy's pod selector, policy types, and rules.
+
+One deploy of the tool service from a copy of the branch's `platform/tool-service` changed one field per check: `readOnlyRootFilesystem` false for `T.3`, `orchestration` enforcing `baseline` for `T.4`, its `default-deny` with `policyTypes: [Ingress]` for `T.5`, and the NetBox evidence mount `readOnly: false` for `T.14`. No workflow and no pod ran in `orchestration`, so the fields for `T.4` and `T.5` relaxed nothing that ran. The one for `T.3` left the tool service's root file system writable for about four minutes, between jobs. A deploy of the unchanged copy put each field back.
+
+Written before the run: exactly the four fail, `T.3` reading `false true false false ALL`, `T.4` `restricted baseline`, `T.5` `["Ingress"]` for `orchestration`, `T.14` `evidence-netbox:/evidence/netbox:false`. `T.5` as it read before the change passes. After the second deploy every check passes.
+
+Result, 2026-11-01 09:20 to 09:33 UTC, on the live system, with the script archived from `277fe4c`:
+
+| Step | Result |
+| --- | --- |
+| The changed copy deployed, 09:20:21 UTC | A new pod on the same image digest, `sha256:7e0a2066...` |
+| The checks, without Azure and the workstation | 385 passed, 4 failed: `T.3`, `T.4`, and `T.5` with the values written above. `T.14` read `evidence-netbox:/evidence/netbox:` with an empty field, not `false`: the API server leaves out a `readOnly` that is false |
+| `T.5`'s probe from before the change, on the changed policy | The two names, its old expected value: it would have passed |
+| The unchanged copy deployed, 09:24:32 UTC | A new pod on the same digest |
+| Every check, 09:24:55 UTC | 444 of 444 passed, the four among them |
+
+### The mesh checks and the security groups
+
+`M.5` was to fail with the mesh policy opened for the tool port ([#64](https://github.com/sindredg/ai-security-platform/issues/64)). Before that console step, IP flow verify read the security groups on the path, on 2026-11-01 between 09:05 and 09:13 UTC. From the router's address, the source of every routed session, each port that `M.2` to `M.5` and `M.9` expect to time out is denied by the router subnet's `deny-all-outbound`, and the tool port also by the orchestrator subnet's `deny-all-inbound`. Port 22 is allowed by `allow-ssh-to-platform`.
+
+With the policy opened, `M.5` would still time out, so the console step could not show its fail side. The five checks claimed that the mesh policy drops their ports. They now claim the port is closed to the mesh. `Z.32` reads the router subnet's rule for the tool port. Only `M.7`, to the router itself, has no security group in its path.
+
+Result: `Z.32` passed in the full run at 09:24:55 UTC with the renamed checks. A copy that asks IP flow verify for port 22 failed it, 09:33 to 09:41 UTC, `434 passed, 1 failed`, reading `Allow allow-ssh-to-platform`. `M.5` has still not been seen to fail. That needs the mesh policy and two security groups changed together.
