@@ -1,23 +1,15 @@
-This job is about the NetBox consumer contract. Read the evidence with get_evidence. ev-0001 is the contract: its accounts, the permissions it grants, the records each read may return, and the requests NetBox has to deny. ev-0002 is the permissions NetBox has configured for each account. ev-0003 is the records each account's token returned for each read, and the status NetBox gave each request the contract expects it to deny.
+This job is about the NetBox consumer contract. Read the evidence with get_evidence, one document at a time.
+- ev-0001: the contract. Its accounts, the permissions it grants, the records each read may return, and the requests NetBox has to deny. A network part lists viewpoints: an address in a target subnet, and whether a connection from it should reach NetBox's port (open) or not (closed).
+- ev-0002: the permissions configured for each account.
+- ev-0003: the records each account's token returned for each read, and the status of each request the contract expects denied.
+- ev-0004 and ev-0005, when ev-0001 has a network part: the security rules about NetBox's port in each target subnet, and what a connection from each viewpoint gave: open, timeout, refused, or error. In a subnet, the matching rule with the lowest priority decides, and no rule means denied. A connection reaches the port only when its subnet allows it out and NetBox's subnet allows it in.
 
-Ask for one document at a time, and read it before you ask for the next.
+Give each account one verdict, and each viewpoint one under viewpoint-NAME.
+- excess: a configured permission grants an action on an object type the contract does not grant, or without its constraint; a token returned a record the contract does not list; NetBox allowed a request the contract expects denied; or a viewpoint the contract says is closed gets through by the rules or was open. Excess wins over missing.
+- missing: a read the contract needs failed or returned less than it lists; no permission grants what the contract grants; or a viewpoint the contract says is open is stopped by the rules or timed out.
+- within: what the contract allows, and nothing more.
+- inconclusive: the evidence does not settle it, or ev-0002 and ev-0003, or ev-0004 and ev-0005, disagree.
 
-Give each account in the contract one verdict.
-- excess: a configured permission grants an action on an object type the contract does not grant, or grants it without the contract's constraint. Or the token returned a record the contract does not list, or NetBox allowed a request the contract expects it to deny. When excess and missing both apply, the verdict is excess.
-- missing: a read the contract needs failed, or returned fewer records or fields than the contract lists, or no permission grants what the contract grants.
-- within: the account gets what the contract allows, and nothing more.
-- inconclusive: the evidence does not settle it, or ev-0002 and ev-0003 disagree.
+For each excess, one change: for an account, the permission to take from it, from those ev-0002 lists for it; for a viewpoint, the inbound rule on NetBox's subnet in ev-0004 that lets it in, with the rule's priority where the schema asks for the permission's id.
 
-For each account whose verdict is excess, find the one change that removes the excess: the permission to take from that account. Only a permission that ev-0002 lists for that account may be named.
-
-When ev-0001 has a network part, it also lists viewpoints: an address in a target subnet, and whether a connection from it should reach NetBox's port (open) or not (closed). ev-0004 is the security rules about NetBox's port in each target subnet, from the targets repository. In a subnet, the rule with the lowest priority that matches a connection decides, and a connection no rule allows is denied. A connection from a viewpoint reaches the port only when its own subnet allows it out and NetBox's subnet allows it in. ev-0005 is what a connection from each viewpoint's address gave: open, timeout, refused, or error.
-
-Give each viewpoint one verdict too, under viewpoint-NAME, with the viewpoint's name from ev-0001.
-- excess: the contract says closed, and a rule in ev-0004 lets the connection through, or the connection in ev-0005 was open.
-- missing: the contract says open, and the rules stop the connection, or it timed out.
-- within: the rules and the connection both give what the contract says.
-- inconclusive: the evidence does not settle it, or ev-0004 and ev-0005 disagree.
-
-For each viewpoint whose verdict is excess, the change is the inbound rule on NetBox's subnet in ev-0004 that lets the viewpoint in: give its priority where the schema asks for the permission's id, under the viewpoint's name.
-
-When you have read every document, ev-0001 to ev-0003, and ev-0004 and ev-0005 when ev-0001 has a network part, give the answer by calling the final_output tool, on its own. In the analysis, cite the evidence each conclusion rests on, and say where the evidence disagrees. Give the verdict for each account and viewpoint under its name, as the schema lists them, with the evidence the verdict rests on, and one proposal for each one whose verdict is excess, with the permission's id from ev-0002, or for a viewpoint the rule's priority from ev-0004.
+When you have read every document, call the final_output tool at once, with no text before the call. In its analysis, cite the evidence each conclusion rests on, and say where the evidence disagrees.
