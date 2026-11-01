@@ -12,7 +12,7 @@ The terms these docs use, what each means in this project, and the name it has i
 | Constrained decoding | The model server lets the model generate only tokens that keep the reply valid against a JSON schema. The model measure's verdict turn uses it. Goose's jobs do not | `response_format` with `json_schema` |
 | Baseline (AIDE) | The database the daily check compares the file system with, written by hand after an install step. The worker's has a copy on the orchestrator | `/var/lib/aisec/aide/aide.db`, `aisec-aide-baseline` |
 | Defense in depth | Each step between the agent's output and NetBox checks it again on the trusted side ([table](components/agent-job.md#after-the-output)) | |
-| Deterministic checks | Two code checks of an account's access: configured, from its permissions, and observed, from what its token returns | `N.14`, `N.17`, `netbox_access.py`, "the checks" |
+| Deterministic checks | Two code checks: configured, from an account's permissions or the port rules, and observed, from what its token returns or what a connection gives | `N.14`, `N.17`, `netbox_access.py`, "the checks" |
 | Eval, eval set, eval run | Evaluation of the agent on held-out cases. The eval set is those cases, and an eval run is one pass over them | `collectors/netbox/cases.json`, "scored cases", "scored run" |
 | File integrity monitoring (FIM) | A daily comparison of the file system with a baseline: mode, owner, size, times, a hash, and attributes of each file in scope. AIDE on both VMs ([ADR 0054](decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)) | `platform/host-audit/`, "AIDE" |
 | Fail side | A run of a check or drill against a broken input, or while the state it guards against holds, which has to fail before a pass counts | |
@@ -31,10 +31,11 @@ The terms these docs use, what each means in this project, and the name it has i
 | Over-privileged, under-privileged, within its spec | The verdicts on an account against its access specification | The values `excess`, `missing`, and `within`, beside `inconclusive` |
 | Policy as code | The policy check is a program: `platform/change/policy.py` decides whether a proposal goes on | |
 | Prompt injection | Instructions planted in evidence, an advisory, or a tool result, which the model may follow | Threat A1 |
-| Remediation proposal | The agent's proposed fix: one permission to remove from one over-privileged account | `Proposal:` lines, "proposal" |
+| Remediation proposal | The agent's proposed fix: one permission to remove from one over-privileged account, or one port rule, by its priority, for one viewpoint that reaches too far | `Proposal:` lines, "proposal" |
 | Software bill of materials (SBOM) | The list of every package in an image, with its version. The targets pipeline writes one for NetBox's pinned image, in the CycloneDX format | `netbox-sbom.cdx.json` in the "NetBox image scan" job's artifact |
 | Staging copy, staging test | A second NetBox on the lab VM, reset from a dump before and after each test. A staging test applies a proposal there and runs both deterministic checks | `rehearse.py`, `aisec-rehearse`, `aisec-rehearsal-reset`, the `rehearsal` subnet, "rehearsal" |
 | Structured output | The agent's output in a JSON schema, which Goose checks and the job program checks again | `recipe__final_output`, "final output" |
 | System prompt | The instructions every job starts with | `worker/agent-runtime/system.txt`, "system text" |
 | Tool service | The platform's MCP server on the orchestrator. It checks each tool call against the job's token and the policy, and logs it | `tool-service/` |
 | Verification gate | The workflow step that compares the model's verdicts with the deterministic checks', and fails closed | The `compare` step, "the comparison" |
+| Viewpoint | An address in a target subnet that the access specification's network part names, with whether a connection from it should reach NetBox's port ([ADR 0056](decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md)) | `viewpoint-NAME` in the verdicts and the schema, `network.viewpoints` in `netbox/contract.json` |

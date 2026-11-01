@@ -68,8 +68,8 @@ Every subnet has its own network security group and no default outbound access.
 | `10.50.0.0/20` | Poland Central | Target virtual network |
 | `10.50.0.0/27` | Poland Central | NetBox subnet |
 | `10.50.0.32/27` | Poland Central | Authorized consumer viewpoint |
-| `10.50.0.64/27` | Poland Central | Unintended viewpoint (exercise 2) |
-| `10.50.1.0/27` | Poland Central | Staging copy |
+| `10.50.0.64/27` | Poland Central | Unintended subnet, empty |
+| `10.50.1.0/27` | Poland Central | Staging copy, and exercise 2's unintended viewpoint |
 | `10.42.0.0/16`, `10.43.0.0/16` | In cluster | K3s pod and service ranges, never routed between networks |
 
 ### Connectivity
@@ -120,19 +120,19 @@ The first target is NetBox with synthetic inventory ([ADR 0004](decisions/0004-n
 | --- | --- |
 | NetBox VM | NetBox from one image pinned by digest, under Podman, with PostgreSQL and Valkey from Ubuntu ([ADR 0035](decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md), [ADR 0039](decisions/0039-netbox-takes-a-clients-address-from-the-connection.md)) |
 | Authorized consumer | Reads one tenant's devices and addresses with a read-only token limited to its address. Two accounts on the lab VM: the consumer and a control ([ADR 0037](decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)) |
-| Unintended viewpoint | A subnet that policy says must not reach NetBox. Nothing runs in it: exercise 2 was not run ([roadmap](roadmap.md#status)) |
+| Unintended viewpoint | The lab VM's staging address, `10.50.1.4`, which the access specification says must not reach NetBox's port ([ADR 0056](decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md)) |
 | Staging copy | A second NetBox on the lab VM, with its own interface and credentials, reset from a dump. Only the orchestrator reaches it over the network ([ADR 0044](decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)) |
 
 The viewpoints and the staging copy share one lab VM, one network interface per viewpoint subnet, because of [capacity](#capacity). Neither target VM reaches anything, and packages arrive only during an update run from the orchestrator ([ADR 0036](decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md)).
 
 ### Exercises
 
-Three exercises, in order, on the same service and access specification. Exercise 2 was not run ([roadmap](roadmap.md#status)).
+Three exercises, in order, on the same service and access specification ([status](roadmap.md#status)).
 
 | Order | Finding | Correct outcome | Change surface |
 | --- | --- | --- | --- |
 | 1 | The consumer can read inventory outside its approved scope | Required reads still work, other records are gone | NetBox permission configuration |
-| 2 | NetBox is reachable from the unintended viewpoint | The consumer keeps access, the unintended source is blocked | Target network rules |
+| 2 | NetBox is reachable from the unintended viewpoint | The consumer keeps access, the unintended source is blocked | NetBox's port rules, as data in the targets repository |
 | 3 | A pinned image or dependency is affected by a real public advisory | A vetted update removes the condition and keeps data and the access specification intact | Pinned image definition and update procedure |
 
 The easy way to pass a security check is to break the service. So a fix that locks out the legitimate consumer fails, and validation checks the inventory the consumer gets back, not a health endpoint.
@@ -141,11 +141,11 @@ The easy way to pass a security check is to break the service. So a fix that loc
 
 ![Investigation to delivery: trusted orchestrator steps, one untrusted AI worker step, a verification gate that compares its verdict with the deterministic checks and stops for the operator on anything but a match, and one operator approval. A failed job stops before the verification gate](diagrams/workflow.svg)
 
-1. Collection runs on a schedule or on request and produces validated evidence snapshots.
+1. Collection runs on the operator's request and produces validated evidence snapshots.
 2. Deterministic checks establish configured access, observed reachability, and candidate findings.
 3. A workflow fixes the job scope: target, evidence, tools, time and output limits.
 4. An AI worker investigates and asks for more evidence through tool services.
-5. The model returns structured output checked against a schema, and the worker writes from it the lines the verification gate reads. A proposed fix removes one permission from one account ([ADR 0043](decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md), [ADR 0049](decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md)).
+5. The model returns structured output checked against a schema, and the worker writes from it the lines the verification gate reads. A proposed fix removes one permission from one account, or one port rule that lets a viewpoint in ([ADR 0043](decisions/0043-proposals-are-remove-only-and-a-policy-check-decides.md), [ADR 0049](decisions/0049-a-netbox-jobs-answer-is-a-final-output-checked-against-a-schema.md), [ADR 0056](decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md)).
 6. On the orchestrator host, a policy check, policy as code in `platform/change/policy.py`, decides whether the fix is allowed, and a staging test applies it to the staging copy and runs both deterministic checks there ([ADR 0044](decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)).
 7. The operator's machine opens a pull request in the targets repository from the checked fields, never the model's output. The platform holds no repository credential ([ADR 0045](decisions/0045-the-operator-publishes-a-checked-proposal.md)).
 8. The operator approves the pull request's head, the human-in-the-loop approval, with a tag signed by a separate approval key, for one delivery within a day ([ADR 0046](decisions/0046-a-signed-tag-approves-and-delivery-checks-before-the-merge.md)).
@@ -157,6 +157,8 @@ The easy way to pass a security check is to break the service. So a fix that loc
 Models explain and propose. Tools establish facts. A confident model does not authorize a change, and neither does a green test.
 
 A remediation proposal goes ahead only when the model's verdict agrees with the deterministic checks ([ADR 0041](decisions/0041-the-workflow-compares-the-models-verdict-with-the-checks.md)). Anything else stops the workflow: the verification gate fails closed, so a wrong verdict costs the operator a look instead of a wrong pull request. All ten steps are built, with collection, the proposal, publishing, approval, and delivery each on the operator's request.
+
+A fix for a port rule has no staging test and no delivery command, because no copy of the network exists and the platform holds no cloud credential. The bundle holds the rules judged without the rule, the pull request merges with its approval, and the operator's Terraform apply of `main` delivers it ([ADR 0056](decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md)).
 
 ## Trust boundaries
 
@@ -182,12 +184,12 @@ Each practice lands with the milestone that builds what it checks ([ADR 0010](de
 
 | Practice | State |
 | --- | --- |
-| Threat model | Current through milestone 8, revised with each milestone ([threat model](security/threat-model.md)) |
-| Repository protection | Verified: required checks refuse commits the operator's key did not sign, in both repositories, and unapproved seed changes in the targets one ([pipeline](components/pipeline.md#repository-settings)). Push protection: configured, not tested |
+| Threat model | Current through milestone 8 and the runs of milestone 7, revised with each milestone ([threat model](security/threat-model.md)) |
+| Repository protection | Verified: required checks refuse commits the operator's key did not sign in both repositories, and unapproved seed or rule changes in the targets ([pipeline](components/pipeline.md#repository-settings)). Push protection: configured, not tested |
 | Static checks on pull requests | Built, with no cloud credentials ([pipeline](components/pipeline.md#checks-on-every-pull-request)). Trivy fails SSH from any source, and the network module refuses it at plan |
 | Dependency updates | Verified for the tool service's packages: Dependabot's [#190](https://github.com/sindredg/ai-security-platform/pull/190) failed the [signature check](components/pipeline.md#the-signature-check) as designed, and was redone signed in [#193](https://github.com/sindredg/ai-security-platform/pull/193). None yet for an action or a provider |
 | Hardening baselines | kube-bench and Lynis on the platform VMs, findings triaged ([hardening](security/hardening.md#benchmarks)), one unexplained ([#127](https://github.com/sindredg/ai-security-platform/issues/127)). Lynis not run on the targets. No CIS profile for Ubuntu 26.04: accepted |
-| Credential inventory | Every credential through milestone 8, which made none. The GitHub App key was never made. Most rotation procedures have not been run ([inventory](security/credentials.md)) |
+| Credential inventory | Every credential through milestone 8 and the runs of milestone 7, which made none. The GitHub App key was never made. Most rotation procedures have not been run ([inventory](security/credentials.md)) |
 | Audit log of tool calls | Verified: an append-only copy on the orchestrator and in Azure Monitor (`L.1` to `L.7`, `O.1`). Root can edit it first ([audit log](security/audit-log.md)) |
 | Supply chain | Verified per artifact (`T.2`, `W.2`, `W.9`, `G.1`, `K.11`, `N.5`). A software bill of materials (SBOM) and a vulnerability scan for NetBox's image only (T63) ([supply chain](security/supply-chain.md)) |
 | Monitoring | Verified: three agents over Private Link, each alert fired once on purpose (`O.1` to `O.18`). The targets have no agent ([monitoring](components/monitoring.md)) |
@@ -243,4 +245,4 @@ Each gets a decision record before the milestone that depends on it.
 - The platform identity can create a public IP resource in its own group, which the NAT gateway needs, and cannot attach it to a machine ([worklog](worklogs/0002-platform-compute.md#public-address-policy)).
 - The orchestrator's way out is filtered by hostname, not by content, and TLS is not inspected (T40).
 - With the edge VM or the router down, the way in is Azure run command, which needs the Owner account (T03).
-- The [threat model](security/threat-model.md) is the designer's, with no outside review. Exercise 2's controls were never built.
+- The [threat model](security/threat-model.md) is the designer's, with no outside review.

@@ -61,17 +61,18 @@ Administration arrives from the router subnet, translated to the router's addres
 
 ## Rules on the target side
 
-Each of the four target subnets has its own security group. All four have the same base rules, and a service's port is added to the subnets that use it. They are defined in `infra/targets/main.tf` of the [targets repository](https://github.com/sindredg/ai-security-platform-test).
+Each of the four target subnets has its own security group. All four have the same base rules, and a service's port is added to the subnets that use it. They are defined in `infra/targets/main.tf` of the [targets repository](https://github.com/sindredg/ai-security-platform-test), except the rules for NetBox's port that name a target subnet: those are in `infra/targets/netbox-rules.json`, which `main.tf` merges in and the approval check guards ([ADR 0056](../decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md)).
 
 | Direction | Access | What | Rule |
 | --- | --- | --- | --- |
 | Inbound | Allow | TCP 22 from the orchestrator subnet and the router subnet | `allow-ssh-from-orchestrator`, `allow-ssh-from-router` |
 | Inbound, NetBox subnet only | Allow | TCP 8443 to the NetBox VM, from the orchestrator's address and the consumer subnet | `allow-netbox-from-orchestrator`, `allow-netbox-from-consumer` |
 | Outbound, consumer subnet only | Allow | TCP 8443 to the NetBox VM | `allow-netbox-to-netbox` |
+| Inbound on the NetBox subnet, outbound on the staging subnet | Allow | Exercise 2's seed: TCP 8443 to the NetBox VM, from the staging subnet | `allow-netbox-from-rehearsal`, the pair |
 | Outbound | Deny | The internet, Azure DNS | `deny-to-internet`, `deny-to-azure-dns` |
 | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |
 
-The table is read from that file on 2026-10-24, with NetBox's port. `Z.25` reads each group's inbound allows. `Z.27` and `Z.28` compare the effective rules on the NetBox VM's and the lab VM's interfaces with their groups, since 2026-10-24. The `unintended` and `rehearsal` subnets have no VM, so their effective rules are not read.
+The table is read from both files at the targets repository's `978de95`. `Z.25` reads each group's inbound allows and fails on the seed, and `N.25` fails while the staging subnet reaches NetBox's port. `Z.27` to `Z.29` compare the effective rules on the NetBox VM's interface and the lab VM's two with their groups. The `unintended` subnet has no VM, so its effective rules are not read.
 
 ## Validation
 
