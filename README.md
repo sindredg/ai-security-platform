@@ -1,6 +1,6 @@
-# A private AI-driven security platform
+# A private platform for investigating security findings with a self-hosted model
 
-An AI agent on a self-hosted model investigates security findings on a target service it cannot reach directly, and proposes fixes that are tested before review. No change reaches the target service without human-in-the-loop approval of that exact change.
+The platform investigates security findings and tests their remediation with a small, self-hosted, open-weight language model. An isolated AI agent reads the evidence through one tool, a verification gate compares its verdicts with deterministic checks, a fix is checked before review, and no change reaches the target service without human approval of that exact change. The project tests how far an agent's actions can be controlled, and measures where the model adds value over conventional automation.
 
 ## Architecture
 
@@ -44,7 +44,7 @@ The exact change it made, one line of the seed:
 | Milestones | 0 to 6 and 8 done, 7 not done. The system runs until its teardown ([roadmap](docs/roadmap.md#status), [project close](docs/close.md)) |
 | Works | A fix the deterministic checks imply goes from the model's proposal to delivery: policy check, staging test, pull request, and signed approval, then a rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md)) |
 | Also works | A vulnerable NetBox image, found by a scan in the targets pipeline, replaced through a staging test with a tested recovery ([worklog](docs/worklogs/0008-exercise-3-vulnerable-image.md)) |
-| Not yet | Exercise 2, excess network access, was cut for time. Of the six VMs, only the worker has been rebuilt from its current template |
+| Not yet | Exercise 2's fix: both checks found the seeded port rule, and no job answered in time ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). Only the worker was rebuilt from its current template |
 
 ## Why it looks like this
 
