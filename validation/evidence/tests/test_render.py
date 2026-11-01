@@ -323,6 +323,11 @@ class TheIndex(unittest.TestCase):
         self.assertIn("milestone 4", charts[0])
         self.assertTrue(charts[0].endswith("(../diagrams/test-outcomes-4.svg)"))
         self.assertTrue(charts[1].endswith("(../diagrams/test-outcomes-5.svg)"))
+        # A milestone with run sets and no chart says why.
+        self.assertIn(
+            "Milestone 3 has no chart: none of its jobs reached the comparison.",
+            render.index_page(sets).splitlines(),
+        )
 
 
 class Unpublishable(unittest.TestCase):

@@ -649,7 +649,7 @@ def set_page(name, run_set, previous, following):
 
 def charts(sets):
     """A chart for each milestone with a run set that reached the comparison,
-    the oldest first."""
+    the oldest first, and a line for each milestone with none."""
     milestones = sorted(
         {
             run_set["milestone"]
@@ -668,6 +668,11 @@ def charts(sets):
             "stops by their cause, and failures"
         )
         out += [f"![{alt}]({DIAGRAM.format(m)})", ""]
+    for m in sorted({run_set["milestone"] for _, run_set in sets} - set(milestones)):
+        out += [
+            f"Milestone {m} has no chart: none of its jobs reached the comparison.",
+            "",
+        ]
     return out
 
 

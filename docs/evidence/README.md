@@ -12,6 +12,10 @@ Each run set is a batch of agent jobs, or model calls, that tested one thing. It
 
 ![NetBox jobs at the comparison in milestone 8, per run set: matches, stops by their cause, and failures](../diagrams/test-outcomes-8.svg)
 
+Milestone 3 has no chart: none of its jobs reached the comparison.
+
+Milestone 7 has no chart: none of its jobs reached the comparison.
+
 | Run set | Date | Tested | Jobs | Outcomes |
 | --- | --- | --- | --- | --- |
 | [First jobs over the worker's socket](2026-10-20-1927-first-jobs-over-the-socket.md) | 2026-10-20 | Whether a job sent to the worker's socket by hand reaches the tool service and returns an answer, and whether a cancel stops it. | 2 | 1 completed, 1 cancelled |
