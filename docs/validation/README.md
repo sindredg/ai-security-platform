@@ -55,7 +55,7 @@ Each earlier run is in the worklog of its milestone, with what it was run for: [
 ## What the checks do not cover
 
 - **A rebuild of everything at once.** Each VM has been rebuilt from its template and passed every check, the worker on 2026-10-11 and the orchestrator on 2026-10-13. Both together, or from an empty subscription, has not been run.
-- **The target side's later parts.** The unintended viewpoint is not built yet, and the staging copy has no checks for its secrets and database yet ([#186](https://github.com/sindredg/ai-security-platform/issues/186)). NetBox, its seed, and the collect command are checked by the [`N` checks](targets.md#netbox).
+- **The target side's later parts.** The unintended viewpoint is not built, since exercise 2 was not run, and no check reads the staging copy's container privileges, secrets, or Valkey password ([#241](https://github.com/sindredg/ai-security-platform/issues/241)). NetBox, its seed, and the collect command are checked by the [`N` checks](targets.md#netbox).
 - **The agent runtime during a run.** The [`G` checks](agent-runtime.md) read what is installed and what a finished job leaves. The transient unit's sandbox and the tools a run loads are not checked.
 - **The tool service's round trip and audit lines.** They are steps in the [runbook](../runbooks/tool-service.md#round-trip), because they register and revoke jobs. Its rejection cases are tested in CI, and the [tool service checks](tool-service.md) read the deployment.
 - **Anything a benchmark tool finds.** kube-bench and Lynis results are in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). The checks here hold the fixes in place.
