@@ -103,10 +103,14 @@ class TheRun(unittest.TestCase):
         for name in ("ssh", "logger"):
             (bin_dir / name).chmod(0o755)
         self.env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "TMPDIR": str(self.tmp)}
+        # A copy, because root in a user namespace has no right to read files
+        # under a home it does not own, such as the pipeline's checkout.
+        self.script = self.tmp / "aisec-target-update-run"
+        shutil.copy(SCRIPT, self.script)
 
     def test_nothing_the_target_printed_reaches_the_terminal_or_the_journal_raw(self):
         done = subprocess.run(
-            ["unshare", "-r", "bash", str(SCRIPT), "lab"],
+            ["unshare", "-r", "bash", str(self.script), "lab"],
             capture_output=True,
             check=False,
             env=self.env,
