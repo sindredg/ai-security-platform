@@ -602,6 +602,10 @@ echo "job_instances=$(systemctl list-units --all --no-legend "aisec-agent-job@*"
 echo "slot_erased=$(journalctl --no-pager -o cat -u "aisec-agent-job@*" 2>/dev/null | sed -n "s/.*\"slot_erased\": \([a-z]*\).*/\1/p" | tail -n 1)"
 echo "job_left=$(pgrep -c -u aisec-job 2>/dev/null) $(loginctl list-sessions --no-legend 2>/dev/null | grep -c -w aisec-job) $(find /run/systemd/dynamic-uid -maxdepth 1 -name "*aisec-agent-job*" 2>/dev/null | wc -l)"
 echo "host_key=$(cut -d " " -f 1,2 /etc/ssh/ssh_host_ed25519_key.pub 2>/dev/null)"
+# pam_motd marks the legal notice shown in .cache under the home at the first
+# login. These homes are root owned, so root makes the mark; without it each
+# login is a denied write that the audit daemon records (ADR 0054).
+echo "legal_marks=$(stat -c "%U %G %a" /home/aisec-job/.cache/motd.legal-displayed /home/aisec-feed/.cache/motd.legal-displayed /home/aisec-logexport/.cache/motd.legal-displayed 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 '"$probe_host_audit"
 
 probe_router="$probe_common"'
@@ -1051,6 +1055,8 @@ if probe=$($SSH "$WORK" 'sudo bash -s' <<<"$probe_worker" 2>/dev/null) && [ -n "
   check F.7 "The worker's AIDE baseline is the copy the orchestrator holds" \
     "${WORKER_AIDE_COPY:-no copy on the orchestrator}" "$(value aide_baseline | cut -d " " -f 3)"
   check F.9 "No message-of-the-day script runs at a login on the worker" 0 "$(value motd_scripts)"
+  check F.10 "Root has marked the legal notice shown in the job, feed, and export homes, so their logins write nothing there" \
+    "root root 644 root root 644 root root 644" "$(value legal_marks)"
   common_checks HW
 else
   check A.6 "Reachable through the subnet router with the operator certificate" yes no

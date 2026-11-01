@@ -37,6 +37,17 @@ dpkg-query -W -f='${Package} ${Version}\n' auditd aide
 install -d -m 0755 -o root -g root /etc/aisec
 if [ "$role" = worker ]; then
   install -d -m 0755 -o root -g root /opt/aisec /home/aisec-job /home/aisec-feed /home/aisec-logexport
+  # pam_motd shows /etc/legal at an account's first login and marks it shown
+  # in ~/.cache/motd.legal-displayed. In a home that is root's the account
+  # cannot make the mark, so every login tries again: a denied mkdir that the
+  # rule on the home records, and audit-config-write fires on, once for each
+  # job and each check run (read on 2026-11-01). Root makes the mark instead.
+  for home in /home/aisec-job /home/aisec-feed /home/aisec-logexport; do
+    install -d -m 0755 -o root -g root "$home/.cache"
+    mark=$home/.cache/motd.legal-displayed
+    [ "$(stat -c %U:%G:%a "$mark" 2>/dev/null)" = root:root:644 ] ||
+      install -m 0644 -o root -g root /dev/null "$mark"
+  done
 fi
 
 # The rules, which augenrules reads after the package's own file, and the
