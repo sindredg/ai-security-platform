@@ -29,6 +29,7 @@ The orchestrator's and the worker's only outbound access: Squid on the edge VM, 
 | `P.9` | The proxy refuses an upload | Package hosts accept uploads. The proxy does not pass them | A `POST` to a package host returns 403 |
 | `P.10` | The proxy refuses another port | Only plain package downloads | Port 8080 on a package host returns 403 |
 | `P.11` | The proxy refuses a tunnel | A tunnel would carry anything | `CONNECT` returns 403 |
+| `P.30` | The proxy refuses an IP-literal URL without a reverse DNS lookup | Without `-n`, a host list matches an IP-literal URL by the address's reverse DNS name, which the address's holder chooses. The lookup alone carries the address out | The edge captures its DNS traffic while the worker requests a new TEST-NET-2 address: 403, no reverse lookup for it, and one for a control address looked up on the edge |
 | `P.28` | The worker's rules drop the target port on the edge | The port is the orchestrator's, for the targets. The worker keeps its own path | TCP to `10.45.0.4:3129` times out. Squid listens there (`P.2`), so `refused` would mean the packet reached the edge |
 
 ## From the orchestrator

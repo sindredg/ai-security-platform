@@ -1,6 +1,6 @@
 # Edge VM: operator procedure
 
-Status: Implemented on 2026-10-17. Run once, on the live platform, between 18:40 and 19:59 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm). Steps 5, 6, 8, 10, and 13 ran from scripts with the same commands, and are written here in fewer lines. They have not run in this form. Step 10 is shorter than the two window tests in the worklog. The rebuild note at the end is reasoned from the template and has not run. The close test in step 10 ran on 2026-10-23 from a script with the same checks, not in this form ([worklog](../worklogs/0003-toolchain-integration.md#fix-closing-a-fetch-window-ends-its-tunnels)). Also on 2026-10-23, Docker Hub left the list ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)), and step 10 pulls Argo's executor from quay.io instead. That pull has not run. Steps 14 to 17 ran on 2026-10-24, 14:34 to 14:43 UTC, steps 15 and 16 from a script with the same commands ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-targets-package-port)). They have not run in this form.
+Status: Implemented on 2026-10-17. Run once, on the live platform, between 18:40 and 19:59 UTC. Results are in the [milestone 3a worklog](../worklogs/0004-edge-network-and-monitoring.md#the-edge-vm). Steps 5, 6, 8, 10, and 13 ran from scripts with the same commands, and are written here in fewer lines. They have not run in this form. Step 10 is shorter than the two window tests in the worklog. The rebuild note at the end is reasoned from the template and has not run. The close test in step 10 ran on 2026-10-23 from a script with the same checks, not in this form ([worklog](../worklogs/0003-toolchain-integration.md#fix-closing-a-fetch-window-ends-its-tunnels)). Also on 2026-10-23, Docker Hub left the list ([ADR 0033](../decisions/0033-k3s-system-images-from-the-release-archive.md)), and step 10 pulls Argo's executor from quay.io instead. That pull has not run. Steps 14 to 17 ran on 2026-10-24, 14:34 to 14:43 UTC, steps 15 and 16 from a script with the same commands ([worklog](../worklogs/0005-netbox-target-and-exercise-1.md#the-targets-package-port)). They have not run in this form. Step 15 ran again on 2026-11-01 for the host lists' `-n`, from a script with the same commands, and its last read found no listener a moment after the reload, hence the wait ([worklog](../worklogs/0007-operational-and-containment-drills.md#an-ip-literal-url-through-squid)).
 
 This builds the edge VM in Denmark East, moves the package proxy onto it, and takes the orchestrator's way out away ([ADR 0020](../decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)). It is the second of two stages of the edge network. The first is the [router](mesh-router.md).
 
@@ -213,10 +213,12 @@ Squid's second port, `10.45.0.4:3129`, serves `GET` and `HEAD` on port 80 to `az
     REPLACE_WITH_SSH aisec-edge 'sudo squid -k parse -f /dev/stdin 2>&1 | grep -E "ERROR|FATAL"; echo "rc=${PIPESTATUS[0]}"' < "$conf"
     REPLACE_WITH_SSH aisec-edge "sudo cp -p /etc/squid/squid.conf /var/backups/squid.conf.\$(date -u +%Y%m%dT%H%M%SZ) &&
       t=\$(mktemp) && cat > \"\$t\" && sudo install -o root -g root -m 0644 \"\$t\" /etc/squid/squid.conf && rm -f \"\$t\" &&
-      sudo systemctl reload squid && systemctl is-active squid && ss -ltn | grep -E ':312[89]'" < "$conf"
+      sudo systemctl reload squid && systemctl is-active squid" < "$conf"
+    sleep 3
+    REPLACE_WITH_SSH aisec-edge "ss -ltn | grep -E ':312[89]'"
     ```
 
-    Expected: `rc=0` with no `ERROR` or `FATAL` line, then `active`, and one listener each on `10.45.0.4:3128` and `10.45.0.4:3129`. A broken configuration prints `FATAL: Bungled` and `rc=1`. Do not install it.
+    Expected: `rc=0` with no `ERROR` or `FATAL` line, then `active`, and one listener each on `10.45.0.4:3128` and `10.45.0.4:3129`. Squid closes and reopens its ports on a reload, so a read straight after it can find none, as on 2026-11-01. A broken configuration prints `FATAL: Bungled` and `rc=1`. Do not install it.
 
 16. Test the port from the orchestrator, first with no window, then with one open.
 

@@ -1168,6 +1168,31 @@ else
   check A.15 "Reachable through the router with the operator certificate" yes no
 fi
 
+# A request for an IP-literal URL from the worker, while the edge captures its DNS
+# traffic. A host list without -n makes Squid look up the address's reverse
+# name and match it against the list, and whoever holds the address chooses
+# that name. The request is refused either way here, so the capture is the
+# check. A reverse lookup for a second address, made on the edge during the
+# capture, shows the capture sees one. Both addresses are in TEST-NET-2, new
+# on each run, so no cache answers for them.
+echo
+echo "== Squid and an IP-literal URL ($WORK through $EDGE)"
+literal="198.51.100.$((RANDOM % 127 + 1))"
+control="198.51.100.$((RANDOM % 127 + 128))"
+ptr_name() { printf '%s\n' "$1" | awk -F. '{print $4 "." $3 "." $2 "." $1 ".in-addr.arpa"}'; }
+capture=$(mktemp)
+$SSH "$EDGE" "sudo bash -c 'timeout 16 tcpdump -l -n -i any udp port 53 2>&1 & sleep 11; getent hosts $control > /dev/null; wait'" \
+  > "$capture" 2>/dev/null &
+capture_pid=$!
+sleep 4
+literal_code=$($SSH "$WORK" "curl -s -o /dev/null -w '%{http_code}' --max-time 6 -x $PROXY http://$literal/" < /dev/null 2>/dev/null)
+wait "$capture_pid" || true
+seen() { grep -q -F "PTR? $(ptr_name "$1")" "$capture" && echo seen || echo none; }
+capture_ran=$(grep -q "^listening on any" "$capture" && echo capture || echo "no capture")
+check P.30 "Squid refuses an IP-literal URL without a reverse DNS lookup" \
+  "403 capture control:seen literal:none" "${literal_code:-none} $capture_ran control:$(seen "$control") literal:$(seen "$literal")"
+rm -f "$capture"
+
 # The NetBox and lab VMs. The same checks on each, with the prefix V and the
 # VM's letter, and the hardening checks with H and the same letter.
 target_checks() { # letter name host other-target-address update-check-ID

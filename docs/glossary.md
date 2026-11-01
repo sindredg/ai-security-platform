@@ -22,6 +22,7 @@ The terms these docs use, what each means in this project, and the name it has i
 | Host audit | The audit daemon's records on a VM: writes to the platform's own files, programs run by jobs, and programs run as root by the operator, each sent to syslog | `platform/host-audit/`, the keys `aisec-config`, `aisec-exec`, `aisec-root` |
 | Held-out cases | Variants of the access specification that the task was never tuned on | The case names in `cases.json` |
 | Human-in-the-loop approval | The operator's tag, signed with the approval key, on the exact commit. The only approval | `approve/netbox/NAME` tags |
+| IP-literal URL | A URL whose host is an IP address, not a name. Squid's host lists match names only, so it refuses one without a reverse DNS lookup (`P.30`) | `dstdomain -n` in Squid's configuration |
 | JIT egress window | Just-in-time egress: an operator command opens code and package hosts on the edge VM for at most 60 minutes | `aisec-fetch-window`, `edge/fetch-hosts`, "fetch window" |
 | KV-cache clear | Emptying the model server's slot, so that no job's prompt stays for the next | `slot_erased`, `/slots/0?action=erase`, "slot erase" in llama.cpp |
 | Least privilege | An account gets exactly what its access specification grants, and nothing more | The verdict `within` |
