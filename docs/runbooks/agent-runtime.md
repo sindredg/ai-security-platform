@@ -55,7 +55,7 @@ Run these steps to put Goose on the AI worker and prove one headless run against
    REPLACE_WITH_SSH aisec-worker 'cd feed/agent-runtime && sudo scripts/install-agent.sh /home/aisec-feed/agent-runtime/stage'
    ```
 
-   Expected: `the archive matches artifacts.tsv`, one checksum line for `goose`, then `the binary matches GOOSE_BINARY_SHA256`. The script checks the archive again, takes the one file out of it, checks that file against its own pin, and does not run it. A binary that does not match is removed and the script fails. The script then runs `install-fixture.sh`, which prints the SHA-256 of the fixture's four files. On the next check run, `G.1` and `G.2` pass ([agent runtime checks](../validation/agent-runtime.md)).
+   Expected: `the archive matches artifacts.tsv`, `the binary matches GOOSE_BINARY_SHA256`, then one checksum line for `goose`. The script copies the archive out of the stage, which the feed key can still write, into a directory only root can write, and checks and unpacks only that copy. It takes the one file out of it, refuses it unless it is a plain file that matches its own pin, and only then installs it as root's, mode `755`. It does not run it. A link or a mismatch is refused, and nothing is installed. The script then runs `install-fixture.sh`, which prints the SHA-256 of the fixture's four files. On the next check run, `G.1` and `G.2` pass ([agent runtime checks](../validation/agent-runtime.md)).
 
    After a change to the fixture or to `system.txt` alone, no staged archive is needed:
 

@@ -11,7 +11,7 @@ Run these steps to put llama.cpp and the starting model on the AI worker: downlo
 | Milestone 2, built | The [platform compute runbook](platform-compute.md). Both VMs up, the feed key in place, the package proxy working |
 | SSH to both VMs over the mesh VPN | `REPLACE_WITH_SSH` below stands for the operator's `ssh` command with its options, for example `ssh -F <config>` |
 | 10 GB of free disk on the orchestrator | The staged inputs stay there for the next rebuild |
-| 22 GB of free disk on the worker | Only during the build. The finished install takes 2.9 GB |
+| 31 GB of free disk on the worker | Only during the build: the build's 22 GB and a 9 GB copy of the stage, which root checks and uses instead of the stage itself. The finished install takes 2.9 GB |
 | A checkout of this repository on the workstation | The scripts and pins are in `worker/model-server/` |
 
 The design is in [ADR 0015](../decisions/0015-build-the-model-file-on-the-worker.md). Every file the build downloads is listed with its checksum: llama.cpp and the converter's packages in `worker/model-server/artifacts.tsv`, and the model's files in `worker/model-server/models/MODEL_NAME.tsv`. `MODEL_NAME` in `pins.env` names the model the server runs. The commands below use it.
@@ -93,7 +93,7 @@ The download leaves through the NAT gateway and is billed per GB.
 
    The script installs `libgomp1` through the package proxy if it is missing and prints its version. It converts in a sandboxed unit named `aisec-model-build`, and removes the build account and directory when it ends, also when it fails.
 
-   The first line proves that the staged files are the ones the repository pins, and that nothing else is staged. The lists it checks against came from the checkout in step 4, not from the orchestrator: `artifacts.tsv` and the model's list for the downloads, and `CONVERTER_SRC_SHA256` in `pins.env` for the converter's source, which the orchestrator packs from the pinned commit. A file they do not name stops the build with `not in artifacts.tsv or models/Qwen3.5-4B.tsv:` and the file's path.
+   The script first copies the stage into a directory only root can write and refuses anything there that is not a plain file or a directory. Everything after that reads the copy, so the feed key cannot change a file between its check and its use. The first line proves that the staged files are the ones the repository pins, and that nothing else is staged. The lists it checks against came from the checkout in step 4, not from the orchestrator: `artifacts.tsv` and the model's list for the downloads, and `CONVERTER_SRC_SHA256` in `pins.env` for the converter's source, which the orchestrator packs from the pinned commit. A file they do not name stops the build with `not in artifacts.tsv or models/Qwen3.5-4B.tsv:` and the file's path.
 
 6. Read the result.
 
