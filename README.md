@@ -1,6 +1,6 @@
 # A private platform for investigating security findings with a self-hosted model
 
-The platform investigates security findings and tests their remediation with a small, self-hosted, open-weight language model. An isolated AI agent reads the evidence through one tool, a verification gate compares its verdicts with deterministic checks, a fix is checked before review, and no change reaches the target service without human approval of that exact change. The project tests how far an agent's actions can be controlled, and measures where the model adds value over conventional automation.
+The platform investigates security findings with a small, self-hosted, open-weight language model, and tests each fix the model proposes before review. An isolated AI agent reads the evidence through one tool, a verification gate compares its verdicts with deterministic checks, and no change reaches the target service without human approval of that exact change. The project tests how far an agent's actions can be controlled, and measures where the model adds value over conventional automation.
 
 ## Architecture
 

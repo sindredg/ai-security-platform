@@ -54,7 +54,7 @@ Before this:
    except socket.timeout: print(sys.argv[1], \"timeout\")" "$a"; done'
    ```
 
-   Expected: `10.50.0.36 open` and `10.50.1.4 open`. Before the seed, the second is `timeout`.
+   Expected: `10.50.0.36 open` and `10.50.1.4 open`. Before the seed, the second is `timeout`: reasoned from the rules, not observed.
 
 ## Install
 

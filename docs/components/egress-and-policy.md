@@ -68,6 +68,7 @@ Each of the four target subnets has its own security group. All four have the sa
 | Inbound | Allow | TCP 22 from the orchestrator subnet and the router subnet | `allow-ssh-from-orchestrator`, `allow-ssh-from-router` |
 | Inbound, NetBox subnet only | Allow | TCP 8443 to the NetBox VM, from the orchestrator's address and the consumer subnet | `allow-netbox-from-orchestrator`, `allow-netbox-from-consumer` |
 | Outbound, consumer subnet only | Allow | TCP 8443 to the NetBox VM | `allow-netbox-to-netbox` |
+| Inbound, staging subnet only | Allow | TCP 8443 to the staging copy at `10.50.1.4`, from the orchestrator's address | `allow-netbox-from-orchestrator` |
 | Inbound on the NetBox subnet, outbound on the staging subnet | Allow | Exercise 2's seed: TCP 8443 to the NetBox VM, from the staging subnet | `allow-netbox-from-rehearsal`, the pair |
 | Outbound | Deny | The internet, Azure DNS | `deny-to-internet`, `deny-to-azure-dns` |
 | Both | Deny | Everything else | `deny-all-inbound`, `deny-all-outbound` |

@@ -11,11 +11,11 @@ The chain for a rule's fix is built and covered by unit tests: the policy, the r
 
 | Criterion | Result |
 | --- | --- |
-| Probes from both viewpoints, before and after | **Tested** with the seed live: the consumer's and the staging address both reach `10.50.0.4:8443`, and each of three collections agrees ([the seed](#the-seed), [the jobs](#the-jobs)). **Accepted gap**: the closed state before the seed was not probed, and no fix was proposed to probe after ([#253](https://github.com/sindredg/ai-security-platform/issues/253)) |
-| The change touches only allowlisted target network fields | **Configured, not tested** on the live system: the policy allows only the removal of the inbound rule that lets an excess viewpoint in, with its outbound half, and `edit_rules.py` removes only those from the file the job judged. Unit tests only ([the fix's chain](#the-fixs-chain)) |
-| The access specification and the exercise 1 denials still hold | **Tested**: each collection gave both accounts `within/within`, and `N.14` and `N.17` passed in the checks after ([the checks after](#the-checks-after)) |
-| Outer containment is unchanged | **Tested**: the checks after failed only `N.25` and `Z.25`, the seed's own reach into the target subnets ([the checks after](#the-checks-after)) |
-| The threat model is rechecked for the new change surface | **Tested** by reading: T23 gains the network comparison for viewpoints, T15, T26, and T27 a rule's fix, and A3 and A5 the exercise's results ([the threat model](#the-threat-model)) |
+| Probes from both viewpoints, before and after | **Tested** with the seed live: both addresses reach `10.50.0.4:8443`, and three collections agree ([the seed](#the-seed)). **Accepted gap**: before the seed, only the configured rules were read; no fix to probe after ([#253](https://github.com/sindredg/ai-security-platform/issues/253)) |
+| The change touches only allowlisted target network fields | **Configured, not tested** live: the policy allows only removing the inbound rule that lets an excess viewpoint in, and its outbound half. Unit tests ([the fix's chain](#the-fixs-chain)) |
+| The access specification and the exercise 1 denials still hold | **Tested** with the seed live: both accounts `within/within`, and `N.14` and `N.17` passed ([the checks after](#the-checks-after)). **Accepted gap**: after a fix, not run ([#253](https://github.com/sindredg/ai-security-platform/issues/253)) |
+| Outer containment is unchanged | **Tested** with the seed live: only `N.25` and `Z.25` failed, which read the seed's path ([the checks after](#the-checks-after)). **Accepted gap**: after a fix's apply, not run ([#253](https://github.com/sindredg/ai-security-platform/issues/253)) |
+| The threat model is rechecked for the new change surface | **Tested** by reading: ten rows moved, T15, T23, T24, T26 to T28, T53, T58, T59, and A5 ([the threat model](#the-threat-model)) |
 
 ## The start pass
 
@@ -36,7 +36,7 @@ The pair is `allow-netbox-from-rehearsal` at priority 1120, inbound on the `netb
 
 Stated before the plan: `0 to add, 2 to change, 0 to destroy`, the two security groups each gaining the rule; then the staging address reaches the port, the consumer's path stays open, and `Z.25` fails on the new rule.
 
-Result, 2026-11-01 ~20:50 UTC, on the live system: the plan and the apply were `0 added, 2 changed, 0 destroyed`. A TCP connection from the lab VM, bound to each address, to `10.50.0.4:8443`:
+Result, 2026-11-01 20:38 UTC, on the live system: the plan and the apply were `0 added, 2 changed, 0 destroyed`. A TCP connection from the lab VM, bound to each address, to `10.50.0.4:8443`:
 
 | Source | Result |
 | --- | --- |
@@ -44,7 +44,7 @@ Result, 2026-11-01 ~20:50 UTC, on the live system: the plan and the apply were `
 | `10.50.1.4`, the staging address | `open` |
 | `10.50.1.4` to ports 22 and 9999 | timeout |
 
-The closed state before the seed was not probed by hand. `N.25` holds it as a check from now on.
+The closed state before the seed was not probed: the probe was written with the seed and first ran after its apply, and the checks before it read the configured rules (`Z.25`), not a connection. `N.25` holds it as a check from now on.
 
 The seed opened no new host's way to NetBox: the lab VM reached the port already, from the consumer's address. It opened the staging copy's address, which the copy and every other process on the lab VM can bind to (T58).
 
@@ -105,13 +105,30 @@ Result, 22:01 to 22:11 UTC, on the live system, from `c071900` with the targets 
 
 ## The fix's chain
 
-A rule's fix goes through four commands. Each has unit tests, and none ran on the live system.
+A rule's fix goes through five programs. Each has unit tests, and none ran a rule's fix on the live system.
 
 | Command | What it checks | Tests |
 | --- | --- | --- |
 | `policy.py` | A removal of the inbound rule that lets an excess viewpoint in, with its outbound half, and nothing else moving | `test_the_seeds_rule_and_its_outbound_half_are_allowed`, and eight refusals |
-| `propose.py` | The rules judged without the pair, in the bundle | `test_a_refused_rule_is_not_judged`, `test_the_same_rule_from_a_second_job_is_refused` |
-| `edit_rules.py` | Only the bundle's removals, in the file the job judged by SHA-256 | `test_the_fix_removes_the_two_rules_and_nothing_else`, `test_refusals_leave_the_file_as_it_was` |
+| `propose.py` | The rules judged without the pair, in the bundle and the pull request body | `test_an_allowed_fix_writes_the_bundle`, and two refusals |
+| `edit_rules.py` | Only the bundle's removals, in the file the job judged by SHA-256 | `test_the_fix_removes_the_two_rules_and_nothing_else`, `test_refusals_leave_the_file_as_it_was`, `test_an_edit_that_removes_another_rule_is_refused` |
+| `compare.py` | A viewpoint's verdict and a rule's priority, read as an account's and a permission's | `test_a_viewpoint_and_its_rule_go_through_as_an_account_does` |
 | `open_fixes.py` | A rule fix's rows in the open pull requests, as `propose.py` writes them | `test_a_rule_fix_matches_the_rows_the_propose_command_writes` |
 
-Result, locally, on 2026-11-01 at `c071900`: the change commands' 112 tests, the collector's 92, and the evidence tools' 48 pass. The tool service's tests run in the pipeline, with its pinned dependencies.
+Result, locally, on 2026-11-01, after the review's fixes: the change commands' 113 tests, the verification gate's 81, the collector's 92, and the evidence tools' 48 pass. The two tests the review added failed first: the editor's against a `removed_from` that drops a third rule, and the gate's against an ID pattern cut to three digits. The tool service's tests passed in the pipeline.
+
+## The threat model
+
+Read again for a change surface that is a port rule. Ten rows moved, each with its evidence on the [threat model](../security/threat-model.md) and [AI threats](../security/ai-threats.md).
+
+| Threat | What moved |
+| --- | --- |
+| T15 | A merged port rule, in either file, reaches Azure at the operator's next apply, which reads no approval |
+| T23 | The network comparison is built for viewpoints, and the halves agreed in three collections. The cloud API comparison stays [accepted](../security/accepted-risks.md#accepted-risks) |
+| T24 | A new target-side input: the rules file, parsed as root on the orchestrator within `netbox_rules.load`'s limits |
+| T26, T27 | A port rule's fix and its policy check, unit-tested only |
+| T28 | The outside checks passed with the seed live |
+| T53 | The observed half also connects from each viewpoint's address |
+| T58 | The seed opened the staging subnet to NetBox's port |
+| T59 | A port rule's delivery reads no tag: the merge check is its only approval |
+| A5 | A port rule's pull request body, unit-tested, never published |
