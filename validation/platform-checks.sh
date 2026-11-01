@@ -188,8 +188,38 @@ COMMIT_KEY=$(grep -v "^#" "$here/../.github/allowed_signers" | cut -d " " -f 3,4
 RESET_SHA=$(sha256sum "$here/../platform/change/aisec-rehearsal-reset" | cut -d " " -f 1)
 COPY=/etc/aisec/netbox-rehearsal
 COLLECT_SHAS="$(sha256sum "$here/../collectors/netbox/netbox_access.py" \
+  "$here/../collectors/netbox/netbox_rules.py" \
   "$here/../collectors/netbox/collect_evidence.py" "$CONTRACT" "$here/../collectors/netbox/cases.json" \
   2>/dev/null | cut -d " " -f 1 | tr "\n" " " | sed "s/ $//")"
+# NetBox's port rules in the targets checkout (ADR 0056). A missing file is
+# said so, so that it cannot compare equal to an empty answer.
+RULES_FILE=${AISEC_TARGETS:-/nonexistent}/infra/targets/netbox-rules.json
+if [ -r "$RULES_FILE" ]; then
+  RULES_SHA=$(sha256sum "$RULES_FILE" | cut -d " " -f 1)
+else
+  RULES_SHA="no rules file in the targets checkout"
+fi
+# A TCP connection bound to an address of the host, to an address and port:
+# open, timeout, refused, or error. The collector's own probe is not reused,
+# so a fault in it does not pass here too.
+BOUND_PROBE='import socket, sys
+source, address, port = sys.argv[1], sys.argv[2], int(sys.argv[3])
+s = socket.socket()
+s.settimeout(3)
+try:
+    s.bind((source, 0))
+except OSError:
+    sys.exit(print("error"))
+try:
+    s.connect((address, port))
+    print("open")
+except TimeoutError:
+    print("timeout")
+except ConnectionRefusedError:
+    print("refused")
+except OSError:
+    print("error")'
+
 # The lab VM's copy of the collector and the observer's two commands, in
 # that order (ADR 0040, ADR 0044).
 OBSERVER_SHA=$(cd "$here/../collectors/netbox" && cat netbox_access.py aisec-observe aisec-observe-netbox |
@@ -430,7 +460,7 @@ done
 echo "target_update_pins=${pins# }"
 # The collect command for NetBox, and the key it runs the observed half with
 # on the lab VM (ADR 0040). The pin for the lab VM is the one the update run uses.
-echo "netbox_collect=$(sha256sum /usr/local/lib/aisec/netbox_access.py /usr/local/sbin/collect-netbox-evidence \
+echo "netbox_collect=$(sha256sum /usr/local/lib/aisec/netbox_access.py /usr/local/lib/aisec/netbox_rules.py /usr/local/sbin/collect-netbox-evidence \
   /etc/aisec/netbox/contract.json /etc/aisec/netbox/cases.json 2>/dev/null | cut -d " " -f 1 | tr "\n" " " | sed "s/ $//")"
 observe=/etc/aisec/netbox/observe
 echo "netbox_observe_key=$(stat -c "%U %a" $observe $observe/id_ed25519 2>/dev/null | tr "\n" " " | sed "s/ $//")"
@@ -449,6 +479,10 @@ echo "change_state=$(stat -c "%U %a" /var/lib/aisec/proposals /var/lib/aisec/del
 # NetBox directory holds no delivery token. The copy keeps its own.
 echo "token_files=$(ls -A /etc/aisec/netbox/tokens 2>/dev/null | tr "\n" " " | sed "s/ $//"); $(ls -A /etc/aisec/netbox-rehearsal/tokens 2>/dev/null | tr "\n" " " | sed "s/ $//")"
 echo "delivery_remote=$(git -C /var/lib/aisec/delivery/targets.git remote get-url origin 2>/dev/null)"
+# The rules the collect command judges (ADR 0056), at the main of the mirror.
+rules=refs/remotes/origin/main:infra/targets/netbox-rules.json
+echo "mirror_rules=$(git -C /var/lib/aisec/delivery/targets.git cat-file -e $rules 2>/dev/null &&
+  git -C /var/lib/aisec/delivery/targets.git show $rules | sha256sum | cut -d " " -f 1 || echo none)"
 # Exit status 2 is the feed command refusing. 255 would be SSH failing, and 0
 # that the key ran a command it should not.
 sudo -u aisec ssh -n -i /home/aisec/.ssh/aisec-feed -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 aisec-feed@aisec-worker id >/dev/null 2>&1
@@ -789,6 +823,8 @@ if probe=$($SSH "$ORCH" 'sudo bash -s' <<<"$probe_orchestrator" 2>/dev/null) && 
     "$SEEDED_VERDICTS" "${configured:-not read}"
   check N.18 "The orchestrator's collector, collect command, contract, and cases are the ones in the two checkouts" \
     "$COLLECT_SHAS" "$(value netbox_collect)"
+  check N.26 "The orchestrator's mirror holds NetBox's port rules as the targets checkout has them" \
+    "$RULES_SHA" "$(value mirror_rules)"
   check N.19 "The observer key is root's and closed to others, and pins the lab VM's host key the update run pins" \
     "root 700 root 600 1 same" "$(value netbox_observe_key) $(value netbox_observe_pin)"
   # Delivery accepts one approval signer, and never the key every commit is
@@ -1293,6 +1329,10 @@ fi
 lab_port=$($SSH "$LAB" "$tcp_fn"'
 tcp '"$NETBOX_IP $NETBOX_PORT" 2>/dev/null)
 check N.11 "The consumer subnet reaches NetBox's port" open "${lab_port:-not reached}"
+# Exercise 2's unintended viewpoint (ADR 0056): the lab VM's second interface,
+# in the staging subnet, which the contract says does not reach NetBox's port.
+staging_port=$($SSH "$LAB" "python3 -I -c $(printf %q "$BOUND_PROBE") 10.50.1.4 $NETBOX_IP $NETBOX_PORT" 2>/dev/null)
+check N.25 "The staging subnet does not reach NetBox's port" timeout "${staging_port:-not reached}"
 # The consumer's and the control account's tokens, and the certificate they
 # trust, on the consumer viewpoint (ADR 0037).
 probe=$($SSH "$LAB" 'sudo bash -s' 2>/dev/null <<<'
