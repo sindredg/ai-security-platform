@@ -107,6 +107,22 @@ class Edit(unittest.TestCase):
                 self.assertEqual(self.run_edit(found), 1, why)
                 self.assertEqual(self.rules.read_text(), before)
 
+    def test_an_edit_that_removes_another_rule_is_refused(self):
+        # The check compares the new file with the old rules less the
+        # bundle's keys, worked out apart from removed_from. A removed_from
+        # that also drops the consumer's rule has to be caught there.
+        real = edit_rules.removed_from
+
+        def one_too_many(rules, removed):
+            left = real(rules, removed)
+            left["consumer"] = []
+            return left
+
+        edit_rules.removed_from = one_too_many
+        self.addCleanup(setattr, edit_rules, "removed_from", real)
+        self.assertEqual(self.run_edit(bundle()), 1)
+        self.assertEqual(self.rules.read_text(), TEXT)
+
     def test_the_usage_needs_two_files(self):
         self.assertEqual(edit_rules.main(["edit_rules.py"]), 2)
 

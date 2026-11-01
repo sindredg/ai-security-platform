@@ -51,6 +51,20 @@ def removed_from(rules, removed):
     return left
 
 
+def without(rules, removed):
+    """The old rules less the removed keys, worked out apart from removed_from,
+    so the check on the new file does not rest on the code it checks."""
+    gone = {(g["subnet"], g["direction"], g["name"], g["priority"]) for g in removed}
+    return {
+        subnet: [
+            r
+            for r in items
+            if (subnet, r["direction"], r["name"], r["priority"]) not in gone
+        ]
+        for subnet, items in rules.items()
+    }
+
+
 def edit(rules_path, proposal_path):
     bundle = json.loads(Path(proposal_path).read_text(encoding="utf-8"))
     if not bundle.get("policy", {}).get("allowed"):
@@ -75,7 +89,7 @@ def edit(rules_path, proposal_path):
     removed = [gone for c in changes for gone in c["removed"]]
     left = removed_from(rules, removed)
     new = netbox_rules.dump(left)
-    if netbox_rules.load(new) != left:
+    if netbox_rules.load(new) != without(rules, removed):
         raise Refused("the edit changes more than the removed rules")
     path.write_text(new, encoding="utf-8")
     return removed
