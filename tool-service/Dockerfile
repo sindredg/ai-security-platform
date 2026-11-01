@@ -8,7 +8,7 @@
 # image. 3.15.1 since 2026-10-22: its musl 1.2.6-r3 fixes CVE-2026-107891.
 # Nothing here is fetched except the packages in requirements.txt, and pip
 # refuses any file whose hash is not listed there.
-FROM python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3 AS build
+FROM python@sha256:f17ec845ebdd4f3347431579e1c22eaeec82913f039f2a54b937c7ff870bacdb AS build
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -19,7 +19,7 @@ RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-deps --require-hashes -r /tmp/requirements.txt \
     && /opt/venv/bin/pip uninstall --yes pip
 
-FROM python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3
+FROM python@sha256:f17ec845ebdd4f3347431579e1c22eaeec82913f039f2a54b937c7ff870bacdb
 
 # The base image's own pip is not needed at run time. It also carries its own
 # copies of urllib3 and msgpack, which is where the base image's only known
