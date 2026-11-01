@@ -704,3 +704,21 @@ A source-only review of the change path and the trust edges, at `c6f05c0`, left 
 The swaps happen in a `sha256sum` stub that replaces the staged archive right after the check reads it, so the race is certain instead of timed.
 
 Result, 2026-11-01 16:20 to 16:55 UTC, on the workstation with Python 3.12 and `unshare -r`: the eight installer tests, the four update-run tests, and the change commands' 96 tests pass, and each new test failed before its fix. The pipeline runs the namespace tests with `sudo`, where a skip fails the step. Not run on the worker or the orchestrator: no install and no update run is planned before the teardown, and the orchestrator keeps the update run it has.
+
+## The closing run
+
+After the fixes merged, the orchestrator got the update run with `printable()`, installed the way `install-target-update.sh` installs it. Then one exercise 1 job ran on the live NetBox, and every check ran from `main`.
+
+Written before the run: root 700 and the checkout's SHA-256 for the update run; `within/within` for both accounts in the collection, then `Succeeded` with the comparison's `match`. A stop at the verification gate would be recorded as well. No refused write under the `aisec-config` audit key by `aisec-job` on the worker during the job.
+
+Result, 2026-11-01 17:02 to 17:28 UTC, on the live system ([record](../evidence/2026-11-01-1704-the-closing-run.md)):
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| The update run on the orchestrator | Root 700, `b43241bb...`, the checkout's | As expected, 17:02 UTC. It was `315c63ec...` before |
+| The collection | `within/within` for both accounts | As expected, visible to the tool service after 68 seconds |
+| Job `nb-11011704-close` | `Succeeded`, the comparison's `match` | As expected: 712 seconds, three calls and the structured output, the slot erased before and after |
+| Refused writes on the worker | None by `aisec-job` | None by anyone since the job's start |
+| Every check from `69aa526` | All pass | 446 of 446, ending at 17:28 UTC, `E.17` and `O.11` among them |
+
+The workspace's billable volume from 2026-10-31 17:00 to 2026-11-01 17:00 UTC was 232.65 MB before ingestion stopped at about 15:17 UTC, over the 210 MB cap ([troubleshooting 20](../troubleshooting/20-a-rebuilt-workers-journal-fills-the-workspace-cap.md)). The day held the legal-notice mark, ten experiment jobs, and the worker rebuild, so it was not a normal day. In the 13 quiet hours from 17:00 to 06:00 UTC, audit lines came to 20.24 MB, about 1.56 MB an hour: an idle day at that rate is about 37 MB, reasoned, not observed.

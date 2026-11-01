@@ -2,7 +2,7 @@
 
 # The worker rebuild
 
-Milestone 6, 2026-11-01. [All run sets](README.md), [previous: Without an agent](2026-11-01-1405-one-request-without-an-agent.md).
+Milestone 6, 2026-11-01. [All run sets](README.md), [previous: Without an agent](2026-11-01-1405-one-request-without-an-agent.md), [next: Closing run](2026-11-01-1704-the-closing-run.md).
 
 **Tested:** Whether a worker replaced from its current template and put back by the runbooks runs a dispatched job through the new dispatch key, certificate, Goose, and model.
 
