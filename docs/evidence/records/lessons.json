@@ -310,6 +310,13 @@
     "2026-11-01-1405-one-request-without-an-agent#sites-1",
     "2026-11-01-1405-one-request-without-an-agent#devices-only-1"
    ]
+  },
+  {
+   "finding": "Built again from the same pins on a rebuilt worker, the model file had another checksum and 32 bytes more. The job on it answered right.",
+   "change": "None to the build: `S.7` checks the file against its own build's line. The cause is a hypothesis ([worklog](../worklogs/0007-operational-and-containment-drills.md#the-worker-rebuild)).",
+   "runs": [
+    "2026-11-01-1516-the-worker-rebuild#syn-11011515"
+   ]
   }
  ]
 }
