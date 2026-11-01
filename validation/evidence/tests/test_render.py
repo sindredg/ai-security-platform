@@ -181,6 +181,27 @@ class Outcome(unittest.TestCase):
         by_hand = job("hand-1", phase=None, steps=[], result={"status": "cancelled"})
         self.assertEqual(render.outcome(by_hand), "Cancelled")
 
+    def test_a_job_without_a_workflow_shows_its_comparison(self):
+        bare = {"phase": None, "steps": [], "checks": CHECKS}
+        matched = job(
+            "loop-1",
+            **bare,
+            comparison={"outcome": "match", "reasons": [], "accounts": []},
+        )
+        self.assertEqual(render.outcome(matched), "Match")
+        wrong = stopped(
+            "loop-2",
+            [("inventory-reader", "missing", "mismatch")],
+            ["inventory-reader: the model says missing, the checks say excess"],
+        )
+        self.assertEqual(render.outcome({**wrong, **bare}), "Stop: wrong verdict")
+        late = {**wrong, **bare, "result": {"status": "timeout", "seconds": 1200.1}}
+        self.assertEqual(render.outcome(late), "Time limit reached")
+        summary, _ = render.jobs_body({"jobs": [matched, late]})
+        self.assertIn("Minutes run from the job's start to its end", "\n".join(summary))
+        summary, _ = render.jobs_body({"jobs": [matched, job("nb-5")]})
+        self.assertIn("Minutes run from the workflow's start", "\n".join(summary))
+
 
 class Counts(unittest.TestCase):
     def test_verdicts_right_counts_only_accounts_whose_checks_agree(self):
@@ -218,6 +239,24 @@ class TheCallTable(unittest.TestCase):
         self.assertIn(f"{len(argument.encode()):,} bytes", text)
         self.assertNotIn("grants it", text)
         self.assertEqual(render.page_problems("x.md", text), [])
+
+    def test_an_agent_loops_final_output_is_accepted_or_refused(self):
+        # A loop without Goose checks the call against the schema itself.
+        argument = json.dumps({"analysis": "ev-0002 grants it " * 30})
+        accepted = {
+            "at": "2026-11-01T13:08:46Z",
+            "tool": "final_output",
+            "argument": argument,
+            "decision": "accepted",
+            "reason": None,
+            "bytes": None,
+        }
+        refused = {**accepted, "decision": "refused", "reason": "the analysis is long"}
+        text = "\n".join(render.call_table({"calls": [accepted, refused]}))
+        self.assertIn("Accepted as the answer", text)
+        self.assertIn("Refused: the analysis is long", text)
+        self.assertIn(f"{len(argument.encode()):,} bytes", text)
+        self.assertNotIn("grants it", text)
 
     def test_any_other_argument_is_shown_whole(self):
         skill = {
