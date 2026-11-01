@@ -663,12 +663,13 @@ Result, 2026-11-01 14:47 to 15:13 UTC for the rebuild, then the job and the chec
 | Host audit again | 27 rules, `lost 0`, a new baseline, its copy's SHA-256 equal | As expected. The check after the baseline read `added=0 removed=0 changed=0` |
 | Synthetic job `syn-11011515` | `Succeeded`, one call or more, no tool error, the slot erased | As expected: 80 seconds, one call, the right answer |
 | Every check | All pass | 445 of 445 from `9a951a3`, ending at 15:28 UTC |
+| The workspace | The copy's new lines arrive | Over its daily cap after the second catch-up pull, about 15:17 UTC, until the 17:00 reset ([troubleshooting 20](../troubleshooting/20-a-rebuilt-workers-journal-fills-the-workspace-cap.md)) |
 
 The model file is 32 bytes larger than the one from 2026-10-19, which is one unit of GGUF's 32-byte alignment. That fits a few more bytes of metadata, such as `general.name`, which the converter takes from the model's directory: `qwen/` for the first build, `Qwen3.5-4B/` since. The first file went with the old worker, so this stays a hypothesis, and [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) keeps the checksum it names.
 
 The fixture's three runs vary from one install to the next: 3 of 3 on 2026-10-23, 2 of 3 on 2026-10-24. The rerun's wrong run called the tool twice for the same document and still answered right, which the fixture's check counts as wrong. The first three runs' output was not kept, so whether the new file plays a part is not known.
 
-The run corrected four runbook steps that no one had run as written. The model fetch needs a JIT egress window even with every file staged, since it fetches the converter's source each time. The journal puller's cursor names the old journal and has to be set aside, the agent runtime's rebuild note left out the job socket and the dispatch key, and the incident response runbook's replace step left out half the order.
+The journal copy's catch-up, the whole new journal at 16 MiB a pull, took the workspace over its daily cap, so no alert could fire on new rows for about 100 minutes. The run corrected four runbook steps that no one had run as written. The model fetch needs a JIT egress window even with every file staged, since it fetches the converter's source each time. The journal puller's cursor names the old journal and has to be set aside, the agent runtime's rebuild note left out the job socket and the dispatch key, and the incident response runbook's replace step left out half the order.
 
 Not shown: a first boot from the current template on the other five VMs, including the K3s archive step, which only the orchestrator runs.
 
@@ -686,5 +687,6 @@ Result, 2026-11-01 14:58 to 15:30 UTC, on the live system, from a script with th
 | The new configuration | Squid parses it, then reloads with both listeners | `rc=0`, `active`, both listeners. The read straight after the reload found none, so the runbook step now waits |
 | `P.30` after, twice | Passes: `literal:none` | As expected, 15:29 UTC |
 | The proxy's other answers | `200 200 403` from the worker, `200` on both ports from the orchestrator | As expected |
+| Every check from `c6f05c0` | All pass, `P.30` among them | 445 of 446, ending at 15:43 UTC. `P.19` read the new template. `O.11` failed: the workspace was over its cap |
 
 Not observed: the forwarding itself. No address with a reverse name of an allowed host was at hand, so Squid's match on such a name is its documented behaviour, not a result here.

@@ -141,6 +141,8 @@ A rebuild of the orchestrator deletes both files. Copy them off first.
 
 The puller keeps the cursor of the last line it copied, and that cursor names the old worker's journal. Set it aside before the first pull from the new worker, so the pull asks for the whole new journal, first boot included.
 
+That catch-up took the workspace over its daily cap on 2026-11-01, which stops all ingestion until 17:00 UTC ([troubleshooting 20](../troubleshooting/20-a-rebuilt-workers-journal-fills-the-workspace-cap.md)). Rebuild just after the reset, or start the copy at the rebuild with the variant below.
+
 13. Move the saved cursor, then run steps 7 to 10 with the new host key in the pinned file.
 
     ```bash
@@ -148,4 +150,13 @@ The puller keeps the cursor of the last line it copied, and that cursor names th
       sudo ls /var/lib/aisec-journal-pull'
     ```
 
-    Expected: `cursor.before-rebuild`, `id_ed25519`, `id_ed25519.pub`, and `ok`, with no `cursor`. Until step 9 runs, each pull fails: the pinned key is the old worker's, and the new worker trusts no export key. Step 8 keeps the puller's key pair and prints its public half. Step 10 reads `copied N lines, stopped at the limit` while the new journal is over the 16 MiB a pull takes, and the next pulls, five minutes apart, copy the rest.
+    Expected: `cursor.before-rebuild`, `id_ed25519`, `id_ed25519.pub`, and `ok`, with no `cursor`. Until step 9 runs, each pull fails: the pinned key is the old worker's, and the new worker trusts no export key. Step 8 keeps the puller's key pair and prints its public half. Step 10 reads `copied N lines, stopped at the limit` while the new journal is over the 16 MiB a pull takes, and the next pulls, five minutes apart, copy the rest: seven pulls and about 80,000 lines on 2026-11-01.
+
+    The variant, which keeps the cap for the rest of the day and leaves first boot's lines on the worker only: before step 9, write the new journal's current cursor in place of the old one. Until step 9 no pull gets through, so none can ask for the whole journal first.
+
+    ```bash
+    C=$(REPLACE_WITH_SSH aisec-worker 'sudo journalctl --lines=0 --show-cursor | sed -n "s/^-- cursor: //p"')
+    REPLACE_WITH_SSH aisec-orchestrator "printf '%s\\n' '$C' | sudo -u aisec-journal-pull tee /var/lib/aisec-journal-pull/cursor > /dev/null"
+    ```
+
+    Expected: no output, and step 10 copies only the lines since. Not run.
