@@ -58,6 +58,19 @@ Limits:
 - **It holds for one commit and the models pinned in `models/`.** A change to `pins.env`, `artifacts.tsv`, or a list in `models/` means running the scan and this search again, in the same pull request. A new model also means reading which converter class and tokenizer path it takes, as for the [model evaluation](../worklogs/0003-toolchain-integration.md#will-the-pinned-converter-build-them).
 - **It covers known advisories.** The tokenizer loader still parses the publisher's files, which is the trust in the publisher that [ADR 0015](../decisions/0015-build-the-model-file-on-the-worker.md) already states.
 
+## Advisories left in NetBox's image
+
+The scan of NetBox's image `v4.7.4-5.1.1` lists five findings with a fixed version that no newer NetBox image carries, read on 2026-11-01 from [targets #20](https://github.com/sindredg/ai-security-platform-test/pull/20)'s artifact. They are accepted because the code each needs does not run here.
+
+| Finding | Why its code does not run | Read from |
+| --- | --- | --- |
+| `social-auth-core` 5.2.0, CVE-2026-115910, medium: an OpenID Connect nonce not bound to the session | NetBox uses a social login backend only when `REMOTE_AUTH_BACKEND` names one. The default is `RemoteUserBackend`, and the targets set nothing else | NetBox v4.7.4 `settings.py:183` and `:597-600`, `netbox-docker` 5.1.1 `configuration.py:320`, the targets' `netbox/netbox.env` |
+| `rustls` 0.23.45 inside `/usr/local/bin/uv`: one medium, three low | Neither unit nor the image's entrypoint runs `uv` | The two Quadlet units, the entrypoint in `netbox-docker` 5.1.1 |
+
+The limits: read from the source and the configuration, not traced in the running container, and true for image `9f5bc18e...` only.
+
+Read again when the pin moves, when `netbox.env` or a unit changes, or when a login setting changes. The 54 findings without a fix are an [open item](#open-items).
+
 ## musl in the pipeline's Trivy image
 
 The Trivy 0.76.1 image that both repositories' pipelines use carries musl 1.2.6-r2, which CVE-2026-107891 affects. Alpine fixed it in 1.2.6-r3. Trivy 0.76.1 is the newest release, and its tag has not been rebuilt, so there is no fixed image to move to. The advisory's details are not public: NVD had no record of it, and CVE.org answered 404.
@@ -79,6 +92,8 @@ Limits:
 
 Read again when the Trivy pin moves, when a pipeline calls Trivy in a new way, or when the targets repository's step that checks for the fetched module changes.
 
+Read again on 2026-11-01 for a new call: the targets' "NetBox image scan" runs `image --image-src remote`. The remote source pulls through Trivy's own registry client, so this call starts no other program either. Reasoned from the mode, not traced.
+
 ## Open items
 
 Threats that no decision or gate covers yet. Each needs an answer before the milestone named.
@@ -87,5 +102,6 @@ Threats that no decision or gate covers yet. Each needs an answer before the mil
 | --- | --- | --- |
 | Cloud identity for cluster workloads | T36 | A collector that reads from Azure. None does in exercise 1 ([0037](../decisions/0037-an-unscoped-copy-of-the-consumers-permission.md)) |
 | Sign-in strength on the operator's accounts cannot be shown by a gate | T15, T30 | Not planned |
+| 54 findings without a fixed version in NetBox's image, 50 medium and 4 low, listed by the scan and not judged one by one | T63 | The next move of NetBox's pin |
 
 Two items left this table on 2026-10-16. A rate limit for requests without a valid token is now a [milestone 3a](../roadmap.md#3a-edge-network-and-monitoring) criterion. The mesh agent's log upload is turned off on the router by [ADR 0025](../decisions/0025-the-mesh-node-on-its-own-vm.md), since 2026-10-17 (`R.5`). One more left on 2026-10-24: how the targets get packages, decided by [ADR 0036](../decisions/0036-target-packages-through-a-port-the-orchestrator-forwards.md). And one on 2026-10-26: how long a job's transcript is kept, now an accepted risk above. One on 2026-10-28: operator sessions to the targets, which the router logs to the workspace (`R.8`, [milestone 6 drill](../worklogs/0007-operational-and-containment-drills.md#operator-sessions-to-the-targets)).

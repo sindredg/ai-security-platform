@@ -40,7 +40,7 @@ Candidates, not selections. Each has something to prove first.
 
 | Role | Candidate | Has to prove | Milestone |
 | --- | --- | --- | --- |
-| Deterministic checks | Trivy, Checkov, Nmap, OPA | Coverage for exercises 2 and 3. Exercise 1's checks are the NetBox collector's | 7, 8 |
+| Deterministic checks | Nmap, OPA | Coverage for exercise 2, which was not run. Exercise 1's checks are the NetBox collector's, exercise 3's the targets pipeline's image scan | 7 |
 
 ## Versions
 

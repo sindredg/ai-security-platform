@@ -37,7 +37,7 @@ The one fix a model proposed on the live seed, as its pull request ([targets #15
 
 | | |
 | --- | --- |
-| Milestone | 6, the drills, and 8, exercise 3: both have run, and the milestone review is left ([roadmap](docs/roadmap.md#status), [project close](docs/close.md)) |
+| Milestones | 0 to 6 and 8 done, 7 not done. The system runs until its teardown ([roadmap](docs/roadmap.md#status), [project close](docs/close.md)) |
 | Works | A fix the deterministic checks imply goes from the model's proposal to delivery: policy check, staging test, pull request, and signed approval, then a rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md)) |
 | Also works | A vulnerable NetBox image, found by a scan in the targets pipeline, replaced through a staging test with a tested recovery ([worklog](docs/worklogs/0008-exercise-3-vulnerable-image.md)) |
 | Not yet | Exercise 2, excess network access, was cut for time. Of the six VMs, only the worker has been rebuilt from its current template |

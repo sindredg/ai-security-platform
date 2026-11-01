@@ -5,7 +5,9 @@ Milestone: 8, exercise 3: vulnerable image or dependency
 
 ## Summary
 
-NetBox's image moved from v4.7.3 to v4.7.4, which clears 42 critical and high findings with a fixed version, among them a djangorestframework advisory that any client reaching NetBox could trigger without a token. The targets pipeline now scans the pinned image and keeps its SBOM. The update ran on the staging copy with its migration and a recovery, then on the live NetBox, and exercise 1 still matched. The model took no part: the scan and the pin decided.
+NetBox's image moved from v4.7.3 to v4.7.4, which clears 42 critical and high findings with a fixed version, among them a djangorestframework advisory that any client reaching NetBox could trigger without a token. The targets pipeline now scans the pinned image and keeps a software bill of materials (SBOM) for it, without blocking a merge.
+
+The update ran on the staging copy with its migration and a recovery, then on the live NetBox, and exercise 1 still matched. The model took no part: the scan and the pin decided.
 
 | Criterion | Result |
 | --- | --- |
@@ -13,7 +15,7 @@ NetBox's image moved from v4.7.3 to v4.7.4, which clears 42 critical and high fi
 | The update gets a staging test, with database migration and a tested recovery procedure | **Tested** on the copy: the migration `extras.0145` applied, then a restore of the dump and the old pin brought 4.7.3 back without it ([staging](#the-staging-test-on-the-copy)) |
 | The specific finding is reassessed after delivery | **Tested** by reading the running NetBox: the default negotiation class, the fix's limits in its code, and the fixed versions ([after delivery](#the-finding-after-delivery)). Not reproduced before or after |
 | Results from exercises 1 and 2 still hold | **Tested** for exercise 1: a job on the live seed matched, and every check passed ([exercise 1](#exercise-1-after-the-update)). Exercise 2: **accepted gap**, never run ([roadmap](../roadmap.md#status)) |
-| The threat model is rechecked for the new change surface | **Tested** by reading: T63 new, T06 and the supply chain row moved ([threat model](#the-threat-model)) |
+| The threat model is rechecked for the new change surface | **Tested** by reading: T63 new, T06 read again and unchanged, the supply chain row moved ([threat model](#the-threat-model)) |
 
 ## The start pass
 
@@ -25,9 +27,11 @@ The `v4.7.3-5.1.1` tag now names another image index, `22cf3c61...`, than the pi
 
 ## The applicability record
 
-The targets pipeline gained a job that scans the image `netbox/image.env` pins, by its index digest, for linux/amd64 ([targets #20](https://github.com/sindredg/ai-security-platform-test/pull/20)). Trivy pulls it from the registry, writes a software bill of materials (SBOM) in the CycloneDX format and a JSON report, and both are kept as the run's artifact. A script fails the job when the scanned image is not the pinned one, when the scan lists none of NetBox's own Python packages, and when a critical or high finding has a fixed version.
+The targets pipeline gained a job that scans the image `netbox/image.env` pins, by its index digest, for linux/amd64 ([targets #20](https://github.com/sindredg/ai-security-platform-test/pull/20)). Trivy pulls it from the registry, writes an SBOM in the CycloneDX format and a JSON report, and both are kept as the run's artifact. A script fails the job when the scanned image is not the pinned one, when the scan lists none of NetBox's own Python packages, and when a critical or high finding has a fixed version.
 
-Written before the first run: the job fails on the old pin, with the pinned image ID and the Pillow and djangorestframework findings in its list. The script's own fail sides ran first on stub reports: another image, no NetBox packages, a fixed critical, and an empty report each exit 1, and a clean report exits 0.
+The check is not required: a failing scan shows on the pull request and does not block its merge.
+
+Stated before the first run, and written down after it: the job fails on the old pin, with the pinned image ID and the Pillow and djangorestframework findings in its list. The script's own fail sides ran first on stub reports: another image, no NetBox packages, a fixed critical, and an empty report each exit 1, and a clean report exits 0.
 
 | Pin | Image | Packages | Critical, fixed | High, fixed | Job |
 | --- | --- | --- | --- | --- | --- |
@@ -55,7 +59,7 @@ Reachability was read for the two packages NetBox pins itself, from NetBox v4.7.
 | djangorestframework CVE-2026-114137, a token proxy that revokes nothing | No: NetBox does not install `rest_framework.authtoken` | NetBox's `settings.py` |
 | Pillow, five critical and 23 high | Only through an image upload, which needs a token that may write | NetBox's image fields and thumbnails. Not traced per decoder |
 
-The two that remain on the new pin have a fix and are medium: `social-auth-core` 5.2.0, an OpenID Connect nonce not bound to the session, and `rustls` 0.23.45 inside `uv`, with three low. `netbox-docker` 5.1.1's configuration keeps remote login off unless `REMOTE_AUTH_ENABLED` is set, and the targets' `netbox/netbox.env` does not set it. Neither unit nor the image's entrypoint runs `uv`. 50 medium and 4 low have no fix and were not judged one by one.
+Two packages keep findings with a fix on the new pin: `social-auth-core` 5.2.0, one medium, and `rustls` 0.23.45 inside `uv`, one medium and three low. Neither runs here, which the [accepted risks](../security/accepted-risks.md#advisories-left-in-netboxs-image) read from the source. The 54 findings without a fix are an open item there, not judged one by one.
 
 ## The staging test on the copy
 
@@ -79,7 +83,7 @@ NetBox logs `LOGIN_REQUIRED is deprecated and will be removed in NetBox v5.0` at
 
 ## The live update
 
-After the staging test, [targets #20](https://github.com/sindredg/ai-security-platform-test/pull/20) merged as `35a3e0f`, and the live NetBox took the new pin from `main`, from a script with the runbook's steps 15 to 19.
+After the staging test, [targets #20](https://github.com/sindredg/ai-security-platform-test/pull/20) merged as `35a3e0f`, and the live NetBox took the new pin from `main`, from a script with the runbook's steps 15 to 18 and 20.
 
 Result, 2026-11-01 18:16 to 18:28 UTC, on the live system:
 
@@ -95,7 +99,7 @@ Result, 2026-11-01 18:16 to 18:28 UTC, on the live system:
 
 ## The finding after delivery
 
-The specific finding was read again in the running NetBox, at 18:29 UTC. NetBox resolves `rest_framework.negotiation.DefaultContentNegotiation`, and the installed `negotiation.py` holds the fix's three limits: 8,192 characters for the `Accept` header, 64 media types, and 256 characters for one. The installed versions are djangorestframework 3.18.3 and Pillow 13.0.0, at or past each advisory's fixed version.
+The specific finding was read again in the running NetBox, at 18:29 UTC, with the [runbook](../runbooks/netbox-update.md)'s step 19: NetBox resolves `rest_framework.negotiation.DefaultContentNegotiation`, and the installed `negotiation.py` holds the fix's three limits: 8,192 characters for the `Accept` header, 64 media types, and 256 characters for one. The installed versions are djangorestframework 3.18.3 and Pillow 13.0.0, at or past each advisory's fixed version.
 
 The scan of the image that runs, by its digest, lists no critical or high finding. That alone would not show the fix is in what NetBox runs, which is why the code was read in the container. The finding itself was not reproduced, before or after the update: its reachability is read from the source, and its absence from the code that runs.
 
@@ -119,7 +123,8 @@ The dump on the NetBox VM holds what the database holds, the token and password 
 
 ## Not verified
 
-- The recovery on the live NetBox. It ran on the copy, with the same commands ([runbook](../runbooks/netbox-update.md), step 21).
+- The recovery on the live NetBox. It ran on the copy, with the same commands ([runbook](../runbooks/netbox-update.md), step 22).
 - The finding itself, before or after the update. Its reachability is read from the source.
+- The report script's fail sides beyond one run on stub reports ([#250](https://github.com/sindredg/ai-security-platform/issues/250)). The SBOMs it cites expire with their artifacts on 2027-01-30 ([#251](https://github.com/sindredg/ai-security-platform/issues/251)).
 - 50 medium and 4 low findings without a fix, listed and not judged one by one.
 - An update run with NetBox running ([#187](https://github.com/sindredg/ai-security-platform/issues/187)): not run. The NetBox VM's package lists, from its last update run on 2026-10-26, hold no pending upgrade, so a run would first read newer ones.

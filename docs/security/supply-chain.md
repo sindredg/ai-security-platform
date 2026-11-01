@@ -52,7 +52,7 @@ Every scanner and linter runs as an image pinned by digest. Terraform and gitlea
 
 ## SBOM
 
-None is produced. Milestone 8 needs one for the artifact its exercise picks ([roadmap](../roadmap.md#8-exercise-3-vulnerable-image-or-dependency)). Planned.
+One, for NetBox's pinned image only: the targets pipeline's "NetBox image scan" writes it in the CycloneDX format and keeps it as the run's artifact ([pipeline](../components/pipeline.md#the-targets-repository)). Verified on 2026-11-01 for v4.7.3 and v4.7.4 ([worklog](../worklogs/0008-exercise-3-vulnerable-image.md#the-applicability-record)). The platform's own images have none.
 
 ## Limits
 

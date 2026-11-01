@@ -39,7 +39,7 @@ The platform holds the credentials and rules that decide what may change. The ta
 | Resource groups | `rg-aisec-platform`, `rg-aisec-platform-state` | `rg-aisec-targets`, `rg-aisec-targets-state` |
 | Virtual network | `10.40.0.0/20` | `10.50.0.0/20` |
 | Deployment identity | `aisec-platform-deploy`, platform scope only | `aisec-targets-deploy`, target scope only |
-| Lifecycle | Long-lived | Rebuilt and reseeded per exercise, with seeded weaknesses inside outer containment |
+| Lifecycle | Long-lived | Seeded per exercise, with seeded weaknesses inside outer containment. Exercise 3 updated NetBox in place |
 
 ![Two sides, two identities: the bootstrap root creates each side, each identity holds roles on its own resource group and state, and the only cross-side permission is the peering action](diagrams/separation.svg)
 
@@ -243,4 +243,4 @@ Each gets a decision record before the milestone that depends on it.
 - The platform identity can create a public IP resource in its own group, which the NAT gateway needs, and cannot attach it to a machine ([worklog](worklogs/0002-platform-compute.md#public-address-policy)).
 - The orchestrator's way out is filtered by hostname, not by content, and TLS is not inspected (T40).
 - With the edge VM or the router down, the way in is Azure run command, which needs the Owner account (T03).
-- The [threat model](security/threat-model.md) is the designer's, with no outside review. Controls for exercises 2 and 3 are planned.
+- The [threat model](security/threat-model.md) is the designer's, with no outside review. Exercise 2's controls were never built.

@@ -1,6 +1,6 @@
 # NetBox image update: operator procedure
 
-Status: Ran on 2026-11-01, NetBox v4.7.3 to v4.7.4, on the live system ([worklog](../worklogs/0008-exercise-3-vulnerable-image.md)). Steps 1 and 2 by hand and in [targets #20](https://github.com/sindredg/ai-security-platform-test/pull/20). Steps 3 to 13 on the copy, 17:28 to 17:48 UTC, and steps 15 to 19 on the live NetBox, 18:16 to 18:28 UTC, each from a script with the same commands. The scripts named the directories `~/m8-new` and `~/m8-old`, and the lab VM's archive and the dumps after the version: `~/netbox-v4.7.4.tar`, `before-v4.7.4.dump`, and `seed-v4.7.3.dump`. Step 14 ran with every check: 445 passed, and `N.5` failed as expected. Step 21 has not run on the live NetBox.
+Status: Ran on 2026-11-01, NetBox v4.7.3 to v4.7.4, on the live system ([worklog](../worklogs/0008-exercise-3-vulnerable-image.md)). Steps 1 and 2 by hand and in [targets #20](https://github.com/sindredg/ai-security-platform-test/pull/20). Steps 3 to 13 on the copy, 17:28 to 17:48 UTC, and steps 15 to 18 and 20 on the live NetBox, 18:16 to 18:28 UTC, each from a script with the same commands. Step 19 at 18:29 UTC, and step 21 from 18:28 to 18:52 UTC. The scripts named the directories `~/m8-new` and `~/m8-old`, and the lab VM's archive and the dumps after the version: `~/netbox-v4.7.4.tar`, `before-v4.7.4.dump`, and `seed-v4.7.3.dump`. Step 14 ran with every check: 445 passed, and `N.5` failed as expected. Steps 22 and 23 have not run.
 
 This moves NetBox's image pin in the [targets repository](https://github.com/sindredg/ai-security-platform-test)'s `netbox/image.env` to a new release. The targets pipeline scans the new image and keeps its SBOM. The update then runs on the staging copy first, with its database migration and a recovery from a dump, and then on the live NetBox, after a dump of its own ([ADR 0035](../decisions/0035-netbox-from-its-image-with-the-database-from-ubuntu.md), [ADR 0044](../decisions/0044-the-rehearsal-copy-is-a-second-netbox-on-the-lab-vm.md)).
 
@@ -17,6 +17,8 @@ NetBox and the copy must run already: the [NetBox runbook](netbox.md) and the [s
 | `REPLACE_WITH_NEW` | A worktree of the targets repository on the branch that moves the pin |
 | `REPLACE_WITH_TAG` | The new tag, as `v4.7.4-5.1.1`: NetBox's newest release, then `netbox-docker`'s |
 | `REPLACE_WITH_NEW_ID`, `REPLACE_WITH_OLD_ID` | The two pins' `NETBOX_IMAGE_ID`, without `sha256:` |
+| `REPLACE_WITH_AMD64_MANIFEST` | The index's `amd64`/`linux` manifest digest, from step 1 |
+| `REPLACE_WITH_OLD_TAG`, `REPLACE_WITH_OLD_PIN_CHECKOUT` | The running pin's tag, and a checkout of the targets repository at that pin, for a recovery |
 | No workflow running | A job reads NetBox, which restarts in steps 10, 13, 15, and 21 |
 
 ## The pin and the scan
@@ -88,9 +90,11 @@ NetBox and the copy must run already: the [NetBox runbook](netbox.md) and the [s
    podman inspect --format "{{.Name}} {{.Image}} {{.State.StartedAt}}" netbox netbox-worker
    runuser -u postgres -- psql -d netbox -Atc "select name from django_migrations where app = 'extras' order by id desc limit 2"
    EOF
+   REPLACE_WITH_SSH aisec-orchestrator 'sudo env AISEC_NETBOX_URL=https://10.50.1.4:8443 AISEC_NETBOX_CERT=/etc/aisec/netbox-rehearsal/tls.crt AISEC_NETBOX_TOKENS=/etc/aisec/netbox-rehearsal/tokens \
+     python3 -I /usr/local/lib/aisec/netbox_access.py configured --summary < /etc/aisec/netbox/contract.json'
    ```
 
-   Expected: the reset's last line is the SHA-256 the orchestrator recorded. Then the old version and packages, both containers on `REPLACE_WITH_OLD_ID`. Call the second command "the state read" below.
+   Expected: the reset's last line is the SHA-256 the orchestrator recorded. Then the old version and packages, both containers on `REPLACE_WITH_OLD_ID`, and the seed's verdicts. Call the last two commands "the state read" below. On the live NetBox it reads `aisec-netbox`, and the verdicts without the three `AISEC_NETBOX_` settings.
 
 7. Copy both pins' NetBox directories and the new archive to the lab VM.
 
@@ -203,7 +207,18 @@ NetBox and the copy must run already: the [NetBox runbook](netbox.md) and the [s
 
     Expected: the same fingerprint as before, `200`, then `000`.
 
-19. Remove the archive's copy from the NetBox VM, and make the new archive the one a rebuild uses.
+19. Read the specific finding in the running code: the fixed versions, and the code the advisory's fix changed. For djangorestframework's CVE-2026-114138, the negotiation class NetBox resolves and the limits the fix added:
+
+    ```bash
+    REPLACE_WITH_SSH aisec-netbox 'sudo bash -s' <<'EOF'
+    podman exec netbox sh -c 'grep -n "max_accept_header_length\|max_accept_tokens\|max_media_type_length" /opt/netbox/venv/lib/python3*/site-packages/rest_framework/negotiation.py'
+    podman exec -w /opt/netbox/netbox netbox /opt/netbox/venv/bin/python -c 'import os, django; os.environ.setdefault("DJANGO_SETTINGS_MODULE", "netbox.settings"); django.setup(); from rest_framework.settings import api_settings; import rest_framework, PIL; print(api_settings.DEFAULT_CONTENT_NEGOTIATION_CLASS, rest_framework.VERSION, PIL.__version__)'
+    EOF
+    ```
+
+    Expected: the three limits at the top of `DefaultContentNegotiation`, then `<class 'rest_framework.negotiation.DefaultContentNegotiation'> 3.18.3 13.0.0` after NetBox's configuration lines.
+
+20. Remove the archive's copy from the NetBox VM, and make the new archive the one a rebuild uses.
 
     ```bash
     REPLACE_WITH_SSH aisec-netbox 'rm -f ~/netbox.tar'
@@ -212,12 +227,33 @@ NetBox and the copy must run already: the [NetBox runbook](netbox.md) and the [s
 
     Expected: `netbox.tar` with the new archive's SHA-256.
 
-20. Run one exercise 1 job and every check, and record the job ([test evidence runbook](test-evidence.md)).
+21. Run one exercise 1 job and every check, and record the job ([test evidence runbook](test-evidence.md)).
 
     Expected: the job's comparison matches the deterministic checks, and every check passes.
 
 ## Recovery of the live NetBox
 
-21. Not run on the live NetBox; step 11 ran it on the copy. On `aisec-netbox`: stop both units, drop and create the database, restore `/var/lib/aisec/netbox-dumps/before-update.dump`, flush Valkey, and run the old pin's `install-netbox.sh` with `netbox-REPLACE_WITH_OLD_TAG.tar`. Then revert the pin in the targets repository.
+22. Not run on the live NetBox: step 11 ran the same on the copy. Copy the old pin's NetBox directory and the old archive, which only the orchestrator keeps, to the NetBox VM. Then stop both units, restore the dump from step 16, flush Valkey, and install the old pin.
 
-    Expected: the old version, packages, and image, and none of the new migrations, by the state read.
+    ```bash
+    tar -C REPLACE_WITH_OLD_PIN_CHECKOUT -cf - netbox | REPLACE_WITH_SSH aisec-netbox 'rm -rf ~/netbox-old && mkdir ~/netbox-old && tar -C ~/netbox-old -xf -'
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo cat /var/lib/aisec/target-images/netbox-REPLACE_WITH_OLD_TAG.tar' | REPLACE_WITH_SSH aisec-netbox 'cat > ~/netbox-old.tar'
+    REPLACE_WITH_SSH aisec-netbox 'sudo bash -s' <<'EOF'
+    set -euo pipefail
+    systemctl stop netbox-worker.service netbox.service
+    runuser -u postgres -- dropdb --if-exists --force netbox
+    runuser -u postgres -- createdb -O netbox netbox
+    runuser -u postgres -- pg_restore --exit-on-error --single-transaction --no-owner --role=netbox -d netbox < /var/lib/aisec/netbox-dumps/before-update.dump
+    VALKEYCLI_AUTH=$(podman secret inspect --showsecret --format '{{.SecretData}}' netbox_valkey_password) valkey-cli FLUSHALL > /dev/null
+    echo restored
+    EOF
+    REPLACE_WITH_SSH aisec-netbox 'sudo ~/netbox-old/netbox/install-netbox.sh ~/netbox-old.tar'
+    ```
+
+    Expected: `restored`, then `have  image` with `REPLACE_WITH_OLD_ID` and `login_page=200`. The state read on `aisec-netbox` shows the old version, packages, and image, and none of the new migrations. Then revert the pin in the targets repository, and rename the archives back.
+
+## Cleanup
+
+23. Remove the working copies: `~/netbox-new`, `~/netbox-old`, and `~/netbox-new.tar` on the lab VM, and `~/feed/target-images-new` on the orchestrator.
+
+    Expected: no output. Not run on 2026-11-01: the teardown removes both VMs.
