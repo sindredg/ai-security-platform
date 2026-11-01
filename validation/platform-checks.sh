@@ -1358,17 +1358,23 @@ if [ "$workstation" = 1 ]; then
   echo "== Workstation, through the mesh VPN"
   eval "$tcp_fn"
   check M.1 "The mesh policy allows SSH to the orchestrator" open "$(tcp $ORCH_IP 22 6)"
-  # The API server listens on this address (K.1). The policy no longer grants
-  # it: kubectl goes through an SSH tunnel to the orchestrator (A.8).
-  check M.2 "The mesh policy drops the Kubernetes API" timeout "$(tcp $ORCH_IP 6443 6)"
+  # Routed sessions leave the router from 10.45.0.36, and two layers drop
+  # every port but 22 on the way: the mesh policy on the router, then the
+  # security groups (the router subnet's deny-all-outbound, Z.32, and the
+  # destination subnet's deny-all-inbound; Z.21 lists what the edge allows).
+  # A timeout cannot say which layer dropped the packet, so the five below
+  # claim the port is closed, not which layer closed it (#64). "refused"
+  # would mean the packet reached the VM.
+  # The API server listens on this address (K.1). kubectl goes through an SSH
+  # tunnel to the orchestrator instead (A.8).
+  check M.2 "The Kubernetes API is closed to the mesh" timeout "$(tcp $ORCH_IP 6443 6)"
   # Squid listens on the edge (P.2), and the kubelet on the orchestrator (C.8
-  # above). The mesh drops what its policy does not grant, so a timeout is the
-  # policy. "refused" would mean the packet reached the VM.
-  check M.3 "The mesh policy drops the proxy port on the edge" timeout "$(tcp $EDGE_IP 3128 6)"
-  check M.9 "The mesh policy drops the target port on the edge" timeout "$(tcp $EDGE_IP 3129 6)"
+  # above).
+  check M.3 "The proxy port on the edge is closed to the mesh" timeout "$(tcp $EDGE_IP 3128 6)"
+  check M.9 "The target port on the edge is closed to the mesh" timeout "$(tcp $EDGE_IP 3129 6)"
   check M.8 "The mesh policy allows SSH to the edge" open "$(tcp $EDGE_IP 22 6)"
-  check M.4 "The mesh policy drops the kubelet port" timeout "$(tcp $ORCH_IP 10250 6)"
-  check M.5 "The mesh policy drops the tool port" timeout "$(tcp $ORCH_IP $TOOL_PORT 6)"
+  check M.4 "The kubelet port is closed to the mesh" timeout "$(tcp $ORCH_IP 10250 6)"
+  check M.5 "The tool port is closed to the mesh" timeout "$(tcp $ORCH_IP $TOOL_PORT 6)"
   check M.6 "The mesh policy allows SSH to the router" open "$(tcp "$ROUTER" 22 6)"
   # Nothing listens on the router's port 80. If the policy let the packet in,
   # the router would answer with a reset. Only a timeout shows the drop.
@@ -1515,6 +1521,9 @@ print("\n".join(sorted(lines)))
   check Z.8 "Worker to the proxy on the edge is allowed by its own rule" "Allow allow-package-proxy-to-edge" "$(flow $EDGE_IP:3128)"
   check Z.9 "Worker to the Kubernetes API is denied" "Deny deny-all-outbound" "$(flow $ORCH_IP:6443)"
   check Z.13 "Worker to the tool port is allowed by its own rule" "Allow allow-tool-service-to-orchestrator" "$(flow $ORCH_IP:$TOOL_PORT)"
+  # Routed sessions leave the router from its own address, so this is the
+  # security group behind the mesh policy for M.5.
+  check Z.32 "Router to the tool port is denied" "Deny deny-all-outbound" "$(flow $ORCH_IP:$TOOL_PORT router $ROUTER_IP)"
   check Z.22 "Orchestrator to the internet is denied by its own rule" "Deny deny-to-internet" "$(flow 1.1.1.1:443 orchestrator $ORCH_IP)"
   check Z.23 "Orchestrator to the proxy on the edge is allowed by its own rule" "Allow allow-proxy-to-edge" "$(flow $EDGE_IP:3128 orchestrator $ORCH_IP)"
   check Z.26 "Orchestrator to the target port on the edge is allowed by its own rule" "Allow allow-target-packages-to-edge" "$(flow $EDGE_IP:3129 orchestrator $ORCH_IP)"
