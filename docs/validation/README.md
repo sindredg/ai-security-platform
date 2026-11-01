@@ -48,13 +48,13 @@ The script changes nothing. It opens connections that should fail, reads setting
 
 ## Last run
 
-From `22e7503`, ending at 13:40 UTC on 2026-11-01: 445 of 445 passed, `S.10` new, also seen to fail with the live server run without `--reasoning off` ([worklog](../worklogs/0007-operational-and-containment-drills.md#thinking-on)).
+From `c6f05c0`, ending at 15:43 UTC on 2026-11-01: 445 of 446 passed, `P.30` new, also seen to fail on the edge before `-n` ([worklog](../worklogs/0007-operational-and-containment-drills.md#an-ip-literal-url-through-squid)). `O.11` failed, with the workspace over its daily cap after the worker rebuild ([troubleshooting 20](../troubleshooting/20-a-rebuilt-workers-journal-fills-the-workspace-cap.md)).
 
 Each earlier run is in the worklog of its milestone, with what it was run for: [0002](../worklogs/0002-platform-compute.md), [0003](../worklogs/0003-toolchain-integration.md), [0004](../worklogs/0004-edge-network-and-monitoring.md), [0005](../worklogs/0005-netbox-target-and-exercise-1.md), [0006](../worklogs/0006-remediation-pull-requests-and-delivery.md), and [0007](../worklogs/0007-operational-and-containment-drills.md).
 
 ## What the checks do not cover
 
-- **A rebuild of everything at once.** Each VM has been rebuilt from its template and passed every check, the worker on 2026-10-11 and the orchestrator on 2026-10-13. Both together, or from an empty subscription, has not been run.
+- **A rebuild of everything at once.** The worker was rebuilt from its current template on 2026-11-01 and passed every check ([worklog](../worklogs/0007-operational-and-containment-drills.md#the-worker-rebuild)), and the orchestrator from its template of the day on 2026-10-13. Every VM at once, or from an empty subscription, has not been run.
 - **The target side's later parts.** The unintended viewpoint is not built, since exercise 2 was not run, and no check reads the staging copy's container privileges, secrets, or Valkey password ([#241](https://github.com/sindredg/ai-security-platform/issues/241)). NetBox, its seed, and the collect command are checked by the [`N` checks](targets.md#netbox).
 - **The agent runtime during a run.** The [`G` checks](agent-runtime.md) read what is installed and what a finished job leaves. The transient unit's sandbox and the tools a run loads are not checked.
 - **The tool service's round trip and audit lines.** They are steps in the [runbook](../runbooks/tool-service.md#round-trip), because they register and revoke jobs. Its rejection cases are tested in CI, and the [tool service checks](tool-service.md) read the deployment.

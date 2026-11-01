@@ -2,14 +2,6 @@
 
 An AI agent on a self-hosted model investigates security findings on a target service it cannot reach directly, and proposes fixes that are tested before review. No change reaches the target service without human-in-the-loop approval of that exact change.
 
-## How a fix gets made
-
-1. Collectors on the trusted orchestrator gather a job's evidence, and deterministic checks give their own verdicts.
-2. The agent, on its own VM with no credentials, reads the evidence through one tool and returns structured output: a verdict per account, and the permission to remove from each over-privileged (`excess`) account ([the agent's job](docs/components/agent-job.md)).
-3. A verification gate compares each verdict with the deterministic checks', and fails closed: any difference stops the workflow for the operator.
-4. A policy check and a staging test on a copy of the target vet the fix. The pull request carries checked fields only, never the model's output.
-5. A tag signed with a separate approval key approves that exact commit, once. Delivery applies it and checks the target again before the merge.
-
 ## Architecture
 
 Detailed breakdown in [Architecture](docs/architecture.md).
@@ -29,13 +21,21 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 
 </details>
 
+## How a fix gets made
+
+1. Collectors on the trusted orchestrator gather a job's evidence, and deterministic checks give their own verdicts.
+2. The agent, on its own VM with no credentials, reads the evidence through one tool and returns structured output: a verdict per account, and the permission to remove from each over-privileged (`excess`) account ([the agent's job](docs/components/agent-job.md)).
+3. A verification gate compares each verdict with the deterministic checks', and fails closed: any difference stops the workflow for the operator.
+4. A policy check and a staging test on a copy of the target vet the fix. The pull request carries checked fields only, never the model's output.
+5. A tag signed with a separate approval key approves that exact commit, once. Delivery applies it and checks the target again before the merge.
+
 ## Status
 
 | | |
 | --- | --- |
 | Milestone | 6, operational and containment drills, in progress: every drill has run, and the milestone review is left ([roadmap](docs/roadmap.md#status)) |
 | Works | A fix the deterministic checks imply goes from the model's proposal to delivery: policy check, staging test, pull request, and signed approval, then a rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md)) |
-| Not yet | Exercise 3, a vulnerable image. Exercise 2, excess network access, was cut for time. No VM has been rebuilt from its current template |
+| Not yet | Exercise 3, a vulnerable image. Exercise 2, excess network access, was cut for time. Of the six VMs, only the worker has been rebuilt from its current template |
 
 ## Why it looks like this
 

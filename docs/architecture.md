@@ -192,7 +192,7 @@ Each practice lands with the milestone that builds what it checks ([ADR 0010](de
 | Supply chain | Verified per artifact (`T.2`, `W.2`, `W.9`, `G.1`, `K.11`, `N.5`). No SBOM ([supply chain](security/supply-chain.md)) |
 | Monitoring | Verified: three agents over Private Link, each alert fired once on purpose (`O.1` to `O.18`). The targets have no agent ([monitoring](components/monitoring.md)) |
 | Host audit | Verified on 2026-10-31: the audit daemon and AIDE on both VMs each caught a drill's change, in the workspace ([`F` checks](validation/host-audit.md), [worklog](worklogs/0007-operational-and-containment-drills.md#slice-8-the-host-audit)). Root can stop both ([ADR 0054](decisions/0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md)) |
-| Incident response runbook | Verified for containment and rotation in three cases on 2026-10-30, and a restore on the staging copy. The replacement steps are rebuilds, written and not run ([runbook](runbooks/incident-response.md)) |
+| Incident response runbook | Verified: containment and rotation in three cases, a restore on the staging copy, and the worker's rebuild ([worklog](worklogs/0007-operational-and-containment-drills.md#the-worker-rebuild)). Written: the target's and the orchestrator's rebuilds ([runbook](runbooks/incident-response.md)) |
 
 There is no compliance framework. ISO 27001 and SOC 2 describe an organisation, and this one has a single operator.
 

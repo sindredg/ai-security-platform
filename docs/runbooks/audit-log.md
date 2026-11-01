@@ -1,6 +1,6 @@
 # Audit log and journal copies: operator procedure
 
-Status: Implemented on 2026-10-16. Steps 1 to 10 were run that day on the live VMs, from commit `4218b0a`, and the results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies). The archive steps have not been run. A first boot from the current templates, which runs the same installs, has not been run either.
+Status: Implemented on 2026-10-16. Steps 1 to 10 were run that day on the live VMs, from commit `4218b0a`, and the results are in the [milestone 3 worklog](../worklogs/0003-toolchain-integration.md#rollout-of-the-log-copies). The archive steps have not been run. On 2026-11-01 the worker was rebuilt from the current template, and step 13, then steps 7 to 10 for the worker's half, ran from a script with the same commands ([milestone 6 worklog](../worklogs/0007-operational-and-containment-drills.md#the-worker-rebuild)). The orchestrator's first boot from its current template has not run.
 
 Run these steps to copy the tool service (an MCP server)'s audit lines into an append-only file on the orchestrator, deploy the tool service so that its lines are numbered, and pull the worker's journal into a second append-only file. The design is [ADR 0019](../decisions/0019-how-the-audit-lines-and-the-worker-journal-are-copied.md). Storage and who can change it are on the [audit log page](../security/audit-log.md).
 
@@ -136,3 +136,27 @@ A rebuild of the orchestrator deletes both files. Copy them off first.
     ```
 
     Expected: one line per file.
+
+## After a worker rebuild
+
+The puller keeps the cursor of the last line it copied, and that cursor names the old worker's journal. Set it aside before the first pull from the new worker, so the pull asks for the whole new journal, first boot included.
+
+That catch-up took the workspace over its daily cap on 2026-11-01, which stops all ingestion until 17:00 UTC ([troubleshooting 20](../troubleshooting/20-a-rebuilt-workers-journal-fills-the-workspace-cap.md)). Rebuild just after the reset, or start the copy at the rebuild with the variant below.
+
+13. Move the saved cursor, then run steps 7 to 10 with the new host key in the pinned file.
+
+    ```bash
+    REPLACE_WITH_SSH aisec-orchestrator 'sudo mv /var/lib/aisec-journal-pull/cursor /var/lib/aisec-journal-pull/cursor.before-rebuild
+      sudo ls /var/lib/aisec-journal-pull'
+    ```
+
+    Expected: `cursor.before-rebuild`, `id_ed25519`, `id_ed25519.pub`, and `ok`, with no `cursor`. Until step 9 runs, each pull fails: the pinned key is the old worker's, and the new worker trusts no export key. Step 8 keeps the puller's key pair and prints its public half. Step 10 reads `copied N lines, stopped at the limit` while the new journal is over the 16 MiB a pull takes, and the next pulls, five minutes apart, copy the rest: seven pulls and about 80,000 lines on 2026-11-01.
+
+    The variant, which keeps the cap for the rest of the day and leaves first boot's lines on the worker only: before step 9, write the new journal's current cursor in place of the old one. Until step 9 no pull gets through, so none can ask for the whole journal first.
+
+    ```bash
+    C=$(REPLACE_WITH_SSH aisec-worker 'sudo journalctl --lines=0 --show-cursor | sed -n "s/^-- cursor: //p"')
+    REPLACE_WITH_SSH aisec-orchestrator "printf '%s\\n' '$C' | sudo -u aisec-journal-pull tee /var/lib/aisec-journal-pull/cursor > /dev/null"
+    ```
+
+    Expected: no output, and step 10 copies only the lines since. Not run.

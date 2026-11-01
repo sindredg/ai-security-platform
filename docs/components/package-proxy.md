@@ -30,7 +30,7 @@ The diagram source is [`diagrams/update-path.html`](../diagrams/update-path.html
 
 It caches nothing. Package integrity over HTTP relies on `apt` verifying package hashes against signed repository metadata. This prevents the proxy from substituting altered packages, but it can still block downloads.
 
-Squid resolves every name. Neither client needs DNS, and both are denied Azure DNS.
+Squid resolves every name. Neither client needs DNS, and both are denied Azure DNS. Each host list matches the name in the request only (`-n`): a request for an IP-literal URL, one whose host is an IP address, is refused without a reverse DNS lookup (`P.30`).
 
 ## The JIT egress window
 

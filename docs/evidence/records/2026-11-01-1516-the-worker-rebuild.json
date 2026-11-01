@@ -1,0 +1,90 @@
+{
+ "title": "The worker rebuild",
+ "short": "Worker rebuild",
+ "milestone": 6,
+ "tested": "Whether a worker replaced from its current template and put back by the runbooks runs a dispatched job through the new dispatch key, certificate, Goose, and model.",
+ "changed": "The worker VM replaced from its template; the model built again from the orchestrator's stage, from the same pins; a new dispatch key pinned to the new host key. Nothing else in a job's path changed.",
+ "setup": [
+  [
+   "Model",
+   "Qwen3.5-4B, thinking off, file 777b1489..."
+  ],
+  [
+   "Agent",
+   "Goose 1.56.0"
+  ],
+  [
+   "Task",
+   "The fixture's question, on the synthetic target"
+  ],
+  [
+   "Limits",
+   "1200 seconds and 8 turns"
+  ]
+ ],
+ "source": "Live system, 2026-11-01 15:16 UTC, after the rebuild from 14:47 to 15:13 UTC. The workflow as Argo kept it, read after it ended, and the audit lines. The rebuild's steps are in the worklog.",
+ "links": [
+  [
+   "Worklog",
+   "../worklogs/0007-operational-and-containment-drills.md#the-worker-rebuild"
+  ],
+  [
+   "Runbook",
+   "../runbooks/platform-compute.md#rebuild-the-worker"
+  ]
+ ],
+ "jobs": [
+  {
+   "job": "syn-11011515",
+   "target": "synthetic",
+   "case": null,
+   "limits": {
+    "seconds": 1200,
+    "turns": 8
+   },
+   "started": "2026-11-01T15:16:08Z",
+   "finished": "2026-11-01T15:17:54Z",
+   "phase": "Succeeded",
+   "message": "",
+   "steps": [
+    {
+     "step": "dispatch",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-11-01T15:16:08Z",
+     "finished": "2026-11-01T15:17:34Z"
+    },
+    {
+     "step": "revoke",
+     "phase": "Succeeded",
+     "message": "",
+     "started": "2026-11-01T15:17:44Z",
+     "finished": "2026-11-01T15:17:49Z"
+    }
+   ],
+   "result": {
+    "status": "completed",
+    "seconds": 80.1,
+    "agent_status": "completed",
+    "tool_calls": 1,
+    "tool_errors": 0,
+    "input_tokens": 2317,
+    "output_tokens": 50,
+    "slot_erased": true
+   },
+   "checks": null,
+   "comparison": null,
+   "calls": [
+    {
+     "at": "2026-11-01T15:17:20Z",
+     "tool": "get_evidence",
+     "argument": "ev-0001",
+     "decision": "allowed",
+     "reason": null,
+     "bytes": 312
+    }
+   ],
+   "answer": "Status: confirmed\nExcess: tenancy.contact, circuits.circuit"
+  }
+ ]
+}

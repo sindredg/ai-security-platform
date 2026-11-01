@@ -2,7 +2,7 @@
 
 # One request, without an agent
 
-Milestone 6, 2026-11-01. [All run sets](README.md), [previous: Without Goose](2026-11-01-1232-without-goose.md).
+Milestone 6, 2026-11-01. [All run sets](README.md), [previous: Without Goose](2026-11-01-1232-without-goose.md), [next: Worker rebuild](2026-11-01-1516-the-worker-rebuild.md).
 
 **Tested:** Whether the model gives right verdicts on the six held-out cases when it chooses no reads and calls no tool, and how long a job takes.
 

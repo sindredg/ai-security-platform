@@ -15,9 +15,9 @@ In progress. The drills run in slices, each a pull request of code and expectati
 | Instructions embedded in advisories and tool results | **Verified**: the model called both accounts `excess`, citing a record name that says so, and proposed removing each one's only permission; the verification gate stopped both ([result](#the-injected-name)) |
 | Forged and stale target evidence | **Verified**: a stale item refused before the job, a forged item trusted to the verification gate and stopped there ([result](#stale-and-forged-checks-verdicts)) |
 | Cleanup verification and measured resource use per investigation | **Verified**: cleanup, the same reads showing a job during it and nothing after ([result](#slice-6-what-a-job-leaves)); resource use of the machine, the long-lived pods ([result](#resource-use-per-investigation)), and the dispatch pod ([#176](https://github.com/sindredg/ai-security-platform/issues/176), [result](#the-record-job-and-the-footprint)) |
-| The incident response runbook, run for three cases | **Verified**: containment and rotation for a compromised worker, a compromised target, and a leaked credential, and a restore on the staging copy ([result](#the-result-for-the-three-cases)). **Written**: the replacement steps, each a rebuild ([runbook](../runbooks/incident-response.md)) |
+| The incident response runbook, run for three cases | **Verified**: containment and rotation for a compromised worker, a compromised target, and a leaked credential, and a restore on the staging copy ([result](#the-result-for-the-three-cases)). **Verified**: the worker's replacement, as a rebuild ([result](#the-worker-rebuild)). **Written**: the target's and the orchestrator's ([runbook](../runbooks/incident-response.md)) |
 | An audit daemon and file integrity monitoring on both VMs, with a drill each | **Verified**: on both VMs the daemon recorded a drill's write, a dynamic user's program, and the operator's commands, and AIDE reported a drill's file, each in the workspace ([result](#the-third-pass-and-the-workspace)) |
-| A rebuild of each VM from the current templates | **Accepted gap**: not run. Rebuilding the orchestrator means reinstalling milestones 3 to 5, which the subscription window leaves no room for. Untested at first boot: the host audit install, the K3s image archive step, the message-of-the-day change |
+| A rebuild of each VM from the current templates | **Verified** for the worker: replaced from its template, put back by the runbooks, then a synthetic job and every check ([result](#the-worker-rebuild)). **Accepted gap** for the other five: rebuilding the orchestrator means reinstalling milestones 3 to 5, which the subscription window leaves no room for. Untested at their first boot: the K3s image archive step, the host audit install, the message-of-the-day change |
 | Operator sessions to the targets in the audit log (T04) | **Verified**: one session, one workspace row ([result](#operator-sessions-to-the-targets)) |
 | The KV-cache clear after a job that timed out ([#199](https://github.com/sindredg/ai-security-platform/issues/199)) | **Verified**: the slot erased 14 seconds after the cancel ([result](#a-job-that-times-out)) |
 
@@ -640,3 +640,53 @@ Result, 2026-11-01 14:05 to 14:34 UTC ([record](../evidence/2026-11-01-1405-one-
 The two wrong answers misread the documents. On `sites`, the analysis said the specification grants no `dcim.site` view, which it does, and took a device the specification lists for an excess one. On `devices-only`, it called an allowed request that the specification expects denied a disagreement between documents, where the task calls it an excess.
 
 The verification gate stopped both. Against Goose's 10 of 10 on these cases on 2026-10-27, one request is the fastest of the three shapes and the least accurate, on one run per case. What made the difference is not isolated: in the loop, the model chose its reads and wrote its answer as a tool call before any constraint, and here it did neither.
+
+## The worker rebuild
+
+The worker was replaced from its current template with a saved plan that named it alone, then put back with the runbooks, in the order now in the [platform compute runbook](../runbooks/platform-compute.md#rebuild-the-worker), step 25. A script ran the same commands. The image stayed at `26.04.202610070`, still `Active`: one variable sets all four platform VMs' image, and moving it would have replaced the edge and the router too.
+
+Written before the apply: a new host key equal in the serial log and the scan; first boot's items from the template without an error; each runbook step's own expected result; the 2026-10-19 model checksum again; a synthetic job and every check passing. The worker journal alert and failed pulls until the re-pin were expected on the way. No snapshot was taken, so a failure after the destroy had to be fixed forward from the template and the orchestrator's stage.
+
+Result, 2026-11-01 14:47 to 15:13 UTC for the rebuild, then the job and the checks, on the live system:
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| Plan and apply | `1 to add, 1 to destroy`, the worker alone | As expected: destroy 1m29s, create 54s |
+| Host key | The serial log's fingerprint equals the scan's | As expected, three minutes after the apply returned |
+| First boot from the template | `status: done`, no error, six units masked, no executable login script, 27 audit rules, a baseline | As expected. `binutils` removed, its architecture's assembler and linker kept ([#245](https://github.com/sindredg/ai-security-platform/issues/245)) |
+| Feed key and first update | `refused: not a feed request`, then `0` security packages left | As expected, with no reboot asked for |
+| Model build | The staged files match the pins, and the checksum is `85e5f901...` | The files matched. The checksum is `777b1489...`, explained below |
+| Model server | Running with `--reasoning off`, on loopback only | As expected: `000` and `rc=28` from the orchestrator |
+| Goose and the fixture | Both pins match, and 3 of 3 runs correct | The pins matched. 1 of 3 correct, then 2 of 3 on a rerun |
+| Certificate, dispatch key, job socket | The orchestrator's fingerprint on the worker, a new key, the socket `active` | As expected |
+| Journal copy | The whole new journal, from boot | 12,507 lines in the first pull, which stopped at its 16 MiB limit. The next pulls copy the rest |
+| Host audit again | 27 rules, `lost 0`, a new baseline, its copy's SHA-256 equal | As expected. The check after the baseline read `added=0 removed=0 changed=0` |
+| Synthetic job `syn-11011515` | `Succeeded`, one call or more, no tool error, the slot erased | As expected: 80 seconds, one call, the right answer |
+| Every check | All pass | 445 of 445 from `9a951a3`, ending at 15:28 UTC |
+| The workspace | The copy's new lines arrive | Over its daily cap after the second catch-up pull, about 15:17 UTC, until the 17:00 reset ([troubleshooting 20](../troubleshooting/20-a-rebuilt-workers-journal-fills-the-workspace-cap.md)) |
+
+The model file is 32 bytes larger than the one from 2026-10-19, which is one unit of GGUF's 32-byte alignment. That fits a few more bytes of metadata, such as `general.name`, which the converter takes from the model's directory: `qwen/` for the first build, `Qwen3.5-4B/` since. The first file went with the old worker, so this stays a hypothesis, and [ADR 0031](../decisions/0031-qwen3-5-4b-stays-the-workers-model.md) keeps the checksum it names.
+
+The fixture's three runs vary from one install to the next: 3 of 3 on 2026-10-23, 2 of 3 on 2026-10-24. The rerun's wrong run called the tool twice for the same document and still answered right, which the fixture's check counts as wrong. The first three runs' output was not kept, so whether the new file plays a part is not known.
+
+The journal copy's catch-up, the whole new journal at 16 MiB a pull, took the workspace over its daily cap, so no alert could fire on new rows for about 100 minutes. The run corrected four runbook steps that no one had run as written. The model fetch needs a JIT egress window even with every file staged, since it fetches the converter's source each time. The journal puller's cursor names the old journal and has to be set aside, the agent runtime's rebuild note left out the job socket and the dispatch key, and the incident response runbook's replace step left out half the order.
+
+Not shown: a first boot from the current template on the other five VMs, including the K3s archive step, which only the orchestrator runs.
+
+## An IP-literal URL through Squid
+
+Squid's three host lists, the worker's two package hosts, the orchestrator's mirror, and the fetch hosts, were `dstdomain` lists without `-n`. For an IP-literal URL, one whose host is an IP address, Squid then looks up the address's reverse name and matches that against the list. Whoever holds the address chooses its reverse name, and the lookup alone carries the address out through the edge's resolver.
+
+`P.30` sends a request for an IP-literal URL with a new TEST-NET-2 address from the worker through Squid while the edge captures its DNS traffic, and looks for a reverse lookup of that address. A second address, looked up on the edge during the capture, shows the capture sees one, so an empty capture cannot pass. Written before the run: on the running Squid, `403` with the address looked up, so `P.30` fails; after `-n` on the three lists, `403` with no lookup, while the package hosts still answer `200`.
+
+Result, 2026-11-01 14:58 to 15:30 UTC, on the live system, from a script with the edge runbook's step 15:
+
+| Step | Expected | Result |
+| --- | --- | --- |
+| `P.30` on the running Squid, twice | Fails: `403 capture control:seen literal:seen` | As expected, 14:58 UTC |
+| The new configuration | Squid parses it, then reloads with both listeners | `rc=0`, `active`, both listeners. The read straight after the reload found none, so the runbook step now waits |
+| `P.30` after, twice | Passes: `literal:none` | As expected, 15:29 UTC |
+| The proxy's other answers | `200 200 403` from the worker, `200` on both ports from the orchestrator | As expected |
+| Every check from `c6f05c0` | All pass, `P.30` among them | 445 of 446, ending at 15:43 UTC. `P.19` read the new template. `O.11` failed: the workspace was over its cap |
+
+Not observed: the forwarding itself. No address with a reverse name of an allowed host was at hand, so Squid's match on such a name is its documented behaviour, not a result here.

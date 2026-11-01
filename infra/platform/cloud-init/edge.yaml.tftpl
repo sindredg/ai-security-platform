@@ -73,6 +73,11 @@ write_files:
   # fetch list only while the operator holds a fetch window open. Squid
   # resolves every name, so neither client needs DNS.
   #
+  # Each host list matches the name in the request and nothing else (-n).
+  # Without -n, Squid matches an IP-literal URL, one whose host is an IP
+  # address, by the address's reverse DNS name, which whoever holds the
+  # address chooses, and the lookup itself carries the address out (P.30).
+  #
   # Port 3129 carries the targets' packages, which the orchestrator forwards
   # over SSH (ADR 0036). It serves the orchestrator's mirror and nothing else.
   # Its rules come before the fetch window's, so a window does not open it.
@@ -84,9 +89,9 @@ write_files:
       acl worker src ${worker_prefix}
       acl orchestrator src ${orchestrator_ip}/32
       acl target_packages myportname target-packages
-      acl worker_repositories dstdomain archive.ubuntu.com security.ubuntu.com
-      acl orchestrator_repositories dstdomain azure.archive.ubuntu.com
-      acl fetch_hosts dstdomain "/etc/squid/aisec-fetch-hosts"
+      acl worker_repositories dstdomain -n archive.ubuntu.com security.ubuntu.com
+      acl orchestrator_repositories dstdomain -n azure.archive.ubuntu.com
+      acl fetch_hosts dstdomain -n "/etc/squid/aisec-fetch-hosts"
       acl plain_http port 80
       acl tls_port port 443
       acl downloads method GET HEAD
