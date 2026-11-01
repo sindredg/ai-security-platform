@@ -15,6 +15,11 @@
 # target, with the exit status and the two lines the target printed last. They
 # are the target's claim, not evidence: the checks read the target itself.
 #
+# A compromised target decides every byte it prints. Its output reaches the
+# operator's terminal and its result lines the journal only through
+# printable(), which replaces control and format characters, as dispatch does
+# for the model's text (ADR 0030). The temporary copy keeps the raw bytes.
+#
 # Usage: aisec-target-update-run netbox|lab
 set -euo pipefail
 
@@ -38,6 +43,19 @@ say() {
   echo "$*"
 }
 
+# Every character Python does not call printable, other than newline and tab,
+# becomes U+FFFD, line by line so the operator sees the run as it goes.
+printable() {
+  python3 -I -S -c '
+import sys
+for line in sys.stdin.buffer:
+    text = line.decode("utf-8", "replace")
+    out = "".join(c if c.isprintable() or c in "\n\t" else "\ufffd" for c in text)
+    sys.stdout.buffer.write(out.encode("utf-8"))
+    sys.stdout.buffer.flush()
+'
+}
+
 out=$(mktemp)
 trap 'rm -f "$out"' EXIT
 
@@ -47,9 +65,9 @@ ssh -F none -n -T -i "$dir/id_ed25519" -o IdentitiesOnly=yes \
   -o UserKnownHostsFile="$dir/known_hosts" -o GlobalKnownHostsFile=none -o StrictHostKeyChecking=yes \
   -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=30 \
   -o ForwardAgent=no -o ForwardX11=no -o ExitOnForwardFailure=yes \
-  -R "127.0.0.1:3129:$squid_target_port" "aisec-update@$address" | tee "$out"
+  -R "127.0.0.1:3129:$squid_target_port" "aisec-update@$address" 2>&1 | tee "$out" | printable
 status=${PIPESTATUS[0]}
 set -e
-claims=$({ grep -E '^(security_updates_pending|reboot_required)=' "$out" || true; } | tr '\n' ' ' | sed 's/ $//')
+claims=$({ grep -E '^(security_updates_pending|reboot_required)=' "$out" || true; } | printable | tr '\n' ' ' | sed 's/ $//')
 say "end target=$target status=$status ${claims:-no result lines}"
 exit "$status"
