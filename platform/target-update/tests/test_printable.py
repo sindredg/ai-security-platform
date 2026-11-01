@@ -114,8 +114,8 @@ class TheRun(unittest.TestCase):
         )
         out = done.stdout.decode("utf-8", "replace")
         err = done.stderr.decode("utf-8", "replace")
+        self.assertEqual(done.returncode, 0, f"stdout: {out!r} stderr: {err!r}")
         journal = (self.tmp / "journal").read_bytes().decode("utf-8", "replace")
-        self.assertEqual(done.returncode, 0, err)
         for name, text in (("stdout", out), ("stderr", err), ("journal", journal)):
             self.assertIsNone(CONTROLS.search(text), f"{name}: {text!r}")
         self.assertIn("end target=lab status=0 security_updates_pending=0", journal)
