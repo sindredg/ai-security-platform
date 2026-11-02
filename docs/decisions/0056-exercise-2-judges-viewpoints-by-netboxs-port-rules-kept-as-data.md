@@ -1,6 +1,6 @@
 # 0056. Exercise 2 judges viewpoints by NetBox's port rules, kept as data
 
-Status: Proposed
+Status: Accepted
 Date: 2026-11-01
 
 ## Context
