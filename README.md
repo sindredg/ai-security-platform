@@ -1,4 +1,4 @@
-# A private platform for investigating security findings with a self-hosted model
+# AI Security Platform: an agent that investigates security findings and proposes fixes, tested and approved before delivery
 
 The platform investigates security findings with a self-hosted, open-weight language model on CPU, and tests each fix the model proposes before review. An isolated AI agent reads the evidence through one tool, a verification gate compares its verdicts with deterministic checks, and no change reaches the target service without human approval of that exact change. The project tests how far an agent's actions can be controlled, and measures where the model adds value over conventional automation.
 
