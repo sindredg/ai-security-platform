@@ -7,7 +7,7 @@ Milestone: 7, exercise 2: excess network access
 
 A pair of port rules lets the staging subnet reach the live NetBox's port, and both deterministic checks find it: the rules at the targets repository's `main` and a connection from the staging address each call the staging viewpoint `excess`, while the consumer and both accounts stay `within`. Three NetBox jobs ran on the seed, and none gave a final output within its 1200 seconds ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). So no fix was proposed, approved, or delivered, and the probes after a fix did not run.
 
-The chain for a rule's fix is built and covered by unit tests: the policy, the rules judged without the rule, the pull request body, and `edit_rules.py`. It never ran on the live system. The platform was torn down after the last job ([the teardown](#the-teardown)).
+The chain for a rule's fix is built and covered by unit tests: the policy, the rules judged without the rule, the pull request body, and `edit_rules.py`. It never ran on the live system.
 
 | Criterion | Result |
 | --- | --- |
