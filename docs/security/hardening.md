@@ -1,6 +1,6 @@
 # Hardening
 
-What has been tightened on the machines and the cluster, what was left alone on purpose, and what is still open. The history is in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). This page is the current state, and it changes with every milestone that adds something to harden.
+What has been tightened on the machines and the cluster, what was left alone on purpose, and what is still open. The history is in the [milestone 2 worklog](../worklogs/0002-platform-compute.md). This page is the state when the machines last ran, before the [teardown](../worklogs/0009-exercise-2-excess-network-access.md#the-teardown).
 
 ## Baseline
 

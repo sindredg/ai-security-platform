@@ -41,10 +41,10 @@ The exact change it made, one line of the seed:
 
 | | |
 | --- | --- |
-| Milestones | 0 to 6 and 8 done, 7 not done. The system runs until its teardown ([roadmap](docs/roadmap.md#status), [project close](docs/close.md)) |
+| Milestones | 0 to 6 and 8 done, 7 not done. The system no longer runs ([roadmap](docs/roadmap.md#status), [project close](docs/close.md), [teardown](docs/runbooks/teardown.md)) |
 | Works | A fix the deterministic checks imply goes from the model's proposal to delivery: policy check, staging test, pull request, and signed approval, then a rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md)) |
 | Also works | A vulnerable NetBox image, found by a scan in the targets pipeline, replaced through a staging test with a tested recovery ([worklog](docs/worklogs/0008-exercise-3-vulnerable-image.md)) |
-| Not yet | Exercise 2's fix: both checks found the seeded port rule, and no job answered in time ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). Only the worker was rebuilt from its current template |
+| Not shown | Exercise 2's fix: both checks found the seeded port rule, and no job answered in time ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). Only the worker was rebuilt from its current template |
 
 ## Why it looks like this
 

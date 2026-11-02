@@ -6,6 +6,8 @@ Security work has no milestone of its own. Each practice is part of the criteria
 
 ## Status
 
+The system no longer runs: the [teardown runbook](runbooks/teardown.md) removed every resource the three Terraform roots made ([worklog](worklogs/0009-exercise-2-excess-network-access.md#the-teardown)).
+
 | Milestone | State | Open gaps | Evidence |
 | --- | --- | --- | --- |
 | 0. Documentation baseline and preflight | Done | None | [Worklog](worklogs/0000-azure-preflight.md) |

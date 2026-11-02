@@ -9,6 +9,8 @@ A pair of port rules lets the staging subnet reach the live NetBox's port, and b
 
 The chain for a rule's fix is built and covered by unit tests: the policy, the rules judged without the rule, the pull request body, and `edit_rules.py`. It never ran on the live system.
 
+The system was torn down on 2026-11-02. Every apply destroyed the count its plan gave, and nothing named for the project is left in the subscription ([the teardown](#the-teardown)).
+
 | Criterion | Result |
 | --- | --- |
 | Probes from both viewpoints, before and after | **Tested** with the seed live: both addresses reach `10.50.0.4:8443`, and three collections agree ([the seed](#the-seed)). **Accepted gap**: before the seed, only the configured rules were read; no fix to probe after ([#253](https://github.com/sindredg/ai-security-platform/issues/253)) |
@@ -132,3 +134,26 @@ Read again for a change surface that is a port rule. Ten rows moved, each with i
 | T58 | The seed opened the staging subnet to NetBox's port |
 | T59 | A port rule's delivery reads no tag: the merge check is its only approval |
 | A5 | A port rule's pull request body, unit-tested, never published |
+
+## The teardown
+
+The [teardown runbook](../runbooks/teardown.md) ran on the live system after the last job, from scripts with the same commands. Each apply used a plan saved and read before it. Stated before the run: each apply destroys the count its plan gave, and step 8 gives three empty answers.
+
+| Step | Result |
+| --- | --- |
+| 1. No workflow running | 2026-11-01: 13 workflows listed, none running, each with its record |
+| 2. A copy of each state | 2026-11-01, 22:38 UTC: three files, none empty |
+| 3. The flow logs | 07:00 UTC: `Apply complete! Resources: 0 added, 0 changed, 2 destroyed.` |
+| 4. The targets root | 07:00 to 07:02 UTC: `20 destroyed`. The plan named `rg-aisec-platform` only as its two peerings' remote networks |
+| 5. The platform root | 07:02 to 07:07 UTC: `79 destroyed`, the four VMs and four peerings among them |
+| 6. The bootstrap root made destroyable | Two files changed on the working tree. Both provider registrations removed from the state |
+| 7. The bootstrap root | Four `NWTA-` resources deleted first, then `34 destroyed`, 07:15 to 07:23 UTC |
+| 8. What is left | Three empty answers. `infra/bootstrap` back as committed |
+| 9. The mesh VPN console | The router's node removed by hand. Not read back by a command |
+| 10. The local files | The two identities' six files and the bootstrap state deleted |
+
+Step 8's group query can fail: before step 7 it listed the four `rg-aisec` groups. A read of the whole subscription after step 10 found no resource named for the project or `NWTA-`. Left on purpose: `NetworkWatcherRG`, Azure's own, and the log workspace in Azure's 14-day soft delete.
+
+Traffic analytics' data collection rules and endpoints, two of each, were still in `rg-aisec-platform` after step 5. Terraform does not manage them, and the provider refuses by default to delete a group that holds resources. They were deleted before the apply, so that refusal was not seen, and the runbook's step 7 now does the same.
+
+The plans read on 2026-11-01 were saved in a temporary directory that was gone by the next morning. Steps 3 to 5 were planned again at 06:58 UTC and read again, with the same counts. The runbook saves its plans beside the state copies.

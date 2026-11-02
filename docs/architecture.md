@@ -1,6 +1,6 @@
 # Architecture
 
-How the system is built now. Status per milestone is in the [roadmap](roadmap.md#status), the reasons in the [decision records](decisions/README.md), and what each test run showed in the [evidence](evidence/README.md).
+How the system was built when it last ran. It no longer runs ([teardown](worklogs/0009-exercise-2-excess-network-access.md#the-teardown)). Status per milestone is in the [roadmap](roadmap.md#status), the reasons in the [decision records](decisions/README.md), and what each test run showed in the [evidence](evidence/README.md).
 
 A workflow on the orchestrator hands each investigation to the AI worker over SSH. The agent reads evidence only through the tool service (an MCP server) on the orchestrator, with a token for that one job. Its output comes back to the workflow, which stops unless the model's verdicts match the deterministic checks.
 

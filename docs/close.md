@@ -6,6 +6,8 @@ What the platform showed, where the evidence is, and what it did not show. Miles
 
 Six VMs in three Azure regions, with no public address. A trusted orchestrator runs the workflow and holds every credential, and an AI worker runs an open-weight model and an agent with none. An edge VM is the only outbound path, and a router is the only mesh VPN node ([architecture](architecture.md)).
 
+None of it runs any more: the [teardown runbook](runbooks/teardown.md) removed it ([worklog](worklogs/0009-exercise-2-excess-network-access.md#the-teardown)).
+
 A finding goes from collection to delivery in five steps. Deterministic checks give their verdicts first, the agent reads the same evidence through one tool, and a verification gate stops the workflow on any difference. A fix is tested on a staging copy, published as a pull request with checked fields only, and delivered after a signed approval of that commit ([how a fix gets made](../README.md#how-a-fix-gets-made)).
 
 ## What it showed

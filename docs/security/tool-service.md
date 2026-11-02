@@ -1,6 +1,6 @@
 # Tool service and job identity
 
-Status: deployed on the orchestrator. Its refusals are tested in the pipeline on every pull request, and on the live system by the [tool service checks](../validation/tool-service.md) and the runs under [validation evidence](#validation-evidence). Milestone status is in the [roadmap](../roadmap.md).
+Status: deployed on the orchestrator until the [teardown](../worklogs/0009-exercise-2-excess-network-access.md#the-teardown). Its refusals are tested in the pipeline on every pull request, and on the live system by the [tool service checks](../validation/tool-service.md) and the runs under [validation evidence](#validation-evidence). Milestone status is in the [roadmap](../roadmap.md).
 
 The tool service authorizes tool calls from the AI worker, on the orchestrator. This page explains how it identifies a job, rejects unauthorized requests, and records decisions. The decisions are in ADRs [0013](../decisions/0013-a-token-per-job-and-no-cloud-identity-yet.md), [0014](../decisions/0014-a-small-tool-service-and-an-audit-log-on-the-orchestrator.md), and [0016](../decisions/0016-a-pinned-certificate-an-offline-caller-check-and-a-line-limit.md). The code is in `tool-service/`, and its policy is in `policies/tool-service.json`.
 
