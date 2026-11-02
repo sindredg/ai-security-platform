@@ -110,8 +110,8 @@ def test_a_per_job_target_ignores_a_key_without_a_job(root, store):
 
 
 def test_a_reference_the_target_does_not_list_reads_nothing(root, store):
-    write(root, "netbox", "job-1.ev-0004.json", configured("job-1"))
-    assert store(job("netbox", "job-1"), {"reference": "ev-0004"}) == NOTHING
+    write(root, "netbox", "job-1.ev-0009.json", configured("job-1"))
+    assert store(job("netbox", "job-1"), {"reference": "ev-0009"}) == NOTHING
     write(root, "a", "ev-0002.json", synthetic("ev-0002", "token-a"))
     assert store(job("a"), {"reference": "ev-0002"}) == NOTHING
 

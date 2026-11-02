@@ -270,6 +270,35 @@ class TheCallTable(unittest.TestCase):
         text = "\n".join(render.call_table({"calls": [skill]}))
         self.assertIn('`{"name":"netbox"}`', text)
 
+    def test_a_name_or_argument_that_could_end_the_cell_is_not_printed(self):
+        # The worker writes both. A backtick ends the code span, a bar the
+        # cell, and a newline the table.
+        calls = [
+            {
+                "at": None,
+                "tool": "load_skill`](https://example.invalid)",
+                "argument": '{"name":"a|b"}',
+                "decision": "goose",
+                "reason": None,
+                "bytes": None,
+            },
+            {
+                "at": None,
+                "tool": None,
+                "argument": "x\n| injected |",
+                "decision": "goose",
+                "reason": None,
+                "bytes": None,
+            },
+        ]
+        text = "\n".join(render.call_table({"calls": calls}))
+        self.assertNotIn("example.invalid", text)
+        self.assertNotIn("injected", text)
+        self.assertNotIn("a|b", text)
+        self.assertEqual(text.count("A name out of pattern"), 2)
+        self.assertIn("Out of pattern, 14 bytes", text)
+        self.assertEqual(len(text.splitlines()), 4)
+
 
 class TheIndex(unittest.TestCase):
     def test_one_chart_per_milestone_whose_run_sets_reached_the_comparison(self):
@@ -294,6 +323,11 @@ class TheIndex(unittest.TestCase):
         self.assertIn("milestone 4", charts[0])
         self.assertTrue(charts[0].endswith("(../diagrams/test-outcomes-4.svg)"))
         self.assertTrue(charts[1].endswith("(../diagrams/test-outcomes-5.svg)"))
+        # A milestone with run sets and no chart says why.
+        self.assertIn(
+            "Milestone 3 has no chart: none of its jobs reached the comparison.",
+            render.index_page(sets).splitlines(),
+        )
 
 
 class Unpublishable(unittest.TestCase):

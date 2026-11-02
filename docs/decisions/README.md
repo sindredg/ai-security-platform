@@ -59,6 +59,7 @@ One record per consequential architecture choice. A record states the context, t
 | [0053](0053-a-fix-is-proposed-once-until-it-is-delivered.md) | A fix an earlier allowed and rehearsed bundle holds is refused until that bundle's delivery passed, and the operator's machine reads the open pull requests before publishing | Accepted |
 | [0054](0054-an-audit-daemon-and-aide-on-both-vms-with-their-records-off-the-machine.md) | The audit daemon on both VMs records writes to the platform's files, programs run by jobs and by the operator, and sends each record to syslog; AIDE checks a baseline daily; three alert rules | Accepted |
 | [0055](0055-acceptance-is-each-gates-result-with-no-numeric-thresholds.md) | A gate is accepted on the behavior it names, with measured values recorded and no numeric threshold | Accepted |
+| [0056](0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md) | Exercise 2 judges each viewpoint by NetBox's port rules, kept as data in the targets repository, and by a connection | Proposed |
 
 ## Format
 

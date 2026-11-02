@@ -331,6 +331,15 @@
     "2026-11-01-1828-after-the-netbox-update#nb-11011828-close"
    ],
    "change": "None ([worklog](../worklogs/0008-exercise-3-vulnerable-image.md#exercise-1-after-the-update))."
+  },
+  {
+   "finding": "With the network part, no job answered within 1200 seconds. Each read three of five documents, never the rules or connections. A shorter task did not help.",
+   "runs": [
+    "2026-11-01-2108-exercise-2#nb-11012108-e2",
+    "2026-11-01-2108-exercise-2#nb-11012108-e2b",
+    "2026-11-01-2108-exercise-2#nb-11012211-e2c"
+   ],
+   "change": "None before the teardown ([worklog](../worklogs/0009-exercise-2-excess-network-access.md#the-jobs))."
   }
  ]
 }

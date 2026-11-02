@@ -169,6 +169,13 @@ class Build(unittest.TestCase):
         self.assertEqual(call["argument"], '{"name":"goose-doc-guide"}')
         self.assertIsNone(call["at"])
 
+    def test_a_tool_name_out_of_pattern_is_kept_as_none(self):
+        asked = [request("load_skill`|x", {}), request("tools__get`evidence", {})]
+        line = json.loads(audit(JOB, "ev-0001"))
+        line["tool"] = "get_evidence\n| x |"
+        calls = record.build(workflow(asked), [json.dumps(line)])["calls"]
+        self.assertEqual([c["tool"] for c in calls], [None, None, None])
+
     def test_a_request_the_audit_log_lacks_is_kept_as_missing(self):
         asked = [request("tools__get_evidence", {"reference": "ev-0001"})]
         (call,) = record.build(workflow(asked), [audit("other-job", "ev-0001")])[

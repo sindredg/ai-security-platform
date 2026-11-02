@@ -35,7 +35,9 @@
       "evidence": {
         "ev-0001": "netbox-contract",
         "ev-0002": "netbox-configured",
-        "ev-0003": "netbox-observed"
+        "ev-0003": "netbox-observed",
+        "ev-0004": "netbox-rules",
+        "ev-0005": "netbox-probes"
       }
     }
   },
@@ -371,6 +373,63 @@
             }
           },
           "maxItems": 50
+        },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "address",
+            "port",
+            "subnet",
+            "viewpoints"
+          ],
+          "properties": {
+            "address": {
+              "type": "string",
+              "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![\\s\\S])"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "subnet": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,31}(?![\\s\\S])"
+            },
+            "viewpoints": {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 8,
+              "patternProperties": {
+                "^[a-z0-9][a-z0-9-]{0,53}(?![\\s\\S])": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "address",
+                    "subnet",
+                    "reach"
+                  ],
+                  "properties": {
+                    "address": {
+                      "type": "string",
+                      "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![\\s\\S])"
+                    },
+                    "subnet": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]{0,31}(?![\\s\\S])"
+                    },
+                    "reach": {
+                      "enum": [
+                        "open",
+                        "closed"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -592,6 +651,156 @@
             }
           },
           "maxProperties": 20
+        }
+      }
+    },
+    "netbox-rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "job",
+        "collected",
+        "commit",
+        "subnets"
+      ],
+      "properties": {
+        "reference": {
+          "const": "ev-0004"
+        },
+        "job": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}(?![\\s\\S])"
+        },
+        "collected": {
+          "type": "string",
+          "pattern": "^20[0-9]{2}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]Z(?![\\s\\S])"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}(?![\\s\\S])"
+        },
+        "subnets": {
+          "type": "object",
+          "additionalProperties": false,
+          "maxProperties": 16,
+          "patternProperties": {
+            "^[a-z][a-z0-9-]{0,31}(?![\\s\\S])": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "priority",
+                  "direction",
+                  "access",
+                  "protocol",
+                  "source",
+                  "destination",
+                  "ports"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9-]{0,79}(?![\\s\\S])"
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 4096
+                  },
+                  "direction": {
+                    "enum": [
+                      "Inbound",
+                      "Outbound"
+                    ]
+                  },
+                  "access": {
+                    "enum": [
+                      "Allow",
+                      "Deny"
+                    ]
+                  },
+                  "protocol": {
+                    "enum": [
+                      "Tcp",
+                      "Udp",
+                      "Icmp",
+                      "Esp",
+                      "Ah",
+                      "*"
+                    ]
+                  },
+                  "source": {
+                    "type": "string",
+                    "pattern": "^(?:\\*|[A-Za-z0-9./:]{1,64})(?![\\s\\S])"
+                  },
+                  "destination": {
+                    "type": "string",
+                    "pattern": "^(?:\\*|[A-Za-z0-9./:]{1,64})(?![\\s\\S])"
+                  },
+                  "ports": {
+                    "type": "string",
+                    "pattern": "^(?:\\*|[0-9]{1,5}(?:-[0-9]{1,5})?)(?![\\s\\S])"
+                  }
+                }
+              },
+              "maxItems": 50
+            }
+          }
+        }
+      }
+    },
+    "netbox-probes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "job",
+        "collected",
+        "viewpoints"
+      ],
+      "properties": {
+        "reference": {
+          "const": "ev-0005"
+        },
+        "job": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}(?![\\s\\S])"
+        },
+        "collected": {
+          "type": "string",
+          "pattern": "^20[0-9]{2}-[01][0-9]-[0-3][0-9]T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]Z(?![\\s\\S])"
+        },
+        "viewpoints": {
+          "type": "object",
+          "additionalProperties": false,
+          "maxProperties": 8,
+          "patternProperties": {
+            "^[a-z0-9][a-z0-9-]{0,53}(?![\\s\\S])": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "address",
+                "result"
+              ],
+              "properties": {
+                "address": {
+                  "type": "string",
+                  "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?![\\s\\S])"
+                },
+                "result": {
+                  "enum": [
+                    "open",
+                    "timeout",
+                    "refused",
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
         }
       }
     }

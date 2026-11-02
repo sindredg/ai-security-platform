@@ -8,7 +8,9 @@ bundle's proposal.json and the targets repository's open pull requests, as
 the GitHub API lists them, on standard input. Each body is read for the rows
 the propose command writes, one per account with `remove NAME (ID N)`, and a
 row naming an account and permission ID of this bundle's changes is the same
-fix. Only a pull request whose branch is in the targets repository itself
+fix. A fix for NetBox's port rules (ADR 0056) has one row per viewpoint, and
+the same fix is a row that removes the same inbound rule on NetBox's subnet,
+by its priority, for the same viewpoint. Only a pull request whose branch is in the targets repository itself
 counts: the repository is public, so anyone can open one from a fork with the
 same rows, and a branch in the repository takes write access. Nothing is
 fetched here, and nothing in a body is trusted beyond that pattern.
@@ -28,6 +30,29 @@ ROW = re.compile(
     r"\(ID ([0-9]+)\) \|$",
     re.MULTILINE,
 )
+# The rules' pull request body's row: the viewpoint, then the rules removed.
+RULE_ROW = re.compile(
+    r"^\| `(viewpoint-[a-z0-9-]{1,54})` \|[^|\n]*\|[^|\n]*\| ([^|\n]*) \|$",
+    re.MULTILINE,
+)
+INBOUND = re.compile(
+    r"remove `[a-z0-9-]{1,80}` \(Inbound, ([0-9]{3,4})\) from `netbox`"
+)
+
+
+def held(change):
+    """The account and the number a change removes: a permission's ID, or for
+    a rule's fix the inbound rule's priority."""
+    number = change["priority"] if "priority" in change else change["permission_id"]
+    return change["account"], int(number)
+
+
+def rows(body):
+    """Each account and number a body's rows remove."""
+    found = [(account, int(n)) for account, n in ROW.findall(body)]
+    for account, cell in RULE_ROW.findall(body):
+        found += [(account, int(n)) for n in INBOUND.findall(cell)]
+    return found
 
 
 def same_repository(pull):
@@ -43,17 +68,17 @@ def duplicates(changes, pulls):
     """Each open pull request's row that removes an account from a permission
     the changes remove it from too: number, branch, account, permission ID.
     Pull requests from another repository are left out."""
-    wanted = {(c["account"], int(c["permission_id"])) for c in changes}
+    wanted = {held(c) for c in changes}
     found = []
     for pull in pulls:
         if not same_repository(pull):
             continue
         # GitHub's web editor saves a body with CRLF line endings.
         body = (pull.get("body") or "").replace("\r\n", "\n")
-        for account, permission in ROW.findall(body):
-            if (account, int(permission)) in wanted:
+        for account, number in rows(body):
+            if (account, number) in wanted:
                 ref = (pull.get("head") or {}).get("ref", "?")
-                found.append((pull.get("number"), ref, account, int(permission)))
+                found.append((pull.get("number"), ref, account, number))
     return found
 
 
@@ -72,10 +97,9 @@ def main(argv, stdin=None):
         f"{len(pulls)} open pull request{'' if len(pulls) == 1 else 's'} read"
         + (f", {others} from another repository not counted" if others else "")
     )
-    for number, ref, account, permission in found:
-        print(
-            f"#{number} {ref}: `{account}` loses permission {permission} there already"
-        )
+    for number, ref, account, held_number in found:
+        what = "rule" if account.startswith("viewpoint-") else "permission"
+        print(f"#{number} {ref}: `{account}` loses {what} {held_number} there already")
     if found:
         return 1
     print("no open pull request with this fix")

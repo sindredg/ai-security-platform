@@ -50,6 +50,13 @@ RESULT_FIELDS = (
 CASE = re.compile(r"^\S+: case (\S+)$")
 CHECK = r"([a-z0-9-]+):([a-z]+)/([a-z]+)"
 CHECKS = re.compile(rf"^{CHECK}(?: {CHECK})*$")
+# A tool's name comes from the worker's transcript, or from the audit line of
+# a call the worker made. One out of this pattern is kept as None.
+TOOL = re.compile(r"[A-Za-z0-9_.-]{1,64}")
+
+
+def tool_name(text):
+    return text if isinstance(text, str) and TOOL.fullmatch(text) else None
 
 
 def canonical(arguments):
@@ -104,7 +111,7 @@ def audited(job, lines):
         found.append(
             {
                 "at": entry["ts"],
-                "tool": entry.get("tool"),
+                "tool": tool_name(entry.get("tool")),
                 "argument": REFERENCES.get(sha, f"sha256 {sha[:12]}"),
                 "decision": entry["decision"],
                 "reason": entry.get("reason"),
@@ -139,7 +146,7 @@ def calls(job, lines, asked=None):
         arguments = request.get("arguments") or {}
         if name.startswith("tools__"):
             sha = digest(arguments)
-            tool = name.removeprefix("tools__")
+            tool = tool_name(name.removeprefix("tools__"))
             match = next(
                 (c for c in pending if c["tool"] == tool and c["sha"] == sha), None
             )
@@ -149,7 +156,7 @@ def calls(job, lines, asked=None):
                 continue
             decision = "missing"
         else:
-            tool, decision = name, "goose"
+            tool, decision = tool_name(name), "goose"
         found.append(
             {
                 "at": None,

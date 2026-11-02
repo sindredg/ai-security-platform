@@ -1,0 +1,71 @@
+{
+  "rules": {
+    "netbox": [
+      {
+        "name": "allow-netbox-from-consumer",
+        "priority": 1110,
+        "direction": "Inbound",
+        "access": "Allow",
+        "protocol": "Tcp",
+        "source_address_prefix": "10.50.0.32/27",
+        "destination_address_prefix": "10.50.0.4/32",
+        "destination_port_range": "8443",
+        "description": "NetBox's API, for the authorized consumer."
+      },
+      {
+        "name": "allow-netbox-from-rehearsal",
+        "priority": 1120,
+        "direction": "Inbound",
+        "access": "Allow",
+        "protocol": "Tcp",
+        "source_address_prefix": "10.50.1.0/27",
+        "destination_address_prefix": "10.50.0.4/32",
+        "destination_port_range": "8443",
+        "description": "NetBox's API, for tests from the rehearsal subnet."
+      }
+    ],
+    "consumer": [
+      {
+        "name": "allow-netbox-to-netbox",
+        "priority": 1100,
+        "direction": "Outbound",
+        "access": "Allow",
+        "protocol": "Tcp",
+        "source_address_prefix": "10.50.0.32/27",
+        "destination_address_prefix": "10.50.0.4/32",
+        "destination_port_range": "8443",
+        "description": "The authorized consumer, to NetBox's API."
+      }
+    ],
+    "rehearsal": [
+      {
+        "name": "allow-netbox-from-rehearsal",
+        "priority": 1120,
+        "direction": "Outbound",
+        "access": "Allow",
+        "protocol": "Tcp",
+        "source_address_prefix": "10.50.1.0/27",
+        "destination_address_prefix": "10.50.0.4/32",
+        "destination_port_range": "8443",
+        "description": "The rehearsal subnet, to NetBox's API, for tests."
+      }
+    ]
+  },
+  "network": {
+    "address": "10.50.0.4",
+    "port": 8443,
+    "subnet": "netbox",
+    "viewpoints": {
+      "consumer": {
+        "address": "10.50.0.36",
+        "subnet": "consumer",
+        "reach": "open"
+      },
+      "staging": {
+        "address": "10.50.1.4",
+        "subnet": "rehearsal",
+        "reach": "closed"
+      }
+    }
+  }
+}

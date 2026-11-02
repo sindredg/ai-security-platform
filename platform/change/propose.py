@@ -15,6 +15,13 @@ it is delivered: a proposal naming an account and permission that an earlier
 allowed, rehearsed bundle holds is refused while no delivery of that bundle
 passed, and nothing is written for it (ADR 0053).
 
+A fix for a viewpoint (ADR 0056) changes NetBox's port rules in the targets
+repository, which no copy can stand in for: the copy shares the lab VM and
+its network with the live NetBox's subnets. So it has no staging test. The
+bundle holds the rules' judgment without the change instead, and says so,
+and the connections from the viewpoints after the operator's apply are the
+test.
+
 With --proposals, the file's proposals replace the comparison's, in the same
 shape, and the bundle marks them as the operator's. It is for the unsafe
 patch's demonstration and the drills.
@@ -39,6 +46,7 @@ from pathlib import Path
 sys.path.insert(0, "/usr/local/lib/aisec")
 
 import netbox_access
+import netbox_rules
 
 import netbox_change
 import policy
@@ -59,7 +67,7 @@ REFERENCE = re.compile(r"ev-[0-9]{4}")
 # A permission's name is NetBox's, so target side, and it goes into a public
 # pull request. The seed's names fit this.
 NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 :._-]{0,99}")
-CONTRACT_FIELDS = ("accounts", "viewpoint", "grants", "reads", "denials")
+CONTRACT_FIELDS = ("accounts", "viewpoint", "grants", "reads", "denials", "network")
 
 
 class Refused(Exception):
@@ -198,6 +206,103 @@ def named(proposals, configured):
     return changes
 
 
+def judged(changes, rules, contract):
+    """A fix for the rules, judged without a staging test: each viewpoint's
+    configured verdict once every change is made, as the policy judged each
+    change alone."""
+    result = {
+        "method": "the rules judged without the change, no staging test",
+        "verdicts": {},
+        "passed": False,
+        "reason": None,
+    }
+    network, left = contract["network"], rules["rules"]
+    try:
+        for change in changes:
+            view = change["account"][len(netbox_rules.VIEWPOINT) :]
+            left, _ = netbox_rules.change(left, network, view, change["priority"])
+    except netbox_rules.Invalid as error:
+        result["reason"] = str(error)
+        return result
+    for name, found in netbox_rules.configured(left, network).items():
+        result["verdicts"][netbox_rules.VIEWPOINT + name] = {
+            "configured": found["verdict"],
+            "observed": "not tested",
+        }
+    expected = {
+        netbox_rules.VIEWPOINT + name: "within" for name in network["viewpoints"]
+    }
+    got = {name: v["configured"] for name, v in result["verdicts"].items()}
+    result["passed"] = got == expected
+    if not result["passed"]:
+        result["reason"] = "a viewpoint is not within without the change"
+    return result
+
+
+def rules_pr_body(bundle):
+    rows, changes = bundle["comparison"]["accounts"], bundle["policy"]["changes"]
+    change = {c["account"]: c for c in changes}
+    lines = [
+        f"## A fix for NetBox's port rules, from job `{bundle['job']}`",
+        "",
+        (
+            "Both checks found a viewpoint that reaches NetBox's port although the "
+            "contract says it should not. This change removes the rule that lets it "
+            "in on NetBox's subnet, and the rule's outbound half on the viewpoint's "
+            "subnet, as the policy allowed (platform ADRs 0043 and 0056). Every field "
+            "below comes from the checks, the collection, or a pattern."
+        ),
+        "",
+        "| Name | Checks | Model | Change |",
+        "| --- | --- | --- | --- |",
+    ]
+    for row in rows:
+        done = change.get(row["account"])
+        what = (
+            ", ".join(
+                f"remove `{r['name']}` ({r['direction']}, {r['priority']}) from `{r['subnet']}`"
+                for r in done["removed"]
+            )
+            if done
+            else "none"
+        )
+        lines.append(
+            f"| `{row['account']}` | {row['configured']}, {row['observed']} "
+            f"| {row['model'] or '-'} | {what} |"
+        )
+    references = sorted(
+        {r for p in bundle["comparison"]["proposals"] for r in p["references"]}
+    )
+    judgment = bundle["rehearsal"]["verdicts"]
+    commit = changes[0]["commit"]
+    lines += [
+        "",
+        f"- Job: `{bundle['job']}`, case `{bundle['case']}`, collected {bundle['collected']}.",
+        f"- Proposed by: the {bundle['source']}.",
+        f"- Evidence the change rests on: {', '.join(f'`{r}`' for r in references) or 'none named'}.",
+        f"- Rules read at the targets commit `{commit}`.",
+        "- Policy: allowed.",
+        (
+            "- No staging test: a security rule has no copy to change. The rules "
+            "without the change, judged as the configured check judges them:"
+        ),
+        *[
+            f"  - `{name}`: configured {found['configured']}"
+            for name, found in sorted(judgment.items())
+        ],
+        "",
+        (
+            f"Approval: a tag `approve/netbox/{bundle['job']}` on this pull request's "
+            "head commit, signed with the approval key (platform ADR 0046). The "
+            "Approved commit check requires it before the merge. Delivery is the "
+            "operator's apply of the merged commit, once its tree is the tagged "
+            "commit's, and the connections from the viewpoints after it are the test."
+        ),
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def pr_body(bundle):
     rows, changes = bundle["comparison"]["accounts"], bundle["policy"]["changes"]
     change = {c["account"]: c for c in changes}
@@ -277,7 +382,7 @@ def duplicate_of(proposals):
             else []
         )
         held = {
-            (c.get("account"), c.get("permission_id"))
+            (c.get("account"), c.get("permission_id", c.get("priority")))
             for c in changes
             if isinstance(c, dict)
         }
@@ -294,6 +399,11 @@ def propose(job, operator=None):
     collection = STATE / job
     configured = read_json(collection / "configured.json")
     contract = read_json(collection / "ev-0001.json")
+    rules = (
+        read_json(collection / "rules.json")
+        if (collection / "rules.json").exists()
+        else None
+    )
     if operator is not None:
         comparison = dict(
             comparison, proposals=proposals_from(operator), unread_proposals=0
@@ -304,17 +414,31 @@ def propose(job, operator=None):
             f"{job}: the same fix as {earlier}, not delivered: deliver that one, "
             "or remove its bundle"
         )
-    decision = policy.check(comparison, configured, contract)
-    try:
-        changes = named(comparison["proposals"], configured)
-    except Refused as error:
-        rehearsal = {"passed": False, "reason": str(error)}
-    else:
+    decision = policy.check(comparison, configured, contract, rules)
+    viewpoint = [
+        p
+        for p in comparison["proposals"]
+        if p["account"].startswith(netbox_rules.VIEWPOINT)
+    ]
+    if viewpoint:
+        # A rule has no copy to change. Only an allowed fix is judged, as the
+        # policy's changes are the rules it names.
         rehearsal = (
-            rehearse.rehearse(changes, contract)
-            if changes
-            else {"passed": False, "reason": "no proposal to rehearse"}
+            judged(decision["changes"], rules, contract)
+            if decision["allowed"]
+            else {"passed": False, "reason": "the policy refused a fix for the rules"}
         )
+    else:
+        try:
+            changes = named(comparison["proposals"], configured)
+        except Refused as error:
+            rehearsal = {"passed": False, "reason": str(error)}
+        else:
+            rehearsal = (
+                rehearse.rehearse(changes, contract)
+                if changes
+                else {"passed": False, "reason": "no proposal to rehearse"}
+            )
     bundle = {
         "job": job,
         "case": case_of(contract),
@@ -332,7 +456,8 @@ def propose(job, operator=None):
     (out / "proposal.json").write_text(json.dumps(bundle, indent=2) + "\n")
     good = decision["allowed"] and rehearsal.get("passed") is True
     if good:
-        (out / "pr-body.md").write_text(pr_body(bundle))
+        body = rules_pr_body(bundle) if viewpoint else pr_body(bundle)
+        (out / "pr-body.md").write_text(body)
     return bundle, good
 
 
