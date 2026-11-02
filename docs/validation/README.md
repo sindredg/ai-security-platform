@@ -2,7 +2,7 @@
 
 What the platform claims, and the check that proves each claim against the running system.
 
-The [worklogs](../worklogs/README.md) are history: what was run on which day. These pages are the present: every claim has an ID, a reason, and a check that can be run again in about two minutes.
+The [worklogs](../worklogs/README.md) are history: what was run on which day. These pages hold the claims: each has an ID, a reason, and a check that took about two minutes to run. The system was torn down on 2026-11-02, so the checks run again only against a rebuild ([teardown](../runbooks/teardown.md)).
 
 ## Run the checks
 

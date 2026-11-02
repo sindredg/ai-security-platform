@@ -4,11 +4,11 @@ What the platform showed, where the evidence is, and what it did not show. Miles
 
 ## What was built
 
-Six VMs in three Azure regions, with no public address. A trusted orchestrator runs the workflow and holds every credential, and an AI worker runs an open-weight model and an agent with none. An edge VM is the only outbound path, and a router is the only mesh VPN node ([architecture](architecture.md)).
+Six VMs in three Azure regions, with no public address. A trusted orchestrator runs the workflow and holds the platform's credentials, and an AI worker runs an open-weight model and an agent that gets only a short-lived token for its job's evidence ([credential inventory](security/credentials.md)). An edge VM is the only outbound path, and a router is the only mesh VPN node ([architecture](architecture.md)).
 
 None of it runs any more: the [teardown runbook](runbooks/teardown.md) removed it ([worklog](worklogs/0009-exercise-2-excess-network-access.md#the-teardown)).
 
-A finding goes from collection to delivery in five steps. Deterministic checks give their verdicts first, the agent reads the same evidence through one tool, and a verification gate stops the workflow on any difference. A fix is tested on a staging copy, published as a pull request with checked fields only, and delivered after a signed approval of that commit ([how a fix gets made](../README.md#how-a-fix-gets-made)).
+In exercise 1, a finding goes from collection to delivery in five steps. Deterministic checks give their verdicts first, the agent reads the same evidence through one tool, and a verification gate stops the workflow on any difference. A fix is tested on a staging copy, published as a pull request with checked fields only, and delivered after a signed approval of that commit ([how a fix gets made](../README.md#how-a-fix-gets-made)).
 
 ## What it showed
 
@@ -20,7 +20,7 @@ A finding goes from collection to delivery in five steps. Deterministic checks g
 | The incident response runbook contains and rotates in its three cases | A compromised worker, a compromised target, and a leaked credential. The target's and orchestrator's replacements were not run ([worklog](worklogs/0007-operational-and-containment-drills.md#slice-7-the-incident-response-runbook)) |
 | Two independent checks find a seeded port rule that lets the wrong subnet reach the target | The rules at the repository's `main` and a connection from each viewpoint's address agreed in three collections: the staging subnet `excess`, the consumer `within` ([worklog](worklogs/0009-exercise-2-excess-network-access.md#the-jobs)) |
 | A vulnerable target image is found and replaced through a staging test | 42 critical and high findings found by a scan, cleared by a new pin after a staging test with a recovery ([worklog](worklogs/0008-exercise-3-vulnerable-image.md)) |
-| Every claim the checks make held on the live system after the NetBox update | 446 of 446. With exercise 2's seed live, 446 of 448: only the two checks that read the seed's path failed ([last run](validation/README.md#last-run)) |
+| Every check passed on the live system after the NetBox update, within what the checks cover | 446 of 446. With exercise 2's seed live, 446 of 448: only the two checks that read the seed's path failed ([last run](validation/README.md#last-run), [not covered](validation/README.md#what-the-checks-do-not-cover)) |
 
 The NetBox update changed four lines of the targets repository's pin, from v4.7.3 to v4.7.4 ([targets #20](https://github.com/sindredg/ai-security-platform-test/pull/20)):
 
@@ -30,7 +30,7 @@ Each test run set has a page of its own, with each job's verdicts, calls, and an
 
 ## The model's place
 
-In exercise 1 the deterministic checks decide, and the model adds nothing they do not already know. The checks took about 4 seconds a job, reasoned from the collection's timings, and a model job 326 to 885 seconds ([worklog](worklogs/0005-netbox-target-and-exercise-1.md#against-the-baseline)). The verification gate exists because the model is not trusted, so a model that agrees with the checks changes no outcome.
+In exercise 1 the deterministic checks decide, and the model reached their verdicts without adding a fact they did not already hold, which is the measurement the project set out to make. The checks took about 4 seconds a job, reasoned from the collection's timings, and a model job 326 to 885 seconds ([worklog](worklogs/0005-netbox-target-and-exercise-1.md#against-the-baseline)). The verification gate exists because the model is not trusted, so a model that agrees with the checks changes no outcome.
 
 | Run | Verdicts right, where the checks agree |
 | --- | --- |
@@ -41,7 +41,7 @@ In exercise 1 the deterministic checks decide, and the model adds nothing they d
 
 Injected instructions remain the model's weak point. Every model in the first comparison followed them ([A1](security/ai-threats.md)). On the live seed with a device whose name is an instruction, the model followed it in 1 of 4 finished jobs, and the gate stopped that one ([lessons](evidence/lessons.md)).
 
-A model could earn its place where no check decides: documents that disagree in the task's sense ([#205](https://github.com/sindredg/ai-security-platform/issues/205)), and findings whose facts need reading, not counting. In exercise 2 the checks decided alone, and no model job answered within its limit ([#253](https://github.com/sindredg/ai-security-platform/issues/253)), so it says nothing about the model's value. Exercise 3 ran without the model: the scan and the pin decided.
+A model could earn its place where no check decides: documents that disagree in the task's sense ([#205](https://github.com/sindredg/ai-security-platform/issues/205)), and findings whose facts need reading, not counting. In exercise 2 the checks decided alone, and no model job answered within its limit ([#253](https://github.com/sindredg/ai-security-platform/issues/253)), so the model's quality on a network finding stays unmeasured. Exercise 3 ran without the model: the scan and the pin decided.
 
 ## What it did not show
 
