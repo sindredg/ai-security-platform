@@ -23,7 +23,7 @@ The method is in [ADR 0010](../decisions/0010-threat-model-and-security-checks-p
 
 | Kind | Where |
 | --- | --- |
-| Checks that run against the live system | [Validation](../validation/README.md) |
+| Checks that ran against the live system | [Validation](../validation/README.md) |
 | What was run on which day | [Worklogs](../worklogs/README.md) |
 | Why a control is designed the way it is | [Decision records](../decisions/README.md) |
 | What each component can and cannot do | [Components](../components/README.md) |

@@ -2,6 +2,8 @@
 
 The platform investigates security findings with a small, self-hosted, open-weight language model, and tests each fix the model proposes before review. An isolated AI agent reads the evidence through one tool, a verification gate compares its verdicts with deterministic checks, and no change reaches the target service without human approval of that exact change. The project tests how far an agent's actions can be controlled, and measures where the model adds value over conventional automation.
 
+The project is complete, and its infrastructure was torn down on 2026-11-02. The pages describe the system as it ran ([project close](docs/close.md)).
+
 ## Architecture
 
 Detailed breakdown in [Architecture](docs/architecture.md).
@@ -23,15 +25,17 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 
 ## How a fix gets made
 
+These steps are exercise 1's chain, which removes a permission from a NetBox account. Exercise 2's network fix takes a different path: no staging test, and the operator applies it after the merge ([ADR 0056](docs/decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md)). No such fix was proposed ([#253](https://github.com/sindredg/ai-security-platform/issues/253)).
+
 1. Collectors on the trusted orchestrator gather a job's evidence, and deterministic checks give their own verdicts.
-2. The agent, on its own VM with no credentials, reads the evidence through one tool and returns structured output: a verdict per account, and the permission to remove from each over-privileged (`excess`) account ([the agent's job](docs/components/agent-job.md)).
+2. The agent, on its own VM with only a short-lived token for its job's evidence, reads the evidence through one tool and returns structured output: a verdict per account, and the permission to remove from each over-privileged (`excess`) account ([the agent's job](docs/components/agent-job.md)).
 3. A verification gate compares each verdict with the deterministic checks', and fails closed: any difference stops the workflow for the operator.
-4. A policy check and a staging test on a copy of the target vet the fix. The pull request carries checked fields only, never the model's output.
+4. A policy check and a staging test on a copy of the target vet the fix. The operator publishes the pull request from checked fields only, never from the model's output ([ADR 0045](docs/decisions/0045-the-operator-publishes-a-checked-proposal.md)).
 5. A tag signed with a separate approval key approves that exact commit, once. Delivery applies it and checks the target again before the merge.
 
 The one fix a model proposed on the live seed, as its pull request ([targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)):
 
-![Targets pull request 15, merged: a fix for NetBox from job nb-10262214-p2. A table shows both checks and the model calling inventory-reader excess and the control account within, the change removing one permission, the policy allowed, the staging test passed, and the approval tag the merge required](docs/images/targets-15-conversation.png)
+![The body of targets pull request 15: a fix for NetBox from job nb-10262214-p2. A table shows both checks and the model calling inventory-reader excess and the control account within, the change removing one permission, the policy allowed, the staging test passed, and the approval tag the merge required](docs/images/targets-15-conversation.png)
 
 The exact change it made, one line of the seed:
 
@@ -41,7 +45,8 @@ The exact change it made, one line of the seed:
 
 | | |
 | --- | --- |
-| Milestones | 0 to 6 and 8 done, 7 stopped. The system no longer runs ([roadmap](docs/roadmap.md#status), [project close](docs/close.md), [teardown](docs/runbooks/teardown.md)) |
+| Project | Complete, and the infrastructure torn down on 2026-11-02 ([project close](docs/close.md), [teardown](docs/runbooks/teardown.md)) |
+| Milestones | 0 to 6 and 8 done. 7 stopped at the model's time limit, with both checks finding the seed ([roadmap](docs/roadmap.md#status)) |
 | Works | A fix the deterministic checks imply goes from the model's proposal to delivery: policy check, staging test, pull request, and signed approval, then a rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md)) |
 | Also works | A vulnerable NetBox image, found by a scan in the targets pipeline, replaced through a staging test with a tested recovery ([worklog](docs/worklogs/0008-exercise-3-vulnerable-image.md)) |
 | Not shown | Exercise 2's fix: both checks found the seeded port rule, and no job answered in time ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). Only the worker was rebuilt from its current template |
@@ -65,7 +70,7 @@ Three regions, because each allows only 4 vCPUs ([0003](docs/decisions/0003-regi
 - **The evidence lies.** A compromised target or an advisory carries false data or instructions. Every model tried here followed injected instructions ([A1](docs/security/ai-threats.md)).
 - **A job dies halfway.** The change is half applied, or applied twice.
 
-So the agent gets narrow tools and no cloud, repository, or delivery credentials, every remediation proposal gets a staging test against the service's real consumer before review, and each result is compared with the same run without the agent.
+So the agent gets narrow tools and no cloud, repository, or delivery credentials, a permission fix gets a staging test against the service's real consumer before review, and each result is compared with the same run without the agent.
 
 Three exercises test this on a NetBox target ([ADR 0004](docs/decisions/0004-netbox-as-first-target.md)): excess inventory access, excess network access, and a vulnerable image or dependency.
 

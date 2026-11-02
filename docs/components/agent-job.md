@@ -19,9 +19,9 @@ The system prompt, in full:
 You investigate security findings for an infrastructure team. You have no knowledge of the systems involved beyond what tools return. Call a tool to get evidence before you conclude anything. Never guess a fact a tool can establish. Keep answers short. If the task says how the answer ends, end it that way. Otherwise end every answer with two lines. The first is `Status: confirmed`, `Status: refuted`, or `Status: inconclusive`. The second is `Excess:` and the items the evidence shows in excess, separated by commas, or `Excess: none`.
 ```
 
-The NetBox task names the three documents: `ev-0001` the access specification (the task calls it the contract), `ev-0002` each account's configured permissions, and `ev-0003` what each account's token returned. It defines four verdicts, asks, for each over-privileged (`excess`) account, for the permission whose removal fixes it, and asks for its output through Goose's structured-output tool.
+The NetBox task names three documents: `ev-0001` the access specification (the task calls it the contract), `ev-0002` each account's configured permissions, and `ev-0003` what each account's token returned. When the specification has a network part, exercise 2's, it names two more: `ev-0004` the rules about NetBox's port in each target subnet, and `ev-0005` what a connection from each viewpoint gave ([ADR 0056](../decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md)). It defines four verdicts, one per account and one per viewpoint, asks for each over-privileged (`excess`) one for the permission, or the port rule, whose removal fixes it, and asks for its output through Goose's structured-output tool.
 
-The job program writes these into a recipe for Goose, with one extension: the tool service, over the Model Context Protocol (MCP), with this job's token in a header. For a NetBox job the recipe also carries the output's schema: an analysis of at most 2,000 characters, verdicts with their evidence, and proposals. It requires a verdict under the name of each account the job line carries, allows no other, and limits a proposal to those names, so an output that leaves an account out comes back to the model as an error ([ADR 0051](../decisions/0051-a-netbox-jobs-schema-names-each-account-of-the-job.md)).
+The job program writes these into a recipe for Goose, with one extension: the tool service, over the Model Context Protocol (MCP), with this job's token in a header. For a NetBox job the recipe also carries the output's schema: an analysis of at most 2,000 characters, verdicts with their evidence, and proposals. It requires a verdict under the name of each account and viewpoint the job line carries, allows no other, and limits a proposal to those names, so an output that leaves an account out comes back to the model as an error ([ADR 0051](../decisions/0051-a-netbox-jobs-schema-names-each-account-of-the-job.md)).
 
 ## What it can call
 
@@ -43,7 +43,7 @@ The job stops at its turn limit or its time limit, both set per workflow: 8 turn
 
 ## One job
 
-Job `nb-10271948-p1` on 2026-10-27, on the seed's access specification after the fix ([its page](../evidence/2026-10-27-1948-final-output-answers.md#nb-10271948-p1)):
+An exercise 1 job, `nb-10271948-p1` on 2026-10-27, on the seed's access specification after the fix ([its page](../evidence/2026-10-27-1948-final-output-answers.md#nb-10271948-p1)):
 
 | Time (UTC) | The model's call | What came back |
 | --- | --- | --- |
@@ -82,7 +82,7 @@ The job program's suite runs in the pipeline's "Dispatch tests", with a whole Ne
 - **The model follows planted text.** Every model tried followed injected instructions ([A1](../security/ai-threats.md)). Nothing it says is trusted before the deterministic checks agree.
 - **The schema checks form, not truth.** Structured output that fits can still be wrong. The verification gate is what stops that.
 - **No second try.** A refused proposal or a failed staging test goes to the operator, never back to the model. A retry would let the model, or whoever steers it through the evidence, search for a change that passes.
-- **The context is small.** 8,192 tokens hold three documents of under 2 KB each and a job's turns. A target with more evidence needs smaller documents, not a longer prompt.
+- **The context is small.** 8,192 tokens hold exercise 1's three documents of under 2 KB each and a job's turns. With exercise 2's five documents, no job answered within 1200 seconds, and none read the two network documents ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). A target with more evidence needs smaller documents, not a longer prompt.
 
 ## Official documentation
 
