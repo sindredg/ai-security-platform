@@ -30,7 +30,7 @@ Each test run set has a page of its own, with each job's verdicts, calls, and an
 
 ## The model's place
 
-In exercise 1 the deterministic checks decide, and the model adds nothing they do not already know. The checks took about 4 seconds a job, reasoned from the collection's timings, and a model job 326 to 885 seconds ([worklog](worklogs/0005-netbox-target-and-exercise-1.md#against-the-baseline)). The verification gate exists because the model is not trusted, so a model that agrees with the checks changes no outcome.
+In exercise 1 the deterministic checks decide, and the model reached their verdicts without adding a fact they did not already hold, which is the measurement the project set out to make. The checks took about 4 seconds a job, reasoned from the collection's timings, and a model job 326 to 885 seconds ([worklog](worklogs/0005-netbox-target-and-exercise-1.md#against-the-baseline)). The verification gate exists because the model is not trusted, so a model that agrees with the checks changes no outcome.
 
 | Run | Verdicts right, where the checks agree |
 | --- | --- |

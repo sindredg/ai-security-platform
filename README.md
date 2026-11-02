@@ -1,6 +1,6 @@
 # A private platform for investigating security findings with a self-hosted model
 
-The platform investigates security findings with a small, self-hosted, open-weight language model, and tests each fix the model proposes before review. An isolated AI agent reads the evidence through one tool, a verification gate compares its verdicts with deterministic checks, and no change reaches the target service without human approval of that exact change. The project tests how far an agent's actions can be controlled, and measures where the model adds value over conventional automation.
+The platform investigates security findings with a self-hosted, open-weight language model on CPU, and tests each fix the model proposes before review. An isolated AI agent reads the evidence through one tool, a verification gate compares its verdicts with deterministic checks, and no change reaches the target service without human approval of that exact change. The project tests how far an agent's actions can be controlled, and measures where the model adds value over conventional automation.
 
 The project is complete, and its infrastructure was torn down on 2026-11-02. The pages describe the system as it ran ([project close](docs/close.md)).
 
@@ -33,7 +33,7 @@ These steps are exercise 1's chain, which removes a permission from a NetBox acc
 4. A policy check and a staging test on a copy of the target vet the fix. The operator publishes the pull request from checked fields only, never from the model's output ([ADR 0045](docs/decisions/0045-the-operator-publishes-a-checked-proposal.md)).
 5. A tag signed with a separate approval key approves that exact commit, once. Delivery applies it and checks the target again before the merge.
 
-The one fix a model proposed on the live seed, as its pull request ([targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)):
+The fix for exercise 1's seeded weakness, proposed by the model, delivered to NetBox, and rolled back, as its pull request ([targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)):
 
 ![The body of targets pull request 15: a fix for NetBox from job nb-10262214-p2. A table shows both checks and the model calling inventory-reader excess and the control account within, the change removing one permission, the policy allowed, the staging test passed, and the approval tag the merge required](docs/images/targets-15-conversation.png)
 
@@ -46,10 +46,10 @@ The exact change it made, one line of the seed:
 | | |
 | --- | --- |
 | Project | Complete, and the infrastructure torn down on 2026-11-02 ([project close](docs/close.md), [teardown](docs/runbooks/teardown.md)) |
-| Milestones | 0 to 6 and 8 done. 7 stopped at the model's time limit, with both checks finding the seed ([roadmap](docs/roadmap.md#status)) |
+| Milestones | 0 to 6 and 8 done. 7 built and seeded, and both checks found the seed; its model jobs ran out of time ([roadmap](docs/roadmap.md#status)) |
 | Works | A fix the deterministic checks imply goes from the model's proposal to delivery: policy check, staging test, pull request, and signed approval, then a rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md)) |
 | Also works | A vulnerable NetBox image, found by a scan in the targets pipeline, replaced through a staging test with a tested recovery ([worklog](docs/worklogs/0008-exercise-3-vulnerable-image.md)) |
-| Not shown | Exercise 2's fix: both checks found the seeded port rule, and no job answered in time ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). Only the worker was rebuilt from its current template |
+| Left open | Exercise 2's fix: no model job answered in time, so none was delivered ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). The worker was rebuilt from its current template, the other five VMs were not |
 
 ## Why it looks like this
 

@@ -20,7 +20,7 @@ The model is open-weight and runs on CPU on the AI worker, with no external mode
 | Every layer is the project's | The operating system, network rules, model server, and model are configured and checked here |
 | The model can change | Swapping or tuning it needs no vendor's terms or quota |
 
-The cost is quality and speed. A small model on 2 vCPUs proves the integration, and says little about how good or fast an investigation can be.
+The cost is quality and speed. A 4B-parameter model on 2 vCPUs proves the integration and the controls around it. How good or fast an investigation can be needs a larger model to measure.
 
 ## System overview
 
