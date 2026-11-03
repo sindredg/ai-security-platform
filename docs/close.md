@@ -50,9 +50,9 @@ A model could earn its place where no check decides: documents that disagree in 
 - **Alerts that reach someone.** The rules fire in the portal and send nothing ([weak point 6](security/README.md#standing-weak-points)).
 - **Production.** One node, one operator, synthetic data ([lab against production](security/lab-vs-production.md)).
 
-## Open issues
+## Issues
 
-Each is a known limitation, with its evidence and the trigger that would bring it back. They stay open after the close: [open issues](https://github.com/sindredg/ai-security-platform/issues).
+Each is a known limitation, with its evidence and the trigger that would bring it back. All were closed as not planned at the close, on 2026-11-03, and stay readable: [issues](https://github.com/sindredg/ai-security-platform/issues?q=is%3Aissue+is%3Aclosed).
 
 ## Cost
 
