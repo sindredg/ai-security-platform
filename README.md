@@ -88,7 +88,7 @@ Three exercises test this on a NetBox target ([ADR 0004](docs/decisions/0004-net
 | Threats and controls | [Security](docs/security/README.md) |
 | Rebuild steps | [Runbooks](docs/runbooks/README.md) |
 | Failures and causes | [Troubleshooting](docs/troubleshooting/README.md) |
-| Known defects | [Open issues](https://github.com/sindredg/ai-security-platform/issues) |
+| Known limitations | [Issues](https://github.com/sindredg/ai-security-platform/issues?q=is%3Aissue), each closed at the close with its trigger |
 | The code | [Repository layout](#repository-layout) |
 
 ## Repository layout
