@@ -23,6 +23,19 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 
 </details>
 
+## Why it looks like this
+
+| Concern | Design answer | Decided in |
+| --- | --- | --- |
+| Evidence reaching a model vendor | Open-weight model on CPU, inside the platform. No external model API | [Architecture](docs/architecture.md#why-the-model-runs-inside-the-platform) |
+| The agent compromised by what it reads | Own VM, no cluster credentials. Reaches only the tool service (an MCP server) and two package hosts | [0005](docs/decisions/0005-ai-workers-on-a-separate-vm.md), [0011](docs/decisions/0011-package-proxy-for-the-worker.md) |
+| Root on the host with the secrets | No direct internet. The only way out is the edge VM's proxy | [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) |
+| The mesh VPN vendor | Its only node is a separate router VM. SSH certificates expire within 12 hours | [0025](docs/decisions/0025-the-mesh-node-on-its-own-vm.md), [0022](docs/decisions/0022-short-lived-ssh-certificates-for-the-operator.md) |
+| A compromised target | Reaches nothing outside its own network. Own repository, state, and identity | [0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md), [0024](docs/decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
+| Exposure to the internet | No VM has a public address. An Azure policy refuses one | [0009](docs/decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) |
+
+Three regions, because each allows only 4 vCPUs ([0003](docs/decisions/0003-region-pair.md), [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)).
+
 ## Results
 
 | Measured | Result |
@@ -56,19 +69,6 @@ The fix for exercise 1's seeded weakness, proposed by the model, delivered to Ne
 The exact change it made, one line of the seed:
 
 ![The pull request's diff: in netbox/seed.json, the permission's users list changes from inventory-reader to an empty list](docs/images/targets-15-files.png)
-
-## Why it looks like this
-
-| Concern | Design answer | Decided in |
-| --- | --- | --- |
-| Evidence reaching a model vendor | Open-weight model on CPU, inside the platform. No external model API | [Architecture](docs/architecture.md#why-the-model-runs-inside-the-platform) |
-| The agent compromised by what it reads | Own VM, no cluster credentials. Reaches only the tool service (an MCP server) and two package hosts | [0005](docs/decisions/0005-ai-workers-on-a-separate-vm.md), [0011](docs/decisions/0011-package-proxy-for-the-worker.md) |
-| Root on the host with the secrets | No direct internet. The only way out is the edge VM's proxy | [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) |
-| The mesh VPN vendor | Its only node is a separate router VM. SSH certificates expire within 12 hours | [0025](docs/decisions/0025-the-mesh-node-on-its-own-vm.md), [0022](docs/decisions/0022-short-lived-ssh-certificates-for-the-operator.md) |
-| A compromised target | Reaches nothing outside its own network. Own repository, state, and identity | [0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md), [0024](docs/decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
-| Exposure to the internet | No VM has a public address. An Azure policy refuses one | [0009](docs/decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) |
-
-Three regions, because each allows only 4 vCPUs ([0003](docs/decisions/0003-region-pair.md), [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)).
 
 ## What can go wrong
 
