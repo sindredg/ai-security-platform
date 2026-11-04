@@ -23,6 +23,22 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 
 </details>
 
+## Results
+
+| Measured | Result |
+| --- | --- |
+| Project | Complete, and the infrastructure torn down on 2026-11-02 ([project close](docs/close.md), [teardown](docs/runbooks/teardown.md)) |
+| Checks on the live system | 446 of 446 passed after the NetBox update ([record](docs/evidence/2026-11-01-1828-after-the-netbox-update.md), [what they do not cover](docs/validation/README.md#what-the-checks-do-not-cover)) |
+| Containment | 42 probes from the worker during a job: a credential, the targets, the internet beyond two package hosts. None got through ([worklog](docs/worklogs/0007-operational-and-containment-drills.md#slice-2-forbidden-calls-from-the-worker)) |
+| The model's verdicts | 16 of 16 held-out cases matched the deterministic checks after the seed's fix ([worklog](docs/worklogs/0006-remediation-pull-requests-and-delivery.md), [#220](https://github.com/sindredg/ai-security-platform/issues/220)) |
+| Injected instructions | Followed in 1 of 4 finished live jobs. The verification gate stopped that one ([project close](docs/close.md#the-models-place), [lessons](docs/evidence/lessons.md)) |
+| Fix delivered | 1, proposed by the model: policy check, staging test, pull request, signed approval, delivery, rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md), [targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)) |
+| Vulnerable image | 42 critical and high findings from a scan, cleared by a new pin after a staging test with a tested recovery ([worklog](docs/worklogs/0008-exercise-3-vulnerable-image.md)) |
+| Built | 6 VMs in 3 regions, none with a public address, from the first commit on 2026-10-10 to the teardown on 2026-11-02 ([architecture](docs/architecture.md)) |
+| Test evidence | 42 run sets, 130 agent jobs, each with its verdicts, calls, and answer ([test evidence](docs/evidence/README.md)) |
+| Written | 56 [decision records](docs/decisions/README.md), 25 [runbooks](docs/runbooks/README.md), 20 [troubleshooting entries](docs/troubleshooting/README.md), 18 [diagrams](docs/diagrams/) |
+| Left open | Exercise 2's fix: no model job answered in time, so none was delivered ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). The worker was rebuilt from its current template, the other five VMs were not |
+
 ## How a fix gets made
 
 These steps are exercise 1's chain, which removes a permission from a NetBox account. Exercise 2's network fix would skip the staging test ([ADR 0056](docs/decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md)); none was proposed ([#253](https://github.com/sindredg/ai-security-platform/issues/253)).
@@ -40,22 +56,6 @@ The fix for exercise 1's seeded weakness, proposed by the model, delivered to Ne
 The exact change it made, one line of the seed:
 
 ![The pull request's diff: in netbox/seed.json, the permission's users list changes from inventory-reader to an empty list](docs/images/targets-15-files.png)
-
-## Results
-
-| Measured | Result |
-| --- | --- |
-| Project | Complete, and the infrastructure torn down on 2026-11-02 ([project close](docs/close.md), [teardown](docs/runbooks/teardown.md)) |
-| Checks on the live system | 446 of 446 passed after the NetBox update ([record](docs/evidence/2026-11-01-1828-after-the-netbox-update.md), [what they do not cover](docs/validation/README.md#what-the-checks-do-not-cover)) |
-| Containment | 42 probes from the worker during a job: a credential, the targets, the internet beyond two package hosts. None got through ([worklog](docs/worklogs/0007-operational-and-containment-drills.md#slice-2-forbidden-calls-from-the-worker)) |
-| The model's verdicts | 16 of 16 held-out cases matched the deterministic checks after the seed's fix ([worklog](docs/worklogs/0006-remediation-pull-requests-and-delivery.md), [#220](https://github.com/sindredg/ai-security-platform/issues/220)) |
-| Injected instructions | Followed in 1 of 4 finished live jobs. The verification gate stopped that one ([project close](docs/close.md#the-models-place), [lessons](docs/evidence/lessons.md)) |
-| Fix delivered | 1, proposed by the model: policy check, staging test, pull request, signed approval, delivery, rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md), [targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)) |
-| Vulnerable image | 42 critical and high findings from a scan, cleared by a new pin after a staging test with a tested recovery ([worklog](docs/worklogs/0008-exercise-3-vulnerable-image.md)) |
-| Built | 6 VMs in 3 regions, none with a public address, from the first commit on 2026-10-10 to the teardown on 2026-11-02 ([architecture](docs/architecture.md)) |
-| Test evidence | 42 run sets, 130 agent jobs, each with its verdicts, calls, and answer ([test evidence](docs/evidence/README.md)) |
-| Written | 56 [decision records](docs/decisions/README.md), 25 [runbooks](docs/runbooks/README.md), 20 [troubleshooting entries](docs/troubleshooting/README.md), 18 [diagrams](docs/diagrams/) |
-| Left open | Exercise 2's fix: no model job answered in time, so none was delivered ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). The worker was rebuilt from its current template, the other five VMs were not |
 
 ## Why it looks like this
 
@@ -132,7 +132,7 @@ Three exercises test this on a NetBox target ([ADR 0004](docs/decisions/0004-net
 ## What this is not
 
 - **Not production:** one node, one operator, no high availability.
-- **Not real data:** the target's inventory is synthetic.
+- **Not real target inventory:** the devices and accounts in NetBox are synthetic.
 - **Not protection from Azure:** the provider and the platform administrator are trusted ([trust boundaries](docs/architecture.md#trust-boundaries)).
 
 ## License
