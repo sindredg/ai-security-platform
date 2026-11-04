@@ -1,4 +1,4 @@
-# AI Security Platform: an agent that investigates security findings and proposes fixes, tested and approved before delivery
+# AI Security Platform: an agent that investigates security findings and proposes fixes
 
 The platform investigates security findings with a self-hosted, open-weight language model on CPU, and tests each fix the model proposes before review. An isolated AI agent reads the evidence through one tool, a verification gate compares its verdicts with deterministic checks, and no change reaches the target service without human approval of that exact change. The project tests how far an agent's actions can be controlled, and measures where the model adds value over conventional automation.
 
@@ -23,9 +23,38 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 
 </details>
 
+## Why it looks like this
+
+| Concern | Design answer | Decided in |
+| --- | --- | --- |
+| Evidence reaching a model vendor | Open-weight model on CPU, inside the platform. No external model API | [Architecture](docs/architecture.md#why-the-model-runs-inside-the-platform) |
+| The agent compromised by what it reads | Own VM, no cluster credentials. Reaches only the tool service (an MCP server) and two package hosts | [0005](docs/decisions/0005-ai-workers-on-a-separate-vm.md), [0011](docs/decisions/0011-package-proxy-for-the-worker.md) |
+| Root on the host with the secrets | No direct internet. The only way out is the edge VM's proxy | [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) |
+| The mesh VPN vendor | Its only node is a separate router VM. SSH certificates expire within 12 hours | [0025](docs/decisions/0025-the-mesh-node-on-its-own-vm.md), [0022](docs/decisions/0022-short-lived-ssh-certificates-for-the-operator.md) |
+| A compromised target | Reaches nothing outside its own network. Own repository, state, and identity | [0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md), [0024](docs/decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
+| Exposure to the internet | No VM has a public address. An Azure policy refuses one | [0009](docs/decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) |
+
+Three regions, because each allows only 4 vCPUs ([0003](docs/decisions/0003-region-pair.md), [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)).
+
+## Results
+
+| Measured | Result |
+| --- | --- |
+| Project | Complete, and the infrastructure torn down on 2026-11-02 ([project close](docs/close.md), [teardown](docs/runbooks/teardown.md)) |
+| Checks on the live system | 446 of 446 passed after the NetBox update ([record](docs/evidence/2026-11-01-1828-after-the-netbox-update.md), [what they do not cover](docs/validation/README.md#what-the-checks-do-not-cover)) |
+| Containment | 42 probes from the worker during a job: a credential, the targets, the internet beyond two package hosts. None got through ([worklog](docs/worklogs/0007-operational-and-containment-drills.md#slice-2-forbidden-calls-from-the-worker)) |
+| The model's verdicts | 16 of 16 held-out cases matched the deterministic checks after the seed's fix ([worklog](docs/worklogs/0006-remediation-pull-requests-and-delivery.md), [#220](https://github.com/sindredg/ai-security-platform/issues/220)) |
+| Injected instructions | Followed in 1 of 4 finished live jobs. The verification gate stopped that one ([project close](docs/close.md#the-models-place), [lessons](docs/evidence/lessons.md)) |
+| Fix delivered | 1, proposed by the model: policy check, staging test, pull request, signed approval, delivery, rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md), [targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)) |
+| Vulnerable image | 42 critical and high findings from a scan, cleared by a new pin after a staging test with a tested recovery ([worklog](docs/worklogs/0008-exercise-3-vulnerable-image.md)) |
+| Built | 6 VMs in 3 regions, none with a public address, from the first commit on 2026-10-10 to the teardown on 2026-11-02 ([architecture](docs/architecture.md)) |
+| Test evidence | 42 run sets, 130 agent jobs, each with its verdicts, calls, and answer ([test evidence](docs/evidence/README.md)) |
+| Written | 56 [decision records](docs/decisions/README.md), 25 [runbooks](docs/runbooks/README.md), 20 [troubleshooting entries](docs/troubleshooting/README.md), 18 [diagrams](docs/diagrams/) |
+| Left open | Exercise 2's fix: no model job answered in time, so none was delivered ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). The worker was rebuilt from its current template, the other five VMs were not |
+
 ## How a fix gets made
 
-These steps are exercise 1's chain, which removes a permission from a NetBox account. Exercise 2's network fix takes a different path: no staging test, and the operator applies it after the merge ([ADR 0056](docs/decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md)). No such fix was proposed ([#253](https://github.com/sindredg/ai-security-platform/issues/253)).
+These steps are exercise 1's chain, which removes a permission from a NetBox account. Exercise 2's network fix would skip the staging test ([ADR 0056](docs/decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md)); none was proposed ([#253](https://github.com/sindredg/ai-security-platform/issues/253)).
 
 1. Collectors on the trusted orchestrator gather a job's evidence, and deterministic checks give their own verdicts.
 2. The agent, on its own VM with only a short-lived token for its job's evidence, reads the evidence through one tool and returns structured output: a verdict per account, and the permission to remove from each over-privileged (`excess`) account ([the agent's job](docs/components/agent-job.md)).
@@ -41,36 +70,13 @@ The exact change it made, one line of the seed:
 
 ![The pull request's diff: in netbox/seed.json, the permission's users list changes from inventory-reader to an empty list](docs/images/targets-15-files.png)
 
-## Status
-
-| | |
-| --- | --- |
-| Project | Complete, and the infrastructure torn down on 2026-11-02 ([project close](docs/close.md), [teardown](docs/runbooks/teardown.md)) |
-| Milestones | 0 to 6 and 8 done. 7 built and seeded, and both checks found the seed; its model jobs ran out of time ([roadmap](docs/roadmap.md#status)) |
-| Works | A fix the deterministic checks imply goes from the model's proposal to delivery: policy check, staging test, pull request, and signed approval, then a rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md)) |
-| Also works | A vulnerable NetBox image, found by a scan in the targets pipeline, replaced through a staging test with a tested recovery ([worklog](docs/worklogs/0008-exercise-3-vulnerable-image.md)) |
-| Left open | Exercise 2's fix: no model job answered in time, so none was delivered ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). The worker was rebuilt from its current template, the other five VMs were not |
-
-## Why it looks like this
-
-| Concern | Design answer | Decided in |
-| --- | --- | --- |
-| Evidence reaching a model vendor | Open-weight model on CPU, inside the platform. No external model API | [Architecture](docs/architecture.md#why-the-model-runs-inside-the-platform) |
-| The agent compromised by what it reads | Own VM, no cluster credentials. Reaches only the tool service (an MCP server) and two package hosts | [0005](docs/decisions/0005-ai-workers-on-a-separate-vm.md), [0011](docs/decisions/0011-package-proxy-for-the-worker.md) |
-| Root on the host with the secrets | No direct internet. The only way out is the edge VM's proxy | [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) |
-| The mesh VPN vendor | Its only node is a separate router VM. SSH certificates expire within 12 hours | [0025](docs/decisions/0025-the-mesh-node-on-its-own-vm.md), [0022](docs/decisions/0022-short-lived-ssh-certificates-for-the-operator.md) |
-| A compromised target | Reaches nothing outside its own network. Own repository, state, and identity | [0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md), [0024](docs/decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
-| Exposure to the internet | No VM has a public address. An Azure policy refuses one | [0009](docs/decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) |
-
-Three regions, because each allows only 4 vCPUs ([0003](docs/decisions/0003-region-pair.md), [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)).
-
 ## What can go wrong
 
 - **The model is wrong.** The fix clears the finding and breaks the service.
 - **The evidence lies.** A compromised target or an advisory carries false data or instructions. Every model tried here followed injected instructions ([A1](docs/security/ai-threats.md)).
 - **A job dies halfway.** The change is half applied, or applied twice.
 
-So the agent gets narrow tools and no cloud, repository, or delivery credentials, a permission fix gets a staging test against the service's real consumer before review, and each result is compared with the same run without the agent.
+So the agent gets narrow tools and no cloud, repository, or delivery credentials.
 
 Three exercises test this on a NetBox target ([ADR 0004](docs/decisions/0004-netbox-as-first-target.md)): excess inventory access, excess network access, and a vulnerable image or dependency.
 
@@ -126,7 +132,7 @@ Three exercises test this on a NetBox target ([ADR 0004](docs/decisions/0004-net
 ## What this is not
 
 - **Not production:** one node, one operator, no high availability.
-- **Not real data:** the target's inventory is synthetic.
+- **Not real target inventory:** the devices and accounts in NetBox are synthetic.
 - **Not protection from Azure:** the provider and the platform administrator are trusted ([trust boundaries](docs/architecture.md#trust-boundaries)).
 
 ## License
