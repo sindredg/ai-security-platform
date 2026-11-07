@@ -2,12 +2,14 @@
 # 0041). Built by the pipeline from this directory, scanned, and pushed to the
 # repository's registry from main only. The workflow pulls it by digest.
 #
-# The tool service's base image, pinned by the same digest: Python 3.15.1 on
+# The tool service's base image, pinned by the same digest: Python 3.15.2 on
 # Alpine 3.24. It adds OpenSSH's client, which the tool service image must not
 # carry, and the dispatch and comparison scripts, which use the standard
 # library only.
-FROM python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3
+FROM python@sha256:a0f2e268f2ce8f3709611a90054ec6a8ae31f6251f5896b8648b9bb99835e30a
 
+# Pin zlib to Alpine's fix for CVE-2026-4738; the base still has 1.3.2-r1.
+# Both Python test containers install the same fixed package.
 # OpenSSH's client from Alpine's signed index, unpinned on purpose: the index
 # keeps only the current version, so a pin fails the build at the next
 # security fix. The scan below blocks a known finding with a fix. The package
@@ -16,7 +18,7 @@ FROM python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a046
 # ssh looks its user up by ID, so the fixed user gets an entry. Its home is
 # the pod's memory-backed directory, where the key copy goes.
 # hadolint ignore=DL3018
-RUN apk add --no-cache openssh-client-default \
+RUN apk add --no-cache openssh-client-default zlib=1.4-r0 \
     && python -m pip uninstall --yes pip \
     && apk del --no-cache apk-tools \
     && echo "dispatch:x:65532:65532:dispatch:/run/dispatch:/sbin/nologin" >> /etc/passwd \

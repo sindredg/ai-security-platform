@@ -37,6 +37,8 @@ The two image jobs are the only jobs with write permission. Each can write its p
 
 The pipeline holds no cloud credentials and runs no plan. The scanners and linters run from images pinned by digest, except Terraform and gitleaks, which run from release archives checked against a pinned SHA-256. No third-party action runs.
 
+The Python base image is pinned by digest in the workflow and both Dockerfiles. It still carries an affected zlib, so both builds and both Python test containers install `zlib=1.4-r0` from Alpine's signed index before running Python ([package source](https://github.com/alpinelinux/aports/blob/3.24-stable/main/zlib/APKBUILD)). The exact package pin can fail when Alpine removes that revision; review it with the next base update ([#266](https://github.com/sindredg/ai-security-platform/issues/266)).
+
 ## The signature check
 
 A stolen GitHub token can make commits through the GraphQL API (`createCommitOnBranch`), and GitHub signs them. The ruleset's signature rule accepts any verified signature, so it lets those commits in and cannot tell them from the operator's. The check can: it accepts one key ([0024](../decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md)).
