@@ -1,10 +1,68 @@
-# AI Security Platform: an agent that investigates security findings and proposes fixes
+# AI Security Platform: investigating findings and testing proposed fixes
 
-The platform investigates security findings with a self-hosted, open-weight language model on CPU, and tests each fix the model proposes before review. An isolated AI agent reads the evidence through one tool, a verification gate compares its verdicts with deterministic checks, and no change reaches the target service without human approval of that exact change. The project tests how far an agent's actions can be controlled, and measures where the model adds value over conventional automation.
+Can an AI agent investigate a security finding and propose a fix without getting permission to change the system itself? This Azure lab tested that question on NetBox, a service for recording network infrastructure, using synthetic accounts, inventory, and deliberately introduced weaknesses.
 
-The project is complete, and its infrastructure was torn down on 2026-11-02. The pages describe the system as it ran ([project close](docs/close.md)).
+The model ran inside the platform on CPU. It could read evidence and propose a change; separate checks and a human approval controlled whether that change reached NetBox.
+
+The infrastructure has been removed. These pages describe the system as it ran; project status is on the [roadmap](docs/roadmap.md#status).
+
+## Results
+
+**The tests did not demonstrate an investigative benefit from adding the model to the account-access exercise.** Conventional checks already held the facts needed to decide whether an account had too much or too little access. The model read the same evidence and sometimes misread it ([comparison and limits](docs/close.md#the-models-place)).
+
+The tests also examined whether the platform could constrain an unreliable model. A wrong answer and a successfully blocked answer are different results, so the findings describe both.
+
+| Question | Observation | Limit and evidence |
+| --- | --- | --- |
+| Could the worker cross its access boundaries? | None of 42 tested probes succeeded | Several paths remained unprobed; [containment findings](docs/close.md#containment) |
+| Could evidence instruct the model? | It followed an injected instruction in 1 of 4 finished live jobs; the verification gate stopped that job | Small sample; [model reliability](docs/close.md#model-reliability) |
+| Could a proposed fix reach the target safely? | One fix passed the checks, received signed approval, was delivered, and was rolled back | One demonstrated delivery; [fix delivery](docs/close.md#fix-delivery) |
+| Were all three exercises completed? | Account access had a delivered fix; network access was detected; a vulnerable image was replaced | No network fix was proposed or delivered; [exercise results](docs/close.md#what-it-showed) |
+
+The [findings and limitations](docs/close.md) explain what each observation supports. The [comparison tables](docs/close.md#comparisons) distinguish account verdicts, jobs, and test cases, and identify changes that prevent a direct comparison.
+
+## Start here
+
+| To understand | Read in this order |
+| --- | --- |
+| The project and its conclusions | This overview → [findings and limitations](docs/close.md) → [architecture](docs/architecture.md) |
+| Whether the evidence supports a claim | [Comparisons](docs/close.md#comparisons) → [selected evidence](docs/close.md#read-the-evidence) → [check coverage](docs/validation/README.md#what-the-checks-do-not-cover) |
+| How to rebuild or inspect it | [Runbooks](docs/runbooks/README.md) → [components](docs/components/README.md) → [repository layout](#repository-layout) |
+
+## How a fix gets made
+
+The model can recommend a change that removes legitimate access. Exercise 1 therefore checks its answer and its proposed fix separately before allowing delivery.
+
+1. **Collect evidence and run conventional checks:** One deterministic check reads an account's configured permissions; another reads what that account can actually retrieve. Both compare access with the written access specification.
+2. **Ask the agent to investigate:** The agent reads that job's evidence through a tool service. It returns a structured output: an answer in a required format, with a verdict per account and any proposed permission removal.
+3. **Compare verdicts:** The verification gate requires both checks to agree and the model to give the same verdict. Disagreement, missing information, or an unreadable verdict stops the workflow.
+4. **Test the proposed change:** A policy check restricts what the fix may change; a staging test applies it to a separate copy of NetBox and checks access again. The operator publishes a pull request from checked fields ([the agent's job](docs/components/agent-job.md#after-the-output)).
+5. **Approve and deliver the exact change:** The operator signs a tag approving one commit. Delivery applies it and checks the target again before the merge ([delivery runbook](docs/runbooks/proposals-and-delivery.md)).
+
+This chain was demonstrated for account access. The planned network fix would skip the staging test, and no network fix was proposed ([exercise 2](docs/close.md#what-it-showed)).
+
+<details>
+<summary>See the delivered fix and its pull request</summary>
+
+The fix for exercise 1's seeded weakness, proposed by the model, delivered to NetBox, and rolled back, as its pull request ([targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)):
+
+![The body of targets pull request 15: a fix for NetBox from job nb-10262214-p2. A table shows both checks and the model calling inventory-reader excess and the control account within, the change removing one permission, the policy allowed, the staging test passed, and the approval tag the merge required](docs/images/targets-15-conversation.png)
+
+The exact change it made, one line of the seed:
+
+![The pull request's diff: in netbox/seed.json, the permission's users list changes from inventory-reader to an empty list](docs/images/targets-15-files.png)
+
+</details>
+
+## What can go wrong
+
+The model can misread evidence or follow instructions planted in it. A compromised target can also supply false evidence, so agreement between the model and the checks does not establish that the evidence is true ([threats and limits](docs/security/ai-threats.md)).
+
+A job can stop halfway through a change. The [operational findings](docs/close.md#operations) and [standing weak points](docs/security/README.md#standing-weak-points) distinguish the recovery paths that were exercised from those that remain untested.
 
 ## Architecture
+
+The trusted orchestrator runs the checks and holds the credentials. The AI worker runs the agent and model on a separate virtual machine (VM), with access limited on the assumption that it could be compromised.
 
 Detailed breakdown in [Architecture](docs/architecture.md).
 
@@ -15,10 +73,10 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 
 | Term | What it is |
 | --- | --- |
-| Orchestrator | The trusted VM. It runs K3s and the workflow, and holds the secrets |
+| Orchestrator | The trusted VM. It runs the workflow and holds the secrets |
 | AI worker | The VM that runs the model and the agent. The design assumes it can be compromised |
-| Edge VM | The egress proxy: a NAT gateway and a Squid forward proxy, the platform's only outbound path to the internet |
-| Router | The mesh VPN's subnet router, and the only mesh node in Azure. The operator reaches every other VM through it |
+| Edge VM | The Squid forward proxy, with an Azure NAT gateway for outbound internet access |
+| Router | The mesh VPN's subnet router, and its only node in Azure. It carries operator access to the other VMs |
 | Just-in-time (JIT) egress window | A time-limited allowlist: an operator command on the edge VM that opens code and package hosts for at most 60 minutes |
 
 </details>
@@ -28,74 +86,28 @@ Detailed breakdown in [Architecture](docs/architecture.md).
 | Concern | Design answer | Decided in |
 | --- | --- | --- |
 | Evidence reaching a model vendor | Open-weight model on CPU, inside the platform. No external model API | [Architecture](docs/architecture.md#why-the-model-runs-inside-the-platform) |
-| The agent compromised by what it reads | Own VM, no cluster credentials. Reaches only the tool service (an MCP server) and two package hosts | [0005](docs/decisions/0005-ai-workers-on-a-separate-vm.md), [0011](docs/decisions/0011-package-proxy-for-the-worker.md) |
-| Root on the host with the secrets | No direct internet. The only way out is the edge VM's proxy | [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) |
+| The agent compromised by what it reads | Own VM, no cluster credentials. Reaches only the tool service, using Model Context Protocol (MCP), and two package hosts | [0005](docs/decisions/0005-ai-workers-on-a-separate-vm.md), [0011](docs/decisions/0011-package-proxy-for-the-worker.md) |
+| A compromised orchestrator | No direct internet. Outbound access goes through the edge VM's proxy | [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md) |
 | The mesh VPN vendor | Its only node is a separate router VM. SSH certificates expire within 12 hours | [0025](docs/decisions/0025-the-mesh-node-on-its-own-vm.md), [0022](docs/decisions/0022-short-lived-ssh-certificates-for-the-operator.md) |
 | A compromised target | Reaches nothing outside its own network. Own repository, state, and identity | [0002](docs/decisions/0002-separate-platform-and-target-infrastructure.md), [0024](docs/decisions/0024-the-targets-in-their-own-repository-and-signed-commits.md) |
 | Exposure to the internet | No VM has a public address. An Azure policy refuses one | [0009](docs/decisions/0009-one-egress-point-on-the-orchestrator-subnet.md) |
 
-Three regions, because each allows only 4 vCPUs ([0003](docs/decisions/0003-region-pair.md), [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)).
-
-## Results
-
-| Measured | Result |
-| --- | --- |
-| Project | Complete, and the infrastructure torn down on 2026-11-02 ([project close](docs/close.md), [teardown](docs/runbooks/teardown.md)) |
-| Checks on the live system | 446 of 446 passed after the NetBox update ([record](docs/evidence/2026-11-01-1828-after-the-netbox-update.md), [what they do not cover](docs/validation/README.md#what-the-checks-do-not-cover)) |
-| Containment | 42 probes from the worker during a job: a credential, the targets, the internet beyond two package hosts. None got through ([worklog](docs/worklogs/0007-operational-and-containment-drills.md#slice-2-forbidden-calls-from-the-worker)) |
-| The model's verdicts | 16 of 16 held-out cases matched the deterministic checks after the seed's fix ([worklog](docs/worklogs/0006-remediation-pull-requests-and-delivery.md), [#220](https://github.com/sindredg/ai-security-platform/issues/220)) |
-| Injected instructions | Followed in 1 of 4 finished live jobs. The verification gate stopped that one ([project close](docs/close.md#the-models-place), [lessons](docs/evidence/lessons.md)) |
-| Fix delivered | 1, proposed by the model: policy check, staging test, pull request, signed approval, delivery, rollback ([evidence](docs/evidence/2026-10-26-2214-proposal-lines.md), [targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)) |
-| Vulnerable image | 42 critical and high findings from a scan, cleared by a new pin after a staging test with a tested recovery ([worklog](docs/worklogs/0008-exercise-3-vulnerable-image.md)) |
-| Built | 6 VMs in 3 regions, none with a public address, from the first commit on 2026-10-10 to the teardown on 2026-11-02 ([architecture](docs/architecture.md)) |
-| Test evidence | 42 run sets, 130 agent jobs, each with its verdicts, calls, and answer ([test evidence](docs/evidence/README.md)) |
-| Written | 56 [decision records](docs/decisions/README.md), 25 [runbooks](docs/runbooks/README.md), 20 [troubleshooting entries](docs/troubleshooting/README.md), 18 [diagrams](docs/diagrams/) |
-| Left open | Exercise 2's fix: no model job answered in time, so none was delivered ([#253](https://github.com/sindredg/ai-security-platform/issues/253)). The worker was rebuilt from its current template, the other five VMs were not |
-
-## How a fix gets made
-
-These steps are exercise 1's chain, which removes a permission from a NetBox account. Exercise 2's network fix would skip the staging test ([ADR 0056](docs/decisions/0056-exercise-2-judges-viewpoints-by-netboxs-port-rules-kept-as-data.md)); none was proposed ([#253](https://github.com/sindredg/ai-security-platform/issues/253)).
-
-1. Collectors on the trusted orchestrator gather a job's evidence, and deterministic checks give their own verdicts.
-2. The agent, on its own VM with only a short-lived token for its job's evidence, reads the evidence through one tool and returns structured output: a verdict per account, and the permission to remove from each over-privileged (`excess`) account ([the agent's job](docs/components/agent-job.md)).
-3. A verification gate compares each verdict with the deterministic checks', and fails closed: any difference stops the workflow for the operator.
-4. A policy check and a staging test on a copy of the target vet the fix. The operator publishes the pull request from checked fields only, never from the model's output ([ADR 0045](docs/decisions/0045-the-operator-publishes-a-checked-proposal.md)).
-5. A tag signed with a separate approval key approves that exact commit, once. Delivery applies it and checks the target again before the merge.
-
-The fix for exercise 1's seeded weakness, proposed by the model, delivered to NetBox, and rolled back, as its pull request ([targets #15](https://github.com/sindredg/ai-security-platform-test/pull/15)):
-
-![The body of targets pull request 15: a fix for NetBox from job nb-10262214-p2. A table shows both checks and the model calling inventory-reader excess and the control account within, the change removing one permission, the policy allowed, the staging test passed, and the approval tag the merge required](docs/images/targets-15-conversation.png)
-
-The exact change it made, one line of the seed:
-
-![The pull request's diff: in netbox/seed.json, the permission's users list changes from inventory-reader to an empty list](docs/images/targets-15-files.png)
-
-## What can go wrong
-
-- **The model is wrong.** The fix clears the finding and breaks the service.
-- **The evidence lies.** A compromised target or an advisory carries false data or instructions. Every model tried here followed injected instructions ([A1](docs/security/ai-threats.md)).
-- **A job dies halfway.** The change is half applied, or applied twice.
-
-So the agent gets narrow tools and no cloud, repository, or delivery credentials.
-
-Three exercises test this on a NetBox target ([ADR 0004](docs/decisions/0004-netbox-as-first-target.md)): excess inventory access, excess network access, and a vulnerable image or dependency.
+Three regions, because the lab had a quota of 4 virtual CPUs per region ([0003](docs/decisions/0003-region-pair.md), [0020](docs/decisions/0020-an-edge-vm-for-the-way-out-and-the-mesh.md)).
 
 ## Find your way around
 
-| Topic | Page |
+| Question | Page |
 | --- | --- |
-| Status and milestones | [Roadmap](docs/roadmap.md#status), [project close](docs/close.md) |
-| How it is built | [Architecture](docs/architecture.md), [components](docs/components/README.md) |
-| Why each choice | [Decision records](docs/decisions/README.md) |
-| The terms, and their older names | [Glossary](docs/glossary.md) |
-| The check behind each claim | [Validation](docs/validation/README.md) |
-| What each test run showed | [Test evidence](docs/evidence/README.md), [lessons](docs/evidence/lessons.md) |
-| Commands and output per milestone | [Worklogs](docs/worklogs/README.md) |
-| Threats and controls | [Security](docs/security/README.md) |
-| Rebuild steps | [Runbooks](docs/runbooks/README.md) |
-| Failures and causes | [Troubleshooting](docs/troubleshooting/README.md) |
-| Known limitations | [Issues](https://github.com/sindredg/ai-security-platform/issues?q=is%3Aissue), each closed at the close with its trigger |
-| The code | [Repository layout](#repository-layout) |
+| What was learned, and what remains unproved? | [Findings and limitations](docs/close.md) |
+| What was implemented? | [Roadmap](docs/roadmap.md#status), [architecture](docs/architecture.md), [components](docs/components/README.md) |
+| Why these design choices? | [Decision records](docs/decisions/README.md) |
+| What does a term mean? | [Glossary](docs/glossary.md) |
+| What supports a result? | [Selected evidence](docs/close.md#read-the-evidence), [all test runs](docs/evidence/README.md), [lessons](docs/evidence/lessons.md) |
+| What do the automated checks cover? | [Validation](docs/validation/README.md) |
+| What commands produced the results? | [Worklogs](docs/worklogs/README.md) |
+| Which threats and limitations remain? | [Security](docs/security/README.md), [lab against production](docs/security/lab-vs-production.md) |
+| How can it be rebuilt? | [Runbooks](docs/runbooks/README.md) |
+| What failed during development, and why? | [Troubleshooting](docs/troubleshooting/README.md) |
 
 ## Repository layout
 
