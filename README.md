@@ -1,12 +1,42 @@
-# AI Security Platform: investigating findings and testing proposed fixes
+# AI Security Platform: private infrastructure for security investigations
 
-Can an AI agent investigate a security finding and propose a fix without getting permission to change the system itself? This Azure lab tested that question on NetBox, a service for recording network infrastructure, using synthetic accounts, inventory, and deliberately introduced weaknesses.
+The project built a private Azure platform for investigating security findings and testing proposed fixes. Terraform defines the networks, virtual machines (VMs), deployment identities, and monitoring. K3s runs the workflow engine and tool service, while a self-hosted, open-weight model runs on a separate VM.
 
-The model ran inside the platform on CPU. It could read evidence and propose a change; separate checks and a human approval controlled whether that change reached NetBox.
+NetBox, a service for recording network infrastructure, was the target for exercises using synthetic inventory, accounts, and deliberately introduced weaknesses. The agent could read evidence and propose a change; separate checks and human approval controlled whether that change reached NetBox.
 
 The infrastructure has been removed. These pages describe the system as it ran; project status is on the [roadmap](docs/roadmap.md#status).
 
+## Architecture
+
+Six VMs across three Azure regions separate the trusted orchestrator, the AI worker, outbound access, administrative access, and the targets. The [architecture](docs/architecture.md) explains the network paths, trust boundaries, and capacity trade-offs.
+
+![Architecture: a trusted orchestrator VM holds the secrets and has no direct internet access. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](docs/diagrams/target-architecture.svg)
+
+<details>
+<summary><strong>The names in the diagram</strong></summary>
+
+| Term | What it is |
+| --- | --- |
+| Orchestrator | The trusted VM. It runs the workflow and holds the secrets |
+| AI worker | The VM that runs the model and the agent. The design assumes it can be compromised |
+| Edge VM | The Squid forward proxy, with an Azure NAT gateway for outbound internet access |
+| Router | The mesh VPN's subnet router, and its only node in Azure. It carries operator access to the other VMs |
+| Just-in-time (JIT) egress window | A time-limited allowlist: an operator command on the edge VM that opens code and package hosts for at most 60 minutes |
+
+</details>
+
+### Infrastructure scope
+
+| Area | What was built | Detail |
+| --- | --- | --- |
+| Provisioning and identity | Separate Terraform roots, state, and scoped deployment identities for platform and targets | [Identities and state](docs/components/identities-and-state.md) |
+| Private networking | No public VM addresses, explicit traffic rules, a controlled outbound proxy, and mesh VPN access through a separate router | [Network design](docs/architecture.md#network) |
+| Hosts and workloads | Hardened Linux hosts, K3s, Argo Workflows, and an isolated worker for the agent and model | [Components](docs/components/README.md), [hardening](docs/security/hardening.md) |
+| Operations | Private log ingestion, host audit, alert drills, and procedures for deployment, recovery, and teardown | [Monitoring](docs/components/monitoring.md), [runbooks](docs/runbooks/README.md) |
+
 ## Results
+
+The infrastructure was checked alongside the agent experiments. After the NetBox update, [446 of 446 live checks passed](docs/evidence/2026-11-01-1828-after-the-netbox-update.md); the [operational findings](docs/close.md#operations) explain the later seeded failures and the gaps in coverage. The worker was rebuilt from its current template, while a rebuild of the whole platform remained untested ([rebuild evidence](docs/evidence/2026-11-01-1516-the-worker-rebuild.md)).
 
 **The tests did not demonstrate an investigative benefit from adding the model to the account-access exercise.** Conventional checks already held the facts needed to decide whether an account had too much or too little access. The model read the same evidence and sometimes misread it ([comparison and limits](docs/close.md#the-models-place)).
 
@@ -25,7 +55,8 @@ The [findings and limitations](docs/close.md) explain what each observation supp
 
 | To understand | Read in this order |
 | --- | --- |
-| The project and its conclusions | This overview → [findings and limitations](docs/close.md) → [architecture](docs/architecture.md) |
+| The infrastructure and its design | [Architecture](docs/architecture.md) → [components](docs/components/README.md) → [design decisions](docs/decisions/README.md) |
+| The experiments and their conclusions | [Findings and limitations](docs/close.md) → [comparisons](docs/close.md#comparisons) → [test evidence](docs/evidence/README.md) |
 | Whether the evidence supports a claim | [Comparisons](docs/close.md#comparisons) → [selected evidence](docs/close.md#read-the-evidence) → [check coverage](docs/validation/README.md#what-the-checks-do-not-cover) |
 | How to rebuild or inspect it | [Runbooks](docs/runbooks/README.md) → [components](docs/components/README.md) → [repository layout](#repository-layout) |
 
@@ -59,27 +90,6 @@ The exact change it made, one line of the seed:
 The model can misread evidence or follow instructions planted in it. A compromised target can also supply false evidence, so agreement between the model and the checks does not establish that the evidence is true ([threats and limits](docs/security/ai-threats.md)).
 
 A job can stop halfway through a change. The [operational findings](docs/close.md#operations) and [standing weak points](docs/security/README.md#standing-weak-points) distinguish the recovery paths that were exercised from those that remain untested.
-
-## Architecture
-
-The trusted orchestrator runs the checks and holds the credentials. The AI worker runs the agent and model on a separate virtual machine (VM), with access limited on the assumption that it could be compromised.
-
-Detailed breakdown in [Architecture](docs/architecture.md).
-
-![Architecture: a trusted orchestrator VM holds the secrets and has no direct internet access. It and the AI worker reach the internet only through a proxy on an edge VM. A router VM is the only mesh VPN node, logs go to Azure Monitor over a private endpoint, and the targets in Poland Central are reached only from the orchestrator](docs/diagrams/target-architecture.svg)
-
-<details>
-<summary><strong>The names in the diagram</strong></summary>
-
-| Term | What it is |
-| --- | --- |
-| Orchestrator | The trusted VM. It runs the workflow and holds the secrets |
-| AI worker | The VM that runs the model and the agent. The design assumes it can be compromised |
-| Edge VM | The Squid forward proxy, with an Azure NAT gateway for outbound internet access |
-| Router | The mesh VPN's subnet router, and its only node in Azure. It carries operator access to the other VMs |
-| Just-in-time (JIT) egress window | A time-limited allowlist: an operator command on the edge VM that opens code and package hosts for at most 60 minutes |
-
-</details>
 
 ## Why it looks like this
 

@@ -1,12 +1,14 @@
 # Findings and limitations
 
-The lab tested whether an AI agent could investigate security findings and propose fixes while separate controls limited its actions. Exercise 1 did not demonstrate an investigative benefit over conventional checks, but it did demonstrate one fix passing through review, delivery, and rollback.
+The project combined private Azure infrastructure with experiments in AI-assisted security investigations. The infrastructure work covered provisioning, network and identity separation, host hardening, monitoring, and recovery procedures. The experiments tested whether an agent could investigate findings and propose fixes within those controls.
 
 This page separates observations from conclusions and links each result to its evidence. Project status is on the [roadmap](roadmap.md#status); the infrastructure has been removed ([teardown record](worklogs/0009-exercise-2-excess-network-access.md#the-teardown)).
 
 ## What was built
 
 The platform used six virtual machines (VMs) across three Azure regions, with no public address. The trusted orchestrator ran the workflow and held its credentials; a separate AI worker ran the model and agent with only a short-lived token to read its job's evidence ([architecture](architecture.md), [credential inventory](security/credentials.md)).
+
+Terraform defined separate platform and target deployments, each with its own state and scoped identity. Private networking and controlled outbound access limited connections; hardened hosts ran K3s, the tool service, the agent, and the model ([infrastructure design](architecture.md), [components](components/README.md)). The [operational findings](#operations) distinguish the checks and recovery procedures that ran from the remaining gaps.
 
 The target was NetBox, a service for recording network infrastructure, populated with synthetic inventory and accounts. Each exercise introduced a known weakness so the checks and the model could be assessed against a specified result.
 
@@ -112,6 +114,7 @@ Start with the question of interest, then inspect the individual jobs. A run pag
 
 | Question | Start with |
 | --- | --- |
+| How was the infrastructure checked? | [Validation areas](validation/README.md#areas), [live check run](evidence/2026-11-01-1828-after-the-netbox-update.md), [worker rebuild](evidence/2026-11-01-1516-the-worker-rebuild.md) |
 | Why did the model need independent checks? | [Injected instructions](evidence/2026-10-30-1502-instructions-in-the-evidence.md), [checks that disagree](evidence/2026-11-01-0944-checks-that-disagree.md) |
 | What access boundaries were exercised? | [Worker probes](evidence/2026-10-30-0239-forbidden-calls-from-the-worker.md), [probe commands and coverage](worklogs/0007-operational-and-containment-drills.md#slice-2-forbidden-calls-from-the-worker) |
 | What happened to a proposed fix? | [Proposal run](evidence/2026-10-26-2214-proposal-lines.md), [delivery and rollback](worklogs/0006-remediation-pull-requests-and-delivery.md#one-fix-end-to-end) |
