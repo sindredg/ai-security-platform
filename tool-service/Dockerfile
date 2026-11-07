@@ -2,30 +2,30 @@
 # and pushed to the repository's registry from main only. The orchestrator
 # pulls it by digest.
 #
-# Both stages start from the image the tests run on, pinned by digest: Python
-# 3.15.1 on Alpine 3.24. Alpine because its 30 system packages had no known
-# vulnerability when 3.15.0 was first pinned, against 164 for the Debian slim
-# image. 3.15.1 since 2026-10-22: its musl 1.2.6-r3 fixes CVE-2026-107891.
-# Nothing here is fetched except the packages in requirements.txt, and pip
-# refuses any file whose hash is not listed there.
-FROM python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3 AS build
+# Both stages use Python 3.15.2 on Alpine 3.24, pinned by digest.
+# Its zlib is still 1.3.2-r1, so both stages install the exact fixed
+# package before running Python (CVE-2026-4738). Alpine checks its signed
+# package index; pip checks the hashes in requirements.txt.
+FROM python@sha256:a0f2e268f2ce8f3709611a90054ec6a8ae31f6251f5896b8648b9bb99835e30a AS build
 
 ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONDONTWRITEBYTECODE=1
 
 COPY requirements.txt /tmp/requirements.txt
-RUN python -m venv /opt/venv \
+RUN apk add --no-cache zlib=1.4-r0 \
+    && python -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-deps --require-hashes -r /tmp/requirements.txt \
     && /opt/venv/bin/pip uninstall --yes pip
 
-FROM python@sha256:54448f67d7c31c39e5cdd3ea2d6382395ce142806c284425f8e897d78a0465b3
+FROM python@sha256:a0f2e268f2ce8f3709611a90054ec6a8ae31f6251f5896b8648b9bb99835e30a
 
 # The base image's own pip is not needed at run time. It also carries its own
 # copies of urllib3 and msgpack, which is where the base image's only known
 # findings were. The package manager is removed too, because nothing is
 # installed at run time.
-RUN python -m pip uninstall --yes pip \
+RUN apk add --no-cache zlib=1.4-r0 \
+    && python -m pip uninstall --yes pip \
     && apk del --no-cache apk-tools
 
 COPY --from=build /opt/venv /opt/venv
